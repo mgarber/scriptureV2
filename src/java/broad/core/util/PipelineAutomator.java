@@ -28,6 +28,7 @@ import nextgen.core.readFilters.FirstOfPairFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.ProperPairFilter;
 import nextgen.core.readFilters.SecondOfPairFilter;
+import nextgen.core.readers.PairedEndReader;
 import nextgen.core.readers.PairedEndWriter;
 import nextgen.core.utils.WigWriter;
 
@@ -44,6 +45,8 @@ import broad.core.sequence.Sequence;
 import broad.pda.annotation.BEDFileParser;
 import broad.pda.countreads.DuplicatesAndLibrarySizeAnalysis;
 import broad.pda.countreads.LibraryCompositionByRnaClass;
+import broad.pda.samtools.SAMFragmentWriter;
+import broad.pda.seq.segmentation.PrecomputeDataAlignmentStats;
 
 /**
  * This class will use an input list of files and a config file to run an automated pipeline to align and process sequencing data
