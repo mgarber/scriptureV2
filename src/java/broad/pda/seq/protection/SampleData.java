@@ -27,6 +27,7 @@ import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.model.score.WindowProcessor;
 import nextgen.core.model.score.WindowScoreIterator;
+import nextgen.core.readFilters.GenomicSpanFilter;
 
 /**
  * @author prussell
@@ -47,6 +48,7 @@ public class SampleData {
 	protected double scanPvalAlpha;
 	private CachedScoreFile windowScoreFile;
 	private boolean gotWindowScoresFromFile;
+	private static int DEFAULT_MAX_GENOMIC_SPAN = 300000;
 	
 	/**
 	 * @param bamFile Bam file
@@ -66,6 +68,7 @@ public class SampleData {
 		scanPvalAlpha = alpha;
 		genesByChr = genes;
 		data = new TranscriptomeSpaceAlignmentModel(bamFile, new TranscriptomeSpace(genes));
+		data.addFilter(new GenomicSpanFilter(DEFAULT_MAX_GENOMIC_SPAN));
 		processor = new ScanStatisticScore.Processor(data);
 		genesByName = new TreeMap<String, Gene>();
 		for(String chr : genesByChr.keySet()) {
