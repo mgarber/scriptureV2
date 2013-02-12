@@ -44,7 +44,7 @@ public class OrientedChromosomeTranscriptGraphTest extends TestCase {
 		Collection<GraphPath<Annotation, TranscriptGraphEdge>> paths = graph.getPaths();
 		
 		for (GraphPath<Annotation, TranscriptGraphEdge> p : paths) {
-			System.err.println(graph.pathToGene(p));
+			System.err.println(OrientedChromosomeTranscriptGraph.pathToGene(p));
 		}
 		
 	}
@@ -76,7 +76,7 @@ public class OrientedChromosomeTranscriptGraphTest extends TestCase {
 		Collection<GraphPath<Annotation, TranscriptGraphEdge>> paths = graph.getPaths();
 		
 		for (GraphPath<Annotation, TranscriptGraphEdge> p : paths) {
-			System.err.println(graph.pathToGene(p));
+			System.err.println(OrientedChromosomeTranscriptGraph.pathToGene(p));
 		}
 		
 		Collection<Annotation> orphans = graph.getOrphanVertices();
@@ -106,7 +106,7 @@ public class OrientedChromosomeTranscriptGraphTest extends TestCase {
 		Collection<GraphPath<Annotation, TranscriptGraphEdge>> paths = graph.getPaths();
 		System.err.println("Adding overlapping exons test");
 		for (GraphPath<Annotation, TranscriptGraphEdge> p : paths) {
-			System.err.println(graph.pathToGene(p));
+			System.err.println(OrientedChromosomeTranscriptGraph.pathToGene(p));
 		}
 	}
 	
@@ -132,7 +132,7 @@ public class OrientedChromosomeTranscriptGraphTest extends TestCase {
 		
 		System.err.println("testAddingReverseOrientedSubgraphs");
 		for (GraphPath<Annotation, TranscriptGraphEdge> p : paths) {
-			System.err.println(graph.pathToGene(p));
+			System.err.println(OrientedChromosomeTranscriptGraph.pathToGene(p));
 		}
 	}
 	

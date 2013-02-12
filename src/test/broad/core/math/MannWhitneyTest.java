@@ -13,7 +13,7 @@ public class MannWhitneyTest  extends TestCase{
 		double z    = -4.000473456828313;
 		MannWhitney MW=new MannWhitney(x,y);
 		//System.err.println("P: " + MW.getP()  + " Z: " + MW.getZ() );
-		assertEquals("Pvalue test failed",pval, MW.getP());
+		assertEquals("Pvalue test failed",pval, MW.getPvalue());
 		assertEquals("Z score failed", z, MW.getZ());		
 		
 	}
@@ -24,7 +24,7 @@ public class MannWhitneyTest  extends TestCase{
 		double pval = 1.5705228423079642E-4;
 		double z    = -3.779644730092272;
 		MannWhitney MW=new MannWhitney(x,y);
-		assertEquals("Pvalue test failed",pval, MW.getP());
+		assertEquals("Pvalue test failed",pval, MW.getPvalue());
 		assertEquals("Z score failed", z, MW.getZ());
 	}
 	
