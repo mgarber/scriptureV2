@@ -1122,6 +1122,12 @@ public class PipelineAutomator {
 		reorderCurrentBams(picardJarDir);
 		logger.info("Done reordering bam files.");		
 		
+		// Merge bam files
+		logger.info("");
+		logger.info("Merging bam files...");
+		//mergeBamFiles(picardJarDir); //TODO
+		logger.info("Done merging bam files.");
+		
 		// Index current bam files
 		logger.info("");
 		logger.info("Indexing bam files...");
@@ -1900,6 +1906,8 @@ public class PipelineAutomator {
 		}
 	}
 
+	//private void mergeBamFiles(String ) //TODO
+	
 	/**
 	 * Make tdf files for bam files
 	 * @param bamFilesBySampleName Bam file name by sample name
