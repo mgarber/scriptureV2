@@ -28,7 +28,6 @@ import nextgen.core.readFilters.FirstOfPairFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.ProperPairFilter;
 import nextgen.core.readFilters.SecondOfPairFilter;
-import nextgen.core.readers.PairedEndReader;
 import nextgen.core.readers.PairedEndWriter;
 import nextgen.core.utils.WigWriter;
 
@@ -45,8 +44,6 @@ import broad.core.sequence.Sequence;
 import broad.pda.annotation.BEDFileParser;
 import broad.pda.countreads.DuplicatesAndLibrarySizeAnalysis;
 import broad.pda.countreads.LibraryCompositionByRnaClass;
-import broad.pda.samtools.SAMFragmentWriter;
-import broad.pda.seq.segmentation.PrecomputeDataAlignmentStats;
 
 /**
  * This class will use an input list of files and a config file to run an automated pipeline to align and process sequencing data
@@ -629,8 +626,9 @@ public class PipelineAutomator {
 		
 		// Align and count reads for each library and RNA class
 		LibraryCompositionByRnaClass lcrc = new LibraryCompositionByRnaClass(genomeBowtieIndex, classFiles, leftFqs, rightFqs, logger);
+		Map<String, String> bowtie2options = configP.basicOptions.getBowtie2Options();
 		Map<String, Integer> totalReadCounts = lcrc.getTotalReadCounts();
-		Map<String, Map<String, Integer>> classCounts = lcrc.alignAndGetCounts(samtoolsExecutable, bowtie2Executable, bowtie2BuildExecutable, rnaClassDir);
+		Map<String, Map<String, Integer>> classCounts = lcrc.alignAndGetCounts(samtoolsExecutable, bowtie2Executable, bowtie2options, bowtie2BuildExecutable, rnaClassDir);
 		
 		logger.info("Writing table of counts to file " + countFileName);
 		logger.info("Writing table of percentages to file " + pctFileName);
@@ -741,7 +739,8 @@ public class PipelineAutomator {
 			}
 			
 			// Align to rRNA and keep unmapped reads
-			String jobID = AlignmentUtils.runBowtie2(outIndex, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, outRibosomal, paired ? outFilteredPairedArg : outFilteredUnpaired, bowtie, AlignmentUtils.MAX_INSERT_SIZE, FILTER_RRNA_DIRECTORY, paired);
+			Map<String, String> bowtie2options = configP.basicOptions.getBowtie2Options();
+			String jobID = AlignmentUtils.runBowtie2(outIndex, bowtie2options, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, outRibosomal, paired ? outFilteredPairedArg : outFilteredUnpaired, bowtie, FILTER_RRNA_DIRECTORY, paired);
 			jobIDs.add(jobID);
 			
 		}
@@ -777,6 +776,7 @@ public class PipelineAutomator {
 		String fasta = configP.basicOptions.getTranscriptSeqsForAlignment();
 		String bowtieBuild = configP.basicOptions.getBowtie2BuildExecutablePath();
 		String bowtie = configP.basicOptions.getBowtie2ExecutablePath();
+		Map<String, String> bowtie2options = configP.basicOptions.getBowtie2Options();
 		String samtools = configP.basicOptions.getSamtoolsPath();
 		String picardJarDir = configP.basicOptions.getPicardDirectory();
 		
@@ -841,7 +841,7 @@ public class PipelineAutomator {
 			}
 			
 			// Align to transcripts
-			String jobID = AlignmentUtils.runBowtie2(outIndex, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, sam, null, bowtie, AlignmentUtils.MAX_INSERT_SIZE, ALIGN_TO_TRANSCRIPTS_DIRECTORY, paired);
+			String jobID = AlignmentUtils.runBowtie2(outIndex, bowtie2options, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, sam, null, bowtie, ALIGN_TO_TRANSCRIPTS_DIRECTORY, paired);
 			jobIDs.add(jobID);
 			
 		}
@@ -1121,6 +1121,12 @@ public class PipelineAutomator {
 		logger.info("Reordering bam files in directory " + currentBamDir + "...");
 		reorderCurrentBams(picardJarDir);
 		logger.info("Done reordering bam files.");		
+		
+		// Merge bam files
+		logger.info("");
+		logger.info("Merging bam files...");
+		//mergeBamFiles(picardJarDir); //TODO
+		logger.info("Done merging bam files.");
 		
 		// Index current bam files
 		logger.info("");
@@ -1900,6 +1906,8 @@ public class PipelineAutomator {
 		}
 	}
 
+	//private void mergeBamFiles(String ) //TODO
+	
 	/**
 	 * Make tdf files for bam files
 	 * @param bamFilesBySampleName Bam file name by sample name
@@ -2496,6 +2504,7 @@ public class PipelineAutomator {
 		/**
 		 * Run bowtie2 with unpaired reads and default max insert size
 		 * @param bowtie2IndexBase Index filename prefix (minus trailing .X.bt2)
+		 * @param options 
 		 * @param reads Fastq file containing unpaired reads
 		 * @param outSamFile Output sam file
 		 * @param outUnalignedFastq Output fastq file for unaligned reads or null
@@ -2505,31 +2514,15 @@ public class PipelineAutomator {
 		 * @throws InterruptedException
 		 * @return The bsub job ID
 		 */
-		public static String runBowtie2(String bowtie2IndexBase, String reads, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir) throws IOException, InterruptedException {
-			return runBowtie2(bowtie2IndexBase, reads, outSamFile, outUnalignedFastq, bowtie2Executable, MAX_INSERT_SIZE, bsubOutDir);
+		public static String runBowtie2(String bowtie2IndexBase, Map<String, String> options, String reads, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir) throws IOException, InterruptedException {
+			return runBowtie2(bowtie2IndexBase, options, reads, outSamFile, outUnalignedFastq, bowtie2Executable, bsubOutDir);
 		}
 
 		
 		/**
-		 * Run bowtie2 with unpaired reads and specified max insert size
-		 * @param bowtie2IndexBase Index filename prefix (minus trailing .X.bt2)
-		 * @param reads Fastq file containing unpaired reads
-		 * @param outSamFile Output sam file
-		 * @param outUnalignedFastq Output fastq file for unaligned reads or null
-		 * @param bowtie2Executable Bowtie2 executable
-		 * @param maxInsertSize Max insert size
-		 * @param bsubOutDir Output directory for bsub file
-		 * @throws IOException
-		 * @throws InterruptedException
-		 * @return The bsub job ID
-		 */
-		public static String runBowtie2(String bowtie2IndexBase, String reads, String outSamFile, String outUnalignedFastq, String bowtie2Executable, int maxInsertSize, String bsubOutDir) throws IOException, InterruptedException {
-			return runBowtie2(bowtie2IndexBase, reads, null, outSamFile, outUnalignedFastq, bowtie2Executable, maxInsertSize, bsubOutDir, false);
-		}
-		
-		/**
 		 * Run bowtie2 with paired reads and default max insert size
 		 * @param bowtie2IndexBase Index filename prefix (minus trailing .X.bt2)
+		 * @param options Bowtie2 option flags and values
 		 * @param read1Fastq Fastq file containing read1 if paired or single end reads if unpaired
 		 * @param read2Fastq Fastq file containing read2 if paired or null if unpaired
 		 * @param outSamFile Output sam file
@@ -2540,26 +2533,26 @@ public class PipelineAutomator {
 		 * @throws InterruptedException
 		 * @return The bsub job ID
 		 */
-		public static String runBowtie2(String bowtie2IndexBase, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir) throws IOException, InterruptedException {
-			return runBowtie2(bowtie2IndexBase, read1Fastq, read2Fastq, outSamFile, outUnalignedFastq, bowtie2Executable, MAX_INSERT_SIZE, bsubOutDir, true);
+		public static String runBowtie2(String bowtie2IndexBase, Map<String, String> options, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir) throws IOException, InterruptedException {
+			return runBowtie2(bowtie2IndexBase, options, read1Fastq, read2Fastq, outSamFile, outUnalignedFastq, bowtie2Executable, bsubOutDir, true);
 		}
 		
 		/**
 		 * Run bowtie2 with paired reads and specified max insert size
 		 * @param bowtie2IndexBase Index filename prefix (minus trailing .X.bt2)
+		 * @param options Bowtie2 option flags and values
 		 * @param read1Fastq Fastq file containing read1 if paired or single end reads if unpaired
 		 * @param read2Fastq Fastq file containing read2 if paired or null if unpaired
 		 * @param outSamFile Output sam file
 		 * @param outUnalignedFastq Output fastq file for unaligned reads or null
 		 * @param bowtie2Executable Bowtie2 executable
-		 * @param maxInsertSize Max insert size
 		 * @param bsubOutDir Output directory for bsub files
 		 * @param readsPaired Whether the reads are paired
 		 * @throws IOException
 		 * @throws InterruptedException
 		 * @return The bsub job ID
 		 */
-		public static String runBowtie2(String bowtie2IndexBase, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, int maxInsertSize, String bsubOutDir, boolean readsPaired) throws IOException, InterruptedException {
+		public static String runBowtie2(String bowtie2IndexBase, Map<String, String> options, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, boolean readsPaired) throws IOException, InterruptedException {
 
 			File bsubOutDirectory = new File(bsubOutDir);
 			boolean madeDir = bsubOutDirectory.mkdir();
@@ -2571,17 +2564,19 @@ public class PipelineAutomator {
 			if(read2Fastq != null) reads = "-1 " + read1Fastq + " -2 " + read2Fastq + " ";
 			else reads = "-U " + read1Fastq + " ";
 
-			String options = "-q --local -k 1 --met-stderr ";
-			options += "--maxins " + maxInsertSize + " ";
+			String optionString = "";
+			for(String flag : options.keySet()) {
+				optionString += flag + " " + options.get(flag) + " ";
+			}
 			
 			if(outUnalignedFastq != null) {
-				if(!readsPaired) options += "--un " + outUnalignedFastq + " ";
-				else options += "--un-conc " + outUnalignedFastq + " ";
+				if(!readsPaired) optionString += "--un " + outUnalignedFastq + " ";
+				else optionString += "--un-conc " + outUnalignedFastq + " ";
 			}
 			
 			String sam = "-S " + outSamFile;
 			
-			String cmmd = executable + options + index + reads + sam;
+			String cmmd = executable + optionString + index + reads + sam;
 			
 			logger.info("");
 			logger.info("Running bowtie2 command:");

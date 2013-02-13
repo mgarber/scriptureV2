@@ -176,7 +176,7 @@ public class LibraryCompositionByRnaClass {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	public Map<String, Map<String, Integer>> alignAndGetCounts(String samtoolsExecutable, String bowtie2Executable, String bowtie2BuildExecutable, String logDir) throws IOException, InterruptedException {
+	public Map<String, Map<String, Integer>> alignAndGetCounts(String samtoolsExecutable, String bowtie2Executable, Map<String, String> bowtie2options, String bowtie2BuildExecutable, String logDir) throws IOException, InterruptedException {
 		
 		File dir = new File(logDir);
 		boolean madeDir = dir.mkdir();
@@ -241,7 +241,7 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq file for sample " + sample + " already exist. Not rerunning alignment to transcriptome.");
 					continue;
 				}
-				String jobID = PipelineAutomator.AlignmentUtils.runBowtie2(btBase, this.read1FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomeUnpaired.get(sample), bowtie2Executable, logDir);
+				String jobID = PipelineAutomator.AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomeUnpaired.get(sample), bowtie2Executable, logDir);
 				transcriptomeJobIDs.add(jobID);
 			} else {
 				File outUnalignedFile1 = new File(fastqNotTranscriptomePaired1.get(sample));
@@ -251,7 +251,7 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq files for sample " + sample + " already exist. Not rerunning alignment to transcriptome.");
 					continue;
 				}
-				String jobID = PipelineAutomator.AlignmentUtils.runBowtie2(btBase, this.read1FastqFiles.get(sample), this.read2FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomePairedBase.get(sample), bowtie2Executable, logDir);
+				String jobID = PipelineAutomator.AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), this.read2FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomePairedBase.get(sample), bowtie2Executable, logDir);
 				transcriptomeJobIDs.add(jobID);
 			}		
 		}
@@ -273,7 +273,7 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq file for sample " + sample + " already exist. Not rerunning alignment to genome.");
 					continue;
 				}
-				String jobID = PipelineAutomator.AlignmentUtils.runBowtie2(this.genomeBowtieIndex, fastqNotTranscriptomeUnpaired.get(sample), samToGenome.get(sample), fastqNotGenomeUnpaired.get(sample), bowtie2Executable, logDir);
+				String jobID = PipelineAutomator.AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomeUnpaired.get(sample), samToGenome.get(sample), fastqNotGenomeUnpaired.get(sample), bowtie2Executable, logDir);
 				genomeJobIDs.add(jobID);
 			} else {
 				File outUnalignedFile1 = new File(fastqNotGenomePaired1.get(sample));
@@ -283,7 +283,7 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq files for sample " + sample + " already exist. Not rerunning alignment to genome.");
 					continue;
 				}
-				String jobID = PipelineAutomator.AlignmentUtils.runBowtie2(this.genomeBowtieIndex, fastqNotTranscriptomePaired1.get(sample), fastqNotTranscriptomePaired2.get(sample), samToGenome.get(sample), fastqNotGenomePairedBase.get(sample), bowtie2Executable, logDir);
+				String jobID = PipelineAutomator.AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomePaired1.get(sample), fastqNotTranscriptomePaired2.get(sample), samToGenome.get(sample), fastqNotGenomePairedBase.get(sample), bowtie2Executable, logDir);
 				genomeJobIDs.add(jobID);
 			}		
 		}

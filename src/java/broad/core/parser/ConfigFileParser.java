@@ -99,6 +99,12 @@ public class ConfigFileParser {
 	public static String OPTION_TOPHAT_OPTIONS = "tophat_options";
 	
 	/**
+	 * Config file option to provide options to bowtie2
+	 */
+	public static String OPTION_BOWTIE2_OPTIONS = "bowtie2_options";
+
+	
+	/**
 	 * Config file option to provide options to novoalign e.g. novoalign_options -R 5
 	 */
 	public static String OPTION_NOVOALIGN_OPTIONS = "novoalign_options";
@@ -270,8 +276,19 @@ public class ConfigFileParser {
 									continue;
 								}
 								if(this.isTophatOption(nextLine)){
-									String value = parser.getFieldCount() > 2 ? parser.asString(2) : "";
+									String value = "";
+									if(parser.getFieldCount() > 2) {
+										value += parser.asString(2);
+									}
 									basicOptions.addTophatOption(parser.asString(1), value);
+									continue;
+								}
+								if(this.isBowtie2Option(nextLine)){
+									String value = "";
+									if(parser.getFieldCount() > 2) {
+										value += parser.asString(2);
+									}
+									basicOptions.addBowtie2Option(parser.asString(1), value);
 									continue;
 								}
 								if(this.isNovoalignOption(nextLine)) {
@@ -516,6 +533,16 @@ public class ConfigFileParser {
 	}
 		
 	/**
+	 * Returns true if the input line indicates that it contains a bowtie2 option 
+	 * @param nextLine
+	 * @return
+	 */
+	private boolean isBowtie2Option(String nextLine) {
+		return nextLine.trim().length() > 0 && nextLine.contains(OPTION_BOWTIE2_OPTIONS);
+	}
+
+	
+	/**
 	 * Returns true if the input line indicates that it contains a novoalign option 
 	 * @param nextLine
 	 * @return
@@ -542,6 +569,16 @@ public class ConfigFileParser {
 		return nextLine.trim().length() > 0 && nextLine.contains(OPTION_TOPHAT_PATH);
 	}
 
+	/**
+	 * Returns true if the input line indicates that it contains a bowtie2 path
+	 * @param nextLine
+	 * @return
+	 */
+	private boolean isBowtie2Path(String nextLine) {
+		return nextLine.trim().length() > 0 && nextLine.contains(OPTION_BOWTIE2_PATH);
+	}
+
+	
 	/**
 	 * Returns true if the input line indicates that it contains a novoalign path
 	 * @param nextLine
@@ -622,6 +659,54 @@ public class ConfigFileParser {
 			options.put(flag,value);
 		}
 	}
+	
+	
+	/**
+	 * This is a helper class is a data structure that maps a bowtie2 flag to its value
+	 * @author skadri
+	 *
+	 */
+	public static class Bowtie2Options {
+		
+		HashMap<String, String> options; 
+		String bowtie2Path;
+		
+		public Bowtie2Options(){
+			options = new HashMap<String, String>();
+		}
+		
+		public Bowtie2Options(HashMap<String,String> option){
+			options = option;
+		}
+		
+		public Bowtie2Options(String flag,String value){
+			options = new HashMap<String, String>();
+			options.put(flag, value);
+		}
+		
+		public void setBowtie2Path(String path){
+			bowtie2Path = path;	
+		}
+		
+		public String getBowtie2Path(){
+			return bowtie2Path;
+		}
+		
+		public String get(String key) {
+			String result = options.get(key);
+			return result == null ? "" : result;
+		}
+		
+		public HashMap<String,String> getAllOptions(){
+			return options;
+		}
+		
+		public void addOption(String flag,String value){
+			options.put(flag,value);
+		}
+	}
+
+	
 	
 	public static class FragmentSizeDistributionOptions {
 				
@@ -782,6 +867,7 @@ public class ConfigFileParser {
 		Map<String, String> optionMap;
 		RNAClass classFileNames;
 		TophatOptions thOptions;
+		Bowtie2Options bt2Options;
 		NovoalignOptions novoalignOptions;
 		String queueName;
 		
@@ -792,6 +878,7 @@ public class ConfigFileParser {
 		public BasicOptions(){
 			classFileNames = new RNAClass();
 			thOptions = new TophatOptions();
+			bt2Options = new Bowtie2Options();
 			novoalignOptions = new NovoalignOptions();
 			optionMap = new HashMap<String,String>();
 			queueName = "";
@@ -1084,9 +1171,9 @@ public class ConfigFileParser {
 		 */
 		public String getBowtie2BuildExecutablePath() {
 			try {
-				return this.optionMap.get(OPTION_BOWTIE2_BUILD_PATH);
+				return this.bt2Options.getBowtie2Path();
 			} catch(NullPointerException e) {
-				throw new NullPointerException("Bowtie2-build executable file must be specified with option " + OPTION_BOWTIE2_BUILD_PATH);
+				throw new NullPointerException("Bowtie2 path must be specified with option " + OPTION_BOWTIE2_PATH);
 			}
 		}
 		
@@ -1119,6 +1206,15 @@ public class ConfigFileParser {
 		 */
 		public void addTophatOption(String flag,String value){
 			this.thOptions.addOption(flag,value);
+		}
+		
+		/**
+		 * Specify a bowtie2 option
+		 * @param flag The flag
+		 * @param value The value
+		 */
+		public void addBowtie2Option(String flag,String value){
+			this.bt2Options.addOption(flag,value);
 		}
 		
 		/**
@@ -1171,6 +1267,14 @@ public class ConfigFileParser {
 		}
 		
 		/**
+		 * Get all bowtie2 flags and values
+		 * @return Map of flags to values
+		 */
+		public Map<String, String> getBowtie2Options() {
+			return this.bt2Options.getAllOptions();
+		}
+		
+		/**
 		 * Get all novoalign flags and values
 		 * @return Map of flags to values
 		 */
@@ -1213,7 +1317,7 @@ public class ConfigFileParser {
 			m.putAll(classFileNames);
 			m.putAll(novoalignOptions.getAllOptions());
 			m.putAll(thOptions.getAllOptions());
-			
+			m.putAll(bt2Options.getAllOptions());
 			return m;
 		}
 	}
