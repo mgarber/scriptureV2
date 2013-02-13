@@ -170,6 +170,7 @@ public class LibraryCompositionByRnaClass {
 	 * For each sample, get counts of reads mapping to each RNA class as well as genome and unmapped
 	 * @param samtoolsExecutable Samtools executable file
 	 * @param bowtie2Executable Bowtie2 executable file
+	 * @param bowtie2options 
 	 * @param bowtie2BuildExecutable Bowtie2-build executable file
 	 * @param logDir Output directory for logs and alignments
 	 * @return Map from sample name to class name to count

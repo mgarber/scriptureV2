@@ -628,7 +628,7 @@ public class PipelineAutomator {
 		LibraryCompositionByRnaClass lcrc = new LibraryCompositionByRnaClass(genomeBowtieIndex, classFiles, leftFqs, rightFqs, logger);
 		Map<String, String> bowtie2options = configP.basicOptions.getBowtie2Options();
 		Map<String, Integer> totalReadCounts = lcrc.getTotalReadCounts();
-		Map<String, Map<String, Integer>> classCounts = lcrc.alignAndGetCounts(samtoolsExecutable, bowtie2Executable, bowtie2options, bowtie2BuildExecutable, rnaClassDir);
+		Map<String, Map<String, Integer>> classCounts = lcrc.alignAndGetCounts(samtoolsExecutable, bowtie2BuildExecutable, bowtie2options, bowtie2BuildExecutable, rnaClassDir);
 		
 		logger.info("Writing table of counts to file " + countFileName);
 		logger.info("Writing table of percentages to file " + pctFileName);
@@ -2494,6 +2494,7 @@ public class PipelineAutomator {
 			}
 			
 			String cmmd = bowtie2BuildExecutable + " " + fastaFile + " " + outBtIndexBase;
+			logger.info("Submitting command " + cmmd);
 			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 			String output = bsubOutputDir + "/make_bowtie_index_" + jobID + ".bsub";
 			int prc = PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
@@ -2515,7 +2516,7 @@ public class PipelineAutomator {
 		 * @return The bsub job ID
 		 */
 		public static String runBowtie2(String bowtie2IndexBase, Map<String, String> options, String reads, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir) throws IOException, InterruptedException {
-			return runBowtie2(bowtie2IndexBase, options, reads, outSamFile, outUnalignedFastq, bowtie2Executable, bsubOutDir);
+			return runBowtie2(bowtie2IndexBase, options, reads, null, outSamFile, outUnalignedFastq, bowtie2Executable, bsubOutDir, false);
 		}
 
 		

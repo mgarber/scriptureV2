@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
@@ -71,6 +72,11 @@ public class ConfigFileParser {
 	 * Config file option to align to a fasta file of transcript sequences
 	 */
 	public static String OPTION_ALIGN_TO_TRANSCRIPTS = "align_to_transcripts";
+	
+	/**
+	 * Merge a list of samples. Keep separate files too.
+	 */
+	public static String OPTION_MERGE_SAMPLES = "merge_samples";
 	
 	/**
 	 * Config file option for tophat executable file
@@ -265,6 +271,10 @@ public class ConfigFileParser {
 							if(parser.getFieldCount()>1) {
 								if(parser.getFieldCount()==2 && this.isTophatPath(nextLine)) {
 									basicOptions.setTophatPath(parser.asString(1));
+									continue;
+								}
+								if(parser.getFieldCount()==2 && this.isBowtie2Path(nextLine)) {
+									basicOptions.bt2Options.setBowtie2Path(parser.asString(1));
 									continue;
 								}
 								if(parser.getFieldCount()==2 && this.isNovoalignPath(nextLine)) {
@@ -561,6 +571,18 @@ public class ConfigFileParser {
 	}
 	
 	/**
+	 * Returns true if the input line indicates that it contains an option for merging samples
+	 * @param nextLine
+	 * @return
+	 */
+	private boolean isMergeSamplesOption(String nextLine) {
+		return nextLine.trim().length() > 0 && nextLine.contains(OPTION_MERGE_SAMPLES);
+	}
+	
+	
+	
+	
+	/**
 	 * Returns true if the input line indicates that it contains a tophat path
 	 * @param nextLine
 	 * @return
@@ -658,6 +680,41 @@ public class ConfigFileParser {
 		public void addOption(String flag,String value){
 			options.put(flag,value);
 		}
+	}
+	
+	/**
+	 * Sets of samples to merge into one bam file (leaving separate bam files too)
+	 * @author prussell
+	 *
+	 */
+	public static class MergeSamples {
+		
+		Collection<Collection<String>> sampleNameSets;
+		
+		public MergeSamples() {
+			sampleNameSets = new ArrayList<Collection<String>>();
+		}
+		
+		public void addSet(Collection<String> sampleNames) {
+			sampleNameSets.add(sampleNames);
+		}
+		
+		private static String makeSampleName(Collection<String> sampleNames) {
+			String rtrn = "Merged";
+			for(String name : sampleNames) {
+				rtrn += "_" + name;
+			}
+			return rtrn;
+		}
+		
+		public Map<String, Collection<String>> getSetsToMerge() {
+			Map<String, Collection<String>> rtrn = new TreeMap<String, Collection<String>>();
+			for(Collection<String> set : sampleNameSets) {
+				rtrn.put(makeSampleName(set), set);
+			}
+			return rtrn;
+		}
+		
 	}
 	
 	
@@ -869,6 +926,7 @@ public class ConfigFileParser {
 		TophatOptions thOptions;
 		Bowtie2Options bt2Options;
 		NovoalignOptions novoalignOptions;
+		MergeSamples mergeSamples;
 		String queueName;
 		
 		public Map<String, String> getRNAClassFileNames() {
@@ -881,6 +939,7 @@ public class ConfigFileParser {
 			bt2Options = new Bowtie2Options();
 			novoalignOptions = new NovoalignOptions();
 			optionMap = new HashMap<String,String>();
+			mergeSamples = new MergeSamples();
 			queueName = "";
 		}
 
@@ -1171,9 +1230,9 @@ public class ConfigFileParser {
 		 */
 		public String getBowtie2BuildExecutablePath() {
 			try {
-				return this.bt2Options.getBowtie2Path();
+				return optionMap.get(OPTION_BOWTIE2_BUILD_PATH);
 			} catch(NullPointerException e) {
-				throw new NullPointerException("Bowtie2 path must be specified with option " + OPTION_BOWTIE2_PATH);
+				throw new NullPointerException("Bowtie2-build path must be specified with option " + OPTION_BOWTIE2_BUILD_PATH);
 			}
 		}
 		
@@ -1206,6 +1265,19 @@ public class ConfigFileParser {
 		 */
 		public void addTophatOption(String flag,String value){
 			this.thOptions.addOption(flag,value);
+		}
+		
+		public void addMergeSamples(String entireLine) {
+			StringParser p = new StringParser();
+			p.parse(entireLine);
+			if(!p.asString(0).equals(OPTION_MERGE_SAMPLES) || p.getFieldCount() < 3) {
+				throw new IllegalArgumentException("Not a valid line containing samples to merge");
+			}
+			Collection<String> set = new TreeSet<String>();
+			for(int i=1; i<p.getFieldCount(); i++) {
+				set.add(p.asString(i));
+			}
+			mergeSamples.addSet(set);
 		}
 		
 		/**
@@ -1264,6 +1336,15 @@ public class ConfigFileParser {
 		 */
 		public Map<String, String> getTophatOptions() {
 			return this.thOptions.getAllOptions();
+		}
+		
+		/**
+		 * Get all sets of samples to merge, by merged sample name
+		 * Also will keep individual samples
+		 * @return Sets of samples to merge by new name of merged sample
+		 */
+		public Map<String, Collection<String>> getSamplesToMerge() {
+			return this.mergeSamples.getSetsToMerge();
 		}
 		
 		/**
