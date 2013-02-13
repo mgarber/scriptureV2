@@ -9,7 +9,10 @@ import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
+import com.mysql.jdbc.StringUtils;
+
 import net.sf.samtools.SAMRecord;
+import net.sf.samtools.util.StringUtil;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
@@ -287,7 +290,14 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	}
 
 	public String toString(){
-		return this.getReadAlignmentBlocks(null).toBED();
+		/*
+		 * add name into the bed string by @zhuxp
+		 */
+		String bed = this.getReadAlignmentBlocks(null).toBED();
+		String[] a=bed.split("\t");
+		a[3]=this.getName();
+		return StringUtil.join("\t",a);
+		
 	}
 
 	@Override
@@ -378,8 +388,12 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 		record.setAttribute(PairedEndWriter.mateCigarFlag, secondMate.getCigarString());
 		
 		record.setMateAlignmentStart(secondMate.getSAMStart());
-		
-		Annotation fragment = getReadAlignmentBlocks(null);
+		// add by @zhuxp
+        record.setAlignmentStart(this.getAlignmentStart());
+     
+		// end of add (test version)
+        
+        Annotation fragment = getReadAlignmentBlocks(null);
 		record.setCigarString(fragment.getLengthOnReference() + "M");  // NOTE: losing information about indels in the SingleEndAlignments		
 		return record;
 	}
