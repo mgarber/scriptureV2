@@ -628,7 +628,7 @@ public class PipelineAutomator {
 		LibraryCompositionByRnaClass lcrc = new LibraryCompositionByRnaClass(genomeBowtieIndex, classFiles, leftFqs, rightFqs, logger);
 		Map<String, String> bowtie2options = configP.basicOptions.getBowtie2Options();
 		Map<String, Integer> totalReadCounts = lcrc.getTotalReadCounts();
-		Map<String, Map<String, Integer>> classCounts = lcrc.alignAndGetCounts(samtoolsExecutable, bowtie2BuildExecutable, bowtie2options, bowtie2BuildExecutable, rnaClassDir);
+		Map<String, Map<String, Integer>> classCounts = lcrc.alignAndGetCounts(samtoolsExecutable, bowtie2Executable, bowtie2options, bowtie2BuildExecutable, rnaClassDir);
 		
 		logger.info("Writing table of counts to file " + countFileName);
 		logger.info("Writing table of percentages to file " + pctFileName);

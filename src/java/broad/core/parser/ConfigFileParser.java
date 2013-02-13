@@ -275,6 +275,7 @@ public class ConfigFileParser {
 								}
 								if(parser.getFieldCount()==2 && this.isBowtie2Path(nextLine)) {
 									basicOptions.bt2Options.setBowtie2Path(parser.asString(1));
+									basicOptions.addOption(parser.asString(0), parser.asString(1));
 									continue;
 								}
 								if(parser.getFieldCount()==2 && this.isNovoalignPath(nextLine)) {
