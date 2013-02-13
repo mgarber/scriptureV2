@@ -207,9 +207,11 @@ public class BamToPairedEndIterator {
 			 *  only if the flag is "a"
 			 *  
 			 */
-           if (flag == "a")
+           if (flag.equals("a"))
+        	   
            {
-			while (bufferCollection.isEmpty() )
+        	   
+			while (!bufferCollection.isEmpty() )
 			{
 				String name=bufferCollection.firstKey();
 				Alignment s1=bufferCollection.get(name);
