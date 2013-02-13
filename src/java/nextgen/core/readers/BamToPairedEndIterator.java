@@ -6,6 +6,7 @@ import java.util.TreeMap;
 
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMFileReader;
+import net.sf.samtools.SAMFormatException;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMRecordIterator;
 import nextgen.core.alignment.Alignment;
@@ -147,8 +148,16 @@ public class BamToPairedEndIterator {
 		    */
 			while (iter.hasNext())
 			{
-			SAMRecord record=iter.next();
-			
+			SAMRecord record;
+			try {	
+			record=iter.next();
+			}
+			catch (SAMFormatException e)
+			{
+				System.err.println("catch SAMFormatException");
+			continue;	
+				
+			};
 			//ignore the unmapped 
 			if(record.getReadUnmappedFlag()) continue;
 			
@@ -192,6 +201,19 @@ public class BamToPairedEndIterator {
 			if (bufferCollection.containsKey(name))
 			  {
 				SingleEndAlignment s2 = (SingleEndAlignment) bufferCollection.get(name);
+				
+				if (! s2.getChromosome().equals(s1.getChromosome()))
+						{
+					     if (flag.equals("a"))
+					     {
+				           return s1; //treat as single end . if mate chromsome is different.	
+					     }
+					     else
+					     {
+					    	 bufferCollection.put(name, s1); //put it into buffer and continue...
+					    	 continue;
+					     }
+					     }
 				bufferCollection.remove(name);
 				PairedEndAlignment p = new PairedEndAlignment(s2,s1);
 				return p;
@@ -228,6 +250,10 @@ public class BamToPairedEndIterator {
 	public void close() {
 		reader.close();
 		
+	}
+	public int getBufferSize()
+	{
+		return bufferCollection.size();
 	}
 	
 }

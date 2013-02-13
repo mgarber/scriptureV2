@@ -31,18 +31,19 @@ public class BamToPairedEndIteratorTest extends CommandLineProgram {
 		//SAMFileHeader header = reader.getFileHeader();
     	System.out.println("BEGINNING");
 		
-
+        int i=0;
 		while (iter.hasNext()) {
 		    Alignment  record= iter.next();
 			//System.out.println("aha");
 		    System.out.println(record);
+		    i+=1;
 		  if ( record instanceof PairedEndAlignment)
 		  {
 			    System.out.println("First Mate:\t"+((PairedEndAlignment) record).getFirstMate());
 			    System.out.println("Second Mate:\t"+((PairedEndAlignment) record).getSecondMate());
 		  }
 			    System.out.println();
-		   
+		   if (i%10000==0) {System.err.format("Processing %d reads      BufferSize:%d         \r",i,iter.getBufferSize());}
 		}	
 		iter.close();
 		
