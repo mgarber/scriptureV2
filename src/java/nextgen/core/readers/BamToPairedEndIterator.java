@@ -42,7 +42,7 @@ import nextgen.core.alignment.SingleEndAlignment;
  * 
  * 
  */
-public class BamToPairedEndIterator {
+public class BamToPairedEndIterator implements AlignmentIterator {
 
 
 	
@@ -65,7 +65,7 @@ public class BamToPairedEndIterator {
 	
 	private Alignment nextAlignment;
 	private TranscriptionRead txnRead;
-	
+	private int maxAllowableInsert=20000000;
 	
 	
 	//static public final String mateLineFlag="mateLine";
@@ -202,15 +202,16 @@ public class BamToPairedEndIterator {
 			  {
 				SingleEndAlignment s2 = (SingleEndAlignment) bufferCollection.get(name);
 				
-				if (! s2.getChromosome().equals(s1.getChromosome()))
+				if ((! s2.getChromosome().equals(s1.getChromosome()) )|| (Math.abs(s1.getStart()-s2.getEnd())>maxAllowableInsert))
 						{
 					     if (flag.equals("a"))
 					     {
-				           return s1; //treat as single end . if mate chromsome is different.	
+				           return s1; //treat as single end . if mate chromsome is different.	or insertion is too long
+					     //leave the mate in the buffer and report it later
 					     }
 					     else
 					     {
-					    	 bufferCollection.put(name, s1); //put it into buffer and continue...
+					    	 bufferCollection.put(name, s1); //put it into buffer and continue... 
 					    	 continue;
 					     }
 					     }
