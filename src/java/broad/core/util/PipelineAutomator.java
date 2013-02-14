@@ -1125,7 +1125,7 @@ public class PipelineAutomator {
 		// Merge bam files
 		logger.info("");
 		logger.info("Merging bam files...");
-		//mergeBamFiles(picardJarDir); //TODO
+		mergeBamFiles(picardJarDir);
 		logger.info("Done merging bam files.");
 		
 		// Index current bam files
@@ -1155,12 +1155,13 @@ public class PipelineAutomator {
 		}
 		
 		// Make wig and bigwig files of fragment ends
-		logger.info("");
-		logger.info("Making wig and bigwig files of fragment end points.");
-		writeWigFragmentEnds(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForFragmentEndWig());
-		logger.info("");
-		logger.info("Genome alignments done.\n");
-		
+		if(configP.basicOptions.getWigToBigWigExecutable() != null && configP.basicOptions.getBedFileForFragmentEndWig() != null) {
+			logger.info("");
+			logger.info("Making wig and bigwig files of fragment end points.");
+			writeWigFragmentEnds(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForFragmentEndWig());
+			logger.info("");
+			logger.info("Genome alignments done.\n");
+		}
 
 		
 	}
@@ -1906,7 +1907,65 @@ public class PipelineAutomator {
 		}
 	}
 
-	//private void mergeBamFiles(String ) //TODO
+	/**
+	 * Merge specified samples into new bam files
+	 * Add merged samples to sample name list and current bam files
+	 * @param picardJarDir Directory containing Picard executables
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	private void mergeBamFiles(String picardJarDir) throws IOException, InterruptedException {
+		Map<String, Collection<String>> setsToMerge = configP.basicOptions.getSamplesToMerge();
+		if(setsToMerge.isEmpty()) {
+			logger.info("No sets to merge.");
+			return;
+		}
+		Map<String, String> mergedFiles = new TreeMap<String, String>();
+		Map<String, Boolean> paired = new TreeMap<String, Boolean>();
+		for(String mergedName : setsToMerge.keySet()) {
+			String mergedBam = currentBamDir + "/" + mergedName + ".bam";
+			mergedFiles.put(mergedName, mergedBam);
+		}
+		ArrayList<String> jobIDs = new ArrayList<String>();
+		for(String mergedName : setsToMerge.keySet()) {
+			
+			// Check if all files to merge are same sequencing format
+			Collection<String> samplesToMerge = setsToMerge.get(mergedName);
+			boolean isPaired = pairedData.get(samplesToMerge.iterator().next()).booleanValue();
+			for(String sample : samplesToMerge) {
+				if(pairedData.get(sample).booleanValue() != isPaired) {
+					throw new IllegalArgumentException("All samples to merge must be same format (paired or unpaired)");
+				}
+			}
+			paired.put(mergedName, Boolean.valueOf(isPaired));
+			
+			File file = new File(mergedFiles.get(mergedName));
+			if(file.exists()) {
+				logger.info("Merged bam file " + file + " already exists. Not rerunning bam file merge.");
+				continue;
+			}
+			logger.info("Creating merged bam file " + file + ".");
+			String inputs = "";
+			for(String sample : samplesToMerge) {
+				inputs += "INPUT=" + currentBamFiles.get(sample) + " ";
+			}
+			String output = "OUTPUT=" + mergedFiles.get(mergedName);
+			String cmmd = "java -jar " + picardJarDir + "/MergeSamFiles.jar " + inputs + " " + output + " ASSUME_SORTED=true MERGE_SEQUENCE_DICTIONARIES=true";
+			logger.info("Running picard command: " + cmmd);
+			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+			jobIDs.add(jobID);
+			logger.info("LSF job ID is " + jobID + ".");
+			// Submit job
+			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/merge_bam_files_" + jobID + ".bsub", "hour", 4);			
+		}
+		logger.info("Waiting for picard jobs to finish...");
+		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+		
+		// Update current bam files and sample names
+		currentBamFiles.putAll(mergedFiles);
+		sampleNames.addAll(mergedFiles.keySet());
+		pairedData.putAll(paired);
+	}
 	
 	/**
 	 * Make tdf files for bam files

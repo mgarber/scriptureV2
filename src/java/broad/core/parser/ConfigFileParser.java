@@ -269,6 +269,9 @@ public class ConfigFileParser {
 						if(!isComment(nextLine)){
 							parser.parse(nextLine);
 							if(parser.getFieldCount()>1) {
+								if(parser.getFieldCount() > 2 && isMergeSamplesOption(nextLine)) {
+									basicOptions.addMergeSamples(nextLine);
+								}
 								if(parser.getFieldCount()==2 && this.isTophatPath(nextLine)) {
 									basicOptions.setTophatPath(parser.asString(1));
 									continue;
@@ -690,30 +693,18 @@ public class ConfigFileParser {
 	 */
 	public static class MergeSamples {
 		
-		Collection<Collection<String>> sampleNameSets;
+		Map<String,Collection<String>> setsToMerge;
 		
 		public MergeSamples() {
-			sampleNameSets = new ArrayList<Collection<String>>();
+			setsToMerge = new TreeMap<String, Collection<String>>();
 		}
 		
-		public void addSet(Collection<String> sampleNames) {
-			sampleNameSets.add(sampleNames);
-		}
-		
-		private static String makeSampleName(Collection<String> sampleNames) {
-			String rtrn = "Merged";
-			for(String name : sampleNames) {
-				rtrn += "_" + name;
-			}
-			return rtrn;
+		public void addSet(String mergedName, Collection<String> sampleNames) {
+			setsToMerge.put(mergedName, sampleNames);
 		}
 		
 		public Map<String, Collection<String>> getSetsToMerge() {
-			Map<String, Collection<String>> rtrn = new TreeMap<String, Collection<String>>();
-			for(Collection<String> set : sampleNameSets) {
-				rtrn.put(makeSampleName(set), set);
-			}
-			return rtrn;
+			return setsToMerge;
 		}
 		
 	}
@@ -1268,17 +1259,22 @@ public class ConfigFileParser {
 			this.thOptions.addOption(flag,value);
 		}
 		
+		/**
+		 * Add a set of samples to merge
+		 * @param entireLine The entire line from config file
+		 */
 		public void addMergeSamples(String entireLine) {
 			StringParser p = new StringParser();
 			p.parse(entireLine);
-			if(!p.asString(0).equals(OPTION_MERGE_SAMPLES) || p.getFieldCount() < 3) {
-				throw new IllegalArgumentException("Not a valid line containing samples to merge");
+			if(!p.asString(0).equals(OPTION_MERGE_SAMPLES) || p.getFieldCount() < 4) {
+				throw new IllegalArgumentException("Not a valid line containing samples to merge. Field 0 = " + OPTION_MERGE_SAMPLES + "; field 1 = merged sample name; fields 2..n = sample names to include");
 			}
 			Collection<String> set = new TreeSet<String>();
-			for(int i=1; i<p.getFieldCount(); i++) {
+			String name = p.asString(1);
+			for(int i=2; i<p.getFieldCount(); i++) {
 				set.add(p.asString(i));
 			}
-			mergeSamples.addSet(set);
+			mergeSamples.addSet(name, set);
 		}
 		
 		/**
