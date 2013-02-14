@@ -279,11 +279,11 @@ public final class SingleInputReplicateSignal {
 		p.addStringArg("--background_bam", "Background bam file", true);
 		p.addStringArg("--signal_bam_list", "File containing list of signal bam files", true);
 		p.addStringArg("--genes", "Bed file of genes", true);
-		p.addIntegerArg("--window", "Window size", false, Integer.valueOf(DEFAULT_WINDOW_SIZE));
-		p.addIntegerArg("--step", "Step size", false, Integer.valueOf(DEFAULT_STEP_SIZE));
-		p.addDoubleArg("--alpha_skellam", "Joint P value cutoff for skellam statistic", false, Double.valueOf(DEFAULT_ALPHA_SKELLAM));
-		p.addDoubleArg("--alpha_scan", "Joint P value cutoff for scan statistic", false, Double.valueOf(DEFAULT_ALPHA_SCAN));
-		p.addDoubleArg("--trim_quantile", "Quantile for individual sample peak trimming", false, Double.valueOf(DEFAULT_TRIM_QUANTILE));
+		p.addIntArg("--window", "Window size", false, DEFAULT_WINDOW_SIZE);
+		p.addIntArg("--step", "Step size", false, DEFAULT_STEP_SIZE);
+		p.addDoubleArg("--alpha_skellam", "Joint P value cutoff for skellam statistic", false, DEFAULT_ALPHA_SKELLAM);
+		p.addDoubleArg("--alpha_scan", "Joint P value cutoff for scan statistic", false, DEFAULT_ALPHA_SCAN);
+		p.addDoubleArg("--trim_quantile", "Quantile for individual sample peak trimming", false, DEFAULT_TRIM_QUANTILE);
 		p.addStringArg("--output", "Output bed file of joint significant peaks", true);
 		p.addStringArg("--out_sample_level_peaks", "Output bed file of sample level significant peaks", false, null);
 		

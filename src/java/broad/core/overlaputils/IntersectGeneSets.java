@@ -282,7 +282,7 @@ public class IntersectGeneSets {
 		p.addStringArg("-i1", "Bed file containing genes to intersect with first (set1)", true);
 		p.addStringArg("-i2", "Bed file containing genes to intersect with second (set2)", false, null);
 		p.addBooleanArg("-r", "Only has effect if -ob is provided. Intersect genes with set1 and write bed file. Ignore set2. If true, randomize position of overlap within set1 gene. ", false, Boolean.valueOf(false));
-		p.addIntegerArg("-nr", "Randomize overlap positions within set1 this many times, intersect with set2, and print counts only.", false, Integer.valueOf(0));
+		p.addIntArg("-nr", "Randomize overlap positions within set1 this many times, intersect with set2, and print counts only.", false, Integer.valueOf(0));
 		p.addStringArg("-e", "Bed file containing genes to exclude - exclude any gene in input file that overlaps one of these", false, null);
 		p.addStringArg("-ob", "Output bed file for intersection with set1 (randomized or not)", false, null);
 		p.addStringArg("-oc", "Output counts file for intersections with set1, randomized and intersected with set2. Requires -i2 and -nr.", false, null);

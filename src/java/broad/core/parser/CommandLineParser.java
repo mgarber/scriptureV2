@@ -123,13 +123,13 @@ public final class CommandLineParser {
 	 * @param required whether parameter is required
 	 * @param def default value
 	 */	
-	public void addIntegerArg(String flag, String description, boolean required, Integer def) {
+	public void addIntArg(String flag, String description, boolean required, int def) {
 		enforceUniqueFlag(flag);
 		enforceUniqueDescription(description);
 		intArgDescriptions.put(flag, description);
 		commandLineValues.put(flag, null);
 		if(required) requiredArgs.add(flag);
-		intArgDefaults.put(flag, def);
+		intArgDefaults.put(flag, Integer.valueOf(def));
 	}
 
 	/**
@@ -155,13 +155,13 @@ public final class CommandLineParser {
 	 * @param required whether parameter is required
 	 * @param def default value
 	 */
-	public void addFloatArg(String flag, String description, boolean required, Float def) {
+	public void addFloatArg(String flag, String description, boolean required, float def) {
 		enforceUniqueFlag(flag);
 		enforceUniqueDescription(description);
 		floatArgDescriptions.put(flag, description);
 		commandLineValues.put(flag, null);		
 		if(required) requiredArgs.add(flag);
-		floatArgDefaults.put(flag, def);
+		floatArgDefaults.put(flag, Float.valueOf(def));
 	}
 	
 	/**
@@ -187,13 +187,13 @@ public final class CommandLineParser {
 	 * @param required whether parameter is required
 	 * @param def default value
 	 */
-	public void addDoubleArg(String flag, String description, boolean required, Double def) {
+	public void addDoubleArg(String flag, String description, boolean required, double def) {
 		enforceUniqueFlag(flag);
 		enforceUniqueDescription(description);
 		doubleArgDescriptions.put(flag, description);
 		commandLineValues.put(flag, null);
 		if(required) requiredArgs.add(flag);
-		doubleArgDefaults.put(flag, def);
+		doubleArgDefaults.put(flag, Double.valueOf(def));
 	}
 
 	/**
@@ -219,13 +219,13 @@ public final class CommandLineParser {
 	 * @param required whether parameter is required
 	 * @param def default value
 	 */
-	public void addBooleanArg(String flag, String description, boolean required, Boolean def) {
+	public void addBooleanArg(String flag, String description, boolean required, boolean def) {
 		enforceUniqueFlag(flag);
 		enforceUniqueDescription(description);
 		boolArgDescriptions.put(flag, description);
 		commandLineValues.put(flag, null);
 		if(required) requiredArgs.add(flag);
-		boolArgDefaults.put(flag, def);
+		boolArgDefaults.put(flag, Boolean.valueOf(def));
 	}
 	
 	/**

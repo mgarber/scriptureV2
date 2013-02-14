@@ -242,10 +242,10 @@ public class WigWriter {
 		p.addStringArg("-g", "Gene bed file", false, null);
 		p.addStringArg("-c", "Chromosome size file", false, null);
 		p.addStringArg("-o", "Output file ending in .wig", true);
-		p.addIntegerArg("-mf", "Max fragment length for paired reads", false, Integer.valueOf(DEFAULT_MAX_FRAGMENT_LENGTH));
-		p.addIntegerArg("-mg", "Max genomic span for paired reads", false, Integer.valueOf(DEFAULT_MAX_GENOMIC_SPAN));
-		p.addBooleanArg("-f", "Count beginning position of each read only", false, Boolean.valueOf(false));
-		p.addBooleanArg("-pe", "Convert paired ends to fragments", false, Boolean.valueOf(DEFAULT_USE_FRAGMENTS));
+		p.addIntArg("-mf", "Max fragment length for paired reads", false, DEFAULT_MAX_FRAGMENT_LENGTH);
+		p.addIntArg("-mg", "Max genomic span for paired reads", false, DEFAULT_MAX_GENOMIC_SPAN);
+		p.addBooleanArg("-f", "Count beginning position of each read only", false, false);
+		p.addBooleanArg("-pe", "Convert paired ends to fragments", false, DEFAULT_USE_FRAGMENTS);
 		p.parse(args);
 		String bamFile = p.getStringArg("-b");
 		String bedFile = p.getStringArg("-g");

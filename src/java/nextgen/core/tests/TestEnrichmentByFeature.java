@@ -319,8 +319,8 @@ public class TestEnrichmentByFeature {
 		p.addStringArg("-c", "Chromosome size file", true);
 		p.addStringArg("-ot", "Output file for table of all genes", true);
 		p.addStringArg("-og", "Output file for global enrichments by feature type", true);
-		p.addIntegerArg("-mf", "Max fragment length", false, Integer.valueOf(DEFAULT_MAX_FRAGMENT_LENGTH));
-		p.addIntegerArg("-mg", "Max genomic span", false, Integer.valueOf(DEFAULT_MAX_GENOMIC_SPAN));
+		p.addIntArg("-mf", "Max fragment length", false, Integer.valueOf(DEFAULT_MAX_FRAGMENT_LENGTH));
+		p.addIntArg("-mg", "Max genomic span", false, Integer.valueOf(DEFAULT_MAX_GENOMIC_SPAN));
 		p.addBooleanArg("-fc", "Fully contained reads in features", false, Boolean.valueOf(DEFAULT_FULLY_CONTAINED));
 		p.parse(args);
 		String backgroundFile = p.getStringArg("-b");

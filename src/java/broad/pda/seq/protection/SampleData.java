@@ -10,17 +10,22 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
+import broad.core.annotation.MaximumContiguousSubsequence;
+import broad.core.math.Statistics;
 import broad.core.parser.StringParser;
 
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
+import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.feature.GeneWindow;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
@@ -260,6 +265,55 @@ public class SampleData {
 		windowScoreFile.writeWindowScoresToFile(m);
 	}
 	
+	/**
+	 * Get the alignment data
+	 * @return Alignment model
+	 */
+	public TranscriptomeSpaceAlignmentModel getData() {
+		return data;
+	}
+	
+	/**
+	 * Trim the region to max contiguous subregion above a certain quantile
+	 * @param window The region
+	 * @param data Position level list of counts within the region
+	 * @param quantile Quantile for trim max contiguous
+	 * @return Trimmed region
+	 */
+	public static Annotation trimMaxContiguous(Annotation window, List<Double> data, double quantile) {
+	
+		if(window.getSize() != data.size()) {
+			throw new IllegalArgumentException("Annotation and data must have same size. Name=" + window.getName() + " " + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + " size=" + window.getSize() + " data_size=" + data.size());
+		}
+		
+		double[] array = new double[data.size()];
+		for(int i=0; i < data.size(); i++) {
+			array[i] = data.get(i).doubleValue();
+		}
+		Collections.sort(data);
+		
+		double cutoff = Statistics.quantile(data, quantile);
+		for(int j=0; j<array.length; j++){
+			double d = array[j] - cutoff;
+			array[j] = d;
+		}
+
+		double[] maxSum = MaximumContiguousSubsequence.maxSubSum3(array);
+	
+		if(maxSum[0] > 0){
+			int deltaStart = new Double(maxSum[1]).intValue();
+			int deltaEnd =  new Double(data.size() - 1 - maxSum[2]).intValue();
+			if(window.getStrand().equals(Strand.NEGATIVE)) {
+			    int tmpStart = deltaStart;
+			    deltaStart = deltaEnd;
+			    deltaEnd = tmpStart;
+			}
+			window.trim(deltaStart, deltaEnd);
+		}
+		return window;
+	}
+
+	
 	private class CachedScoreFile {
 		
 		
@@ -294,10 +348,12 @@ public class SampleData {
 		 */
 		public boolean readWindowScoresFromFile() throws IOException {
 			
+			logger.info("Trying to read window scores from file.");
+			
 			// Check if cached file is valid
 			boolean validated = validateFile();
 			if(!validated) {
-				logger.warn("Window score file " + fileName + "not valid. Not reading scores from file.");
+				logger.warn("Window score file " + fileName + " not valid. Not reading scores from file.");
 				return false;
 			}
 			
@@ -305,11 +361,17 @@ public class SampleData {
 			FileReader r = new FileReader(fileName);
 			BufferedReader b = new BufferedReader(r);
 			
+			TreeSet<String> genesDone = new TreeSet<String>();
+			
 			while(b.ready()) {
 				String line = b.readLine();
 				stringParser.parse(line);
 				if(!stringParser.asString(0).equals(GENE_IDENTIFIER)) continue;
 				Gene gene = getGeneFromLine(line);
+				genesDone.add(gene.getName());
+				if(genesDone.size() % 1000 == 0) {
+					logger.info("Finished " + genesDone.size() + " genes.");
+				}
 				if(!windowScores.containsKey(gene)) {
 					Map<Annotation, ScanStatisticScore> map = new TreeMap<Annotation, ScanStatisticScore>();
 					windowScores.put(gene, map);

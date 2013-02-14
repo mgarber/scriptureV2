@@ -595,11 +595,11 @@ public class PairedSampleBindingSiteAnalysis extends PairedSamplePeakCaller {
 		p.addStringArg("-g", "Gene bed file", true);
 		p.addIntegerArg("-w", "Window size", true);
 		p.addIntegerArg("-t", "Step size", true);
-		p.addFloatArg("-psk", "P value cutoff for skellam statistic", false, Float.valueOf((float)0.05));
-		p.addFloatArg("-psc", "P value cutoff for scan statistic", false, Float.valueOf((float)0.05));
-		p.addFloatArg("-q", "Coverage quantile within untrimmed peak for trimming by max contiguous subsequence", false, Float.valueOf((float)0.5));
+		p.addFloatArg("-psk", "P value cutoff for skellam statistic", false, (float)0.05);
+		p.addFloatArg("-psc", "P value cutoff for scan statistic", false, (float)0.05);
+		p.addFloatArg("-q", "Coverage quantile within untrimmed peak for trimming by max contiguous subsequence", false, (float)0.5);
 		//p.addIntegerArg("-mf", "Max fragment length for paired reads", false, Integer.valueOf(DEFAULT_MAX_FRAGMENT_LENGTH));
-		p.addIntegerArg("-mg", "Max genomic span for paired reads", false, Integer.valueOf(DEFAULT_MAX_GENOMIC_SPAN));
+		p.addIntArg("-mg", "Max genomic span for paired reads", false, DEFAULT_MAX_GENOMIC_SPAN);
 		p.addStringArg("-o", "Output file", true);
 		p.addStringArg("-outdebug", "Output file prefix for debug bed files", false);
 		p.parse(args);

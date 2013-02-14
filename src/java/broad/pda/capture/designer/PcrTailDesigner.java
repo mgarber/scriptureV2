@@ -208,15 +208,15 @@ public final class PcrTailDesigner {
 		p.addIntegerArg("-size", "Primer size", true);
 		p.addIntegerArg("-l1length", "Length of outermost segment of left primer", true);
 		p.addIntegerArg("-l2length", "Length of second segment of left primer", true);
-		p.addIntegerArg("-l3length", "Length of third segment of left primer", false, Integer.valueOf(-1));
-		p.addIntegerArg("-l2start", "Zero-based start position of left second segment if there are three segments", false, Integer.valueOf(-1));
+		p.addIntArg("-l3length", "Length of third segment of left primer", false, Integer.valueOf(-1));
+		p.addIntArg("-l2start", "Zero-based start position of left second segment if there are three segments", false, Integer.valueOf(-1));
 		p.addIntegerArg("-r1length", "Length of outermost segment of right primer", true);
 		p.addIntegerArg("-r2length", "Length of second segment of right primer", true);
-		p.addIntegerArg("-r3length", "Length of third segment of right primer", false, Integer.valueOf(-1));
-		p.addIntegerArg("-r2start", "Zero-based start position of right second segment if there are three segments", false, Integer.valueOf(-1));
+		p.addIntArg("-r3length", "Length of third segment of right primer", false, Integer.valueOf(-1));
+		p.addIntArg("-r2start", "Zero-based start position of right second segment if there are three segments", false, Integer.valueOf(-1));
 		p.addIntegerArg("-count1", "Desired number of outermost primer", true);
 		p.addIntegerArg("-count2", "Desired number of second primer", true);
-		p.addIntegerArg("-count3", "Desired number of third primer", false, Integer.valueOf(-1));
+		p.addIntArg("-count3", "Desired number of third primer", false, Integer.valueOf(-1));
 		p.addBooleanArg("-v", "Verbose", false, false);
 		p.addBooleanArg("-vv", "Very verbose", false, false);
 		

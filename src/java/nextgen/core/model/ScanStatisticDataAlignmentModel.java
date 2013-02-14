@@ -82,6 +82,7 @@ public class ScanStatisticDataAlignmentModel extends AlignmentModel {
 	}
 
 	
+	
 	/**
 	 * Iterate through the whole coordinate space in windows and score them using the count function
 	 * @param windowSize size of the windows to score

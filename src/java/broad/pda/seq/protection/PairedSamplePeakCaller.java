@@ -159,7 +159,7 @@ public class PairedSamplePeakCaller implements PeakCaller {
 	protected Annotation trimPeak(Gene window) throws IOException {
 
 		List<Double> coverageData = transcriptomeSpace.getPositionCountList(window, signalData);
-		Annotation rtrn = trimMaxContiguous(window, coverageData);
+		Annotation rtrn = SampleData.trimMaxContiguous(window, coverageData, trimPeakByQuantile);
 		int trimmedStart = rtrn.getStart();
 		int trimmedEnd = rtrn.getEnd();
 		rtrn.setName(rtrn.getReferenceName() + ":" + trimmedStart + "-" + trimmedEnd);
@@ -168,44 +168,6 @@ public class PairedSamplePeakCaller implements PeakCaller {
 
 	}
 
-	/**
-	 * Trim the region to max contiguous subregion above a certain quantile
-	 * @param window The region
-	 * @param data Position level list of counts within the region
-	 * @return Trimmed region
-	 */
-	private Annotation trimMaxContiguous(Annotation window, List<Double> data) {
-	
-		if(window.getSize() != data.size()) {
-			throw new IllegalArgumentException("Annotation and data must have same size. Name=" + window.getName() + " " + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + " size=" + window.getSize() + " data_size=" + data.size());
-		}
-		
-		double[] array = new double[data.size()];
-		for(int i=0; i < data.size(); i++) {
-			array[i] = data.get(i).doubleValue();
-		}
-		Collections.sort(data);
-		
-		double cutoff = Statistics.quantile(data, trimPeakByQuantile);
-		for(int j=0; j<array.length; j++){
-			double d = array[j] - cutoff;
-			array[j] = d;
-		}
-
-		double[] maxSum = MaximumContiguousSubsequence.maxSubSum3(array);
-	
-		if(maxSum[0] > 0){
-			int deltaStart = new Double(maxSum[1]).intValue();
-			int deltaEnd =  new Double(data.size() - 1 - maxSum[2]).intValue();
-			if(window.getStrand().equals(Strand.NEGATIVE)) {
-			    int tmpStart = deltaStart;
-			    deltaStart = deltaEnd;
-			    deltaEnd = tmpStart;
-			}
-			window.trim(deltaStart, deltaEnd);
-		}
-		return window;
-	}
 
 	@Override
 	public Annotation trimPeak(Annotation peak) {

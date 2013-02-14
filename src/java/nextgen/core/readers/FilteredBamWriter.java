@@ -376,9 +376,9 @@ public class FilteredBamWriter {
 		
 		CommandLineParser p = new CommandLineParser();
 		p.addStringArg("-b", "Input bam file", true);
-		p.addIntegerArg("-maxg", "Max genomic span", false, Integer.valueOf(-1));
-		p.addIntegerArg("-minf", "Min fragment size", false, Integer.valueOf(-1));
-		p.addIntegerArg("-maxf", "Max fragment size", false, Integer.valueOf(-1));
+		p.addIntArg("-maxg", "Max genomic span", false, Integer.valueOf(-1));
+		p.addIntArg("-minf", "Min fragment size", false, Integer.valueOf(-1));
+		p.addIntArg("-maxf", "Max fragment size", false, Integer.valueOf(-1));
 		p.addBooleanArg("-sf", "Skip first reads", false, Boolean.valueOf(false));
 		p.addBooleanArg("-ss", "Skip second reads", false, Boolean.valueOf(false));
 		p.addStringArg("-a", "Bed annotation for fragment lengths", false);

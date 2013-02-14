@@ -67,7 +67,7 @@ public class FindEnrichedDepletedRegions {
 
 	public static void main(String[] args) throws IOException{
 		CommandLineParser p = new CommandLineParser();
-		p.addIntegerArg("-w", "window size", false, 500);
+		p.addIntArg("-w", "window size", false, 500);
 		p.addStringArg("-d1", "data bam file", true);
 		p.addStringArg("-s", "chr size file", true);
 		p.addStringArg("-c", "chromosome", false, "chrX");
