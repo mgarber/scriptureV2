@@ -291,8 +291,8 @@ public class IntersectGeneSets {
 		String intersectFile1 = p.getStringArg("-i1");
 		String intersectFile2 = p.getStringArg("-i2");
 		String excludeFile = p.getStringArg("-e");
-		int numRandom = p.getIntegerArg("-nr").intValue();
-		boolean randomize = p.getBooleanArg("-r").booleanValue();
+		int numRandom = p.getIntArg("-nr");
+		boolean randomize = p.getBooleanArg("-r");
 		String outBed = p.getStringArg("-ob");
 		String outRandCounts = p.getStringArg("-oc");
 		

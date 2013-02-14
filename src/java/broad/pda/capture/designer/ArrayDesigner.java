@@ -389,7 +389,7 @@ public final class ArrayDesigner {
 		if(this.mrnadepletionfile == null) this.makeMrnaDepletionArray = false;
 		else this.makeMrnaDepletionArray = true;
 		// Whether to make full nested primer design
-		this.makeFullNestedPrimerDesign = p.getBooleanArg("-f").booleanValue();
+		this.makeFullNestedPrimerDesign = p.getBooleanArg("-f");
 		// Transcripts to avoid when designing primers
 		this.genefile = p.getStringArg("-g");
 		// Output design file
@@ -401,17 +401,17 @@ public final class ArrayDesigner {
 		// qPCR primers
 		this.qpcrfile = p.getStringArg("-q");
 		// single primer match to any probe on array
-		this.singlePrimerMatchToProbe = p.getIntegerArg("-spp").intValue();
+		this.singlePrimerMatchToProbe = p.getIntArg("-spp");
 		// between gene primer dimer
-		this.betweenGenePrimerDimerMatchLength = p.getIntegerArg("-bgpd").intValue();
+		this.betweenGenePrimerDimerMatchLength = p.getIntArg("-bgpd");
 		// within gene primer dimer
-		this.withinGenePrimerDimerMatchLength = p.getIntegerArg("-wgpd").intValue();
+		this.withinGenePrimerDimerMatchLength = p.getIntArg("-wgpd");
 		// kmer occurrences in probe
-		this.minKmerOccurrencesInProbes = p.getIntegerArg("-kp").intValue();
+		this.minKmerOccurrencesInProbes = p.getIntArg("-kp");
 		// double primer match to probe
-		this.doublePrimerMatchToProbe = p.getIntegerArg("-dpp").intValue();
+		this.doublePrimerMatchToProbe = p.getIntArg("-dpp");
 		// single primer match to probe within gene
-		this.singlePrimerMatchToProbeWithinGene = p.getIntegerArg("-sppwg").intValue();
+		this.singlePrimerMatchToProbeWithinGene = p.getIntArg("-sppwg");
 	}
 	
 	/**

@@ -292,11 +292,11 @@ public final class SingleInputReplicateSignal {
 		String backgroundBamFile = p.getStringArg("--background_bam");
 		String signalSampleBamList = p.getStringArg("--signal_bam_list");
 		String bedFile = p.getStringArg("--genes");
-		int window = p.getIntegerArg("--window").intValue();
-		int step = p.getIntegerArg("--step").intValue();
-		double skellamPvalCutoff = p.getDoubleArg("--alpha_skellam").doubleValue();
-		double scanPvalCutoff = p.getDoubleArg("--alpha_scan").doubleValue();
-		double trimMaxQuantile = p.getDoubleArg("--trim_quantile").doubleValue();
+		int window = p.getIntArg("--window");
+		int step = p.getIntArg("--step");
+		double skellamPvalCutoff = p.getDoubleArg("--alpha_skellam");
+		double scanPvalCutoff = p.getDoubleArg("--alpha_scan");
+		double trimMaxQuantile = p.getDoubleArg("--trim_quantile");
 		String outBed = p.getStringArg("--output");
 		String outSampleLevelBed = p.getStringArg("--out_sample_level_peaks");
 		

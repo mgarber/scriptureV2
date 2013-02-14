@@ -606,13 +606,13 @@ public class PairedSampleBindingSiteAnalysis extends PairedSamplePeakCaller {
 		String backgroundFile = p.getStringArg("-b");
 		String signalFile = p.getStringArg("-s");
 		String bedFile = p.getStringArg("-g");
-		int windowSize = p.getIntegerArg("-w").intValue();
-		int stepSize = p.getIntegerArg("-t").intValue();
-		double alphaSkellam = p.getFloatArg("-psk").floatValue();
-		double alphaScan = p.getFloatArg("-psc").floatValue();
-		double trimQuantile = p.getFloatArg("-q").floatValue();
+		int windowSize = p.getIntArg("-w");
+		int stepSize = p.getIntArg("-t");
+		double alphaSkellam = p.getFloatArg("-psk");
+		double alphaScan = p.getFloatArg("-psc");
+		double trimQuantile = p.getFloatArg("-q");
 		//int maxFragmentLength = p.getIntegerArg("-mf").intValue();
-		int maxGenomicSpan = p.getIntegerArg("-mg").intValue();
+		int maxGenomicSpan = p.getIntArg("-mg");
 		String outFile = p.getStringArg("-o");
 		String outDebug = p.getStringArg("-outdebug");
 		

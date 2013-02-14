@@ -222,18 +222,18 @@ public final class PcrTailDesigner {
 		
 		p.parse(args);
 		
-		this.primerSize = p.getIntegerArg("-size");
-		this.leftOuterLength = p.getIntegerArg("-l1length");
-		this.outerCount = p.getIntegerArg("-count1");
-		this.leftSecondLength = p.getIntegerArg("-l2length");
-		this.secondCount = p.getIntegerArg("-count2");
-		this.leftThirdLength = p.getIntegerArg("-l3length");
-		this.thirdCount = p.getIntegerArg("-count3");
-		this.leftSecondStart = p.getIntegerArg("-l2start");
-		this.rightOuterLength = p.getIntegerArg("-r1length");
-		this.rightSecondLength = p.getIntegerArg("-r2length");
-		this.rightThirdLength = p.getIntegerArg("-r3length");
-		this.rightSecondStart = p.getIntegerArg("-r2start");
+		this.primerSize = p.getIntArg("-size");
+		this.leftOuterLength = p.getIntArg("-l1length");
+		this.outerCount = p.getIntArg("-count1");
+		this.leftSecondLength = p.getIntArg("-l2length");
+		this.secondCount = p.getIntArg("-count2");
+		this.leftThirdLength = p.getIntArg("-l3length");
+		this.thirdCount = p.getIntArg("-count3");
+		this.leftSecondStart = p.getIntArg("-l2start");
+		this.rightOuterLength = p.getIntArg("-r1length");
+		this.rightSecondLength = p.getIntArg("-r2length");
+		this.rightThirdLength = p.getIntArg("-r3length");
+		this.rightSecondStart = p.getIntArg("-r2start");
 		this.verbose = p.getBooleanArg("-v");
 		this.veryVerbose = p.getBooleanArg("-vv");
 		

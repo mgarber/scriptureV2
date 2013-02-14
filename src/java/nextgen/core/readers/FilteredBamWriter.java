@@ -385,13 +385,13 @@ public class FilteredBamWriter {
 		p.addStringArg("-o", "Output bam file", true);
 		p.parse(args);
 		String inputBam = p.getStringArg("-b");
-		Integer maxGenomicSpan = p.getIntegerArg("-maxg");
-		Integer minFragmentSize = p.getIntegerArg("-minf");
-		Integer maxFragmentSize = p.getIntegerArg("-maxf");
+		Integer maxGenomicSpan = p.getIntArg("-maxg");
+		Integer minFragmentSize = p.getIntArg("-minf");
+		Integer maxFragmentSize = p.getIntArg("-maxf");
 		String bedFile = p.getStringArg("-a");
 		String outFile = p.getStringArg("-o");
-		boolean skipFirstReads = p.getBooleanArg("-sf").booleanValue();
-		boolean skipSecondReads = p.getBooleanArg("-ss").booleanValue();
+		boolean skipFirstReads = p.getBooleanArg("-sf");
+		boolean skipSecondReads = p.getBooleanArg("-ss");
 		
 		FilteredBamWriter fbw = new FilteredBamWriter(inputBam);
 		if(skipFirstReads) fbw.skipFirstReads();

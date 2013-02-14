@@ -84,7 +84,7 @@ public class FindEnrichedDepletedRegions {
 		System.err.println("Genome length= "+space.getLength());
 		
 		ScanStatisticDataAlignmentModel data=new ScanStatisticDataAlignmentModel(p.getStringArg("-d1"), space);
-		int windowSize= p.getIntegerArg("-w").intValue();
+		int windowSize= p.getIntArg("-w");
 		new FindEnrichedDepletedRegions(data, windowSize, p.getStringArg("-c"), p.getStringArg("-o"));
 	}
 	

@@ -251,10 +251,10 @@ public class WigWriter {
 		String bedFile = p.getStringArg("-g");
 		String chrSizeFile = p.getStringArg("-c");
 		String outFile = p.getStringArg("-o");
-		int maxFragmentLength = p.getIntegerArg("-mf").intValue();
-		boolean fragments = p.getBooleanArg("-pe").booleanValue();
-		int maxGenomicSpan = p.getIntegerArg("-mg").intValue();
-		boolean firstPositionOnly = p.getBooleanArg("-f").booleanValue();
+		int maxFragmentLength = p.getIntArg("-mf");
+		boolean fragments = p.getBooleanArg("-pe");
+		int maxGenomicSpan = p.getIntArg("-mg");
+		boolean firstPositionOnly = p.getBooleanArg("-f");
 		
 		WigWriter ww = new WigWriter(bamFile, bedFile, chrSizeFile, firstPositionOnly, fragments);
 		ww.addReadFilter(new FragmentLengthFilter(ww.data.getCoordinateSpace(), maxFragmentLength));

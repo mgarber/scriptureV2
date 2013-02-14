@@ -329,9 +329,9 @@ public class TestEnrichmentByFeature {
 		String chrSizeFile = p.getStringArg("-c");
 		String outTable = p.getStringArg("-ot");
 		String outGlobal = p.getStringArg("-og");
-		int maxFragmentLength = p.getIntegerArg("-mf").intValue();
-		int maxGenomicSpan = p.getIntegerArg("-mg").intValue();
-		boolean fullyContained = p.getBooleanArg("-fc").booleanValue();
+		int maxFragmentLength = p.getIntArg("-mf");
+		int maxGenomicSpan = p.getIntArg("-mg");
+		boolean fullyContained = p.getBooleanArg("-fc");
 		
 		TestEnrichmentByFeature ebf = new TestEnrichmentByFeature(backgroundFile, signalFile, geneBedFile, chrSizeFile, maxFragmentLength, maxGenomicSpan, fullyContained);
 		

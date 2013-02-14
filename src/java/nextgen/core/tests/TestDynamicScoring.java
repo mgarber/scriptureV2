@@ -35,9 +35,9 @@ public class TestDynamicScoring {
 		String bedFile = p.getStringArg("-g");
 		String chrSizeFile = p.getStringArg("-c");
 		String chrName = p.getStringArg("-chr");
-		int start = p.getIntegerArg("-s").intValue();
-		int end = p.getIntegerArg("-e").intValue();
-		boolean useFragments = p.getBooleanArg("-pe").booleanValue();
+		int start = p.getIntArg("-s");
+		int end = p.getIntArg("-e");
+		boolean useFragments = p.getBooleanArg("-pe");
 		FileWriter writer = new FileWriter(p.getStringArg("-save"));
 		
 		TranscriptomeSpace t = new TranscriptomeSpace(BEDFileParser.loadDataByChr(new File(bedFile)));

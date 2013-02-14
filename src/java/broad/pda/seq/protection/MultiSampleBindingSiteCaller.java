@@ -30,7 +30,6 @@ import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
-import nextgen.core.feature.GeneWindow;
 import nextgen.core.model.score.ScanStatisticScore;
 
 /**
@@ -41,8 +40,9 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	
 	private TranscriptomeSpace coord;
 	protected Map<String, Collection<Gene>> genes;
-	private Map<Gene, Map<Annotation, Double>> crossSampleWindowBindingSiteScores;
+	private Map<Gene, Map<Annotation, Double>> tStatisticWindowScores;
 	private Map<SampleData, Map<Gene, Map<Annotation, Double>>> singleSampleWindowEnrichmentOverGene;
+	private Map<SampleData, Map<Gene, Collection<Annotation>>> singleSampleScanPeaks;
 	protected ArrayList<SampleData> controlSamples;
 	protected ArrayList<SampleData> signalSamples;
 	protected ArrayList<SampleData> allSamples;
@@ -52,6 +52,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	private static int DEFAULT_WINDOW_SIZE = 30;
 	private static int DEFAULT_STEP_SIZE = 1;
 	protected static double EXPRESSION_SCAN_P_VALUE_CUTOFF = 0.05;
+	private static double DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF = 0.01;
 	private static double FDR_CUTOFF = 0.01;
 	private static int DEFAULT_MAX_PERMUTATIONS = 10000;
 	protected int numControls;
@@ -59,6 +60,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	protected int numSamples;
 	protected Random random;
 	private Collection<SamplePermutation> sampleIdentityPermutations;
+	private double peakWindowScanPvalCutoff;
 	
 	/**
 	 * Instantiate with default window size and step size
@@ -67,7 +69,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	 * @throws IOException
 	 */
 	private MultiSampleBindingSiteCaller(String sampleListFile, String bedFile) throws IOException {
-		this(sampleListFile, bedFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE, DEFAULT_MAX_PERMUTATIONS);
+		this(sampleListFile, bedFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE, DEFAULT_MAX_PERMUTATIONS, DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF);
 	}
 	
 	/**
@@ -79,7 +81,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	 * @param maxPermutations Max number of sample identity permutations for window score empirical P value
 	 * @throws IOException
 	 */
-	private MultiSampleBindingSiteCaller(String sampleListFile, String bedFile, int window, int step, int maxPermutations) throws IOException {
+	private MultiSampleBindingSiteCaller(String sampleListFile, String bedFile, int window, int step, int maxPermutations, double peakScanPvalCutoff) throws IOException {
 		
 		// Set basic parameters
 		windowSize = window;
@@ -87,6 +89,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		genes = BEDFileParser.loadDataByChr(new File(bedFile));
 		coord = new TranscriptomeSpace(genes);
 		random = new Random();
+		peakWindowScanPvalCutoff = peakScanPvalCutoff;
 		
 		// Read sample information
 		SampleFileParser p = new SampleFileParser(sampleListFile);
@@ -100,12 +103,17 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		numSamples = allSamples.size();
 
 		// Initialize score maps
-		crossSampleWindowBindingSiteScores = new TreeMap<Gene, Map<Annotation, Double>>();
+		tStatisticWindowScores = new TreeMap<Gene, Map<Annotation, Double>>();
 		singleSampleWindowEnrichmentOverGene = new HashMap<SampleData, Map<Gene, Map<Annotation, Double>>>();
+		singleSampleScanPeaks = new HashMap<SampleData, Map<Gene, Collection<Annotation>>>();
 		for(SampleData sample : allSamples) {
 			if(!singleSampleWindowEnrichmentOverGene.containsKey(sample)) {
 				Map<Gene, Map<Annotation, Double>> m = new TreeMap<Gene, Map<Annotation, Double>>();
 				singleSampleWindowEnrichmentOverGene.put(sample, m);
+			}
+			if(!singleSampleScanPeaks.containsKey(sample)) {
+				Map<Gene, Collection<Annotation>> m = new TreeMap<Gene, Collection<Annotation>>();
+				singleSampleScanPeaks.put(sample, m);
 			}
 		}
 		
@@ -132,6 +140,24 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		return true;
 	}
 	
+	/**
+	 * Get scan peaks for the sample and the gene
+	 * @param sample The sample
+	 * @param gene The gene
+	 * @return Significant scan peaks
+	 */
+	public Collection<Annotation> getSingleSampleScanPeaks(SampleData sample, Gene gene) {
+		if(singleSampleScanPeaks.get(sample).containsKey(gene)) {
+			return singleSampleScanPeaks.get(sample).get(gene);
+		}
+		identifySingleSampleScanPeaks(sample, gene);
+		return singleSampleScanPeaks.get(sample).get(gene);
+	}
+	
+	private void identifySingleSampleScanPeaks(SampleData sample, Gene gene) {
+		// TODO
+	}
+	
 	private void computeSingleSampleWindowEnrichmentsOverGenes() throws IOException {
 		logger.info("Computing window enrichments for each sample...");
 		for(String chr : genes.keySet()) {
@@ -150,7 +176,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	 * Score all genes
 	 * @throws IOException 
 	 */
-	private void scoreGenes() throws IOException {
+	private void scoreGenesTStatisticScore() throws IOException {
 		computeSingleSampleWindowEnrichmentsOverGenes();
 		for(String chr : genes.keySet()) {
 			logger.info("Scoring genes on chromosome " + chr);
@@ -160,7 +186,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 					continue;
 				}
 				logger.info("Scoring gene " + gene.getName());
-				computeCrossSampleWindowBindingSiteScores(gene);
+				computeTStatisticWindowScores(gene);
 			}
 		}
 	}
@@ -208,21 +234,21 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	}
 	
 	/**
-	 * Compute binding site score for each window of gene and store scores
+	 * Compute t statistic score for each window of gene and store scores
 	 * @param gene The gene
 	 */
-	private void computeCrossSampleWindowBindingSiteScores(Gene gene) {
-		Map<Annotation, Double> crossSampleBindingSiteScoresThisGene = new TreeMap<Annotation, Double>();
+	private void computeTStatisticWindowScores(Gene gene) {
+		Map<Annotation, Double> tStatisticScoresThisGene = new TreeMap<Annotation, Double>();
 		if(gene.getSize() < windowSize) {
-			logger.info(gene.getName() + " is smaller than window size. Not computing window binding site scores.");
-			crossSampleWindowBindingSiteScores.put(gene, crossSampleBindingSiteScoresThisGene);
+			logger.info(gene.getName() + " is smaller than window size. Not computing t statistic window scores.");
+			tStatisticWindowScores.put(gene, tStatisticScoresThisGene);
 			return;
 		}		
 		SampleData tmp = allSamples.iterator().next();
 		Collection<Annotation> windows = singleSampleWindowEnrichmentOverGene.get(tmp).get(gene).keySet();
 		for(Annotation window : windows) {
-			double score = windowBindingSiteScore(gene, window, controlSamples, signalSamples);
-			crossSampleBindingSiteScoresThisGene.put(window, Double.valueOf(score));
+			double score = tStatisticWindowScore(gene, window, controlSamples, signalSamples);
+			tStatisticScoresThisGene.put(window, Double.valueOf(score));
 			String e = "";
 			for(SampleData control : controlSamples) {
 				e += control.getSampleName() + ":" + control.getWindowScores(gene).get(window).getCount() + ":" + singleSampleWindowEnrichmentOverGene.get(control).get(gene).get(window).toString() + "\t";
@@ -232,20 +258,20 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 			}
 			logger.info(gene.getName() + "\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\t" + score + "\t" + e);
 		}
-		crossSampleWindowBindingSiteScores.put(gene, crossSampleBindingSiteScoresThisGene);
+		tStatisticWindowScores.put(gene, tStatisticScoresThisGene);
 	}
 	
 	/**
-	 * The cross sample binding site score for a single window
+	 * The t statistic score for a single window
 	 * T statistic between control and signal samples
 	 * Statistic is positive iff mean of signal enrichments is greater than mean of control enrichments
 	 * @param gene The parent gene
 	 * @param window The window
 	 * @param controls Control samples
 	 * @param signals Signal samples
-	 * @return The binding site score for the window
+	 * @return The score for the window
 	 */
-	private double windowBindingSiteScore(Gene gene, Annotation window, Collection<SampleData> controls, Collection<SampleData> signals) {
+	private double tStatisticWindowScore(Gene gene, Annotation window, Collection<SampleData> controls, Collection<SampleData> signals) {
 		List<Double> controlEnrichments = new ArrayList<Double>();
 		List<Double> signalEnrichments = new ArrayList<Double>();
 		for(SampleData control : controls) {
@@ -268,18 +294,18 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	}
 	
 	/**
-	 * Nominal P value calculated relative to null distribution of binding site score
+	 * Nominal P value calculated relative to null distribution of t statistic score
 	 * Where null distribution is determined by permuting the contol/signal labels of samples
 	 * @param gene The gene the window belongs to
 	 * @param window The window
-	 * @return The nominal P value for the binding site score of the window
+	 * @return The nominal P value for the score of the window
 	 */
-	private double empiricalNominalPval(Gene gene, Annotation window) {
-		double windowScore = crossSampleWindowBindingSiteScores.get(gene).get(window).doubleValue();
+	private double empiricalNominalPvalTStatisticScore(Gene gene, Annotation window) {
+		double windowScore = tStatisticWindowScores.get(gene).get(window).doubleValue();
 		double numLess = 0;
 		double numMore = 0;
 		for(SamplePermutation perm : sampleIdentityPermutations) {
-			double score = windowBindingSiteScore(gene, window, perm.getControls(), perm.getSignals());
+			double score = tStatisticWindowScore(gene, window, perm.getControls(), perm.getSignals());
 			if(score > windowScore) numMore++;
 			else numLess++;
 		}
@@ -287,12 +313,12 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	}
 
 	/**
-	 * FDR for binding site score of window
+	 * FDR for t statistic score of window
 	 * @param gene The gene the window belongs to
 	 * @param window The window
 	 * @return The corrected P value
 	 */
-	private double windowBindingSiteScoreFDR(Gene gene, Annotation window) {
+	private double tStatisticWindowScoreFDR(Gene gene, Annotation window) {
 		throw new UnsupportedOperationException("TODO");
 		// TODO
 	}
@@ -423,15 +449,17 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		p.addIntegerArg("-w", "Window size", false, Integer.valueOf(DEFAULT_WINDOW_SIZE));
 		p.addIntegerArg("-s", "Step size", false, Integer.valueOf(DEFAULT_STEP_SIZE));
 		p.addIntegerArg("-p", "Max number of sample idenitity permutations for empirical P value of window scores", false, Integer.valueOf(DEFAULT_MAX_PERMUTATIONS));
+		p.addDoubleArg("-sp", "Scan P value cutoff for peak within gene", false, Double.valueOf(DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF));
 		p.parse(args);
 		String sampleListFile = p.getStringArg("-l");
 		String bedFile = p.getStringArg("-b");
-		int windowSize = p.getIntegerArg("-w").intValue();
-		int stepSize = p.getIntegerArg("-s").intValue();
-		int maxPermutations = p.getIntegerArg("-p").intValue();
+		int windowSize = p.getIntArg("-w");
+		int stepSize = p.getIntArg("-s");
+		int maxPermutations = p.getIntArg("-p");
+		double scanPvalCutoff = p.getDoubleArg("-sp");
 		
-		MultiSampleBindingSiteCaller b = new MultiSampleBindingSiteCaller(sampleListFile, bedFile, windowSize, stepSize, maxPermutations);
-		b.scoreGenes();
+		MultiSampleBindingSiteCaller b = new MultiSampleBindingSiteCaller(sampleListFile, bedFile, windowSize, stepSize, maxPermutations, scanPvalCutoff);
+		b.scoreGenesTStatisticScore();
 		
 	}
 

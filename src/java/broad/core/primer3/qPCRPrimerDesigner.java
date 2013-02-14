@@ -935,7 +935,7 @@ public class qPCRPrimerDesigner  {
 		String regions = p.getStringArg("-r");
 		String config = p.getStringArg("-c");
 		String outfile = p.getStringArg("-o");
-		boolean rc = p.getBooleanArg("-rc").booleanValue();
+		boolean rc = p.getBooleanArg("-rc");
 		
 		boolean configOk = false;
 		for(int i=0; i<CONFIG_NAMES.length; i++) {

@@ -40,23 +40,23 @@ public final class CommandLineParser {
 	 * 
 	 */
 	public CommandLineParser() {
-		this.isParsed = false;
+		isParsed = false;
 		
-		this.stringArgDescriptions = new HashMap<String,String>();
-		this.intArgDescriptions = new HashMap<String,String>();
-		this.floatArgDescriptions = new HashMap<String,String>();
-		this.doubleArgDescriptions = new HashMap<String,String>();
-		this.boolArgDescriptions = new HashMap<String,String>();	
+		stringArgDescriptions = new HashMap<String,String>();
+		intArgDescriptions = new HashMap<String,String>();
+		floatArgDescriptions = new HashMap<String,String>();
+		doubleArgDescriptions = new HashMap<String,String>();
+		boolArgDescriptions = new HashMap<String,String>();	
 		
-		this.stringArgDefaults = new HashMap<String,String>();
-		this.intArgDefaults = new HashMap<String,Integer>();
-		this.floatArgDefaults = new HashMap<String,Float>();
-		this.doubleArgDefaults = new HashMap<String,Double>();
-		this.boolArgDefaults = new HashMap<String,Boolean>();	
+		stringArgDefaults = new HashMap<String,String>();
+		intArgDefaults = new HashMap<String,Integer>();
+		floatArgDefaults = new HashMap<String,Float>();
+		doubleArgDefaults = new HashMap<String,Double>();
+		boolArgDefaults = new HashMap<String,Boolean>();	
 		
-		this.programDescription = new ArrayList<String>();
-		this.requiredArgs = new HashSet<String>();
-		this.commandLineValues = new HashMap<String,String>();
+		programDescription = new ArrayList<String>();
+		requiredArgs = new HashSet<String>();
+		commandLineValues = new HashMap<String,String>();
 
 	}
 	
@@ -65,7 +65,7 @@ public final class CommandLineParser {
 	 * @param description The program description
 	 */
 	public void setProgramDescription(String description) {
-		this.programDescription.add(description);
+		programDescription.add(description);
 	}
 	
 	/**
@@ -76,11 +76,11 @@ public final class CommandLineParser {
 	 * @param required whether parameter is required
 	 */
 	public void addStringArg(String flag, String description, boolean required) {
-		this.enforceUniqueFlag(flag);
-		this.enforceUniqueDescription(description);
-		this.stringArgDescriptions.put(flag, description);
-		this.commandLineValues.put(flag, null);
-		if(required) this.requiredArgs.add(flag);
+		enforceUniqueFlag(flag);
+		enforceUniqueDescription(description);
+		stringArgDescriptions.put(flag, description);
+		commandLineValues.put(flag, null);
+		if(required) requiredArgs.add(flag);
 	}
 	
 	/**
@@ -92,12 +92,12 @@ public final class CommandLineParser {
 	 * @param def default value
 	 */
 	public void addStringArg(String flag, String description, boolean required, String def) {
-		this.enforceUniqueFlag(flag);
-		this.enforceUniqueDescription(description);
-		this.stringArgDescriptions.put(flag, description);
-		this.commandLineValues.put(flag, null);
-		if(required) this.requiredArgs.add(flag);
-		this.stringArgDefaults.put(flag, def);
+		enforceUniqueFlag(flag);
+		enforceUniqueDescription(description);
+		stringArgDescriptions.put(flag, description);
+		commandLineValues.put(flag, null);
+		if(required) requiredArgs.add(flag);
+		stringArgDefaults.put(flag, def);
 	}
 
 	/**
@@ -108,11 +108,11 @@ public final class CommandLineParser {
 	 * @param required whether parameter is required
 	 */	
 	public void addIntegerArg(String flag, String description, boolean required) {
-		this.enforceUniqueFlag(flag);
-		this.enforceUniqueDescription(description);
-		this.intArgDescriptions.put(flag, description);
-		this.commandLineValues.put(flag, null);
-		if(required) this.requiredArgs.add(flag);
+		enforceUniqueFlag(flag);
+		enforceUniqueDescription(description);
+		intArgDescriptions.put(flag, description);
+		commandLineValues.put(flag, null);
+		if(required) requiredArgs.add(flag);
 	}
 
 	/**
@@ -124,12 +124,12 @@ public final class CommandLineParser {
 	 * @param def default value
 	 */	
 	public void addIntegerArg(String flag, String description, boolean required, Integer def) {
-		this.enforceUniqueFlag(flag);
-		this.enforceUniqueDescription(description);
-		this.intArgDescriptions.put(flag, description);
-		this.commandLineValues.put(flag, null);
-		if(required) this.requiredArgs.add(flag);
-		this.intArgDefaults.put(flag, def);
+		enforceUniqueFlag(flag);
+		enforceUniqueDescription(description);
+		intArgDescriptions.put(flag, description);
+		commandLineValues.put(flag, null);
+		if(required) requiredArgs.add(flag);
+		intArgDefaults.put(flag, def);
 	}
 
 	/**
@@ -140,11 +140,11 @@ public final class CommandLineParser {
 	 * @param required whether parameter is required
 	 */
 	public void addFloatArg(String flag, String description, boolean required) {
-		this.enforceUniqueFlag(flag);
-		this.enforceUniqueDescription(description);
-		this.floatArgDescriptions.put(flag, description);
-		this.commandLineValues.put(flag, null);		
-		if(required) this.requiredArgs.add(flag);
+		enforceUniqueFlag(flag);
+		enforceUniqueDescription(description);
+		floatArgDescriptions.put(flag, description);
+		commandLineValues.put(flag, null);		
+		if(required) requiredArgs.add(flag);
 	}
 	
 	/**
@@ -156,12 +156,12 @@ public final class CommandLineParser {
 	 * @param def default value
 	 */
 	public void addFloatArg(String flag, String description, boolean required, Float def) {
-		this.enforceUniqueFlag(flag);
-		this.enforceUniqueDescription(description);
-		this.floatArgDescriptions.put(flag, description);
-		this.commandLineValues.put(flag, null);		
-		if(required) this.requiredArgs.add(flag);
-		this.floatArgDefaults.put(flag, def);
+		enforceUniqueFlag(flag);
+		enforceUniqueDescription(description);
+		floatArgDescriptions.put(flag, description);
+		commandLineValues.put(flag, null);		
+		if(required) requiredArgs.add(flag);
+		floatArgDefaults.put(flag, def);
 	}
 	
 	/**
@@ -172,11 +172,11 @@ public final class CommandLineParser {
 	 * @param required whether parameter is required
 	 */
 	public void addDoubleArg(String flag, String description, boolean required) {
-		this.enforceUniqueFlag(flag);
-		this.enforceUniqueDescription(description);
-		this.doubleArgDescriptions.put(flag, description);
-		this.commandLineValues.put(flag, null);
-		if(required) this.requiredArgs.add(flag);
+		enforceUniqueFlag(flag);
+		enforceUniqueDescription(description);
+		doubleArgDescriptions.put(flag, description);
+		commandLineValues.put(flag, null);
+		if(required) requiredArgs.add(flag);
 	}
 
 	/**
@@ -188,12 +188,12 @@ public final class CommandLineParser {
 	 * @param def default value
 	 */
 	public void addDoubleArg(String flag, String description, boolean required, Double def) {
-		this.enforceUniqueFlag(flag);
-		this.enforceUniqueDescription(description);
-		this.doubleArgDescriptions.put(flag, description);
-		this.commandLineValues.put(flag, null);
-		if(required) this.requiredArgs.add(flag);
-		this.doubleArgDefaults.put(flag, def);
+		enforceUniqueFlag(flag);
+		enforceUniqueDescription(description);
+		doubleArgDescriptions.put(flag, description);
+		commandLineValues.put(flag, null);
+		if(required) requiredArgs.add(flag);
+		doubleArgDefaults.put(flag, def);
 	}
 
 	/**
@@ -204,11 +204,11 @@ public final class CommandLineParser {
 	 * @param required whether parameter is required
 	 */
 	public void addBooleanArg(String flag, String description, boolean required) {
-		this.enforceUniqueFlag(flag);
-		this.enforceUniqueDescription(description);
-		this.boolArgDescriptions.put(flag, description);
-		this.commandLineValues.put(flag, null);
-		if(required) this.requiredArgs.add(flag);
+		enforceUniqueFlag(flag);
+		enforceUniqueDescription(description);
+		boolArgDescriptions.put(flag, description);
+		commandLineValues.put(flag, null);
+		if(required) requiredArgs.add(flag);
 	}
 	
 	/**
@@ -220,12 +220,12 @@ public final class CommandLineParser {
 	 * @param def default value
 	 */
 	public void addBooleanArg(String flag, String description, boolean required, Boolean def) {
-		this.enforceUniqueFlag(flag);
-		this.enforceUniqueDescription(description);
-		this.boolArgDescriptions.put(flag, description);
-		this.commandLineValues.put(flag, null);
-		if(required) this.requiredArgs.add(flag);
-		this.boolArgDefaults.put(flag, def);
+		enforceUniqueFlag(flag);
+		enforceUniqueDescription(description);
+		boolArgDescriptions.put(flag, description);
+		commandLineValues.put(flag, null);
+		if(required) requiredArgs.add(flag);
+		boolArgDefaults.put(flag, def);
 	}
 	
 	/**
@@ -236,9 +236,9 @@ public final class CommandLineParser {
 	 */
 	public void parse(String[] args) {
 		
-		this.isParsed = false;
+		isParsed = false;
 				
-		this.commandLineValues.clear();
+		commandLineValues.clear();
 		int i=0;
 		while(i < args.length) {
 			
@@ -254,13 +254,13 @@ public final class CommandLineParser {
 			// Make sure flag exists
 			// Can't see same flag twice
 			// Next item should not be a flag
-			if(!this.hasFlag(args[i]) || this.commandLineValues.containsKey(args[i]) || this.hasFlag(args[i+1])) {
+			if(!hasFlag(args[i]) || commandLineValues.containsKey(args[i]) || hasFlag(args[i+1])) {
 				printHelpMessage();
 				System.exit(-1);
 			}
 			
 			// Add entries to map
-			this.commandLineValues.put(args[i], args[i+1]);
+			commandLineValues.put(args[i], args[i+1]);
 			
 			// Skip to next flag
 			i += 2;
@@ -268,8 +268,8 @@ public final class CommandLineParser {
 		}
 		
 		// Make sure all required arguments have been provided
-		for(String req : this.requiredArgs) {
-			if(!this.commandLineValues.containsKey(req)) {
+		for(String req : requiredArgs) {
+			if(!commandLineValues.containsKey(req)) {
 				System.err.println("\n------------------------------------------------------");
 				System.err.println("Invalid command line: argument " + req + " is required");
 				System.err.println("------------------------------------------------------\n");
@@ -278,7 +278,7 @@ public final class CommandLineParser {
 			}
 		}
 		
-		this.isParsed = true;
+		isParsed = true;
 		
 	}
 	
@@ -290,116 +290,116 @@ public final class CommandLineParser {
 	public String getStringArg(String flag) {
 		
 		// Make sure command line has been parsed
-		if(!this.isParsed) {
+		if(!isParsed) {
 			throw new IllegalStateException("Cannot get parameter value without first calling method parse()");
 		}
 		
 		// Make sure parameter type is correct
-		if(!this.stringArgDescriptions.containsKey(flag)) {
+		if(!stringArgDescriptions.containsKey(flag)) {
 			throw new IllegalArgumentException("Trying to get String value for non-String parameter " + flag);
 		}
 		
-		if(this.commandLineValues.get(flag) == null) {
-			if(this.stringArgDefaults.containsKey(flag)) return this.stringArgDefaults.get(flag);
+		if(commandLineValues.get(flag) == null) {
+			if(stringArgDefaults.containsKey(flag)) return stringArgDefaults.get(flag);
 		}
 		
-		return this.commandLineValues.get(flag);
+		return commandLineValues.get(flag);
 	}
 
 	/**
-	 * Get value of Integer parameter specified by flag
+	 * Get value of int parameter specified by flag
 	 * @param flag The command line flag for the argument
 	 * @return Integer specified on command line or null if parameter was not specified
 	 */
-	public Integer getIntegerArg(String flag) {
+	public int getIntArg(String flag) {
 		
 		// Make sure command line has been parsed
-		if(!this.isParsed) {
+		if(!isParsed) {
 			throw new IllegalStateException("Cannot get parameter value without first calling method parse()"); 
 		}
 		
 		// Make sure parameter type is correct
-		if(!this.intArgDescriptions.containsKey(flag)) {
+		if(!intArgDescriptions.containsKey(flag)) {
 			throw new IllegalArgumentException("Trying to get Integer value for non-Integer parameter " + flag); 
 		}
 		
-		if(this.commandLineValues.get(flag) == null) {
-			if(this.intArgDefaults.containsKey(flag)) return this.intArgDefaults.get(flag);
+		if(commandLineValues.get(flag) == null) {
+			if(intArgDefaults.containsKey(flag)) return intArgDefaults.get(flag);
 		}
 		
-		return Integer.valueOf(this.commandLineValues.get(flag),10);
+		return Integer.valueOf(commandLineValues.get(flag),10).intValue();
 	}
 
 	/**
-	 * Get value of Float parameter specified by flag
+	 * Get value of float parameter specified by flag
 	 * @param flag The command line flag for the argument
 	 * @return Float specified on command line or null if parameter was not specified
 	 */
-	public Float getFloatArg(String flag) {
+	public float getFloatArg(String flag) {
 		
 		// Make sure command line has been parsed
-		if(!this.isParsed) {
+		if(!isParsed) {
 			throw new IllegalStateException("Cannot get parameter value without first calling method parse()"); 
 		}
 		
 		// Make sure parameter type is correct
-		if(!this.floatArgDescriptions.containsKey(flag)) {
+		if(!floatArgDescriptions.containsKey(flag)) {
 			throw new IllegalArgumentException("Trying to get Float value for non-Float parameter " + flag); 
 		}
 		
-		if(this.commandLineValues.get(flag) == null) {
-			if(this.floatArgDefaults.containsKey(flag)) return this.floatArgDefaults.get(flag);
+		if(commandLineValues.get(flag) == null) {
+			if(floatArgDefaults.containsKey(flag)) return floatArgDefaults.get(flag).floatValue();
 		}
 		
-		return Float.valueOf(this.commandLineValues.get(flag));
+		return Float.valueOf(commandLineValues.get(flag)).floatValue();
 	}
 
 	/**
-	 * Get value of Double parameter specified by flag
+	 * Get value of double parameter specified by flag
 	 * @param flag The command line flag for the argument
 	 * @return Double specified on command line or null if parameter was not specified
 	 */
-	public Double getDoubleArg(String flag) {
+	public double getDoubleArg(String flag) {
 		
 		// Make sure command line has been parsed
-		if(!this.isParsed) {
+		if(!isParsed) {
 			throw new IllegalStateException("Cannot get parameter value without first calling method parse()"); 
 		}
 		
 		// Make sure parameter type is correct
-		if(!this.doubleArgDescriptions.containsKey(flag)) {
+		if(!doubleArgDescriptions.containsKey(flag)) {
 			throw new IllegalArgumentException("Trying to get Double value for non-Double parameter " + flag); 
 		}
 		
-		if(this.commandLineValues.get(flag) == null) {
-			if(this.doubleArgDefaults.containsKey(flag)) return this.doubleArgDefaults.get(flag);
+		if(commandLineValues.get(flag) == null) {
+			if(doubleArgDefaults.containsKey(flag)) return doubleArgDefaults.get(flag);
 		}
 		
-		return Double.valueOf(this.commandLineValues.get(flag));
+		return Double.valueOf(commandLineValues.get(flag)).doubleValue();
 	}
 
 	/**
-	 * Get value of Boolean parameter specified by flag
+	 * Get value of boolean parameter specified by flag
 	 * @param flag The command line flag for the argument
 	 * @return Boolean specified on command line or null if parameter was not specified
 	 */
-	public Boolean getBooleanArg(String flag) {
+	public boolean getBooleanArg(String flag) {
 		
 		// Make sure command line has been parsed
-		if(!this.isParsed) {
+		if(!isParsed) {
 			throw new IllegalStateException("Cannot get parameter value without first calling method parse()"); 
 		}
 		
 		// Make sure parameter type is correct
-		if(!this.boolArgDescriptions.containsKey(flag)) {
+		if(!boolArgDescriptions.containsKey(flag)) {
 			throw new IllegalArgumentException("Trying to get Boolean value for non-Boolean parameter " + flag); 
 		}
 		
-		if(this.commandLineValues.get(flag) == null) {
-			if(this.boolArgDefaults.containsKey(flag)) return this.boolArgDefaults.get(flag);
+		if(commandLineValues.get(flag) == null) {
+			if(boolArgDefaults.containsKey(flag)) return boolArgDefaults.get(flag);
 		}
 		
-		return Boolean.valueOf(this.commandLineValues.get(flag));
+		return Boolean.valueOf(commandLineValues.get(flag)).booleanValue();
 	}
 	
 	
@@ -409,41 +409,41 @@ public final class CommandLineParser {
 	 */
 	private void printHelpMessage() {
 		System.err.println();
-		if(!this.programDescription.isEmpty()) {
-			for(String s : this.programDescription) System.err.println(s + "\n");
+		if(!programDescription.isEmpty()) {
+			for(String s : programDescription) System.err.println(s + "\n");
 			System.err.println();
 		}
 		
 		TreeSet<String> args = new TreeSet<String>();
 		
-		for(String key : this.stringArgDescriptions.keySet()) {
-			String msg = key + " <String>\t" + this.stringArgDescriptions.get(key);
-			if(this.requiredArgs.contains(key)) msg += " (required)\n";
-			else msg += " (default=" + this.stringArgDefaults.get(key) + ")\n";
+		for(String key : stringArgDescriptions.keySet()) {
+			String msg = key + " <String>\t" + stringArgDescriptions.get(key);
+			if(requiredArgs.contains(key)) msg += " (required)\n";
+			else msg += " (default=" + stringArgDefaults.get(key) + ")\n";
 			args.add(msg); 
 		}
-		for(String key : this.intArgDescriptions.keySet()) {
-			String msg = key + " <int>\t" + this.intArgDescriptions.get(key);
-			if(this.requiredArgs.contains(key)) msg += " (required)\n";
-			else msg += " (default=" + this.intArgDefaults.get(key) + ")\n";
+		for(String key : intArgDescriptions.keySet()) {
+			String msg = key + " <int>\t" + intArgDescriptions.get(key);
+			if(requiredArgs.contains(key)) msg += " (required)\n";
+			else msg += " (default=" + intArgDefaults.get(key) + ")\n";
 			args.add(msg); 
 		}
-		for(String key : this.floatArgDescriptions.keySet()) {
-			String msg = key + " <float>\t" + this.floatArgDescriptions.get(key);
-			if(this.requiredArgs.contains(key)) msg += " (required)\n";
-			else msg += " (default=" + this.floatArgDefaults.get(key) + ")\n";
+		for(String key : floatArgDescriptions.keySet()) {
+			String msg = key + " <float>\t" + floatArgDescriptions.get(key);
+			if(requiredArgs.contains(key)) msg += " (required)\n";
+			else msg += " (default=" + floatArgDefaults.get(key) + ")\n";
 			args.add(msg); 
 		}
-		for(String key : this.doubleArgDescriptions.keySet()) {
-			String msg = key + " <double>\t" + this.doubleArgDescriptions.get(key);
-			if(this.requiredArgs.contains(key)) msg += " (required)\n";
-			else msg += " (default=" + this.doubleArgDefaults.get(key) + ")\n";
+		for(String key : doubleArgDescriptions.keySet()) {
+			String msg = key + " <double>\t" + doubleArgDescriptions.get(key);
+			if(requiredArgs.contains(key)) msg += " (required)\n";
+			else msg += " (default=" + doubleArgDefaults.get(key) + ")\n";
 			args.add(msg); 
 		}
-		for(String key : this.boolArgDescriptions.keySet()) {
-			String msg = key + " <boolean>\t" + this.boolArgDescriptions.get(key);
-			if(this.requiredArgs.contains(key)) msg += " (required)\n";
-			else msg += " (default=" + this.boolArgDefaults.get(key) + ")\n";
+		for(String key : boolArgDescriptions.keySet()) {
+			String msg = key + " <boolean>\t" + boolArgDescriptions.get(key);
+			if(requiredArgs.contains(key)) msg += " (required)\n";
+			else msg += " (default=" + boolArgDefaults.get(key) + ")\n";
 			args.add(msg); 
 		}
 
@@ -460,7 +460,7 @@ public final class CommandLineParser {
 	 * @return true if and only if flag has already been used
 	 */
 	private boolean hasFlag(String flag) {
-		return (this.stringArgDescriptions.containsKey(flag) || this.intArgDescriptions.containsKey(flag) || this.floatArgDescriptions.containsKey(flag) || this.doubleArgDescriptions.containsKey(flag) || this.boolArgDescriptions.containsKey(flag));
+		return (stringArgDescriptions.containsKey(flag) || intArgDescriptions.containsKey(flag) || floatArgDescriptions.containsKey(flag) || doubleArgDescriptions.containsKey(flag) || boolArgDescriptions.containsKey(flag));
 	}
 	
 	/**
@@ -469,7 +469,7 @@ public final class CommandLineParser {
 	 * @return true if and only if description has already been used
 	 */
 	private boolean hasDescription(String description) {
-		return (this.stringArgDescriptions.containsValue(description) || this.intArgDescriptions.containsValue(description) || this.floatArgDescriptions.containsValue(description) || this.doubleArgDescriptions.containsValue(description) || this.boolArgDescriptions.containsValue(description));
+		return (stringArgDescriptions.containsValue(description) || intArgDescriptions.containsValue(description) || floatArgDescriptions.containsValue(description) || doubleArgDescriptions.containsValue(description) || boolArgDescriptions.containsValue(description));
 	}
 	
 	/**
@@ -477,7 +477,7 @@ public final class CommandLineParser {
 	 * @param flag
 	 */
 	private void enforceUniqueFlag(String flag) {
-		if(this.hasFlag(flag)) {
+		if(hasFlag(flag)) {
 			System.err.println("Flag " + flag + " has already been used."); 
 			System.exit(-1);
 		}
@@ -488,7 +488,7 @@ public final class CommandLineParser {
 	 * @param description
 	 */
 	private void enforceUniqueDescription(String description) {
-		if(this.hasDescription(description)) {
+		if(hasDescription(description)) {
 			System.err.println("Description " + description + " has already been used."); 
 			System.exit(-1);
 		}
