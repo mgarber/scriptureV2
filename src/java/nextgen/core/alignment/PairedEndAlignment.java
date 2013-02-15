@@ -389,7 +389,7 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 		
 		record.setMateAlignmentStart(secondMate.getSAMStart());
 		// add by @zhuxp
-        record.setAlignmentStart(this.getAlignmentStart());
+        record.setAlignmentStart(this.getAlignmentStart()+1);
      
 		// end of add (test version)
         
