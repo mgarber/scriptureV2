@@ -4,7 +4,7 @@ import broad.pda.seq.segmentation.AlignmentDataModelStats;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.model.AlignmentModel;
 
-public class ScanStatisticScore extends CountScore {
+public class ScanStatisticScore extends CountScore implements Comparable<ScanStatisticScore> {
 
 	/**
 	 * Global statistics are stored in the CountScore class
@@ -171,6 +171,33 @@ public class ScanStatisticScore extends CountScore {
 			double newScore=computeCount(annotation, previousScore);
 			return new ScanStatisticScore(model, annotation, previousScore, newScore);
 		}
+	}
+
+	/**
+	 * True iff scan P value and annotation are equal
+	 */
+	@Override
+	public boolean equals(Object o) {
+		ScanStatisticScore otherScore = (ScanStatisticScore) o;
+		if(scanPvalue != otherScore.getScanPvalue()) return false;
+		if(!getAnnotation().equals(otherScore.getAnnotation())) return false;
+		return true;
+	}
+	
+	/**
+	 * First compare scan P values
+	 * Then compare annotations
+	 */
+	@Override
+	public int compareTo(ScanStatisticScore o) {
+		
+		// First compare scan P values
+		double otherPval = o.getScanPvalue();
+		if(scanPvalue < otherPval) return -1;
+		if(scanPvalue > otherPval) return 1;
+		
+		// Then compare annotations
+		return getAnnotation().compareTo(o.getAnnotation());
 	}
 
 
