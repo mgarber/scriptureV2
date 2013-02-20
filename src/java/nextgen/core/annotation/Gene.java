@@ -1568,12 +1568,26 @@ public class Gene extends BasicAnnotation {
 		return false;
 	}
 	
-	//Overlaps in the exon level ; i.e at least one exon of "this" overlap an exon of other 
+	/**
+	 * Whether an exon of this gene overlaps an exon of other gene and the two genes have the same orientation
+	 * @param other Other gene
+	 * @return Whether genes have same orientation and at least one overlapping exon
+	 */
 	public boolean overlaps(Gene other) {
+		return overlaps(other, false);
+	}
+	
+	/**
+	 * Whether an exon of this gene overlaps an exon of other gene
+	 * @param other Other gene
+	 * @param ignoreOrientation Ignore orientation. If set to false, orientations must be equal or at least one orientation must be unknown.
+	 * @return Whether genes overlap at the exon level
+	 */
+	public boolean overlaps(Gene other, boolean ignoreOrientation) {
 		//System.err.println("Findig overlap betweein this " + toBED() + "\nand\n"+other.toBED());
 		boolean overlaps = false;
 		//System.err.println("\t\t this gene's orientation [" + orientation + "] others [" + other.getOrientation()+ "]");
-		if(getOrientation().equals(other.getOrientation()) || Strand.UNKNOWN.equals(getOrientation()) || Strand.UNKNOWN.equals(other.getOrientation())) {
+		if(ignoreOrientation || getOrientation().equals(other.getOrientation()) || Strand.UNKNOWN.equals(getOrientation()) || Strand.UNKNOWN.equals(other.getOrientation())) {
 			//System.err.println("\t\tOrientation is compatible");
 			Collection<? extends Annotation> exons = getSortedAndUniqueExons();
 			Collection<? extends Annotation> otherExons = other.getSortedAndUniqueExons();
