@@ -441,16 +441,20 @@ public class FastaSequenceIO {
 		//br.close();
 	}
 	
-	public void write(List<? extends Sequence> seqs) throws IOException {
+	public void write(List<? extends Sequence> seqs, int lineLength) throws IOException {
 		BufferedWriter bw = new BufferedWriter(new FileWriter(file));
 		Iterator<? extends Sequence> it = seqs.iterator();
 		while(it.hasNext()) {
 			Sequence seq = it.next();
-			write(seq, bw);
+			write(seq, bw, lineLength);
 		}
 		bw.close();
 	}
 	
+	public void write(List<? extends Sequence> seqs) throws IOException {
+		write(seqs, LINE_LENGTH);
+	}
+
 	public void write(Sequence seq) throws IOException {
 		BufferedWriter bw = new BufferedWriter(new FileWriter(file));
 		write(seq, bw);
@@ -477,18 +481,26 @@ public class FastaSequenceIO {
 
 	
 	public void write(List<? extends Sequence> seqs, String fileName) throws IOException{
-		BufferedWriter bw = new BufferedWriter(new FileWriter(fileName));
-		write(seqs, bw);
-		bw.close();
+		write(seqs, fileName, LINE_LENGTH);
 	}
 	
-	public void write(List<? extends Sequence> seqs, BufferedWriter bw) throws IOException {
+	public void write(List<? extends Sequence> seqs, String fileName, int lineLength) throws IOException{
+		BufferedWriter bw = new BufferedWriter(new FileWriter(fileName));
+		write(seqs, bw, lineLength);
+		bw.close();
+	}
+
+	public void write(List<? extends Sequence> seqs, BufferedWriter bw, int lineLength) throws IOException {
 		Iterator<? extends Sequence> it = seqs.iterator();
 		while(it.hasNext()) {
-			write(it.next(), bw);
+			write(it.next(), bw, lineLength);
 		}
 	}
 	
+	public void write(List<? extends Sequence> seqs, BufferedWriter bw) throws IOException {
+		write(seqs, bw, LINE_LENGTH);
+	}
+
 	//FOR CSF
 	public void write(List<? extends Sequence> seqs, BufferedWriter bw, Map<String, String> names, String refID, String pos) throws IOException {
 		Iterator<? extends Sequence> it = seqs.iterator();
@@ -511,8 +523,7 @@ public class FastaSequenceIO {
 		}
 	}
 	
-	
-	public void write(Sequence seq, BufferedWriter bw) throws IOException {
+	public void write(Sequence seq, BufferedWriter bw, int lineLength) throws IOException {
 		StringBuilder sequenceBuilder = seq.getSequenceBuilder();
 		if(seq == null || sequenceBuilder.length() == 0) {
 			return;
@@ -525,11 +536,15 @@ public class FastaSequenceIO {
 		writeSequenceId(seq, bw);		
 		bw.newLine();
 		while(currentIndex < sequenceBuilder.length()) {
-			int toWrite = Math.min(LINE_LENGTH, sequenceBuilder.length() - currentIndex) - 1;
+			int toWrite = Math.min(lineLength, sequenceBuilder.length() - currentIndex) - 1;
 			bw.write(sequenceBuilder.substring(currentIndex, currentIndex + toWrite + 1));
 			bw.newLine();
 			currentIndex = currentIndex + toWrite + 1;
 		}
+	}
+	
+	public void write(Sequence seq, BufferedWriter bw) throws IOException {
+		write(seq, bw, LINE_LENGTH);
 	}
 
 	protected void writeSequenceId(Sequence seq, BufferedWriter bw) throws IOException {
