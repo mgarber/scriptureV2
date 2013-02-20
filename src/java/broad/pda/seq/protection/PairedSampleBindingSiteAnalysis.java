@@ -593,8 +593,8 @@ public class PairedSampleBindingSiteAnalysis extends PairedSamplePeakCaller {
 		p.addStringArg("-b", "Background bam file", true);
 		p.addStringArg("-s", "Signal bam file", true);
 		p.addStringArg("-g", "Gene bed file", true);
-		p.addIntegerArg("-w", "Window size", true);
-		p.addIntegerArg("-t", "Step size", true);
+		p.addIntArg("-w", "Window size", true);
+		p.addIntArg("-t", "Step size", true);
 		p.addFloatArg("-psk", "P value cutoff for skellam statistic", false, (float)0.05);
 		p.addFloatArg("-psc", "P value cutoff for scan statistic", false, (float)0.05);
 		p.addFloatArg("-q", "Coverage quantile within untrimmed peak for trimming by max contiguous subsequence", false, (float)0.5);

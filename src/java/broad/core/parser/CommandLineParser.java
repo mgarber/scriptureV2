@@ -107,7 +107,7 @@ public final class CommandLineParser {
 	 * @param description the description of the argument
 	 * @param required whether parameter is required
 	 */	
-	public void addIntegerArg(String flag, String description, boolean required) {
+	public void addIntArg(String flag, String description, boolean required) {
 		enforceUniqueFlag(flag);
 		enforceUniqueDescription(description);
 		intArgDescriptions.put(flag, description);
@@ -461,6 +461,51 @@ public final class CommandLineParser {
 	 */
 	private boolean hasFlag(String flag) {
 		return (stringArgDescriptions.containsKey(flag) || intArgDescriptions.containsKey(flag) || floatArgDescriptions.containsKey(flag) || doubleArgDescriptions.containsKey(flag) || boolArgDescriptions.containsKey(flag));
+	}
+	
+	/**
+	 * Whether the flag is associated with an int argument and was specified on the command line
+	 * @param flag The flag
+	 * @return Whether the flag is present
+	 */
+	public boolean hasIntFlag(String flag) {
+		return intArgDescriptions.containsKey(flag) && commandLineValues.containsKey(flag);
+	}
+	
+	/**
+	 * Whether the flag is associated with a float argument and was specified on the command line
+	 * @param flag The flag
+	 * @return Whether the flag is present
+	 */
+	public boolean hasFloatFlag(String flag) {
+		return floatArgDescriptions.containsKey(flag) && commandLineValues.containsKey(flag);
+	}
+	
+	/**
+	 * Whether the flag is associated with a double argument and was specified on the command line
+	 * @param flag The flag
+	 * @return Whether the flag is present
+	 */
+	public boolean hasDoubleFlag(String flag) {
+		return doubleArgDescriptions.containsKey(flag) && commandLineValues.containsKey(flag);
+	}
+	
+	/**
+	 * Whether the flag is associated with a boolean argument and was specified on the command line
+	 * @param flag The flag
+	 * @return Whether the flag is present
+	 */
+	public boolean hasBooleanFlag(String flag) {
+		return boolArgDescriptions.containsKey(flag) && commandLineValues.containsKey(flag);
+	}
+	
+	/**
+	 * Whether the flag is associated with a string argument and was specified on the command line
+	 * @param flag The flag
+	 * @return Whether the flag is present
+	 */
+	public boolean hasStringFlag(String flag) {
+		return stringArgDescriptions.containsKey(flag) && commandLineValues.containsKey(flag);
 	}
 	
 	/**

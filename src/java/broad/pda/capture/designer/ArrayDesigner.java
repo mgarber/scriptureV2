@@ -369,12 +369,12 @@ public final class ArrayDesigner {
 		p.addStringArg("-design", "Output design file without extension, for table and fasta files", true);
 		p.addStringArg("-probes", "Output probes file without extension, for table and fasta files", false);
 		p.addStringArg("-primers", "Output primers file", false);
-		p.addIntegerArg("-spp", "match length for single primer match to any probe on array", true);
-		p.addIntegerArg("-bgpd", "match length for between genes primer dimer", true);
-		p.addIntegerArg("-wgpd", "match length for within gene primer dimer", true);
-		p.addIntegerArg("-kp","max allowable kmer occurrences in probe for single primer match",true);
-		p.addIntegerArg("-dpp","match length for double primer match to probe",true);
-		p.addIntegerArg("-sppwg", "match length for single primer match to probe within gene",true);
+		p.addIntArg("-spp", "match length for single primer match to any probe on array", true);
+		p.addIntArg("-bgpd", "match length for between genes primer dimer", true);
+		p.addIntArg("-wgpd", "match length for within gene primer dimer", true);
+		p.addIntArg("-kp","max allowable kmer occurrences in probe for single primer match",true);
+		p.addIntArg("-dpp","match length for double primer match to probe",true);
+		p.addIntArg("-sppwg", "match length for single primer match to probe within gene",true);
 		p.parse(args);
 	
 		// Get values of command arguments

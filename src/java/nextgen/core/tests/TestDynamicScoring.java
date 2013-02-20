@@ -26,8 +26,8 @@ public class TestDynamicScoring {
 		p.addStringArg("-g", "Bed gene annotation", true);
 		p.addStringArg("-c", "Chromosome size file", true);
 		p.addStringArg("-chr", "Chromosome name", true);
-		p.addIntegerArg("-s", "Start position", true);
-		p.addIntegerArg("-e", "End position", true);
+		p.addIntArg("-s", "Start position", true);
+		p.addIntArg("-e", "End position", true);
 		p.addBooleanArg("-pe", "Use fragments", true);
 		p.addStringArg("-save", "save file", true);
 		p.parse(args);
