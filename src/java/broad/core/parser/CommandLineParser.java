@@ -248,15 +248,27 @@ public final class CommandLineParser {
 			// A flag shouldn't be the last item
 			if(args.length == i+1) {
 				printHelpMessage();
-				System.exit(-1);
+				throw new IllegalArgumentException("Flag can't be last item on line");
 			}
 			
 			// Make sure flag exists
-			// Can't see same flag twice
-			// Next item should not be a flag
-			if(!hasFlag(args[i]) || commandLineValues.containsKey(args[i]) || hasFlag(args[i+1])) {
+			if(!hasFlag(args[i])) {
 				printHelpMessage();
-				System.exit(-1);
+				throw new IllegalArgumentException("Flag not recognized: " + args[i]);
+			}
+			
+			
+			// Can't see same flag twice
+			if(commandLineValues.containsKey(args[i])) {
+				printHelpMessage();
+				throw new IllegalArgumentException("Flag specified twice:" + args[i]);
+			}
+			
+			
+			// Next item should not be a flag
+			if(hasFlag(args[i+1])) {
+				printHelpMessage();
+				throw new IllegalArgumentException("Can't specify two flags in a row: " + args[i] + " " + args[i+1]);
 			}
 			
 			// Add entries to map
@@ -270,11 +282,8 @@ public final class CommandLineParser {
 		// Make sure all required arguments have been provided
 		for(String req : requiredArgs) {
 			if(!commandLineValues.containsKey(req)) {
-				System.err.println("\n------------------------------------------------------");
-				System.err.println("Invalid command line: argument " + req + " is required");
-				System.err.println("------------------------------------------------------\n");
 				printHelpMessage();
-				System.exit(-1);
+				throw new IllegalArgumentException("Invalid command line: argument " + req + " is required");
 			}
 		}
 		

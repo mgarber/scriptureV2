@@ -466,7 +466,7 @@ public class BEDFileParser {
 				Gene track=new Gene(nextLine, false);
 				data.add(track);
 				i++;
-				if(i%10000 ==0){System.err.println(i);}
+				if(i%10000 ==0){logger.info("Loaded " + i + " genes.");}
 			}
 	
 		}
@@ -580,7 +580,7 @@ public class BEDFileParser {
 				rtrn.put(gene.getChr(), data);
 			}
 			i++;
-			if(i%10000==0){System.err.println(i);}
+			if(i%10000==0){logger.info("Loaded " + i + " genes.");}
 		}
 	
 	
@@ -613,7 +613,7 @@ public class BEDFileParser {
 				data.put(gene.getStart(), gene.getEnd(), gene);
 			}
 			i++;
-			if(i%10000==0){System.err.println(i);}
+			if(i%10000==0){logger.info("Loaded " + i + " genes.");}
 		}
 	
 	
