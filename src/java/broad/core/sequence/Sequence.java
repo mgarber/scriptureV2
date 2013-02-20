@@ -10,6 +10,9 @@ import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import nextgen.core.annotation.Annotation;
+import nextgen.core.annotation.Annotation.Strand;
+
 import org.apache.log4j.Logger;
 
 import Jama.Matrix;
@@ -688,6 +691,25 @@ public class Sequence {
 		return getSubSequence(name, start, end,0);
 	}
 
+	/**
+	 * Get the spliced transcribed sequence of an annotation
+	 * Bases are reported in 5' to 3' direction
+	 * @param annot The annotation
+	 * @return Sequence with same name as annotation containing the transcribed sequence
+	 */
+	public Sequence getSubsequence(Annotation annot) {
+		List<? extends Annotation> blocks = annot.getBlocks();
+		Sequence seq = new Sequence(annot.getName());
+		for(Annotation block : blocks) {
+			Sequence blockSequence = getSubSequence("", block.getStart(), block.getEnd());
+			seq.appendToSequence(blockSequence.getSequenceBases());
+		}
+		if(annot.getOrientation().equals(Strand.NEGATIVE)) {
+			seq.reverse();
+		}
+		return seq;
+	}
+	
 	public void setCapacity(int size) {
 		sequenceBases = new StringBuilder(size);
 	}
