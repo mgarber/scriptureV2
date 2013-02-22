@@ -923,7 +923,7 @@ public class qPCRPrimerDesigner  {
 	public static void main(String[] args) throws IOException {
 		
 		CommandLineParser p = new CommandLineParser();
-		p.addStringArg("-s","Input sequences to design primers against",true);
+		p.addStringArg("-s","Fasta file of sequences to design primers against",true);
 		p.addStringArg("-r","Optional file of region coordinates to design primers against (format: sequence_name start_pos end_pos)",false,null);
 		p.addStringArg("-c","Primer3 configuration name",true);
 		p.addBooleanArg("-rc", "Design primers against antisense strand", true);
@@ -944,7 +944,7 @@ public class qPCRPrimerDesigner  {
 		
 		// validate configuration name
 		if(!configOk) {
-			System.err.println("\nValid Primer3 configurarion names:");
+			System.err.println("\nValid Primer3 configuration names:");
 			for(int i=0; i<CONFIG_NAMES.length; i++) {
 				System.err.println(CONFIG_NAMES[i]);
 			}

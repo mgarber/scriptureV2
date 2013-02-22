@@ -286,22 +286,14 @@ public final class PcrTailDesigner {
 	}
 	
 	/**
-	 * Pick random sequences until a good primer pair is found then write the primer to the file
-	 * This method is intended to be used in parallel to write many primers at once
-	 * @param primerLength
-	 * @param outFile
+	 * Get one primer pair
+	 * @param primerLength Primer length
+	 * @return Primer pair with less than max primer penalty
 	 * @throws IOException
 	 */
-	private static void writeOneInitialPrimerPair(int primerLength, String outFile) throws IOException {
-		
-		// Get the name of the output file to also use as the primer ID
-		StringParser stringparse = new StringParser();
-		stringparse.parse(outFile,"/");
-		String filename = stringparse.asString(stringparse.getFieldCount() - 1);
-		
+	public static PrimerPair getOneInitialPrimerPair(int primerLength) throws IOException {
 		// Repeat until a suitable primer pair is found
-		boolean found = false;
-		while(found == false) {
+		while(true) {
 			String seq = Sequence.generateRandomSequence(5000);
 			// Only ask for one primer pair
 			Collection<PrimerPair> primers = qPCRPrimerDesigner.designSyntheticPrimers(seq, 1, primerLength, 5000);
@@ -309,33 +301,53 @@ public final class PcrTailDesigner {
 			if(primers != null && !primers.isEmpty()) {
 				PrimerPair primer = primers.iterator().next();
 				if(primer.getPrimerPairPenalty() <= MAX_PRIMER_PENALTY) {
-					found = true;
-					// Write primer data to file to be read in by another method
-					FileWriter writer = new FileWriter(outFile);
-					// The primer pair ID is the name of the outfile
-					String data = filename;
-					data += " ";
-					data += Integer.valueOf(primer.getLeftPrimerPosition()).toString();
-					data += " ";
-					data += primer.getLeftPrimer();
-					data += " ";
-					data += Integer.valueOf(primer.getRightPrimerPosition()).toString();
-					data += " ";
-					data += primer.getRightPrimer();
-					data += " ";
-					data += PrimerUtils.computeTM(primer.getLeftPrimer()); // recompute TM with our tool
-					data += " ";
-					data += PrimerUtils.computeTM(primer.getRightPrimer());;
-					data += " ";
-					data += Integer.valueOf(primer.getProductSize()).toString();
-					data += " ";
-					data += "no_comment";
-					// Write the data to read into PrimerPair constructor later
-					writer.write(data);
-					writer.close();
-				} 
+					return primer;
+				}
 			}
 		}
+	}
+	
+	/**
+	 * Pick random sequences until a good primer pair is found then write the primer to the file
+	 * This method is intended to be used in parallel to write many primers at once
+	 * @param primerLength Primer length
+	 * @param numToWrite Number of primers to write
+	 * @param outFile Output file
+	 * @throws IOException
+	 */
+	private static void writeInitialPrimerPairs(int primerLength, int numToWrite, String outFile) throws IOException {
+		
+		// Get the name of the output file to also use as the primer ID
+		StringParser stringparse = new StringParser();
+		stringparse.parse(outFile,"/");
+		String filename = stringparse.asString(stringparse.getFieldCount() - 1);
+		// Write primer data to file to be read in by another method
+		FileWriter writer = new FileWriter(outFile);
+		for(int i=0; i < numToWrite; i++) {
+			PrimerPair primer = getOneInitialPrimerPair(primerLength);
+			// The primer pair ID is the name of the outfile
+			String data = filename;
+			data += " ";
+			data += Integer.valueOf(primer.getLeftPrimerPosition()).toString();
+			data += " ";
+			data += primer.getLeftPrimer();
+			data += " ";
+			data += Integer.valueOf(primer.getRightPrimerPosition()).toString();
+			data += " ";
+			data += primer.getRightPrimer();
+			data += " ";
+			data += PrimerUtils.computeTM(primer.getLeftPrimer()); // recompute TM with our tool
+			data += " ";
+			data += PrimerUtils.computeTM(primer.getRightPrimer());;
+			data += " ";
+			data += Integer.valueOf(primer.getProductSize()).toString();
+			data += " ";
+			data += "no_comment";
+			// Write the data to read into PrimerPair constructor later
+			writer.write(data);
+		}
+		writer.close();
+		
 	}
 	
 	
@@ -1320,7 +1332,7 @@ public final class PcrTailDesigner {
 			
 			int primerSize = Integer.parseInt(args[0]);
 			String outFile = args[1];
-			writeOneInitialPrimerPair(primerSize,outFile);
+			writeInitialPrimerPairs(primerSize,1,outFile);
 			
 		}
 		
