@@ -10,7 +10,7 @@ import nextgen.core.model.AlignmentModel;
  * @author engreitz
  * This class represents a simple count scoring function for the DataAlignmentModel.
  */
-public class CountScore extends WindowScore.AbstractWindowScore {
+public class CountScore extends WindowScore.AbstractWindowScore implements Comparable<CountScore> {
 
 	static Logger logger = Logger.getLogger(CountScore.class.getName());
 	public static double DEFAULT_REGION_TOTAL = -1.0;
@@ -92,6 +92,35 @@ public class CountScore extends WindowScore.AbstractWindowScore {
 		return annotation.toBED() + "\t" + getCount() + "\t" + getRPKM() + "\t" + getRegionTotal() + "\t" + getTotal();
 	}
 	
+	/**
+	 * True iff count and annotation are equal
+	 */
+	@Override
+	public boolean equals(Object o) {
+		ScanStatisticScore otherScore = (ScanStatisticScore) o;
+		if(count != otherScore.getCount()) return false;
+		if(!getAnnotation().equals(otherScore.getAnnotation())) return false;
+		return true;
+	}
+	
+	/**
+	 * First compare counts
+	 * Then compare annotations
+	 */
+	@Override
+	public int compareTo(CountScore o) {
+		
+		// First compare counts
+		double otherCount = o.getCount();
+		if(count < otherCount) return -1;
+		if(count > otherCount) return 1;
+		
+		// Then compare annotations
+		return getAnnotation().compareTo(o.getAnnotation());
+	}
+
+	
+	
 	public static class Processor extends WindowProcessor.AbstractProcessor<CountScore> {
 		protected AnnotationCollection<? extends Annotation> model;
 		protected double regionTotal = DEFAULT_REGION_TOTAL;
@@ -153,6 +182,7 @@ public class CountScore extends WindowScore.AbstractWindowScore {
 		}
 		
 	}
+
 
 	
 
