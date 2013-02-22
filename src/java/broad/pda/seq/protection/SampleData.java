@@ -207,7 +207,25 @@ public class SampleData {
 		return directory + "/" + name;
 	}
 	
-
+	/**
+	 * Get scan statistic score for a specified window
+	 * @param gene Parent gene
+	 * @param window The window
+	 * @return Scan statistic score for window with global stats referring to parent transcript
+	 */
+	public ScanStatisticScore scoreWindow(Gene gene, Annotation window) {
+		double geneTotal = getGeneCount(gene);
+		double geneLength = gene.getSize();
+		ScanStatisticScore score = new ScanStatisticScore(data, window);
+		double regionLength = window.getSize();
+		double regionTotal = data.getCount(window);
+		score.setGlobalLength(geneLength);
+		score.setRegionLength(regionLength);
+		score.setTotal(geneTotal);
+		score.setRegionTotal(regionTotal);
+		score.refreshScanPvalue(data);
+		return score;
+	}
 	
 	/**
 	 * Compute and store scores for each window of gene

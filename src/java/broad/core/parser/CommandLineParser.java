@@ -6,7 +6,6 @@ package broad.core.parser;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Stack;
 import java.util.TreeSet;
 
 
@@ -333,7 +332,7 @@ public final class CommandLineParser {
 		}
 		
 		if(commandLineValues.get(flag) == null) {
-			if(intArgDefaults.containsKey(flag)) return intArgDefaults.get(flag);
+			if(intArgDefaults.containsKey(flag)) return intArgDefaults.get(flag).intValue();
 		}
 		
 		return Integer.valueOf(commandLineValues.get(flag),10).intValue();
@@ -381,7 +380,7 @@ public final class CommandLineParser {
 		}
 		
 		if(commandLineValues.get(flag) == null) {
-			if(doubleArgDefaults.containsKey(flag)) return doubleArgDefaults.get(flag);
+			if(doubleArgDefaults.containsKey(flag)) return doubleArgDefaults.get(flag).doubleValue();
 		}
 		
 		return Double.valueOf(commandLineValues.get(flag)).doubleValue();
@@ -405,7 +404,7 @@ public final class CommandLineParser {
 		}
 		
 		if(commandLineValues.get(flag) == null) {
-			if(boolArgDefaults.containsKey(flag)) return boolArgDefaults.get(flag);
+			if(boolArgDefaults.containsKey(flag)) return boolArgDefaults.get(flag).booleanValue();
 		}
 		
 		return Boolean.valueOf(commandLineValues.get(flag)).booleanValue();
