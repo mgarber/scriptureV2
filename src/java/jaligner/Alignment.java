@@ -310,6 +310,14 @@ public final class Alignment {
 	}
 
 	/**
+	 * Percent identity
+	 * @return Matches / length
+	 */
+	public float getPercentIdentity() {
+		return identity / (float) getLength();
+	}
+	
+	/**
 	 * @param identity
 	 *            The identity to set.
 	 */
@@ -317,6 +325,7 @@ public final class Alignment {
 		this.identity = identity;
 	}
 
+	
 	/**
 	 * @return Returns the markupLine.
 	 */

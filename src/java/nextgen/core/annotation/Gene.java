@@ -950,6 +950,7 @@ public class Gene extends BasicAnnotation {
 		Collection<Annotation> overlappingExons = new TreeSet<Annotation>();
 		for(Annotation exon: otherExons) {
 			Annotation exonClone = new Alignments(exon);
+			List<Annotation> tmp = exonClone.intersect(thisExons);
 			overlappingExons.addAll(exonClone.intersect(thisExons));
 		}
 		
@@ -2067,7 +2068,7 @@ public class Gene extends BasicAnnotation {
 	public int transcriptToGenomicPosition(int transcriptPosition) {
 		int relativePosition= transcriptPosition;
 		int genomicPosition = -1;
-		if("-".equals(getOrientation())){
+		if(isNegativeStrand()){
 			relativePosition=(getSize())-(transcriptPosition) - 1; //Recall that the transcript is [0,L) closed open from 0 to the length L
 		}
 		Gene samRecord= trimGene(relativePosition, relativePosition+1 ); //TODO: Should we do relativePosition-1, relativePosition when transcript in reversed orientation?

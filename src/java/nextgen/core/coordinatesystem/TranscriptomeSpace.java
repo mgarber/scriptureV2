@@ -393,7 +393,7 @@ protected class GeneTree {
 							}
 						}
 					//}
-					 else{logger.error(g.getName()+" was null after trimming isoform " + gene.getName() + ":" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " to absolute coordinates " + g.getChr() + ":" + region.getStart() + "-" + region.getEnd());}
+					 //else{logger.error(g.getName()+" was null after trimming isoform " + gene.getName() + ":" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " to absolute coordinates " + g.getChr() + ":" + region.getStart() + "-" + region.getEnd());}
 				}
 			}
 
