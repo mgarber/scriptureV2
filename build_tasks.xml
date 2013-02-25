@@ -1,37 +1,383 @@
-<?xml version="1.0"?>
 
-<project name="lincRNA" default="CreateExecutableJarFileWithExternalLibrary">
-	<target name="CreateExecutableJarFileWithExternalLibrary">
-		<jar destfile="X:/scripts/PairedEndModules/WigWriter.jar" basedir="bin/">
-			<zipfileset dir="" prefix="" />
-			<zipfileset src="${basedir}/lib/a_sam-1.48.jar" />
-			<zipfileset src="${basedir}/lib/ATV-3.1.jar" />
-			<zipfileset src="${basedir}/lib/collections-generic-4.01.jar" />
-			<zipfileset src="${basedir}/lib/commons-io-2.1.jar" />
-			<zipfileset src="${basedir}/lib/commons-lang3-3.1.jar" />
-			<zipfileset src="${basedir}/lib/commons-math3-3.1.jar" />
-			<zipfileset src="${basedir}/lib/colt-1.2.0.jar" />
-			<zipfileset src="${basedir}/lib/epsgraphics-1.jar" />
-			<zipfileset src="${basedir}/lib/igv.jar" />
-			<zipfileset src="${basedir}/lib/JConnector-5.0.6.jar" />
-			<zipfileset src="${basedir}/lib/jgraphx.jar" />
-			<zipfileset src="${basedir}/lib/jung-algorithms-2.0.jar" />
-			<zipfileset src="${basedir}/lib/jung-api-2.0.jar" />
-			<zipfileset src="${basedir}/lib/jung-graph-impl-2.0.jar" />
-			<zipfileset src="${basedir}/lib/jsc.jar" />
-			<zipfileset src="${basedir}/lib/ssj.jar" />
-			<zipfileset src="${basedir}/lib/jung-visualization-2.0.1.jar" />
-			<zipfileset src="${basedir}/lib/junit-4.4.jar" />
-			<zipfileset src="${basedir}/lib/log4j-1.2.14.jar" />
-			<zipfileset src="${basedir}/lib/tribble-0.1.jar" />
-			<zipfileset src="${basedir}/lib/vcf.jar" />
-			<zipfileset src="${basedir}/lib/picard-1.71.jar" />
-			<zipfileset src="${basedir}/lib/sam-1.71.jar" />
-			<zipfileset src="${basedir}/lib/commons-lang3-3.1.jar" />
-			<zipfileset src="${basedir}/lib/jgrapht-jdk1.6.jar" />
-			<manifest>
-				<attribute name="Main-Class" value="nextgen/core/utils/WigWriter" />
-			</manifest>
-		</jar>
+<project name="IGV" default="build" basedir=".">
+    
+    <!-- Properties--> 
+    <property name="jar.name"      value="siphy.jar" />
+    
+    <!-- Source and lib directories -->
+    <property name="src.dir"       value="${basedir}/src/" />
+    <property name="lib.dir"       value="${basedir}/lib/" />
+    
+    <!-- Distribution directory.  Binary distribution is placed here -->
+    <property name="dist.dir"      value="${basedir}/dist/" />
+	<!--<property name="dist.dir"      value="/Volumes/seq_mgarber/" />-->
+	<property name="build.dir"	value="${basedir}/build/"/>
+    <property name="jar.path"      value="${dist.dir}${jar.name}" />
+    <property name="dist.lib.dir"     value="${dist.dir}lib/" />
+    
+    <!-- build specific properties. These are normally set by Hudson during the build process -->
+    <property name="version"       value="v1.0" />
+	<property name="tilling.version" value="0.7.2" />
+	
+	<!-- All jar files in lib file -->
+	<path id="master-classpath">
+      <fileset dir="${lib.dir}">
+        <include name="*.jar"/>
+      </fileset>
+    </path>
+
+     
+    <target name="init" >
+ 
+        
+        <mkdir dir="${build.dir}"/>
+        <mkdir dir="${dist.dir}"/>
+
+        <!-- Copy resource files to the tmp directory 
+        <copy todir="${tmp.dir}" overwrite="true" >
+            <fileset dir="${src.dir}">
+                <exclude name="**/*.form"/>
+                <exclude name="**/*.java"/>
+                <exclude name="**/*.svn"/>
+                <exclude name="**/manifest.mf"/>
+            </fileset>
+        </copy>-->
+
+        <!-- Unzip jars to the tmp directory 
+        <unzip dest="${tmp.dir}">
+            <patternset>
+                <include name="**/*"/>
+                <exclude name="META-INF/**"/>
+            </patternset>
+            <fileset dir="${lib.dir}">
+                <include name="**/*.jar"/>
+            </fileset>
+        </unzip>-->
+
+    
+
+        <tstamp>
+            <format property="timestamp" pattern="MM/dd/yyyy hh:mm aa" />
+        </tstamp>
+        
+        <echo message="Resource ${resource.dir}"/>
+        <echo message="Version ${version}"/>
+    </target>
+    
+    
+    <target name="compile" depends="init">
+        <javac srcdir="${src.dir}"  debug="on" destdir="${build.dir}">
+
+            <classpath refid="master-classpath"/>
+                <!--<pathelement path="${build.dir}"/>
+            </classpath>-->
+        </javac>
+    </target>
+	
+	<target name="unpack" depends="init">
+	    <!-- Unzip jars to the tmp directory -->
+        <unzip dest="${build.dir}">
+            <patternset>
+                <include name="**/*"/>
+                <exclude name="META-INF/**"/>
+            </patternset>
+            <fileset dir="${lib.dir}">
+                <include name="**/*.jar"/>
+            </fileset>
+        </unzip>
 	</target>
+	
+	<target name="copy.props" depends="init">
+		<copy todir="${build.dir}">
+		   <fileset dir="${src.dir}" includes="**/*.properties"/>
+		</copy>
+	</target>
+    
+    
+    <!-- build the siphy jar-->
+    <target name="build" depends="compile, unpack">  
+        <jar destfile="${jar.path}" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.core.siphy.TreeScaler"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
+	  <!-- build the multiple alignment jar -->
+	    <target name="ma" depends="compile, unpack">
+	        <jar destfile="${dist.dir}ma.jar" basedir="${build.dir}" compress="true">
+	           <!-- <classfileset dir="${build.dir}">
+	                <root classname="${main-class}"/>
+	            </classfileset>-->
+	            <manifest>
+	                <attribute name="Built-By" value="${user.name}" />
+	                <attribute name="Main-Class" value="broad.core.multiplealignment.AlignmentExtractor"/>
+	            </manifest>
+				<fileset dir="${lib.dir}">
+	        		<include name="*.jar"/>
+	      		</fileset>
+	        </jar>
+	    </target>
+	
+	
+     <!-- build the tilling array analysis jar -->
+    <target name="build_tilling_arrays" depends="compile, unpack">
+        <jar destfile="${dist.dir}tilling.${tilling.version}.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.arrays.tilling.TillingArrayUtils"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
+	
+    <!-- build add paired end edges jar -->
+    <target name="build_paired" depends="compile, unpack">
+        <jar destfile="${dist.dir}pairends.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.seq.segmentation.AddPairedEndEdges"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>	
+	<!-- build the seq  analysis jar -->
+    <target name="scripture" depends="compile, unpack,copy.props">
+        <jar destfile="${dist.dir}scripture.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.seq.segmentation.ContinuousDataAlignmentModel"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
+	
+	<!-- build the seq  analysis jar -->
+    <target name="dge" depends="compile, unpack,copy.props">
+        <jar destfile="${dist.dir}dge.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.geneexpression.dge.DGE"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
+	<target name="pipeline" depends="compile,unpack,copy.props">
+        <jar destfile="${dist.dir}pipeline.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.core.util.PipelineAutomator"/>
+            </manifest>
+     		<fileset dir="${lib.dir}">
+             	<include name="*.jar"/>
+           	</fileset>
+        </jar>
+	</target>
+	
+	
+    <target name="alnutils" depends="compile, unpack,copy.props">
+        <jar destfile="${dist.dir}alnutils.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.seq.alignment.AlignmentUtils"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
+    <target name="scripturelite" depends="compile">
+        <jar destfile="${dist.dir}scripturelite.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.seq.segmentation.ContinuousDataAlignmentModel"/>
+            </manifest>
+        </jar>
+    </target>
+	
+	<!-- build the seq  analysis jar -->
+    <target name="qpcr" depends="compile, unpack">
+        <jar destfile="${dist.dir}qpcr.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.rnaseq.expression.DigitalExpressionPrimerDesigner"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
+		<!-- build the seq  analysis jar -->
+    <target name="build_blat_tools" depends="compile, unpack">
+        <jar destfile="${dist.dir}blat.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.blat.PSLXToSAM"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
+    <target name="alncounter" depends="compile, unpack">
+        <jar destfile="${dist.dir}alncounter.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.seq.alignment.SlideAndCount"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
+	<!-- build the gene tools jar -->
+    <target name="genetools" depends="compile, unpack">
+        <jar destfile="${dist.dir}genetools.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.gene.GeneTools"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
+	<!-- build the gene tools jar -->
+    <target name="genetoolslite" depends="compile">
+        <jar destfile="${dist.dir}genetoolslite.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.gene.GeneTools"/>
+            </manifest>
+        </jar>
+    </target>
+	
+	<!-- build the annotation tools jar -->
+    <target name="annotation" depends="compile, unpack">
+        <jar destfile="${dist.dir}annotation.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.core.annotation.AnnotationUtils"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
+	<!-- build the annotation tools jar -->
+    <target name="rnaseq" depends="compile, unpack">
+        <jar destfile="${dist.dir}rnaseqpipe.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.seq.alignment.RNASeqAlignmentPipeline"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
+		<!-- build the seq  analysis jar -->
+    <target name="nanostring" depends="compile, unpack">
+        <jar destfile="${dist.dir}nanostring.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.nanostring.NanostringUtils"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
+	<target name="bamextractor" depends="compile, unpack">
+        <jar destfile="${dist.dir}bamextractor.jar" basedir="${build.dir}" compress="true">
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.seq.alignment.sam.ExtractRegion"/>
+            </manifest>
+    		<fileset dir="${lib.dir}">
+            	<include name="*.jar"/>
+          	</fileset>
+        </jar>
+	</target>
+ 
+  
+    <!-- Clean all generated artifacts -->    
+    <target name="clean">
+        <delete dir="${build.dir}" />
+        <delete dir="${dist.dir}" />
+    </target>
+    
+    <target name="all" depends="clean, build"/>
+    
 </project>
