@@ -15,7 +15,7 @@ import broad.pda.datastructures.Alignments;
 
 public class AverageBranchLength {
 	
-	
+	//test
 	public AverageBranchLength(File BEDScores, String save)throws IOException{
 		Map<Alignments, List<OmegaFit>> omega=parseScores(BEDScores);
 		Map<Alignments, Double> percentageMap=getAverageBranchLength(omega);
