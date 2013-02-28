@@ -163,6 +163,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 			String outfile = control.getSampleName() + "_scan_peaks.bed";
 			writeSingleSampleScanPeaks(control, outfile, 0, 0, 0);
 		}
+		logger.info("Done writing single sample scan peaks for all samples.");
 	}
 	
 	/**
@@ -186,6 +187,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 			}
 		}
 		w.close();
+		logger.info("Done writing scan peaks for sample " + sample.getSampleName() + ".");
 	}
 	
 	/**
@@ -249,6 +251,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		for(Annotation window : trimmedMergedWindows) {
 			ScanStatisticScore score = sample.scoreWindow(gene, window);
 			if(score.getScanPvalue() < peakWindowScanPvalCutoff) {
+				window.setScore(score.getScanPvalue());
 				finalPeaks.add(window);
 			}
 		}

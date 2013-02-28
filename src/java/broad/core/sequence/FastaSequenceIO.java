@@ -21,6 +21,8 @@ import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.log4j.Logger;
+
 import broad.pda.rnai.ExtractSequence;
 
 
@@ -36,6 +38,7 @@ import broad.pda.rnai.ExtractSequence;
  */
 public class FastaSequenceIO {
 	public static final int LINE_LENGTH = 60;
+	private static Logger logger = Logger.getLogger(FastaSequenceIO.class.getName());
 	
 	public static void main(String [] args) throws IOException {
 		String fileName = args[0];
@@ -528,10 +531,11 @@ public class FastaSequenceIO {
 		if(seq == null || sequenceBuilder.length() == 0) {
 			return;
 		}
-		//System.out.println("Writting sequence "+seq.getId() + " with sequence "+seq.getSequenceBases());
+		
 		if(sequenceBuilder.length() == 0) {
 			return;
 		}
+		//logger.info("Writing sequence "+seq.getId() + " with sequence "+seq.getSequenceBases());
 		int currentIndex = 0;
 		writeSequenceId(seq, bw);		
 		bw.newLine();

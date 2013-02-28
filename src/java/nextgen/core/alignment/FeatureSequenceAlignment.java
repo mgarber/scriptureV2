@@ -240,14 +240,14 @@ public class FeatureSequenceAlignment {
 	}
 	
 	/**
-	 * Write all pairwise alignments to bed file in genome coordinates
+	 * Write all pairwise alignments (sense direction only) to bed file in genome coordinates
 	 * @param outBedFile Output bed file
 	 * @param minAlignLength Min alignment length to keep
 	 * @param minPctIdentity Min percent identity to keep
 	 * @throws IOException
 	 */
-	private void writeAllPairwiseAlignmentsToBed(String outBedFile, int minAlignLength, float minPctIdentity) throws IOException {
-		logger.info("Writing all alignments to bed file " + outBedFile);
+	private void writeAllSenseAlignmentsToBed(String outBedFile, int minAlignLength, float minPctIdentity) throws IOException {
+		logger.info("Writing all sense alignments to bed file " + outBedFile);
 		logger.info("Min alignment length: " + minAlignLength);
 		logger.info("Min percent identity: " + minPctIdentity);
 		FileWriter w = new FileWriter(outBedFile);
@@ -264,6 +264,24 @@ public class FeatureSequenceAlignment {
 					e.printStackTrace();
 				}				
 			}
+		}
+		w.close();
+		logger.info("Done writing sense alignments.");
+	}
+	
+	/**
+	 * Write all pairwise alignments (antisense direction only) to bed file in genome coordinates
+	 * @param outBedFile Output bed file
+	 * @param minAlignLength Min alignment length to keep
+	 * @param minPctIdentity Min percent identity to keep
+	 * @throws IOException
+	 */
+	private void writeAllAntisenseAlignmentsToBed(String outBedFile, int minAlignLength, float minPctIdentity) throws IOException {
+		logger.info("Writing all antisense alignments to bed file " + outBedFile);
+		logger.info("Min alignment length: " + minAlignLength);
+		logger.info("Min percent identity: " + minPctIdentity);
+		FileWriter w = new FileWriter(outBedFile);
+		for(UnorderedGenePair genes : featurePairs) {
 			jaligner.Alignment antisenseAlign = getAntisenseAlignment(genes);
 			if(antisenseAlign.getLength() >= minAlignLength && antisenseAlign.getPercentIdentity() >= minPctIdentity) {
        				try {
@@ -278,9 +296,9 @@ public class FeatureSequenceAlignment {
 			}
 		}
 		w.close();
-		logger.info("Done writing alignments.");
+		logger.info("Done writing antisense alignments.");
 	}
-	
+
 	/**
 	 * Write all pairwise alignments to file
 	 * @param outFile Output file
@@ -357,7 +375,7 @@ public class FeatureSequenceAlignment {
 	 */
 	private String alignmentAsBed(UnorderedGenePair genes) {
 		Annotation alignedRegion = alignmentAsFeature(genes);
-		return alignedRegion.toBED(45, 94, 16);
+		return alignedRegion.toBED(41,144,41);
 	}
 	
 	/**
@@ -367,7 +385,7 @@ public class FeatureSequenceAlignment {
 	 */
 	private String antisenseAlignmentAsBed(UnorderedGenePair genes) {
 		Annotation alignedRegion = antisenseAlignmentAsFeature(genes);
-		return alignedRegion.toBED(155, 29, 84);
+		return alignedRegion.toBED(144,59,144);
 	}
 	
 	/**
@@ -379,8 +397,9 @@ public class FeatureSequenceAlignment {
 		CommandLineParser p = new CommandLineParser();
 		p.addStringArg("-b", "Bed file of features", true);
 		p.addStringArg("-g", "Genome fasta file", true);
-		p.addStringArg("-oa", "Output file for all pairwise alignments", false, null);
-		p.addStringArg("-ob", "Output bed file for all pairwise alignments", false, null);
+		p.addStringArg("-o", "Output file for all pairwise alignments", false, null);
+		p.addStringArg("-os", "Output bed file for sense alignments", false, null);
+		p.addStringArg("-oa", "Output bed file for antisense alignments", false, null);
 		p.addFloatArg("-ma", "Match score", false, DEFAULT_MATCH_SCORE);
 		p.addFloatArg("-mi", "Mismatch score", false, DEFAULT_MISMATCH_SCORE);
 		p.addFloatArg("-go", "Gap open penalty", false, DEFAULT_GAP_OPEN_PENALTY);
@@ -390,8 +409,9 @@ public class FeatureSequenceAlignment {
 		p.parse(args);
 		String bedFile = p.getStringArg("-b");
 		String fastaFile = p.getStringArg("-g");
-		String outPairwiseFile = p.getStringArg("-oa");
-		String outBedFile = p.getStringArg("-ob");
+		String outPairwiseFile = p.getStringArg("-o");
+		String outBedFileSense = p.getStringArg("-os");
+		String outBedFileAntisense = p.getStringArg("-oa");
 		float matchScore = p.getFloatArg("-ma");
 		float mismatchScore = p.getFloatArg("-mi");
 		float gapOpen = p.getFloatArg("-go");
@@ -406,8 +426,12 @@ public class FeatureSequenceAlignment {
 			fsa.writeAllPairwiseAlignments(outPairwiseFile, minLength, minIdentity);
 		}
 		
-		if(outBedFile != null) {
-			fsa.writeAllPairwiseAlignmentsToBed(outBedFile, minLength, minIdentity);
+		if(outBedFileSense != null) {
+			fsa.writeAllSenseAlignmentsToBed(outBedFileSense, minLength, minIdentity);
+		}
+		
+		if(outBedFileAntisense != null) {
+			fsa.writeAllAntisenseAlignmentsToBed(outBedFileAntisense, minLength, minIdentity);
 		}
 		
 	}
