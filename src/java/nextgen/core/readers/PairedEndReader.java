@@ -175,7 +175,7 @@ public class PairedEndReader {
 		try {
 
 			if (alignmentType == AlignmentType.PAIRED_END) {
-				if (!record.getMateUnmappedFlag()) {
+				if (record.getReadPairedFlag() && !record.getMateUnmappedFlag()) {   //revised to read single end data @zhuxp 
 					String name=record.getReadName();
 
 					int mateStart=record.getMateAlignmentStart();

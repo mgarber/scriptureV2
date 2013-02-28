@@ -101,7 +101,8 @@ public class PairedEndWriter {
 			//If the read is not paired or the mate is unmapped, write it as it is
 			if(!record.getReadPairedFlag() || record.getMateUnmappedFlag()){
 				//mate unmapped so just write it
-				record.setMateUnmappedFlag(true);
+				
+				if(record.getReadPairedFlag()) {record.setMateUnmappedFlag(true);} //revised for not set single end MateUnmapped @zhuxp
 				try {
 					writer.addAlignment(record);
 				} catch (Exception e) {
@@ -164,7 +165,7 @@ public class PairedEndWriter {
 			//If the read is not paired or the mate is unmapped, write it as it is
 			if(!record.getReadPairedFlag() || record.getMateUnmappedFlag()){
 				//mate unmapped so just write it
-				record.setMateUnmappedFlag(true);
+				if(record.getReadPairedFlag()) {record.setMateUnmappedFlag(true);} //revised for single end @zhuxp
 				//If first read is in direction of trasncription
 				if(txnRead.equals(TranscriptionRead.FIRST_OF_PAIR)){
 					//This is the first read
