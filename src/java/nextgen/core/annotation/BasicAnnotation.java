@@ -8,6 +8,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.TreeSet;
 
+import org.apache.log4j.Logger;
+
 import nextgen.core.annotation.Annotation.Strand;
 
 import broad.pda.datastructures.Alignments;
@@ -23,7 +25,7 @@ public class BasicAnnotation extends AbstractAnnotation {
 	private String referenceName;
 	private Strand orientation = Strand.UNKNOWN;
 	private String name = null;
-	private double score = 0;
+	private double score;
 	
 	/********************************************************************************
 	 * CONSTRUCTORS
@@ -39,9 +41,11 @@ public class BasicAnnotation extends AbstractAnnotation {
 		String end=ucsc.split(":")[1].split("-")[1];
 		setReferenceName(ref);
 		blocks.addInterval(new Integer(start), new Integer(end));
+		score = 0;
 	}
 	
 	public BasicAnnotation(String referenceName, int start, int end, Strand orientation, String name) {
+		score = 0;
 		setName(name);
 		setReferenceName(referenceName);
 		setOrientation(orientation);
@@ -54,6 +58,7 @@ public class BasicAnnotation extends AbstractAnnotation {
 	}
 	
 	public BasicAnnotation(String referenceName, Strand orientation, String name, Collection<? extends Annotation> blocks) {
+		score = 0;
 		setName(name);
 		setReferenceName(referenceName);
 		setOrientation(orientation);
@@ -94,6 +99,7 @@ public class BasicAnnotation extends AbstractAnnotation {
 		Annotation first = itr.next();
 		setReferenceName(first.getReferenceName());
 		setOrientation(first.getOrientation());
+		score = 0;
 		setName(first.getName());
 		addBlocks(first);
 		while (itr.hasNext()) addBlocks(itr.next());
@@ -114,6 +120,7 @@ public class BasicAnnotation extends AbstractAnnotation {
 		setReferenceName(referenceName);
 		this.blocks = blocks;
 		setOrientation(orientation);
+		score = 0;
 		setName(name);
 	}
 	
@@ -209,6 +216,7 @@ public class BasicAnnotation extends AbstractAnnotation {
 		return positionInAnnotation;
 	}
 	
+	@Override
 	public double getScore() { 
 		return score;
 	}

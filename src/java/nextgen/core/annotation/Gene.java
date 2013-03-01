@@ -512,13 +512,6 @@ public class Gene extends BasicAnnotation {
 		}
 	}
 	
-	public double getScore(){
-		double score=0;
-		if (this.exonScores !=null)
-			for(int i=0; i<this.exonScores.length; i++){score+=exonScores[i];}
-		return score;
-	}
-	
 	private ArrayList<Double> getScores() {
 		return this.scores;
 	}
@@ -788,7 +781,9 @@ public class Gene extends BasicAnnotation {
 	public Gene getIntrons(){
 		Collection<? extends Annotation> introns = this.getIntronSet();
 		if(introns.size() == 0) return null;
-		return new Gene(introns);
+		Gene rtrn = new Gene(introns);
+		rtrn.setOrientation(getOrientation());
+		return rtrn;
 	}
 	
 	public Annotation getLastIntron() {
