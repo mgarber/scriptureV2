@@ -73,7 +73,7 @@ public class BamToSingleEndIterator implements AlignmentIterator
 	
 	}
 	
-	public Alignment _next()
+	private Alignment _next()
 	{
 	
 		SAMRecord record;
