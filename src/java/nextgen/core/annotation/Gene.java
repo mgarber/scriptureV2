@@ -2076,6 +2076,10 @@ public class Gene extends BasicAnnotation {
 		return genomicPosition;
 	}
 	
+	public int getMidpointGenomicCoords() {
+		return transcriptToGenomicPosition(getSize() / 2);
+	}
+	
 	/**
 	 * Convert an interval in transcriptome space to genome space
 	 * @param startPosOnTranscript Start position in transcriptome space
@@ -2105,7 +2109,7 @@ public class Gene extends BasicAnnotation {
 		List<Annotation> exons = new ArrayList<Annotation>(getExonSet());
 				
 		int position = 0;
-		if("-".equals(getOrientation())) {
+		if(getOrientation().equals(Strand.NEGATIVE)) {
 			for(int i = exons.size() -1 ; i >=0; i--) {
 				Annotation e = exons.get(i);
 				if(genomicPosition < e.getStart()) {

@@ -114,6 +114,27 @@ public class FastaSequenceIO {
 		return rtrn;
 	}
 	
+	
+	/**
+	 * @param genomeFasta Fasta file of chromosomes
+	 * @return Map of chromosome name to sequence
+	 * @throws IOException
+	 */
+	public static Map<String, broad.core.sequence.Sequence> getChrSequencesFromFasta(String genomeFasta) throws IOException {
+		
+		logger.info("Reading chromosome sequences from file " + genomeFasta + "...");
+		FastaSequenceIO fsio = new FastaSequenceIO(genomeFasta);
+		List<broad.core.sequence.Sequence> chrs = fsio.loadAll();
+		Map<String, broad.core.sequence.Sequence> rtrn = new TreeMap<String, broad.core.sequence.Sequence>();
+		for(broad.core.sequence.Sequence chr : chrs) {
+			rtrn.put(chr.getId(), chr);
+		}
+		logger.info("Loaded " + rtrn.size() + " chromosomes.");
+		return rtrn;
+				
+	}
+
+	
 	public List<Sequence> loadAll(InputStream is) throws IOException {
 		BufferedReader br = new BufferedReader(new InputStreamReader(is));
 		String line = null;

@@ -160,7 +160,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 			writeSingleSampleScanPeaks(signal, outfile, 255, 0, 0);
 		}		
 		for(SampleData control : controlSamples) {
-			String outfile = control.getSampleName() + "_scan_peaks.bed";
+			String outfile = control.getSampleName() + "_scan_peaks_" + windowSize + "_" + stepSize + ".bed";
 			writeSingleSampleScanPeaks(control, outfile, 0, 0, 0);
 		}
 		logger.info("Done writing single sample scan peaks for all samples.");
@@ -250,8 +250,9 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		// Filter by scan statistic again
 		for(Annotation window : trimmedMergedWindows) {
 			ScanStatisticScore score = sample.scoreWindow(gene, window);
-			if(score.getScanPvalue() < peakWindowScanPvalCutoff) {
-				window.setScore(score.getScanPvalue());
+			double p = score.getScanPvalue();
+			if(p < peakWindowScanPvalCutoff) {
+				window.setScore(p);
 				finalPeaks.add(window);
 			}
 		}
