@@ -30,7 +30,7 @@ import nextgen.core.general.CloseableFilterIterator;
 import nextgen.core.model.score.WindowScore;
 import nextgen.core.readFilters.SplicedReadFilter;
 import nextgen.core.readers.PairedEndReader;
-import nextgen.core.readers.PairedEndWriter;
+import nextgen.core.writers.PairedEndWriter;
 import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.exception.RuntimeIOException;
 import org.apache.commons.collections15.Predicate;

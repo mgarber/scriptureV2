@@ -28,8 +28,8 @@ import nextgen.core.readFilters.FirstOfPairFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.ProperPairFilter;
 import nextgen.core.readFilters.SecondOfPairFilter;
-import nextgen.core.readers.PairedEndWriter;
-import nextgen.core.utils.WigWriter;
+import nextgen.core.writers.PairedEndWriter;
+import nextgen.core.writers.WigWriter;
 
 import org.apache.log4j.Logger;
 import org.broad.igv.Globals;

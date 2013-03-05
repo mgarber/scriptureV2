@@ -5,7 +5,7 @@ import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
 import net.sf.picard.util.Log;
 
-import nextgen.core.readers.PairedEndWriter;
+import nextgen.core.writers.PairedEndWriter;
 
 public class ConvertBamToPairedEnd extends CommandLineProgram {
     private static final Log log = Log.getInstance(ConvertBamToPairedEnd.class);

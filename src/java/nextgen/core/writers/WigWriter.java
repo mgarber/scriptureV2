@@ -1,7 +1,7 @@
 /**
  * 
  */
-package nextgen.core.utils;
+package nextgen.core.writers;
 
 import java.io.File;
 import java.io.FileWriter;

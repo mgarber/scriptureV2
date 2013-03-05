@@ -23,6 +23,7 @@ import nextgen.core.alignment.PairedEndAlignment;
 import nextgen.core.alignment.PairedEndAlignment.TranscriptionRead;
 import nextgen.core.alignment.SingleEndAlignment;
 import nextgen.core.annotation.Annotation;
+import nextgen.core.writers.PairedEndWriter;
 
 
 //Reads the new PairedEnd BAM files into a queryable object

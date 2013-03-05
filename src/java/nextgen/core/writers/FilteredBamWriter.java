@@ -1,4 +1,4 @@
-package nextgen.core.readers;
+package nextgen.core.writers;
 
 import java.io.File;
 import java.io.IOException;

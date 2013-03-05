@@ -17,7 +17,7 @@ import nextgen.core.model.score.WindowScoreIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.model.score.*;
 import nextgen.core.annotation.Annotation;
-import nextgen.core.readers.PairedEndWriter;
+import nextgen.core.writers.PairedEndWriter;
 import nextgen.core.readFilters.*;
 
 public class BuildRatioNullDistribution extends GenomeCommandLineProgram {

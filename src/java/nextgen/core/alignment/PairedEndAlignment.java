@@ -18,7 +18,7 @@ import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
 import nextgen.core.annotation.*;
 import nextgen.core.annotation.Annotation.Strand;
-import nextgen.core.readers.PairedEndWriter;
+import nextgen.core.writers.PairedEndWriter;
 
 public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 
