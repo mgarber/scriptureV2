@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.TreeMap;
 
+import nextgen.core.writers.WigWriter;
+
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;
 
@@ -34,10 +36,25 @@ public class WigReader {
 	
 	/**
 	 * Get the data as a map associating chromosome with position and value
+	 * Chromosome coordinates are zero based (unlike the original wig file which is one based)
 	 * @return The wig data as a map
 	 */
-	public Map<String, Map<Integer,Double>> getWigData() {
+	public Map<String, Map<Integer,Double>> getAllValues() {
 		return data;
+	}
+	
+	/**
+	 * Get value at specified position
+	 * @param chr Chromosome
+	 * @param pos Zero based position (wig file is one based)
+	 * @return Value
+	 */
+	public double getValue(String chr, int pos) {
+		try {
+			return data.get(chr).get(Integer.valueOf(pos)).doubleValue();
+		} catch(NullPointerException e) {
+			throw new IllegalArgumentException("Wig file does not contain position " + chr + " " + pos);
+		}
 	}
 	
 	/**
@@ -133,7 +150,7 @@ public class WigReader {
 		String outWig = p.getStringArg("-o");
 		
 		WigReader wr = new WigReader(inWig);
-		Map<String, Map<Integer, Double>> data = wr.getWigData();
+		Map<String, Map<Integer, Double>> data = wr.getAllValues();
 		FileWriter w = new FileWriter(outWig);
 		for(String chr : data.keySet()) {
 			for(Integer pos : data.get(chr).keySet()) {
@@ -202,7 +219,7 @@ public class WigReader {
 				int startPos = stringParser.asInt(0);
 				double value = stringParser.asDouble(1);
 				for(int pos = startPos; pos < startPos + span; pos++) {
-					sectionData.put(Integer.valueOf(pos), Double.valueOf(value));
+					sectionData.put(Integer.valueOf(WigWriter.wigPositionToCoordinate(pos)), Double.valueOf(value));
 				}
 			}
 		}
@@ -254,7 +271,7 @@ public class WigReader {
 				stringParser.parse(line);
 				double value = stringParser.asDouble(0);
 				for(int currPos = pos; currPos < pos + span; currPos++) {
-					sectionData.put(Integer.valueOf(currPos), Double.valueOf(value));
+					sectionData.put(Integer.valueOf(WigWriter.wigPositionToCoordinate(currPos)), Double.valueOf(value));
 				}
 				pos += step;
 			}

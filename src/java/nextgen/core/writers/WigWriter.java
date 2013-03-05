@@ -200,7 +200,23 @@ public class WigWriter {
 		return getCounts(genomeSpace.getEntireChromosome(chr));
 	}
 	
+	/**
+	 * Get the one based wig format position for a zero based coordinate
+	 * @param zeroBasedCoordinate The zero based coordinate
+	 * @return The wig position
+	 */
+	public static int coordinateToWigPosition(int zeroBasedCoordinate) {
+		return zeroBasedCoordinate + 1;
+	}
 	
+	/**
+	 * Get the zero based coordinate for a wig position
+	 * @param wigPosition The wig position
+	 * @return The zero based coordinate
+	 */
+	public static int wigPositionToCoordinate(int wigPosition) {
+		return wigPosition - 1;
+	}
 	
 	/**
 	 * Write all counts to a wig file
@@ -223,7 +239,7 @@ public class WigWriter {
 			}
 			w.write("variableStep chrom=" + chrName + "\n");
 			for(Integer i : counts.keySet()) {
-				int pos = i.intValue() + 1;
+				int pos = coordinateToWigPosition(i.intValue());
 				w.write(pos + "\t" + counts.get(i).toString() + "\n");
 			}
 		}
