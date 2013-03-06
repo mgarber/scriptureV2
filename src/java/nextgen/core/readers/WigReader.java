@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.apache.log4j.Logger;
+
 import nextgen.core.writers.WigWriter;
 
 import broad.core.parser.CommandLineParser;
@@ -24,6 +26,7 @@ public class WigReader {
 	
 	private BufferedReader reader;
 	private Map<String, Map<Integer,Double>> data;
+	private static Logger logger = Logger.getLogger(WigReader.class.getName());
 
 	/**
 	 * Instantiate with file name
@@ -63,6 +66,7 @@ public class WigReader {
 	 * @throws IOException
 	 */
 	private void readFile(String fileName) throws IOException {
+		logger.info("Reading wig file " + fileName + "...");
 		data = new TreeMap<String, Map<Integer,Double>>();
 		FileReader r = new FileReader(fileName);
 		reader = new BufferedReader(r);
@@ -102,6 +106,7 @@ public class WigReader {
 		} 		
 		r.close();
 		reader.close();
+		logger.info("Done reading wig file.");
 	}
 	
 	/**

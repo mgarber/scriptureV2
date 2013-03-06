@@ -78,9 +78,11 @@ public class FastaSequenceIO {
 	}
 
 	public List<Sequence> loadAll() throws IOException {
+		logger.info("Loading fasta sequences from file " + file.getName() + "...");
 		InputStream is = new FileInputStream(file);
 		List<Sequence> seqs = loadAll(is);
 		is.close();
+		logger.info("Loaded " + seqs.size() + " sequences.");
 		return seqs;
 	}
 	
