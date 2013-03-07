@@ -1052,8 +1052,23 @@ public class Gene extends BasicAnnotation {
 		return toBED(true, 0, 0, 0);
 	}
 	
+	/*
+	 * Can't use method in AbstractAnnotation because need CDS start and end. -PR
+	 */
 	public String toBED(boolean useExtraFields, int r, int g, int b){
-		String rtrn = super.toBED(r,g,b);  // calls AbstractAnnotation
+		if(r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
+			throw new IllegalArgumentException("RGB values must be between 0 and 255");
+		}
+		String rgb = r + "," + g + "," + b;
+		List<? extends Annotation> exons = getBlocks();
+		String rtrn=getReferenceName()+"\t"+getStart()+"\t"+getEnd()+"\t"+(getName() == null ? toUCSC() : getName())+"\t"+getScore()+"\t"+getOrientation()+"\t"+getCDSStart()+"\t"+getCDSEnd()+"\t"+rgb+"\t"+exons.size();
+		String sizes="";
+		String starts="";
+		for(Annotation exon : exons){
+			sizes=sizes+(exon.length())+",";
+			starts=starts+(exon.getStart()-getStart())+",";
+		}
+		rtrn=rtrn+"\t"+sizes+"\t"+starts;
 		if(extraFields != null & useExtraFields) {
 			for(String field : extraFields) {
 				rtrn = rtrn + "\t" + field;
@@ -2232,8 +2247,8 @@ public class Gene extends BasicAnnotation {
 					orientation= AbstractAnnotation.getStrand(tokens[5]);
 					
 					if(tokens.length > 6) {
-						int cdsStart=new Integer(tokens[6]);
-						int cdsEnd=new Integer(tokens[7]);
+						int cdsStart=Integer.parseInt(tokens[6]);
+						int cdsEnd=Integer.parseInt(tokens[7]);
 						
 						String[] blockSizes=tokens[10].split(",");
 						String[] blockStarts=tokens[11].split(",");
@@ -2249,6 +2264,7 @@ public class Gene extends BasicAnnotation {
 						
 						Gene g = new Gene(chr, name, orientation, exons, cdsStart, cdsEnd);
 						assert(g.getStart() == start && g.getEnd() == end); // JE implementation check
+						assert(g.getCDSStart() == cdsStart && g.getEnd() == cdsEnd);
   						
 						g.setBedScore(bedScore);
 						
