@@ -1,4 +1,4 @@
-package nextgen.core.utils;
+package xp.test.Utils;
 import java.util.Comparator;
 import broad.core.annotation.ShortBED;
 /**

@@ -1,8 +1,9 @@
-package nextgen.core.readers;
+package xp.test.Converter;
 
 
 
 import java.io.File;
+import java.util.Iterator;
 
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMFileReader;
@@ -37,7 +38,7 @@ import nextgen.core.alignment.SingleEndAlignment;
  * 
  */
 
-public class BamToSingleEndIterator implements AlignmentIterator
+public class BamToSingleEndIterator implements Iterator<Alignment>
 {
 	private SAMFileReader reader;
 	private SAMFileHeader header;
@@ -99,6 +100,12 @@ public class BamToSingleEndIterator implements AlignmentIterator
 	public void close()
 	{
 		reader.close();
+	}
+
+	@Override
+	public void remove() {
+		// TODO Auto-generated method stub
+		
 	}
 	
 }

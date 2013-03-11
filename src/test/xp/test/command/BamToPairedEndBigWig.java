@@ -1,9 +1,11 @@
-package nextgen.core.programs;
+package xp.test.command;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+
+import xp.test.Converter.BamToPairedEndIterator;
 
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
@@ -11,29 +13,28 @@ import net.sf.picard.cmdline.StandardOptionDefinitions;
 import net.sf.picard.cmdline.Usage;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
-import nextgen.core.alignment.SingleEndAlignment;
-import nextgen.core.readers.BamToSingleEndIterator;
+import nextgen.core.alignment.PairedEndAlignment;
 
-public class BamToSingleEndBigWig extends CommandLineProgram {
+public class BamToPairedEndBigWig extends CommandLineProgram {
 	
 	private static final String PROGRAM_VERSION = "0.01";
 	@Usage
-    public String USAGE =  "java nextgen.core.programs.BamToSingleEndBed I=file.bam";
+    public String USAGE =  "java nextgen.core.programs.BamToPairedEndBed I=file.bam";
 	
-	private static final String SingleEndBedSuffix = ".SingleEnd.bed";
-	private static final String SingleEndWigSuffix = ".SingleEnd.bedGraph";
-	private static final String SingleEndBigWigSuffix = ".SingleEnd.bw";
+	private static final String PairedEndBedSuffix = ".PairedEnd.bed";
+	private static final String PairedEndWigSuffix = ".PairedEnd.bedGraph";
+	private static final String PairedEndBigWigSuffix = ".PairedEnd.bw";
 
-    @Option(doc="This program iterate bam file as single end and convert it into bigwig format.", shortName=StandardOptionDefinitions.INPUT_SHORT_NAME) public File INPUT;
+    @Option(doc="This is test paired end bam iterater and convert to simple bed format.", shortName=StandardOptionDefinitions.INPUT_SHORT_NAME) public File INPUT;
     public static void main(String[] argv){
-    	System.exit(new BamToSingleEndBigWig().instanceMain(argv));
+    	System.exit(new BamToPairedEndBigWig().instanceMain(argv));
         
     }
     
     protected int doWork()
     {
     	
-    	BamToSingleEndIterator iter = new BamToSingleEndIterator(INPUT);
+    	BamToPairedEndIterator iter = new BamToPairedEndIterator(INPUT);
 
     	//SAMFileHeader header = reader.getFileHeader();
     	String filename = INPUT.getAbsolutePath();
@@ -41,48 +42,48 @@ public class BamToSingleEndBigWig extends CommandLineProgram {
     	
     	String name = filename.substring(0,filename.lastIndexOf("."));
     	
-    	String sBedName = name+SingleEndBedSuffix;
-    	System.err.println(sBedName);
-    	String sWigName = name+SingleEndWigSuffix;
-    	String sBigWigName = name+SingleEndBigWigSuffix;
-    	System.err.println(sWigName);
-    	System.err.println(sBigWigName);
+    	String pBedName = name+PairedEndBedSuffix;
+    	System.err.println(pBedName);
+    	String pWigName = name+PairedEndWigSuffix;
+    	String pBigWigName = name+PairedEndBigWigSuffix;
+    	System.err.println(pWigName);
+    	System.err.println(pBigWigName);
     	
-    	PrintStream fSingleEndBed;
+    	PrintStream fPairedEndBed;
     	try
     	{
-    		fSingleEndBed=new PrintStream(sBedName);
+    		fPairedEndBed=new PrintStream(pBedName);
     	
     	int i=0;
 		while (iter.hasNext()) {
 		    Alignment  record= iter.next();
-		    fSingleEndBed.println(record.toShortBED());
+		    fPairedEndBed.println(record.toShortBED());
 		    i+=1;
 		 
-		   if (i%10000==0) {System.err.format("Processing %d reads      \r",i);}
+		   if (i%10000==0) {System.err.format("Processing %d reads      BufferSize:%d         \r",i,iter.getBufferSize());}
 		}	
 		iter.close();
-        fSingleEndBed.close();
+        fPairedEndBed.close();
     	}
     	catch (Exception e)
     	{
-    		System.err.print("can't open "+ sBedName +"\t"+ e);
+    		System.err.print("can't open "+ pBedName);
     	}
         
         
         try{
-          bedSort(sBedName);
+        bedSort(pBedName);
         } catch (Exception e)
         {
-        	System.err.println("Exception on bedSort "+sBedName+"\n"+e.getMessage());
+        	System.err.println("Exception on bedSort "+pBedName+"\n"+e.getMessage());
         }
         try{
         	
-        	bedToWig(sBedName,sWigName,sBigWigName);
+        	bedToWig(pBedName,pWigName,pBigWigName);
         }
         catch (Exception e)
         {
-        	System.err.println("Exception on Convert bigwig "+sBedName+"\n"+e.getMessage());
+        	System.err.println("Exception on Convert bigwig "+pBedName+"\n"+e.getMessage());
         }
         
         

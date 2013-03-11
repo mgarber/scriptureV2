@@ -1,9 +1,11 @@
-package nextgen.core.programs;
+package xp.test.command;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+
+import xp.test.Converter.BamToPairedEndIterator;
 
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
@@ -12,7 +14,6 @@ import net.sf.picard.cmdline.Usage;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.PairedEndAlignment;
-import nextgen.core.readers.BamToPairedEndIterator;
 
 public class BamToPairedEndBed extends CommandLineProgram {
 	

@@ -1,7 +1,8 @@
-package nextgen.core.readers;
+package xp.test.Converter;
 
 import java.io.File;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.TreeMap;
 
 import net.sf.samtools.SAMFileHeader;
@@ -13,6 +14,7 @@ import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.PairedEndAlignment;
 import nextgen.core.alignment.PairedEndAlignment.TranscriptionRead;
 import nextgen.core.alignment.SingleEndAlignment;
+import nextgen.core.readers.BamToPairedEndIteratorTest;
 /**
  * Revised from PairedEndWriter
  * Goal : Iterate the paired end reads in bam file.
@@ -42,7 +44,7 @@ import nextgen.core.alignment.SingleEndAlignment;
  * 
  * 
  */
-public class BamToPairedEndIterator implements AlignmentIterator {
+public class BamToPairedEndIterator implements Iterator<Alignment> {
 
 
 	
@@ -255,6 +257,12 @@ public class BamToPairedEndIterator implements AlignmentIterator {
 	public int getBufferSize()
 	{
 		return bufferCollection.size();
+	}
+
+	@Override
+	public void remove() {
+		// TODO Auto-generated method stub
+		
 	}
 	
 }
