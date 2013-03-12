@@ -132,8 +132,8 @@ public class CallPeak2 extends CommandLineProgram{
     	    
     	     double lambdaA = (double)env.getScore()[2]/env.length()*controlAToCaseAIndex;
     	     double lambdaB = (double)env.getScore()[3]/env.length()*controlBToCaseBIndex;
-    	     double fragmentLambdaA=(double)focus.getScore()[2]/env.length()*controlAToCaseAIndex;
-    	     double fragmentLambdaB=(double)focus.getScore()[3]/env.length()*controlAToCaseAIndex;
+    	     double fragmentLambdaA=(double)focus.getScore()[2]*controlAToCaseAIndex;
+    	     double fragmentLambdaB=(double)focus.getScore()[3]*controlAToCaseAIndex;
     	     
     	     lambdaA=Math.max(lambdaA, fragmentLambdaA);    	     
 			 lambdaB=Math.max(lambdaB, fragmentLambdaB);    	     
