@@ -18,6 +18,7 @@ import java.util.Random;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import broad.core.math.MathUtil;
@@ -31,7 +32,7 @@ import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
-import nextgen.core.model.ScanStatisticDataAlignmentModel;
+import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.utils.AnnotationUtils;
 
@@ -56,38 +57,44 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	private static int DEFAULT_STEP_SIZE = 1;
 	protected static double EXPRESSION_SCAN_P_VALUE_CUTOFF = 0.05;
 	private static double DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF = 0.001;
-	private static double FDR_CUTOFF = 0.01;
+	private static double DEFAULT_PEAK_WINDOW_COUNT_CUTOFF = 10;
 	private static int DEFAULT_MAX_PERMUTATIONS = 10000;
-	private static double TRIM_PEAK_QUANTILE = 0.6;
+	private static double DEFAULT_TRIM_PEAK_QUANTILE = 0.6;
 	protected int numControls;
 	protected int numSignals;
 	protected int numSamples;
 	protected Random random;
 	private Collection<SamplePermutation> sampleIdentityPermutations;
 	private double peakWindowScanPvalCutoff;
+	private double peakWindowCountCutoff;
+	private double trimQuantile;
 	private boolean permutationScoring;
 	private static boolean DEFAULT_DO_PERMUTATION_SCORING = false;
 	
+	
 	/**
-	 * Instantiate with default window size and step size
+	 * Instantiate with default parameters
 	 * @param sampleListFile File containing sample list
 	 * @param bedFile Bed gene annotation
 	 * @throws IOException
 	 */
 	private MultiSampleBindingSiteCaller(String sampleListFile, String bedFile) throws IOException {
-		this(sampleListFile, bedFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE, DEFAULT_MAX_PERMUTATIONS, DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF, DEFAULT_DO_PERMUTATION_SCORING);
+		this(sampleListFile, bedFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE, DEFAULT_MAX_PERMUTATIONS, DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF, DEFAULT_PEAK_WINDOW_COUNT_CUTOFF, DEFAULT_TRIM_PEAK_QUANTILE, DEFAULT_DO_PERMUTATION_SCORING);
 	}
 	
 	/**
-	 * Instantiate with custom window size and step size
+	 * Specify parameters
 	 * @param sampleListFile File containing sample list
 	 * @param bedFile Bed gene annotation
 	 * @param window Window size
 	 * @param step Step size
-	 * @param maxPermutations Max number of sample identity permutations for window score empirical P value
+	 * @param maxPermutations Max number of permutations
+	 * @param peakScanPvalCutoff P value cutoff for scan statistic
+	 * @param trimPeakQuantile Quantile for trim max contiguous algorithm
+	 * @param doPermutationScoring Whether to do permutation test
 	 * @throws IOException
 	 */
-	private MultiSampleBindingSiteCaller(String sampleListFile, String bedFile, int window, int step, int maxPermutations, double peakScanPvalCutoff, boolean doPermutationScoring) throws IOException {
+	private MultiSampleBindingSiteCaller(String sampleListFile, String bedFile, int window, int step, int maxPermutations, double peakScanPvalCutoff, double peakCountCutoff, double trimPeakQuantile, boolean doPermutationScoring) throws IOException {
 		
 		// Set basic parameters
 		windowSize = window;
@@ -96,6 +103,8 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		coord = new TranscriptomeSpace(genes);
 		random = new Random();
 		peakWindowScanPvalCutoff = peakScanPvalCutoff;
+		peakWindowCountCutoff = peakCountCutoff;
+		trimQuantile = trimPeakQuantile;
 		permutationScoring = doPermutationScoring;
 		
 		// Read sample information
@@ -156,11 +165,11 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	private void writeSingleSampleScanPeaksAllSamples() throws IOException {
 		logger.info("Writing single sample scan peaks for each sample...");
 		for(SampleData signal : signalSamples) {
-			String outfile = signal.getSampleName() + "_scan_peaks_" + windowSize + "_" + stepSize + ".bed";
+			String outfile = signal.getSampleName() + "_scan_peaks_" + windowSize + "_" + stepSize + "_" + peakWindowScanPvalCutoff + "_" + trimQuantile + ".bed";
 			writeSingleSampleScanPeaks(signal, outfile, 255, 0, 0);
 		}		
 		for(SampleData control : controlSamples) {
-			String outfile = control.getSampleName() + "_scan_peaks_" + windowSize + "_" + stepSize + ".bed";
+			String outfile = control.getSampleName() + "_scan_peaks_" + windowSize + "_" + stepSize + "_" + peakWindowScanPvalCutoff + "_" + trimQuantile + ".bed";
 			writeSingleSampleScanPeaks(control, outfile, 0, 0, 0);
 		}
 		logger.info("Done writing single sample scan peaks for all samples.");
@@ -213,23 +222,29 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	 */
 	private void identifySingleSampleScanPeaks(SampleData sample, Gene gene) throws IOException {
 		
-		logger.info("Finding scan peaks for sample " + sample.getSampleName() + " and gene " + gene.getName());
 		TreeSet<Annotation> finalPeaks = new TreeSet<Annotation>();
 		
-		ScanStatisticDataAlignmentModel data = sample.getData();
+		TranscriptomeSpaceAlignmentModel data = sample.getData();
 		
 		// If gene is not expressed in this sample, skip
 		if(!data.isExpressed(gene, EXPRESSION_SCAN_P_VALUE_CUTOFF)) {
-			logger.info("Gene " + gene.getName() + " not expressed in sample " + sample.getSampleName());
+			logger.info("Gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ") not expressed in sample " + sample.getSampleName());
 			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
 			return;
 		}
 		
-		// Get fixed size windows with significant scan statistic
+		logger.info("Finding scan peaks for sample " + sample.getSampleName() + " and gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ")");
+		
+		// Get fixed size windows with sufficient count and significant scan statistic
 		TreeSet<Annotation> scanSignificantWindows = new TreeSet<Annotation>();
 		Map<Annotation, ScanStatisticScore> windowScores = sample.getWindowScores(gene);
 		for(Annotation window : windowScores.keySet()) {
-			double pval = windowScores.get(window).getScanPvalue();
+			ScanStatisticScore score = windowScores.get(window);
+			double count = score.getCount();
+			if(count < peakWindowCountCutoff) {
+				continue;
+			}
+			double pval = score.getScanPvalue();
 			if(pval < peakWindowScanPvalCutoff) {
 				scanSignificantWindows.add(window);
 			}
@@ -242,8 +257,13 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		// Trim each window
 		TreeSet<Annotation> trimmedMergedWindows = new TreeSet<Annotation>();
 		for(Annotation window : mergedWindows) {
-			List<Double> coverageData = ((TranscriptomeSpace) data.getCoordinateSpace()).getPositionCountList(new Gene(window), data);
-			Annotation trimmed = SampleData.trimMaxContiguous(window, coverageData, TRIM_PEAK_QUANTILE);
+			List<Double> coverageData = data.getPositionCountList(new Gene(window));
+			String coverageString = "";
+			for(Double d : coverageData) {
+				coverageString += d.toString() + " ";
+			}
+			logger.debug(window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\t" + coverageString);
+			Annotation trimmed = SampleData.trimMaxContiguous(window, coverageData, trimQuantile);
 			trimmedMergedWindows.add(trimmed);
 		}
 		
@@ -283,6 +303,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	 * Score all genes
 	 * @throws IOException 
 	 */
+	@SuppressWarnings("unused")
 	private void scoreGenesTStatisticScore() throws IOException {
 		
 		if(!permutationScoring) {
@@ -421,6 +442,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	 * @param window The window
 	 * @return The nominal P value for the score of the window
 	 */
+	@SuppressWarnings("unused")
 	private double empiricalNominalPvalTStatisticScore(Gene gene, Annotation window) {
 		
 		if(!permutationScoring) {
@@ -588,7 +610,10 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		p.addIntArg("-p", "Max number of sample identity permutations for empirical P value of window scores", false, DEFAULT_MAX_PERMUTATIONS);
 		p.addBooleanArg("-ps", "Do permutation scoring", false, DEFAULT_DO_PERMUTATION_SCORING);
 		p.addDoubleArg("-sp", "Scan P value cutoff for peak within gene", false, DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF);
+		p.addDoubleArg("-cp", "Window count cutoff for peak", false, DEFAULT_PEAK_WINDOW_COUNT_CUTOFF);
 		p.addBooleanArg("-wsp", "Write single sample significant scan peaks to files", false, false);
+		p.addDoubleArg("-q", "Quantile for peak trimming by trim max contiguous algorithm", false, DEFAULT_TRIM_PEAK_QUANTILE);
+		p.addBooleanArg("-d", "Debug logging", false, false);
 		p.parse(args);
 		String sampleListFile = p.getStringArg("-l");
 		String bedFile = p.getStringArg("-b");
@@ -598,8 +623,15 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		double scanPvalCutoff = p.getDoubleArg("-sp");
 		boolean writeScanPeaks = p.getBooleanArg("-wsp");
 		boolean doPermutationScoring = p.getBooleanArg("-ps");
+		double trimQuantile = p.getDoubleArg("-q");
+		boolean debug = p.getBooleanArg("-d");
+		double windowCountCutoff = p.getDoubleArg("-cp");
 		
-		MultiSampleBindingSiteCaller b = new MultiSampleBindingSiteCaller(sampleListFile, bedFile, windowSize, stepSize, maxPermutations, scanPvalCutoff, doPermutationScoring);
+		if(debug) {
+			logger.setLevel(Level.DEBUG);
+		}
+		
+		MultiSampleBindingSiteCaller b = new MultiSampleBindingSiteCaller(sampleListFile, bedFile, windowSize, stepSize, maxPermutations, scanPvalCutoff, windowCountCutoff, trimQuantile, doPermutationScoring);
 		if(writeScanPeaks) {
 			b.writeSingleSampleScanPeaksAllSamples();
 		}

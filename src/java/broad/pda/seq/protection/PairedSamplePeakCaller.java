@@ -25,6 +25,7 @@ import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.feature.GeneWindow;
 import nextgen.core.model.ScanStatisticDataAlignmentModel;
+import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.CountScore;
 import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.model.score.WindowProcessor;
@@ -38,7 +39,7 @@ public class PairedSamplePeakCaller implements PeakCaller {
 	protected Map<String, Map<Gene, Double>> backgroundScanPvalues;
 	protected ScanStatisticDataAlignmentModel backgroundData;
 	protected String backgroundName;
-	protected ScanStatisticDataAlignmentModel signalData;
+	protected TranscriptomeSpaceAlignmentModel signalData;
 	protected String signalName;
 	protected Map<String, Collection<Gene>> genes;
 	
@@ -158,7 +159,7 @@ public class PairedSamplePeakCaller implements PeakCaller {
 	 */
 	protected Annotation trimPeak(Gene window) throws IOException {
 
-		List<Double> coverageData = transcriptomeSpace.getPositionCountList(window, signalData);
+		List<Double> coverageData = signalData.getPositionCountList(window);
 		Annotation rtrn = SampleData.trimMaxContiguous(window, coverageData, trimPeakByQuantile);
 		int trimmedStart = rtrn.getStart();
 		int trimmedEnd = rtrn.getEnd();
