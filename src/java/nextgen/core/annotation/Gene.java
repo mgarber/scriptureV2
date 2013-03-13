@@ -585,20 +585,20 @@ public class Gene extends BasicAnnotation {
 	// TODO JE - I'm confused why this doesn't return a blocked UTR 
 	public Annotation get5UTR(){
 		if(getOrientation() == Strand.POSITIVE){
-			Annotation rtrn=new BasicAnnotation(getChr(), getStart(), this.getCDSRegion().getStart());
+			Annotation rtrn=new BasicAnnotation(getChr(), getStart(), this.getCDSRegion().getStart(), getStrand());
 			return rtrn;
 		}
-		Annotation rtrn=new BasicAnnotation(getChr(), this.getCDSRegion().getEnd(), getEnd());
+		Annotation rtrn=new BasicAnnotation(getChr(), this.getCDSRegion().getEnd(), getEnd(), getStrand());
 		return rtrn;
 	}
 	
 	// TODO JE - I'm confused why this doesn't return a blocked UTR 
 	public Annotation get3UTR(){
 		if(getOrientation() == Strand.NEGATIVE){
-			Annotation rtrn=new BasicAnnotation(getChr(), getStart(), this.getCDSRegion().getStart());
+			Annotation rtrn=new BasicAnnotation(getChr(), getStart(), this.getCDSRegion().getStart(), getStrand());
 			return rtrn;
 		}
-		Annotation rtrn=new BasicAnnotation(getChr(), this.getCDSRegion().getEnd(), getEnd());
+		Annotation rtrn=new BasicAnnotation(getChr(), this.getCDSRegion().getEnd(), getEnd(), getStrand());
 		return rtrn;
 	}
 	
@@ -673,10 +673,10 @@ public class Gene extends BasicAnnotation {
 	 */
 	public Alignments get3UtrIncludingIntrons(){
 		if(getOrientation() == Strand.NEGATIVE){
-			Alignments rtrn=new Alignments(getChr(), getStart(), this.getCDSRegion().getStart() - 1);
+			Alignments rtrn=new Alignments(getChr(), getStart(), this.getCDSRegion().getStart() - 1, getOrientation());
 			return rtrn;
 		}
-		Alignments rtrn=new Alignments(getChr(), this.getCDSRegion().getEnd() + 1, getEnd());
+		Alignments rtrn=new Alignments(getChr(), this.getCDSRegion().getEnd() + 1, getEnd(), getOrientation());
 		return rtrn;
 	}
 	
