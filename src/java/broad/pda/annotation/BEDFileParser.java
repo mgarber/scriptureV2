@@ -516,10 +516,12 @@ public class BEDFileParser {
 	}
 
 	public static Map<String, Gene> loadDataByName(File file) throws IOException{
+		logger.info("Loading genes from file " + file.getName() + "...");
 		BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(file)));
 	
 		Map<String, Gene> data=new TreeMap<String, Gene>();
 		String nextLine;
+		int numDone = 0;
 		while ((nextLine = reader.readLine()) != null && (nextLine.trim().length() > 0)) {
 	
 			if(looksLikeData(nextLine)){
@@ -549,6 +551,10 @@ public class BEDFileParser {
 	
 				Gene track=new Gene(chr, start, end, name, strand, exonStartEnd[0], exonStartEnd[1], blockStart, blockEnd, extraColumns);
 				data.put(name, track);
+				numDone++;
+				if(numDone % 10000 == 0) {
+					logger.info("Loaded " + numDone + " genes.");
+				}
 			}
 	
 		}

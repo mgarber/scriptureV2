@@ -166,25 +166,6 @@ public class TranscriptomeSpace implements CoordinateSpace{
 	}
 	
 	/**
-	 * Get list of position level counts in mature transcript
-	 * @param region The region
-	 * @param data Alignment data
-	 * @return List of position counts
-	 * @throws IOException 
-	 */
-	public List<Double> getPositionCountList(Gene region, AlignmentModel data) throws IOException {
-		List<Double> rtrn = new ArrayList<Double>();
-		Collection<Gene> baseGenes = new ArrayList<Gene>();
-		baseGenes.add(region);
-		WindowProcessor<CountScore> processor = new CountScore.Processor(data);
-		WindowScoreIterator<CountScore> scoreIter = scan(baseGenes, 1, 0, processor);
-		while(scoreIter.hasNext()) {
-			rtrn.add(Double.valueOf(scoreIter.next().getCount()));
-		}
-		return rtrn;
-	}
-	
-	/**
 	 * Get map of position to of position level counts in mature transcript
 	 * @param region The region
 	 * @param data Alignment data
