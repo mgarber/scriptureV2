@@ -14,6 +14,7 @@ import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.model.ScanStatisticDataAlignmentModel;
+import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.CountScore;
 import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.model.score.WindowScoreIterator;
@@ -74,7 +75,7 @@ public class PairedSampleBindingSiteAnalysis extends PairedSamplePeakCaller {
 		genes = genesByChr;
 		transcriptomeSpace = new TranscriptomeSpace(genes);
 		backgroundData = new ScanStatisticDataAlignmentModel(backgroundAlignmentFile, transcriptomeSpace);
-		signalData = new ScanStatisticDataAlignmentModel(signalAlignmentFile, transcriptomeSpace);
+		signalData = new TranscriptomeSpaceAlignmentModel(signalAlignmentFile, transcriptomeSpace);
 		windowSize = window;
 		stepSize = step;
 		pValueCutoffSkellam = alphaSkellam;
