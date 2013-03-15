@@ -5,7 +5,6 @@ package broad.pda.seq.protection;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -27,7 +26,6 @@ import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
-import nextgen.core.feature.GeneWindow;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.model.score.WindowProcessor;
@@ -50,27 +48,29 @@ public class SampleData {
 	private WindowProcessor<ScanStatisticScore> processor;
 	protected Map<String, Collection<Gene>> genesByChr;
 	protected Map<String, Gene> genesByName;
-	protected double scanPvalAlpha;
+	protected double expressionCutoffValue;
 	private CachedScoreFile windowScoreFile;
 	private boolean gotWindowScoresFromFile;
 	private static int DEFAULT_MAX_GENOMIC_SPAN = 300000;
+	private boolean expressionByScanPval;
 	
 	/**
 	 * @param bamFile Bam file
 	 * @param genes Genes by chromosome
 	 * @param window Window size
 	 * @param step Step size
-	 * @param alpha P value cutoff for scan test of gene expression
+	 * @param expressionCutoff P value cutoff for scan test of gene expression
+	 * @param expressionByScanPval Expression is assessed by scan P value. If false, uses ratio of fragments to gene length
 	 * @throws IOException 
 	 */
-	public SampleData(String bamFile, Map<String, Collection<Gene>> genes, int window, int step, double alpha) throws IOException {
+	public SampleData(String bamFile, Map<String, Collection<Gene>> genes, int window, int step, double expressionCutoff, boolean expressionByScanPval) throws IOException {
 		StringParser p = new StringParser();
 		p.parse(bamFile, "\\.");
 		sampleName = p.asString(0);
 		for(int i = 1 ; i < p.getFieldCount() - 1; i++) {
 			sampleName += "." + p.asString(i);
 		}
-		scanPvalAlpha = alpha;
+		expressionCutoffValue = expressionCutoff;
 		genesByChr = genes;
 		data = new TranscriptomeSpaceAlignmentModel(bamFile, new TranscriptomeSpace(genes));
 		data.addFilter(new GenomicSpanFilter(DEFAULT_MAX_GENOMIC_SPAN));
@@ -143,12 +143,19 @@ public class SampleData {
 	 * @return Whether the gene is expressed at the given significance level
 	 */
 	public boolean isExpressed(Gene gene) {
-		if(geneScores.containsKey(gene)) {
-			return geneScores.get(gene).getScanPvalue() < scanPvalAlpha;
+		if(!geneScores.containsKey(gene)) {
+			ScanStatisticScore score = new ScanStatisticScore(data, gene);
+			geneScores.put(gene, score);			
 		}
-		ScanStatisticScore score = new ScanStatisticScore(data, gene);
-		geneScores.put(gene, score);
-		return geneScores.get(gene).getScanPvalue() < scanPvalAlpha;
+		ScanStatisticScore score = geneScores.get(gene);
+		if(expressionByScanPval) {
+			return score.getScanPvalue() <= expressionCutoffValue;
+		}
+		double count = score.getCount();
+		int size = score.getAnnotation().getSize();
+		double avgDepth = count / size;
+		//logger.info("cutoff=" + expressionCutoffValue + "\tcount=" + count + "\tsize=" + size + "\tscore=" + avgDepth);
+		return avgDepth >= expressionCutoffValue;
 	}
 	
 	/**
@@ -277,6 +284,7 @@ public class SampleData {
 	
 	/**
 	 * Write the window scores to a file for future use
+	 * @param m Multi sample binding site caller that this belongs to
 	 * @throws IOException
 	 */
 	public void writeWindowScoresToFile(MultiSampleBindingSiteCaller m) throws IOException {
@@ -411,6 +419,7 @@ public class SampleData {
 		
 		/**
 		 * Write scores to file
+		 * @param m Multi sample binding site caller that this belongs to
 		 * @throws IOException 
 		 */
 		public void writeWindowScoresToFile(MultiSampleBindingSiteCaller m) throws IOException {

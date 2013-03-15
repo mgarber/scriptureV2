@@ -47,6 +47,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	private Map<Gene, Map<Annotation, Double>> tStatisticWindowScores;
 	private Map<SampleData, Map<Gene, Map<Annotation, Double>>> singleSampleWindowEnrichmentOverGene;
 	private Map<SampleData, Map<Gene, Collection<Annotation>>> singleSampleScanPeaks;
+	protected SampleData expressionData;
 	protected ArrayList<SampleData> controlSamples;
 	protected ArrayList<SampleData> signalSamples;
 	protected ArrayList<SampleData> allSamples;
@@ -55,7 +56,6 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	protected int stepSize;
 	private static int DEFAULT_WINDOW_SIZE = 30;
 	private static int DEFAULT_STEP_SIZE = 1;
-	protected static double EXPRESSION_SCAN_P_VALUE_CUTOFF = 0.05;
 	private static double DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF = 0.001;
 	private static double DEFAULT_PEAK_WINDOW_COUNT_CUTOFF = 10;
 	private static int DEFAULT_MAX_PERMUTATIONS = 10000;
@@ -112,6 +112,7 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		controlSamples = p.getControlDatasets();
 		numControls = controlSamples.size();
 		signalSamples = p.getSignalDatasets();
+		expressionData = p.getExpressionData();
 		numSignals = signalSamples.size();
 		allSamples = new ArrayList<SampleData>();
 		allSamples.addAll(controlSamples);
@@ -149,13 +150,22 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	 * @param gene The gene
 	 * @return Whether the gene is expressed by these criteria
 	 */
-	public boolean isExpressed(Gene gene) {
+	public boolean isExpressedInAllControlSamples(Gene gene) {
 		for(SampleData control : controlSamples) {
 			if(!control.isExpressed(gene)) {
 				return false;
 			}
 		}
 		return true;
+	}
+	
+	/**
+	 * Whether the gene is significantly expressed in the special expression sample
+	 * @param gene The gene
+	 * @return True iff the gene is expressed in the expression sample
+	 */
+	public boolean isExpressed(Gene gene) {
+		return expressionData.isExpressed(gene);
 	}
 	
 	/**
@@ -226,9 +236,9 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		
 		TranscriptomeSpaceAlignmentModel data = sample.getData();
 		
-		// If gene is not expressed in this sample, skip
-		if(!data.isExpressed(gene, EXPRESSION_SCAN_P_VALUE_CUTOFF)) {
-			logger.info("Gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ") not expressed in sample " + sample.getSampleName());
+		// If gene is not expressed, skip
+		if(!isExpressed(gene)) {
+			logger.info("Gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ") not expressed in expression dataset.");
 			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
 			return;
 		}
@@ -646,16 +656,21 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 	 */
 	private class SampleFileParser {
 		
+		private String EXPRESSION_LABEL = "Expression";
+		private String EXPRESSION_PVAL_CUTOFF_LABEL = "Expression_pval_cutoff";
+		private String EXPRESSION_RATIO_FRAGMENTS_TO_GENE_SIZE_CUTOFF_LABEL = "Expression_ratio_fragments_to_gene_size_cutoff";
 		private String CONTROL_LABEL = "Control";
 		private String SIGNAL_LABEL = "Signal";
+		private SampleData expressionSampleData;
 		private ArrayList<SampleData> controlData;
 		private ArrayList<SampleData> signalData;
 
 		
-		public SampleFileParser(String file) throws IOException {
+		public SampleFileParser(String sampleFile) throws IOException {
 			controlData = new ArrayList<SampleData>();
 			signalData = new ArrayList<SampleData>();
-			parseFile(file);
+			expressionSampleData = null;
+			parseFile(sampleFile);
 		}
 		
 		/**
@@ -675,32 +690,76 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		}
 		
 		/**
+		 * Get the expression dataset
+		 * @return Expression dataset
+		 */
+		public SampleData getExpressionData() {
+			return expressionSampleData;
+		}
+		
+		/**
 		 * Parse the sample file and populate data sets
 		 * @throws IOException
 		 */
-		private void parseFile(String fileName) throws IOException {
-			FileReader r = new FileReader(fileName);
+		private void parseFile(String sampleFile) throws IOException {
+			boolean foundExpressionData = false;
+			FileReader r = new FileReader(sampleFile);
 			BufferedReader b = new BufferedReader(r);
 			StringParser s = new StringParser();
+			
+			if(!b.ready()) {
+				crashWithHelpMessage();
+			}
+			
+			String pvalLine = b.readLine();
+			s.parse(pvalLine);
+			boolean expByScanPval = false;
+			if(s.getFieldCount() != 2) {
+				crashWithHelpMessage();
+			}
+			if(s.asString(0).equals(EXPRESSION_RATIO_FRAGMENTS_TO_GENE_SIZE_CUTOFF_LABEL)) {
+				expByScanPval = false;
+			} else if (s.asString(0).equals(EXPRESSION_PVAL_CUTOFF_LABEL)) {
+				expByScanPval = true;
+			} else {
+				crashWithHelpMessage();
+			}
+			double cutoff = s.asDouble(1);
+			
+			if(!b.ready()) {
+				crashWithHelpMessage();
+			}
+			
 			while(b.ready()) {
 				
 				String line = b.readLine();
 				s.parse(line);
 				
 				if(s.getFieldCount() == 0) continue;
-				if(s.getFieldCount() > 2) crashWithHelpMessage();
+				if(s.getFieldCount() > 3) crashWithHelpMessage();
 				
-				String sampleType = s.asString(0);
+				String label = s.asString(0);
 				String bamFile = s.asString(1);
-				logger.info("Creating sample data object for bam file " + bamFile);
-				SampleData sample = new SampleData(bamFile, genes, windowSize, stepSize, EXPRESSION_SCAN_P_VALUE_CUTOFF);
 				
-				if(sampleType.equals(CONTROL_LABEL)) {
+				logger.info("Creating sample data object for bam file " + bamFile);
+				SampleData sample = new SampleData(bamFile, genes, windowSize, stepSize, cutoff, expByScanPval);
+				
+
+				if(label.equals(EXPRESSION_LABEL)) {
+					if(foundExpressionData) {
+						crashWithHelpMessage();
+					}
+					expressionSampleData = sample;
+					foundExpressionData = true;
+					continue;
+				}
+				
+				if(label.equals(CONTROL_LABEL)) {
 					controlData.add(sample);
 					continue;
 				}
 				
-				if(sampleType.equals(SIGNAL_LABEL)) {
+				if(label.equals(SIGNAL_LABEL)) {
 					signalData.add(sample);
 					continue;
 				}
@@ -711,16 +770,37 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 			
 			r.close();
 			b.close();
+			
+			if(!foundExpressionData) {
+				crashWithHelpMessage();
+			}
+			
 		}
 		
 		/**
 		 * Crash and print help message if sample file is invalid
 		 */
 		private void crashWithHelpMessage() {
-			logger.error("Sample file not valid. Each line must be of the form:");
+			logger.error("");
+			logger.error("**********");
+			logger.error("");
+			logger.error("Sample file not valid.");
+			logger.error("");
+			logger.error("First line must be:");
+			logger.error(EXPRESSION_PVAL_CUTOFF_LABEL + "\t<pval_cutoff>");
+			logger.error("-OR-");
+			logger.error(EXPRESSION_RATIO_FRAGMENTS_TO_GENE_SIZE_CUTOFF_LABEL + "\t<avg_depth_cutoff>");
+			logger.error("");
+			logger.error("Exactly one line must be of the form:");
+			logger.error(EXPRESSION_LABEL + "\t<bam_file_name>");
+			logger.error("");
+			logger.error("Each additional line must be of the form:");
 			logger.error(CONTROL_LABEL + "\t<bam_file_name>");
 			logger.error("- or -");
 			logger.error(SIGNAL_LABEL + "\t<bam_file_name>");
+			logger.error("");
+			logger.error("**********");
+			logger.error("");
 			throw new IllegalArgumentException("Sample file not valid.");
 		}
 		
