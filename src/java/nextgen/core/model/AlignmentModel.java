@@ -220,7 +220,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			
 			// Compute stats
 			if (stats == null) {
-				logger.info("Computing global stats...");
+				logger.info("Computing global stats for bam file " + this.bamFile + "...");
 				loaded = false;
 				stats = getReferenceSequenceCounts();
 				

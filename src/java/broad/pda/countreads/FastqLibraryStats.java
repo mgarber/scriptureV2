@@ -11,32 +11,32 @@ import java.util.TreeSet;
 import org.apache.log4j.Logger;
 
 import broad.core.parser.CommandLineParser;
+import broad.core.parser.StringParser;
+
 import net.sf.picard.sam.DuplicationMetrics;
 
 /**
  * @author prussell
  *
  */
-public class DuplicatesAndLibrarySizeAnalysis {
+public class FastqLibraryStats {
 
 	/**
 	 * Constructor for single end reads
 	 * @param singleReadFastq
-	 * @param log Logger object
 	 * @throws IOException 
 	 */
-	public DuplicatesAndLibrarySizeAnalysis(String singleReadFastq, Logger log) throws IOException {
-		this(singleReadFastq, null, log);
+	public FastqLibraryStats(String singleReadFastq) throws IOException {
+		this(singleReadFastq, null);
 	}
 	
 	/**
 	 * Constructor for paired end reads
 	 * @param read1fastq
 	 * @param read2fastq
-	 * @param log Logger object
 	 * @throws IOException 
 	 */
-	public DuplicatesAndLibrarySizeAnalysis(String read1fastq, String read2fastq, Logger log) throws IOException {
+	public FastqLibraryStats(String read1fastq, String read2fastq) throws IOException {
 		read1file = read1fastq;
 		read2file = read2fastq;
 		uniqueReads = new TreeSet<String>();
@@ -45,7 +45,6 @@ public class DuplicatesAndLibrarySizeAnalysis {
 		numUniqueReads = -1;
 		totalReads = -1;
 		pctDup = -1;
-		logger = log;
 		readsPaired = false;
 		if(read2fastq != null) readsPaired = true;
 		collapseReadsAndCount();
@@ -60,7 +59,7 @@ public class DuplicatesAndLibrarySizeAnalysis {
 	private int totalReads;
 	private long estLibrarySize;
 	private boolean readsPaired;
-	private Logger logger;
+	private static Logger logger = Logger.getLogger(FastqLibraryStats.class.getName());
 	
 	/**
 	 * Get the number of unique reads
@@ -227,12 +226,15 @@ public class DuplicatesAndLibrarySizeAnalysis {
 			
 			while(buffered1.ready()) {
 				String read1Line1 = buffered1.readLine();
+				@SuppressWarnings("unused")
 				String read2Line1 = buffered2.readLine();
 				String read1Line2 = buffered1.readLine();
 				String read2Line2 = buffered2.readLine();
 				String read1Line3 = buffered1.readLine();
+				@SuppressWarnings("unused")
 				String read2Line3 = buffered2.readLine();
 				String read1Line4 = buffered1.readLine();
+				@SuppressWarnings("unused")
 				String read2Line4 = buffered2.readLine();
 			
 				String combined = read1Line2 + "_" + read2Line2;
@@ -256,6 +258,62 @@ public class DuplicatesAndLibrarySizeAnalysis {
 			od1.close();
 
 		}
+		
+	}
+	
+	/**
+	 * @param args
+	 * @throws IOException
+	 */
+	public static void main(String[] args) throws IOException {
+		
+		CommandLineParser p = new CommandLineParser();
+		p.addStringArg("-f", "Fastq list file. Each line: <sample_name> <fastq_1> <fastq_2>(optional)", true);
+		p.addStringArg("-o", "Output table file", true);
+		p.parse(args);
+		String fastqList = p.getStringArg("-f");
+		String outFile = p.getStringArg("-o");
+		
+		FileReader r = new FileReader(fastqList);
+		BufferedReader b = new BufferedReader(r);
+		FileWriter w = new FileWriter(outFile);
+		StringParser s = new StringParser();
+		
+		String header = "sample_name\t";
+		header += "total_reads\t";
+		header += "unique_reads\t";
+		header += "pct_duplicated\t";
+		
+		w.write(header + "\n");
+		
+		while(b.ready()) {
+			String line = b.readLine();
+			s.parse(line);
+			int numFields = s.getFieldCount();
+			if(numFields == 0) continue;
+			if(numFields < 2 || numFields > 3) {
+				throw new IllegalArgumentException("Each line in fastq list file must be of the form: <sample_name> <fastq_1> <fastq_2>(optional)");
+			}
+			String sampleName = s.asString(0);
+			String lineToWrite = sampleName + "\t";
+			logger.info("Processing sample " + sampleName);
+			if(numFields == 2) {
+				FastqLibraryStats d = new FastqLibraryStats(s.asString(1));
+				lineToWrite += d.getTotalReads() + "\t";
+				lineToWrite += d.getNumUniqueReads() + "\t";
+				lineToWrite += d.getPercentDuplicated() + "\t";
+			} else {
+				FastqLibraryStats d = new FastqLibraryStats(s.asString(1), s.asString(2));
+				lineToWrite += d.getTotalReads() + "\t";
+				lineToWrite += d.getNumUniqueReads() + "\t";
+				lineToWrite += d.getPercentDuplicated() + "\t";
+			}
+			w.write(lineToWrite + "\n");
+		}
+		
+		r.close();
+		b.close();
+		w.close();
 		
 	}
 

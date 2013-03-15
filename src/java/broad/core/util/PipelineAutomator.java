@@ -42,7 +42,7 @@ import broad.core.parser.StringParser;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
 import broad.pda.annotation.BEDFileParser;
-import broad.pda.countreads.DuplicatesAndLibrarySizeAnalysis;
+import broad.pda.countreads.FastqLibraryStats;
 import broad.pda.countreads.LibraryCompositionByRnaClass;
 
 /**
@@ -577,7 +577,7 @@ public class PipelineAutomator {
 				w.write("Sample\tTotal_reads\tUnique_reads\tPercent_duplicated\tEst_library_size\n");
 			}
 			first = false;
-			DuplicatesAndLibrarySizeAnalysis d = new DuplicatesAndLibrarySizeAnalysis(leftFqs.get(sample), pairedData.get(sample).booleanValue() ? rightFqs.get(sample) : null, logger);
+			FastqLibraryStats d = new FastqLibraryStats(leftFqs.get(sample), pairedData.get(sample).booleanValue() ? rightFqs.get(sample) : null);
 			w.write(sample + "\t" + d.getTotalReads() + "\t" + d.getNumUniqueReads() + "\t" + d.getPercentDuplicated() + "\t" + d.getEstimatedLibrarySize() + "\n");
 		}
 		w.close();
