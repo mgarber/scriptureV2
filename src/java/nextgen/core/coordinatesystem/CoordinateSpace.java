@@ -37,6 +37,12 @@ public interface CoordinateSpace {
 	 */
 	Collection<? extends Window> getFragment(Annotation annotation);
 	
+	/**
+	 * Get the size of the annotation with respect to the coordinate space
+	 * @param region
+	 * @return
+	 */
+	public int getSize(Annotation region);
 	
 	/**
 	 * Returns a collection of regions overlapping start and end on chromosome

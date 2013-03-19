@@ -454,6 +454,11 @@ public class MaskedGenomicSpace implements CoordinateSpace{
 		return getFragment(annotation.getChr(), annotation.getStart(), annotation.getEnd());
 	}
 
+	@Override
+	public int getSize(Annotation region) {
+		throw new UnsupportedOperationException("TODO");
+	}
+
 	
 	
 }

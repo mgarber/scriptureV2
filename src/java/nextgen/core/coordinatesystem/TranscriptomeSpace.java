@@ -482,5 +482,19 @@ protected class GeneTree {
 			return null;
 		}
 	}
+
+	@Override
+	public int getSize(Annotation region) {
+		Collection<? extends Window> fragments = getFragment(region);
+		int rtrn = region.getOverlap(fragments.iterator().next());
+		for(Window fragment : fragments) {
+			int overlap = region.getOverlap(fragment);
+			if(overlap > rtrn) {
+				rtrn = overlap;
+			}
+		}
+		//logger.info("TranscriptomeSpace " + region.getName() + " " + region.getChr() + ":" + region.getStart() + " " + region.getEnd() + " " + rtrn);
+		return rtrn;
+	}
 	
 }

@@ -40,7 +40,7 @@ public class SampleData {
 
 	protected String sampleName;
 	protected TranscriptomeSpaceAlignmentModel data;
-	private Map<Gene, ScanStatisticScore> geneScores;
+	protected Map<Gene, ScanStatisticScore> geneScores;
 	protected Map<Gene, Map<Annotation, ScanStatisticScore>> windowScores;
 	protected int windowSize;
 	protected int stepSize;
@@ -49,10 +49,10 @@ public class SampleData {
 	protected Map<String, Collection<Gene>> genesByChr;
 	protected Map<String, Gene> genesByName;
 	protected double expressionCutoffValue;
-	private CachedScoreFile windowScoreFile;
+	//private CachedScoreFile windowScoreFile;
 	private boolean gotWindowScoresFromFile;
 	private static int DEFAULT_MAX_GENOMIC_SPAN = 300000;
-	private boolean expressionByScanPval;
+	protected boolean expressionByScanPval;
 	
 	/**
 	 * @param bamFile Bam file
@@ -60,10 +60,10 @@ public class SampleData {
 	 * @param window Window size
 	 * @param step Step size
 	 * @param expressionCutoff P value cutoff for scan test of gene expression
-	 * @param expressionByScanPval Expression is assessed by scan P value. If false, uses ratio of fragments to gene length
+	 * @param expByScanPval Expression is assessed by scan P value. If false, uses average read depth
 	 * @throws IOException 
 	 */
-	public SampleData(String bamFile, Map<String, Collection<Gene>> genes, int window, int step, double expressionCutoff, boolean expressionByScanPval) throws IOException {
+	public SampleData(String bamFile, Map<String, Collection<Gene>> genes, int window, int step, double expressionCutoff, boolean expByScanPval) throws IOException {
 		StringParser p = new StringParser();
 		p.parse(bamFile, "\\.");
 		sampleName = p.asString(0);
@@ -71,6 +71,7 @@ public class SampleData {
 			sampleName += "." + p.asString(i);
 		}
 		expressionCutoffValue = expressionCutoff;
+		expressionByScanPval = expByScanPval;
 		genesByChr = genes;
 		data = new TranscriptomeSpaceAlignmentModel(bamFile, new TranscriptomeSpace(genes));
 		data.addFilter(new GenomicSpanFilter(DEFAULT_MAX_GENOMIC_SPAN));
@@ -86,8 +87,8 @@ public class SampleData {
 		windowSize = window;
 		stepSize = step;
 		logger.info("Instantiated sample data object. Name = " + sampleName + ", window size = " + windowSize + ", step size = " + stepSize);
-		windowScoreFile = new CachedScoreFile(getDefaultWindowScoreFileName());
-		gotWindowScoresFromFile = windowScoreFile.readWindowScoresFromFile();
+		//windowScoreFile = new CachedScoreFile(getDefaultWindowScoreFileName());
+		//gotWindowScoresFromFile = windowScoreFile.readWindowScoresFromFile();
 	}
 	
 	/**
@@ -101,6 +102,7 @@ public class SampleData {
 			return geneScores.get(gene).getCount();
 		}
 		ScanStatisticScore score = new ScanStatisticScore(data, gene);
+		logger.debug(gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(gene) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
 		geneScores.put(gene, score);
 		return score.getCount();
 	}
@@ -117,22 +119,24 @@ public class SampleData {
 			return geneScores.get(gene).getScanPvalue();
 		}
 		ScanStatisticScore score = new ScanStatisticScore(data, gene);
+		logger.debug(gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(gene) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
 		geneScores.put(gene, score);
 		return score.getScanPvalue();
 	}
 	
 	
 	/**
-	 * Get coordinate space wide scan P value of number of fragments mapping to the gene
+	 * Get average coverage of gene
 	 * Get score from cache or calculate and cache score
 	 * @param gene The gene
-	 * @return The scan P value of the number of fragments mapping to the gene with respect to the coordinate space
+	 * @return The average coverage of the gene
 	 */
 	public double getGeneAverageCoverage(Gene gene) {
 		if(geneScores.containsKey(gene)) {
 			return geneScores.get(gene).getAverageCoverage();
 		}
 		ScanStatisticScore score = new ScanStatisticScore(data, gene);
+		logger.debug(gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(gene) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
 		geneScores.put(gene, score);
 		return score.getAverageCoverage();
 	}
@@ -145,16 +149,15 @@ public class SampleData {
 	public boolean isExpressed(Gene gene) {
 		if(!geneScores.containsKey(gene)) {
 			ScanStatisticScore score = new ScanStatisticScore(data, gene);
+			logger.debug(gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(gene) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
 			geneScores.put(gene, score);			
 		}
 		ScanStatisticScore score = geneScores.get(gene);
 		if(expressionByScanPval) {
 			return score.getScanPvalue() <= expressionCutoffValue;
 		}
-		double count = score.getCount();
-		int size = score.getAnnotation().getSize();
-		double avgDepth = count / size;
-		//logger.info("cutoff=" + expressionCutoffValue + "\tcount=" + count + "\tsize=" + size + "\tscore=" + avgDepth);
+		double avgDepth = getGeneAverageCoverage(gene);
+		logger.debug("cutoff=" + expressionCutoffValue + "\tcount=" + score.getCount() + "\tsize=" + score.getCoordinateSpace().getSize(score.getAnnotation()) + "\tscore=" + avgDepth);
 		return avgDepth >= expressionCutoffValue;
 	}
 	
@@ -231,6 +234,7 @@ public class SampleData {
 		score.setTotal(geneTotal);
 		score.setRegionTotal(regionTotal);
 		score.refreshScanPvalue(data);
+		logger.debug(window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(window) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
 		return score;
 	}
 	
@@ -239,7 +243,7 @@ public class SampleData {
 	 * @param gene The gene
 	 */
 	private void computeWindowScores(Gene gene) {
-		logger.info("Computing window scores for sample " + sampleName + " and gene " + gene.getName());
+		logger.debug("Computing window scores for sample " + sampleName + " and gene " + gene.getName());
 		Map<Annotation, ScanStatisticScore> scores = new TreeMap<Annotation, ScanStatisticScore>();
 		if(gene.getSize() < windowSize) {
 			logger.info(gene.getName() + " is smaller than window size. Not computing window binding site scores.");
@@ -260,11 +264,19 @@ public class SampleData {
 			score.setTotal(geneTotal);
 			score.setRegionTotal(regionTotal);
 			score.refreshScanPvalue(data);
+			logger.debug(window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(window) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
 			scores.put(window, score);
 		}
 		windowScores.put(gene, scores);
 	}
 	
+	/**
+	 * Get the logger
+	 * @return The logger
+	 */
+	public Logger getLogger() {
+		return logger;
+	}
 	
 	/**
 	 * Get the sample name
@@ -282,15 +294,15 @@ public class SampleData {
 		sampleName = name;
 	}
 	
-	/**
+/*	*//**
 	 * Write the window scores to a file for future use
 	 * @param m Multi sample binding site caller that this belongs to
 	 * @throws IOException
-	 */
+	 *//*
 	public void writeWindowScoresToFile(MultiSampleBindingSiteCaller m) throws IOException {
 		windowScoreFile.writeWindowScoresToFile(m);
 	}
-	
+*/	
 	/**
 	 * Get the alignment data
 	 * @return Alignment model
@@ -339,7 +351,7 @@ public class SampleData {
 		return window;
 	}
 
-	
+/*	
 	private class CachedScoreFile {
 		
 		
@@ -366,12 +378,12 @@ public class SampleData {
 			stringParser = new StringParser();
 		}
 		
-		/**
+		*//**
 		 * Read and store all window scores from file
 		 * First check if file is valid for this dataset and parameters
 		 * @return Whether the scores were read and stored from the file
 		 * @throws IOException 
-		 */
+		 *//*
 		public boolean readWindowScoresFromFile() throws IOException {
 			
 			logger.info("Trying to read window scores from file.");
@@ -417,11 +429,11 @@ public class SampleData {
 			return true;
 		}
 		
-		/**
+		*//**
 		 * Write scores to file
 		 * @param m Multi sample binding site caller that this belongs to
 		 * @throws IOException 
-		 */
+		 *//*
 		public void writeWindowScoresToFile(MultiSampleBindingSiteCaller m) throws IOException {
 			logger.info("Writing window scores to file " + fileName);
 			FileWriter w = new FileWriter(fileName);
@@ -454,11 +466,11 @@ public class SampleData {
 			w.close();
 		}
 		
-		/**
+		*//**
 		 * Get the gene described on the line of scores
 		 * @param line The line in file
 		 * @return The gene
-		 */
+		 *//*
 		private Gene getGeneFromLine(String line) {
 			stringParser.parse(line);
 			if(!stringParser.asString(0).equals(GENE_IDENTIFIER)) {
@@ -467,11 +479,11 @@ public class SampleData {
 			return genesByName.get(stringParser.asString(1));
 		}
 		
-		/**
+		*//**
 		 * Whether the line indicates that the gene has no windows
 		 * @param line The line
 		 * @return Whether the line contains the no windows identifier
-		 */
+		 *//*
 		private boolean noWindows(String line) {
 			stringParser.parse(line);
 			if(!stringParser.asString(0).equals(GENE_IDENTIFIER)) {
@@ -485,11 +497,11 @@ public class SampleData {
 			
 		}
 		
-		/**
+		*//**
 		 * Get the window described on the line of scores
 		 * @param line The line in file
 		 * @return The window
-		 */
+		 *//*
 		private Annotation getWindowFromLine(String line) {
 			
 			stringParser.parse(line);
@@ -508,11 +520,11 @@ public class SampleData {
 			
 		}
 		
-		/**
+		*//**
 		 * Get scan statistic score described on the line of scores
 		 * @param line The line in file
 		 * @return The score
-		 */
+		 *//*
 		private ScanStatisticScore getScoreFromLine(String line) {
 
 			stringParser.parse(line);
@@ -568,11 +580,11 @@ public class SampleData {
 			
 		}
 		
-		/**
+		*//**
 		 * Whether the file exists and represents the same data and parameters as this run
 		 * @return True iff the file is valid
 		 * @throws IOException 
-		 */
+		 *//*
 		private boolean validateFile() throws IOException {
 			
 			File file = new File(fileName);
@@ -663,9 +675,9 @@ public class SampleData {
 			
 		}
 		
-		/**
+		*//**
 		 * Throw exception and print correct file format
-		 */
+		 *//*
 		private void crashIncorrectFileFormat() {
 			logger.error("Wrong format for cached score file. Sample format:");
 			logger.error("total_reads	23434888");
@@ -681,7 +693,7 @@ public class SampleData {
 		
 		
 	}
-	
+*/	
 	
 	
 }
