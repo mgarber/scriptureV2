@@ -366,18 +366,23 @@ public class PipelineAutomator {
 				logger.warn("Clipped file " + outClippedFile + " already exists. Not rerunning fastx_clipper.");
 				continue;
 			}
-			// Use fastx program fastx_clipper
-			String cmmd = fastxDir + "/fastx_clipper -a " + adapter1 + " -Q 33 -n -i " + inFile + " -o " ;
-			if(pairedData.get(sampleName).booleanValue()) {
-				cmmd += outTmpFile;
+			File tmpFile = new File(outTmpFile);
+			if(!tmpFile.exists()) {
+				// Use fastx program fastx_clipper
+				String cmmd = fastxDir + "/fastx_clipper -a " + adapter1 + " -Q 33 -n -i " + inFile + " -o " ;
+				if(pairedData.get(sampleName).booleanValue()) {
+					cmmd += outTmpFile;
+				} else {
+					cmmd += outClippedFile;
+				}
+				logger.info("Running fastx command: " + cmmd);
+				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+				jobIDs.add(jobID);
+				logger.info("LSF job ID is " + jobID + ".");
+				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "week", 4);
 			} else {
-				cmmd += outClippedFile;
+				logger.warn("Temp clipped file " + outTmpFile + " already exists. Not rerunning fastx_clipper. Starting from temp file.");
 			}
-			logger.info("Running fastx command: " + cmmd);
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			jobIDs.add(jobID);
-			logger.info("LSF job ID is " + jobID + ".");
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "hour", 4);
 		}
 		
 		// Clip right fastq files
@@ -393,13 +398,18 @@ public class PipelineAutomator {
 					logger.warn("Clipped file " + outClippedFile + " already exists. Not rerunning fastx_clipper.");
 					continue;
 				}
-				// Use fastx program fastx_clipper
-				String cmmd = fastxDir + "/fastx_clipper -a " + adapter2 + " -Q 33 -n -i " + inFile + " -o " + outTmpFile;
-				logger.info("Running fastx command: " + cmmd);
-				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-				jobIDs.add(jobID);
-				logger.info("LSF job ID is " + jobID + ".");
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "hour", 4);
+				File tmpFile = new File(outTmpFile);
+				if(!tmpFile.exists()) {
+					// Use fastx program fastx_clipper
+					String cmmd = fastxDir + "/fastx_clipper -a " + adapter2 + " -Q 33 -n -i " + inFile + " -o " + outTmpFile;
+					logger.info("Running fastx command: " + cmmd);
+					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+					jobIDs.add(jobID);
+					logger.info("LSF job ID is " + jobID + ".");
+					PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "week", 4);
+				} else {
+					logger.warn("Temp clipped file " + outTmpFile + " already exists. Not rerunning fastx_clipper. Starting from temp file.");
+				}
 			}
 		}
 		
@@ -471,7 +481,9 @@ public class PipelineAutomator {
 					continue;
 				}
 				inFastq1Ids.add(id);
+				id = null;
 			}
+			line = null;
 		}
 		r1.close();
 		b1.close();
@@ -503,9 +515,14 @@ public class PipelineAutomator {
 					String line3 = b2.readLine();
 					String line4 = b2.readLine();
 					linesRead2 += 3;
-					w2.write(line + "\n" + line2 + "\n" + line3 + "\n" + line4 + "\n");										
+					w2.write(line + "\n" + line2 + "\n" + line3 + "\n" + line4 + "\n");			
+					line2 = null;
+					line3 = null;
+					line4 = null;
 				}
+				id = null;
 			}
+			line = null;
 		}
 		r2.close();
 		b2.close();
@@ -526,9 +543,13 @@ public class PipelineAutomator {
 					String line3 = b3.readLine();
 					String line4 = b3.readLine();
 					linesRead3 += 3;
-					w1.write(line + "\n" + line2 + "\n" + line3 + "\n" + line4 + "\n");					
+					w1.write(line + "\n" + line2 + "\n" + line3 + "\n" + line4 + "\n");			
+					line2 = null;
+					line3 = null;
+					line4 = null;
 				}
 			}
+			line = null;
 		}
 		r3.close();
 		b3.close();
