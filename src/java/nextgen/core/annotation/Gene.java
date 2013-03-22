@@ -1513,7 +1513,7 @@ public class Gene extends BasicAnnotation {
 	}
 		
 	
-	public boolean contains(Gene gene){
+	public boolean geneSpanContains(Gene gene){
 		return gene.getStart() >= getStart() && gene.getEnd() <= getEnd();
 	}
 	
