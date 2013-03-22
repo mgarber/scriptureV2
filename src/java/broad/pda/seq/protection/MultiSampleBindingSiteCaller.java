@@ -257,6 +257,14 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 			}
 			double pval = score.getScanPvalue();
 			if(pval < peakWindowScanPvalCutoff) {
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT\t" + gene.getName());
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT\tglobal_length=" + score.getGlobalLength());
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT\tglobal_count=" + score.getTotal());
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT\tglobal_lambda=" + score.getGlobalLambda());
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT\twindow_size=" + score.getCoordinateSpace().getSize(window));
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT\twindow_count=" + score.getCount());
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT\tpval=" + score.getScanPvalue());
 				scanSignificantWindows.add(window);
 			}
 		}
@@ -269,11 +277,6 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 		TreeSet<Annotation> trimmedMergedWindows = new TreeSet<Annotation>();
 		for(Annotation window : mergedWindows) {
 			List<Double> coverageData = data.getPositionCountList(new Gene(window));
-			String coverageString = "";
-			for(Double d : coverageData) {
-				coverageString += d.toString() + " ";
-			}
-			logger.debug(window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\t" + coverageString);
 			Annotation trimmed = SampleData.trimMaxContiguous(window, coverageData, trimQuantile);
 			trimmedMergedWindows.add(trimmed);
 		}
@@ -284,6 +287,14 @@ public final class MultiSampleBindingSiteCaller implements PeakCaller {
 			double p = score.getScanPvalue();
 			if(p < peakWindowScanPvalCutoff) {
 				window.setScore(p);
+				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + gene.getName());
+				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
+				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_length=" + score.getGlobalLength());
+				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_count=" + score.getTotal());
+				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_lambda=" + score.getGlobalLambda());
+				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_size=" + score.getCoordinateSpace().getSize(window));
+				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_count=" + score.getCount());
+				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tpval=" + score.getScanPvalue());
 				finalPeaks.add(window);
 			}
 		}
