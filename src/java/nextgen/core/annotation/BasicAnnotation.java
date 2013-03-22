@@ -26,6 +26,7 @@ public class BasicAnnotation extends AbstractAnnotation {
 	private Strand orientation = Strand.UNKNOWN;
 	private String name = null;
 	private double score;
+	private static Logger logger = Logger.getLogger(BasicAnnotation.class.getName());
 	
 	/********************************************************************************
 	 * CONSTRUCTORS
