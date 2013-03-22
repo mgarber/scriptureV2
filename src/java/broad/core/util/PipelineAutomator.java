@@ -2526,7 +2526,13 @@ public class PipelineAutomator {
 			int count = 0;
 			try {
 				count = Integer.parseInt(line);
-			} catch(NumberFormatException e) {}
+			} catch(NumberFormatException e) {
+				logger.error("Command did not return valid integer result:");
+				logger.error(cmmd);
+				logger.error("Result:");
+				logger.error(line);
+				throw e;
+			}
 			is.close();
 			isr.close();
 			br.close();
