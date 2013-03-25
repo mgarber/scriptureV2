@@ -25,6 +25,8 @@ import org.broad.igv.Globals;
  */
 public class ConfigFileParser {
 
+
+
 	static Logger logger = Logger.getLogger(ConfigFileParser.class.getName());
 
 	private List<String> commands;
@@ -199,6 +201,16 @@ public class ConfigFileParser {
 	 * Config file option to provide an alternative jar file for Picard program CollectRnaSeqMetrics
 	 */
 	public static String OPTION_PICARD_COLLECT_RNASEQ_METRICS = "picard_collect_rnaseq_metrics";
+
+	/**
+	 * Config file option for bed annotation for transcriptome space stats
+	 */
+	public static final Object OPTION_TRANSCRIPTOME_SPACE_BED_FILE = "bed_transcriptome_space_stats";
+
+	/**
+	 * Config file option for chromosome size file for genomic space stats
+	 */
+	public static final Object OPTION_GENOME_SPACE_SIZE_FILE = "size_file_genomic_space_stats";
 
 	
 	/**
@@ -1397,6 +1409,22 @@ public class ConfigFileParser {
 			m.putAll(thOptions.getAllOptions());
 			m.putAll(bt2Options.getAllOptions());
 			return m;
+		}
+
+		/**
+		 * Get bed annotation for transcriptome space stats
+		 * @return Name of bed file
+		 */
+		public String getBedFileForTranscriptomeSpaceStats() {
+			return this.optionMap.get(OPTION_TRANSCRIPTOME_SPACE_BED_FILE);
+		}
+
+		/**
+		 * Get chromosome size file for genome space stats
+		 * @return Name of size file
+		 */
+		public String getChrSizeFileForGenomicSpaceStats() {
+			return this.optionMap.get(OPTION_GENOME_SPACE_SIZE_FILE);
 		}
 	}
 	

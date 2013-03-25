@@ -23,6 +23,7 @@ import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.GenomicSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
+import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.ScanStatisticDataAlignmentModel;
 import nextgen.core.readFilters.FirstOfPairFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
@@ -1136,16 +1137,19 @@ public class PipelineAutomator {
 	
 	
 		} // *** Done with novoalign steps ***
-				
-		// Make sure current bam files are ordered the same way as reference genome
-		logger.info("");
-		logger.info("Reordering bam files in directory " + currentBamDir + "...");
-		reorderCurrentBams(picardJarDir);
-		logger.info("Done reordering bam files.");		
 		
 		// Merge bam files
 		logger.info("");
 		logger.info("Merging bam files...");
+		try {
+			mergeBamFiles(picardJarDir);
+		} catch (IllegalArgumentException e) {
+			// Make sure current bam files are ordered the same way as reference genome
+			logger.info("");
+			logger.info("Reordering bam files in directory " + currentBamDir + "...");
+			reorderCurrentBams(picardJarDir);
+			logger.info("Done reordering bam files.");					
+		}
 		mergeBamFiles(picardJarDir);
 		logger.info("Done merging bam files.");
 		
@@ -1181,12 +1185,27 @@ public class PipelineAutomator {
 			logger.info("Making wig and bigwig files of fragment end points.");
 			writeWigFragmentEnds(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForFragmentEndWig());
 			logger.info("");
-			logger.info("Genome alignments done.\n");
+			logger.info("Done writing wig files.\n");
 		}
 
+		// Compute global transcriptome space stats
+		if(configP.basicOptions.getBedFileForTranscriptomeSpaceStats() != null) {
+			logger.info("");
+			logger.info("Computing global transcriptome space stats.");
+			writeTranscriptomeSpaceStats(currentBamFiles, configP.basicOptions.getBedFileForTranscriptomeSpaceStats());
+			logger.info("Done writing transcriptome space stats.");
+		}
 		
+		// Compute global genomic space stats
+		if(configP.basicOptions.getChrSizeFileForGenomicSpaceStats() != null) {
+			logger.info("");
+			logger.info("Computing global genomic space stats.");
+			writeGenomeSpaceStats(currentBamFiles, configP.basicOptions.getChrSizeFileForGenomicSpaceStats());
+			logger.info("Done writing genomic space stats.");
+		}
 	}
 	
+
 	/**
 	 * Run tophat against genome
 	 * @param tophat Tophat executable
@@ -1257,57 +1276,67 @@ public class PipelineAutomator {
 		logger.info("Counting mapped and unmapped reads...");
 		String countFile = TOPHAT_DIRECTORY + "/mapped_unmapped_count.out";
 		String pctFile = TOPHAT_DIRECTORY + "/mapped_unmapped_percentage.out";
-		FileWriter w = new FileWriter(countFile);
-		FileWriter wp = new FileWriter(pctFile);
-		String header = "Sample\tMapped\tUnmapped\n";
-		w.write(header);
-		wp.write(header);
-		for(String sample : sampleNames) {
-			int mapped = AlignmentUtils.countAlignments(samtools, TOPHAT_DIRECTORY + "/" + sample + ".bam", tophatDirsPerSample.get(sample), false);
-			int unmapped = 0;
-			if(version2) AlignmentUtils.countAlignments(samtools, tophatDirsPerSample.get(sample) + "/unmapped.bam", tophatDirsPerSample.get(sample), true, false);
-			else {
-				// Tophat version 1 writes separate unmapped fastq files
-				// Unzip files
-				String cmmd1 = "gunzip " + tophatDirsPerSample.get(sample) + "/unmapped_left.fq.z";
-				Process p1 = Runtime.getRuntime().exec(cmmd1);
-				p1.waitFor();
-				String cmmd2 = "mv " + tophatDirsPerSample.get(sample) + "/unmapped_left.fq " + tophatDirsPerSample.get(sample) + "/unmapped_1.fq";
-				Process p2 = Runtime.getRuntime().exec(cmmd2);
-				p2.waitFor();
+		
+		// Check if files already exist
+		File cFile = new File(countFile);
+		File pFile = new File(pctFile);
+		if(cFile.exists() && pFile.exists()) {
+			logger.warn("Files " + countFile +" and " + pctFile +" already exist. Not recomputing mapping counts.");
+		} else {
+		
+			FileWriter w = new FileWriter(countFile);
+			FileWriter wp = new FileWriter(pctFile);
+			String header = "Sample\tMapped\tUnmapped\n";
+			w.write(header);
+			wp.write(header);
+			for(String sample : sampleNames) {
+				int mapped = AlignmentUtils.countAlignments(samtools, TOPHAT_DIRECTORY + "/" + sample + ".bam", tophatDirsPerSample.get(sample), false);
+				int unmapped = 0;
+				if(version2) AlignmentUtils.countAlignments(samtools, tophatDirsPerSample.get(sample) + "/unmapped.bam", tophatDirsPerSample.get(sample), true, false);
+				else {
+					// Tophat version 1 writes separate unmapped fastq files
+					// Unzip files
+					String cmmd1 = "gunzip " + tophatDirsPerSample.get(sample) + "/unmapped_left.fq.z";
+					Process p1 = Runtime.getRuntime().exec(cmmd1);
+					p1.waitFor();
+					String cmmd2 = "mv " + tophatDirsPerSample.get(sample) + "/unmapped_left.fq " + tophatDirsPerSample.get(sample) + "/unmapped_1.fq";
+					Process p2 = Runtime.getRuntime().exec(cmmd2);
+					p2.waitFor();
 
-				String cmmd3 = "gunzip " + tophatDirsPerSample.get(sample) + "/unmapped_right.fq.z";
-				Process p3 = Runtime.getRuntime().exec(cmmd3);
-				p3.waitFor();
-				String cmmd4 = "mv " + tophatDirsPerSample.get(sample) + "/unmapped_right.fq " + tophatDirsPerSample.get(sample) + "/unmapped_2.fq";
-				Process p4 = Runtime.getRuntime().exec(cmmd4);
-				p4.waitFor();
+					String cmmd3 = "gunzip " + tophatDirsPerSample.get(sample) + "/unmapped_right.fq.z";
+					Process p3 = Runtime.getRuntime().exec(cmmd3);
+					p3.waitFor();
+					String cmmd4 = "mv " + tophatDirsPerSample.get(sample) + "/unmapped_right.fq " + tophatDirsPerSample.get(sample) + "/unmapped_2.fq";
+					Process p4 = Runtime.getRuntime().exec(cmmd4);
+					p4.waitFor();
 
-				// Count unmapped reads
-				int totalLines = 0;
-				FileReader r = new FileReader(tophatDirsPerSample.get(sample) + "/unmapped_1.fq");
-				BufferedReader b = new BufferedReader(r);
-				while(b.ready()) {
-					String line = b.readLine();
-					totalLines++;
-				}
-				if(pairedData.get(sample)) {
-					FileReader r2 = new FileReader(tophatDirsPerSample.get(sample) + "/unmapped_2.fq");
-					BufferedReader b2 = new BufferedReader(r);
-					while(b2.ready()) {
-						String line = b2.readLine();
+					// Count unmapped reads
+					int totalLines = 0;
+					FileReader r = new FileReader(tophatDirsPerSample.get(sample) + "/unmapped_1.fq");
+					BufferedReader b = new BufferedReader(r);
+					while(b.ready()) {
+						String line = b.readLine();
 						totalLines++;
 					}
-				}
-				unmapped = totalLines / 4;
+					if(pairedData.get(sample)) {
+						FileReader r2 = new FileReader(tophatDirsPerSample.get(sample) + "/unmapped_2.fq");
+						BufferedReader b2 = new BufferedReader(r);
+						while(b2.ready()) {
+							String line = b2.readLine();
+							totalLines++;
+						}
+					}
+					unmapped = totalLines / 4;
 				
+				}
+				int total = mapped + unmapped;
+				w.write(sample + "\t" + mapped + "\t" + unmapped + "\n");
+				wp.write(sample + "\t" + (double)mapped/(double)total + "\t" + (double)unmapped/(double)total + "\n");
 			}
-			int total = mapped + unmapped;
-			w.write(sample + "\t" + mapped + "\t" + unmapped + "\n");
-			wp.write(sample + "\t" + (double)mapped/(double)total + "\t" + (double)unmapped/(double)total + "\n");
+			w.close();
+			wp.close();
 		}
-		w.close();
-		wp.close();
+		
 		logger.info("Wrote table of counts to file " + countFile);
 		logger.info("Wrote table of percentages to file " + pctFile);
 
@@ -1916,7 +1945,7 @@ public class PipelineAutomator {
 			reorderJobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
 			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/reorder_bam_" + jobID + ".bsub", "week", 8);
+			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/reorder_bam_" + jobID + ".bsub", "week", 16);
 		}
 		logger.info("Waiting for picard jobs to finish...");
 		PipelineUtils.waitForAllJobs(reorderJobIDs, Runtime.getRuntime());
@@ -1927,6 +1956,41 @@ public class PipelineAutomator {
 			p.waitFor();
 		}
 	}
+	
+	/**
+	 * Write global transcriptome space stats for bam files
+	 * @param bamFiles Bam files by sample name
+	 * @param bedFile Bed annotation for transcriptome space
+	 * @throws IOException
+	 */
+	private void writeTranscriptomeSpaceStats(Map<String, String> bamFiles, String bedFile) throws IOException {
+		logger.info("Calculating transcriptome space stats from annotation in " + bedFile);
+		TranscriptomeSpace t = new TranscriptomeSpace(BEDFileParser.loadDataByChr(new File(bedFile)));
+		for(String sampleName : bamFiles.keySet()) {
+			String bamFile = bamFiles.get(sampleName);
+			logger.info("Calculating transcriptome space stats for sample " + sampleName + "...");
+			AlignmentModel a = new AlignmentModel(bamFile, t);
+			a.computeGlobalStats();
+		}
+	}
+
+	/**
+	 * Write global genomic space stats for bam files
+	 * @param bamFiles Bam files by sample name
+	 * @param chrSizeFile Chromosome size file for genomic space
+	 * @throws IOException
+	 */
+	private void writeGenomeSpaceStats(Map<String, String> bamFiles, String chrSizeFile) throws IOException {
+		logger.info("Calculating genome space stats for chromosome sizes in " + chrSizeFile);
+		GenomicSpace g = new GenomicSpace(chrSizeFile);
+		for(String sampleName : bamFiles.keySet()) {
+			String bamFile = bamFiles.get(sampleName);
+			logger.info("Calculating genomic space stats for sample " + sampleName + "...");
+			AlignmentModel a = new AlignmentModel(bamFile, g);
+			a.computeGlobalStats();
+		}
+	}
+
 
 	/**
 	 * Merge specified samples into new bam files
@@ -1977,7 +2041,7 @@ public class PipelineAutomator {
 			jobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
 			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/merge_bam_files_" + jobID + ".bsub", "hour", 4);			
+			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/merge_bam_files_" + jobID + ".bsub", "week", 8);			
 		}
 		logger.info("Waiting for picard jobs to finish...");
 		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());

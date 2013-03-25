@@ -198,7 +198,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	/**
 	 * Compute global stats and cache to a file for future use, or read from file if already cached
 	 */
-	private void computeGlobalStats() {
+	public void computeGlobalStats() {
 		try {
 			
 			SortedMap<String, Double> stats = null; 
