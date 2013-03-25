@@ -102,6 +102,11 @@ public class ConfigFileParser {
 	public static String OPTION_CHR_SIZE_FILE = "chr_size_file";
 	
 	/**
+	 * Jar file to compute alignment global stats
+	 */
+	public static String OPTION_GLOBAL_STATS_JAR = "alignment_global_stats_jar_file";
+	
+	/**
 	 * Config file option to provide options to tophat e.g. tophat_options --max-multihits 1
 	 */
 	public static String OPTION_TOPHAT_OPTIONS = "tophat_options";
@@ -1214,6 +1219,8 @@ public class ConfigFileParser {
 			}
 		}
 		
+		
+		
 		/**
 		 * Get chromosome size file
 		 * @return The chromosome size file
@@ -1411,6 +1418,14 @@ public class ConfigFileParser {
 			return m;
 		}
 
+		/**
+		 * Get the jar file for alignment model global stats
+		 * @return Name of jar file
+		 */
+		public String getAlignmentGlobalStatsJar() {
+			return this.optionMap.get(OPTION_GLOBAL_STATS_JAR);
+		}
+		
 		/**
 		 * Get bed annotation for transcriptome space stats
 		 * @return Name of bed file

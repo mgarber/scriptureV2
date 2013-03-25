@@ -1162,7 +1162,7 @@ public class PipelineAutomator {
 		// Collect Picard metrics
 		logger.info("");
 		logger.info("Collecting Picard metrics for bam files in directory " + currentBamDir + "...");
-		collectPicardMetricsCurrentBams(picardJarDir);
+		//collectPicardMetricsCurrentBams(picardJarDir);
 		logger.info("All Picard metrics done.");
 		
 		// Make tdf files from current bam files
@@ -1189,19 +1189,10 @@ public class PipelineAutomator {
 		}
 
 		// Compute global transcriptome space stats
-		if(configP.basicOptions.getBedFileForTranscriptomeSpaceStats() != null) {
-			logger.info("");
-			logger.info("Computing global transcriptome space stats.");
-			writeTranscriptomeSpaceStats(currentBamFiles, configP.basicOptions.getBedFileForTranscriptomeSpaceStats());
-			logger.info("Done writing transcriptome space stats.");
-		}
-		
-		// Compute global genomic space stats
-		if(configP.basicOptions.getChrSizeFileForGenomicSpaceStats() != null) {
-			logger.info("");
-			logger.info("Computing global genomic space stats.");
-			writeGenomeSpaceStats(currentBamFiles, configP.basicOptions.getChrSizeFileForGenomicSpaceStats());
-			logger.info("Done writing genomic space stats.");
+		if(configP.basicOptions.getAlignmentGlobalStatsJar() != null) {
+			if(configP.basicOptions.getBedFileForTranscriptomeSpaceStats() != null || configP.basicOptions.getChrSizeFileForGenomicSpaceStats() != null) {
+				writeAlignmentGlobalStats(configP.basicOptions.getAlignmentGlobalStatsJar(), configP.basicOptions.getBedFileForTranscriptomeSpaceStats(), configP.basicOptions.getChrSizeFileForGenomicSpaceStats());
+			}
 		}
 	}
 	
@@ -1958,37 +1949,78 @@ public class PipelineAutomator {
 	}
 	
 	/**
+	 * Write global stats for current bam files
+	 * @param alignmentGlobalStatsJar Jar file for alignment global stats
+	 * @param bedFile Bed file for transcriptome space stats. To skip, pass null.
+	 * @param chrSizeFile Chromosome size file for genomic space stats. To skip, pass null.
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	private void writeAlignmentGlobalStats(String alignmentGlobalStatsJar, String bedFile, String chrSizeFile) throws IOException, InterruptedException {
+		logger.info("Writing global stats for alignments...");
+		ArrayList<String> jobIDs = new ArrayList<String>();
+		if(bedFile != null) {
+			Collection<String> tJobIDs = writeTranscriptomeSpaceStats(currentBamFiles, bedFile, alignmentGlobalStatsJar);
+			jobIDs.addAll(tJobIDs);
+		}
+		if(chrSizeFile != null) {
+			Collection<String> gJobIDs = writeGenomicSpaceStats(currentBamFiles, chrSizeFile, alignmentGlobalStatsJar);
+			jobIDs.addAll(gJobIDs);
+		}
+		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+		logger.info("Done writing all global alignment stats.");
+	}
+	
+	/**
 	 * Write global transcriptome space stats for bam files
 	 * @param bamFiles Bam files by sample name
 	 * @param bedFile Bed annotation for transcriptome space
+	 * @param alignmentGlobalStatsJar Jar file for alignment global stats
+	 * @return Set of LSF job IDs
 	 * @throws IOException
+	 * @throws InterruptedException 
 	 */
-	private void writeTranscriptomeSpaceStats(Map<String, String> bamFiles, String bedFile) throws IOException {
+	private Collection<String> writeTranscriptomeSpaceStats(Map<String, String> bamFiles, String bedFile, String alignmentGlobalStatsJar) throws IOException, InterruptedException {
 		logger.info("Calculating transcriptome space stats from annotation in " + bedFile);
-		TranscriptomeSpace t = new TranscriptomeSpace(BEDFileParser.loadDataByChr(new File(bedFile)));
+		ArrayList<String> jobIDs = new ArrayList<String>();
 		for(String sampleName : bamFiles.keySet()) {
 			String bamFile = bamFiles.get(sampleName);
 			logger.info("Calculating transcriptome space stats for sample " + sampleName + "...");
-			AlignmentModel a = new AlignmentModel(bamFile, t);
-			a.computeGlobalStats();
+			String cmmd = "java -jar -Xmx30g -Xms20g -Xmn10g " + alignmentGlobalStatsJar + " -b " + bamFile + " -t " + bedFile;
+			logger.info("Running command: " + cmmd);
+			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+			jobIDs.add(jobID);
+			logger.info("LSF job ID is " + jobID + ".");
+			// Submit job
+			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/compute_transcriptome_space_stats_" + jobID + ".bsub", "week", 32);		
 		}
+		return jobIDs;
 	}
 
 	/**
 	 * Write global genomic space stats for bam files
 	 * @param bamFiles Bam files by sample name
 	 * @param chrSizeFile Chromosome size file for genomic space
+	 * @param alignmentGlobalStatsJar Jar file for alignment global stats
+	 * @return Set of LSF job IDs
 	 * @throws IOException
+	 * @throws InterruptedException 
 	 */
-	private void writeGenomeSpaceStats(Map<String, String> bamFiles, String chrSizeFile) throws IOException {
-		logger.info("Calculating genome space stats for chromosome sizes in " + chrSizeFile);
-		GenomicSpace g = new GenomicSpace(chrSizeFile);
+	private Collection<String> writeGenomicSpaceStats(Map<String, String> bamFiles, String chrSizeFile, String alignmentGlobalStatsJar) throws IOException, InterruptedException {
+		logger.info("Calculating genomic space stats from chromosome sizes in " + chrSizeFile);
+		ArrayList<String> jobIDs = new ArrayList<String>();
 		for(String sampleName : bamFiles.keySet()) {
 			String bamFile = bamFiles.get(sampleName);
 			logger.info("Calculating genomic space stats for sample " + sampleName + "...");
-			AlignmentModel a = new AlignmentModel(bamFile, g);
-			a.computeGlobalStats();
+			String cmmd = "java -jar -Xmx30g -Xms20g -Xmn10g " + alignmentGlobalStatsJar + " -b " + bamFile + " -g " + chrSizeFile;
+			logger.info("Running command: " + cmmd);
+			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+			jobIDs.add(jobID);
+			logger.info("LSF job ID is " + jobID + ".");
+			// Submit job
+			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/compute_genomic_space_stats_" + jobID + ".bsub", "week", 32);		
 		}
+		return jobIDs;
 	}
 
 
@@ -2005,6 +2037,16 @@ public class PipelineAutomator {
 			logger.info("No sets to merge.");
 			return;
 		}
+		
+		// Make sure all samples exist
+		for(String mergedName : setsToMerge.keySet()) {
+			for(String sampleName : setsToMerge.get(mergedName)) {
+				if(!sampleNames.contains(sampleName)) {
+					throw new IllegalArgumentException("Can't merge sample: " + sampleName + ". Sample does not exist.");
+				}
+			}
+		}
+		
 		Map<String, String> mergedFiles = new TreeMap<String, String>();
 		Map<String, Boolean> paired = new TreeMap<String, Boolean>();
 		for(String mergedName : setsToMerge.keySet()) {
