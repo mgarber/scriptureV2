@@ -1180,12 +1180,12 @@ public class PipelineAutomator {
 			logger.info("All fragment size distributions created.");
 		}
 		
-		// Make wig and bigwig files of fragment ends
-		if(configP.basicOptions.getWigToBigWigExecutable() != null && configP.basicOptions.getBedFileForFragmentEndWig() != null) {
+		// Make wig and bigwig files of fragment ends and total fragments
+		if(configP.basicOptions.getWigToBigWigExecutable() != null && configP.basicOptions.getBedFileForWig() != null) {
 			logger.info("");
 			logger.info("Making wig and bigwig files of fragment end points.");
-			writeWigFragmentEnds(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForFragmentEndWig());
-			writeWigFragments(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForFragmentEndWig());
+			writeWigFragmentEnds(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForWig());
+			writeWigFragments(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForWig());
 			logger.info("");
 			logger.info("Done writing wig files.\n");
 		}

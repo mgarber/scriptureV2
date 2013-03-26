@@ -128,6 +128,7 @@ public class WigWriter {
 				TreeMap<String,Collection<Gene>> collGenesByChr = new TreeMap<String,Collection<Gene>>();
 				Collection<Gene> collGenes;
 				for (String chrom : genesByChr.keySet()) {
+					logger.info("Collapsing genes for " + chrom);
 					collGenes = collapseGenes(genesByChr.get(chrom));
 					collGenesByChr.put(chrom, collGenes);
 				}
@@ -201,15 +202,11 @@ public class WigWriter {
 				double geneCount;
 				CountScore score;
 
-				//Map<String,Double> normValues = getNormalizationValues(collapsedGenes);
 				TreeMap<Integer,Double> rtrn = new TreeMap<Integer,Double>();
 				while (winItr.hasNext()) {
 					currGene = winItr.next();
-					//logger.info("Current Gene:\t" + currGene);
 					if (normalize) {
-						//logger.info("getting count for normalization");
 						geneCount = normData.getCount(currGene,true);
-						//logger.info("got count");
 					} else {
 						geneCount = currGene.getSize();
 					}
@@ -224,7 +221,6 @@ public class WigWriter {
 						
 						while (wIter.hasNext()){
 							score = wIter.next();
-							//logger.info("Checking score: " + score);
 							a = score.getAnnotation();
 							pos = a.getStart();
 							count = score.getCount();
@@ -393,7 +389,6 @@ public class WigWriter {
 		IntervalTree<Gene> tree = makeTree(genes);
 		Collection<Gene> skip = new TreeSet<Gene>();
 		String name;
-		
 		for (Gene rtrnGene : genes) {
 			name = rtrnGene.getName();
 			

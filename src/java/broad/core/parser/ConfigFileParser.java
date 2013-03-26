@@ -89,7 +89,7 @@ public class ConfigFileParser {
 	 * Config file option to write fragment endpoints to wig and bigwig file
 	 * Writes counts for positions overlapping genes in this bed file
 	 */
-	public static String OPTION_BED_FILE_FOR_FRAGMENT_END_WIG = "bed_file_fragment_ends";
+	public static String OPTION_BED_FILE_FOR_WIG = "bed_file_for_wig";
 	
 	/**
 	 * Path to UCSC WigToBigWig executable
@@ -1199,11 +1199,11 @@ public class ConfigFileParser {
 		 * Get bed file that determines which genes to count when writing fragment end positions to wig and bigwig files
 		 * @return The bed file path
 		 */
-		public String getBedFileForFragmentEndWig() {
+		public String getBedFileForWig() {
 			try {
-				return this.optionMap.get(OPTION_BED_FILE_FOR_FRAGMENT_END_WIG);
+				return this.optionMap.get(OPTION_BED_FILE_FOR_WIG);
 			} catch(NullPointerException e) {
-				throw new NullPointerException("Bed file to use when writing fragment endpoints to wig file must be specified with option " + OPTION_BED_FILE_FOR_FRAGMENT_END_WIG);
+				throw new NullPointerException("Bed file to use when writing fragment endpoints to wig file must be specified with option " + OPTION_BED_FILE_FOR_WIG);
 			}
 		}
 		
