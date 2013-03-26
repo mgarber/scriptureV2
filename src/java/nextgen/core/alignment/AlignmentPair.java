@@ -95,7 +95,7 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 	private SAMRecord makePair(Pair<SAMRecord> pair) {
 		SingleEndAlignment a1 = new SingleEndAlignment(pair.getValue1());
 		SingleEndAlignment a2 = new SingleEndAlignment(pair.getValue2());
-		SAMRecord rtrn = new PairedEndAlignment(a1, a2).toSAMRecord();
+		SAMRecord rtrn = new FragmentAlignment(a1, a2).toSAMRecord();
 
 		return rtrn;
 	}

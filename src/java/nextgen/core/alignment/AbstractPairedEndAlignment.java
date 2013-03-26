@@ -2,14 +2,11 @@ package nextgen.core.alignment;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
-import com.mysql.jdbc.StringUtils;
 
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.util.StringUtil;
@@ -17,12 +14,14 @@ import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
 import nextgen.core.annotation.*;
-import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.writers.PairedEndWriter;
 
-public class PairedEndAlignment extends BasicAnnotation implements Alignment {
+/**
+ * @author prussell
+ *
+ */
+public abstract class AbstractPairedEndAlignment extends BasicAnnotation implements Alignment {
 
-	static Logger logger = Logger.getLogger(PairedEndAlignment.class.getName());
 
     //First in pair alignment
     SingleEndAlignment firstMate;
@@ -32,35 +31,14 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
     TranscriptionRead txnRead;
     Map<String,String> attributeMap;
     boolean isProperPair;
-	
-    /**
-     * Constructs a paired end alignment object from two alignments.
-     * @param firstMate
-     * @param secondMate
-     * @throws ChromosomeInconsistencyException 
-     */
-    public PairedEndAlignment(SingleEndAlignment firstMate, SingleEndAlignment secondMate) {
-    	super(firstMate);   //TODO How to deal with pairs that have different chromosomes?
+	private static Logger logger = Logger.getLogger(FragmentAlignment.class.getName());
 
-    	this.firstMate = firstMate;
-        this.secondMate = secondMate;
-        attributeMap = new HashMap<String,String>();
-    }
-    
-    /**
-     * Constructs a paired end alignment object from two alignments and provides the read that is in the direction of transcription
-     * @param firstMate
-     * @param secondMate
-     * @param strand
-     */
-    public PairedEndAlignment(SingleEndAlignment firstMate, SingleEndAlignment secondMate,TranscriptionRead strand) {
-    	super(firstMate);   //TODO How to deal with pairs that have different chromosomes?
-
-    	this.firstMate = firstMate;
-        this.secondMate = secondMate;
-        this.txnRead = strand;
-        attributeMap = new HashMap<String,String>();
-    }
+	/**
+	 * @param b
+	 */
+	public AbstractPairedEndAlignment(BasicAnnotation b) {
+		super(b);
+	}
      
    	/**
      * Returns the strand for the first of pair
@@ -83,12 +61,14 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	/**
 	 * Returns the name of this read pair.
 	 */
+	@Override
 	public String getReadName() {
 		return firstMate.getReadName();
 	}
 
 	/**
 	 * Returns the chromosome for this alignment
+	 * @return Reference name
 	 */
 	public String getChromosome() {
 		return this.getReferenceName();
@@ -97,6 +77,7 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	/**
 	 * Returns the sum of the mapping qualities of both mates
 	 */
+	@Override
 	public int getMappingQuality() {
 		
 		return this.firstMate.getMappingQuality()+this.secondMate.getMappingQuality();
@@ -105,26 +86,26 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	/**
 	 * Always returns true for objects of this class.
 	 */
+	@Override
 	public boolean isPaired() {
 		return true;
 	}
 
 	/**
      * For paired end, returns true if the read in direction of transcription is negative stranded
-     * @return
+     * @return true if the read in direction of transcription is negative stranded
      */
 	@Override
 	public boolean isNegativeStrand() {
-		if ("-".equals(this.getFragmentStrand()))
-			return true;
-		else
-			//Even unstranded would be false
-			return false;
+		if ("-".equals(this.getFragmentStrand())) return true;
+		//Even unstranded would be false
+		return false;
 	}
 
 	/**
 	 * Returns true is the alignment pair is a duplicate
 	 */
+	@Override
 	public boolean isDuplicate() {
 		return firstMate.isDuplicate();
 	}	
@@ -132,6 +113,7 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	/**
 	 * Sets the duplicate flag
 	 */
+	@Override
 	public void setDuplicateFlag(boolean duplicateFlag) {
 		firstMate.setDuplicateFlag(duplicateFlag);
 		secondMate.setDuplicateFlag(duplicateFlag);
@@ -156,6 +138,7 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	/**
 	 * Returns an object for the fragment between the read pair in the specified coordinate space
 	 */
+	@Override
 	public Collection<? extends Window> getFragment(CoordinateSpace C) {
 		if (C==null) {
 			Collection<Window> rtrn=new TreeSet<Window>();
@@ -168,6 +151,7 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	/**
 	 * Returns the strand for the fragment, depending on the transcription read
 	 */
+	@Override
 	public Strand getFragmentStrand() {
 		if(this.txnRead==TranscriptionRead.FIRST_OF_PAIR)
 			return this.firstMate.getFragmentStrand();
@@ -182,6 +166,7 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	 * For FIRST, "first"
 	 * For SECOND, "second"
 	 * For unstranded "none"
+	 * @param strand 
 	 */
 	public void setFragmentStrand(String strand) {
 		if(strand.equalsIgnoreCase("first"))
@@ -192,7 +177,6 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 			txnRead=TranscriptionRead.UNSTRANDED;
 		else{
 			logger.error("Fragment strand set to unknown");
-			//TODO:Return some error
 		}
 			
 	}
@@ -201,31 +185,15 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	 * Sets the strand for the fragment to the strand passed as argument
 	 * @param strand
 	 */
+	@Override
 	public void setFragmentStrand(TranscriptionRead strand) {
 		txnRead = strand;
 	}
 	
-    /**
-     * This method checks whether the specified location on the specified 
-     * chromosome is contained within the alignment
-     * @param location
-     * @return
-     */
-	public boolean contains(String chromosome, double location,CoordinateSpace C) {
-		//TODO: Check in Coordinate Space: Will implement after populating coordinatespace
-		if(!this.getChr().equals(chromosome))
-			return false;
-		else{
-			if(location>=this.getFragmentStart() && location<=this.getFragmentEnd())
-				return true;
-			else
-				return false;
-		}
-	}
-
 	/**
 	 * Returns the size of the fragment
 	 */
+	@Override
 	public Collection<Integer> getFragmentSize(CoordinateSpace C) {
 		Collection<Integer> rtrn=new ArrayList<Integer>();
 		Collection<? extends Window> fragments = this.getFragment(C);
@@ -236,7 +204,7 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 		}
 		
 		for(Window w: fragments){
-			rtrn.add(w.getSize());
+			rtrn.add(Integer.valueOf(w.getSize()));
 		}
 		
 		return rtrn;
@@ -245,6 +213,7 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	/**
 	 * Returns the start of the fragment
 	 */
+	@Override
 	public int getFragmentStart() {
 		return Math.min(this.firstMate.getFragmentStart(), this.secondMate.getFragmentStart());
 	}
@@ -252,12 +221,15 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	/**
 	 * Returns the end of the fragment
 	 */
+	@Override
 	public int getFragmentEnd() {
 		return Math.max(this.firstMate.getFragmentEnd(), this.secondMate.getFragmentEnd());
 	}
 
 	/**
 	 * Sets the specified attribute value
+	 * @param attribute 
+	 * @param value 
 	 */
 	public void setAttribute(String attribute, String value) {
 		attributeMap.put(attribute, value);
@@ -266,6 +238,7 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	/**
 	 * Returns the value of the specified attribute
 	 */
+	@Override
 	public String getAttribute(String attribute) {
 		return attributeMap.get(attribute);
 	}
@@ -276,7 +249,18 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	 *
 	 */
 	public static enum TranscriptionRead{
-		FIRST_OF_PAIR,SECOND_OF_PAIR,UNSTRANDED
+		/**
+		 * 
+		 */
+		FIRST_OF_PAIR,
+		/**
+		 * 
+		 */
+		SECOND_OF_PAIR,
+		/**
+		 * 
+		 */
+		UNSTRANDED
 	}
 
 	@Override
@@ -289,6 +273,7 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 		return firstMate.union(secondMate);
 	}
 
+	@Override
 	public String toString(){
 		/*
 		 * add name into the bed string by @zhuxp
@@ -343,7 +328,7 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	@Override
 	public double getWeight() {
 		if(this.attributeMap.containsKey("NH")){
-			return 1.0/new Double(this.attributeMap.get("NH").toString());
+			return 1.0/new Double(this.attributeMap.get("NH").toString()).doubleValue();
 		}
 		return 1.0;
 	}
@@ -370,19 +355,12 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 		shift(coord - getStart());
 	}
 	
-	@Override
-	public List<? extends Annotation> getBlocks() {
-		List<Annotation> blocks = new ArrayList<Annotation>();
-		blocks.addAll(firstMate.getBlocks());
-		blocks.addAll(secondMate.getBlocks());
-		return blocks;
-	}
-	
+	//TODO should this be implemented separately in the two subclasses?
 	@Override
 	public final SAMRecord toSAMRecord() {
 		SAMRecord record = firstMate.toSAMRecord();
 		
-		record.setAttribute(PairedEndWriter.readStartFlag, firstMate.getSAMStart());
+		record.setAttribute(PairedEndWriter.readStartFlag, Integer.valueOf(firstMate.getSAMStart()));
 		record.setAttribute(PairedEndWriter.readCigarFlag, firstMate.getCigarString());
 		record.setAttribute(PairedEndWriter.mateSequenceFlag, secondMate.getReadSequence());
 		record.setAttribute(PairedEndWriter.mateCigarFlag, secondMate.getCigarString());
@@ -416,29 +394,10 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 	}
 
 	@Override
-	public Collection<? extends Annotation> getSpliceConnections() {
-		Collection<Annotation> rtrn=new TreeSet<Annotation>();
-		rtrn.addAll(this.firstMate.getSpliceConnections());
-		rtrn.addAll(this.secondMate.getSpliceConnections());
-		return rtrn;
-	}
-
-	@Override
 	public boolean hasIndel() {
 		return this.firstMate.hasIndel() || this.secondMate.hasIndel();
 	}
 	
-	@Override
-	public boolean equals (Annotation other){
-		if(other instanceof PairedEndAlignment){
-			PairedEndAlignment otherPair=(PairedEndAlignment) other;
-			if(otherPair.getFirstMate().equals(this.getFirstMate()) && otherPair.getSecondMate().equals(this.getSecondMate())){
-				return true;
-			}
-		}
-		return false;
-	}
-
 	/**
 	 * Get the beginning position of the fragment considering strand
 	 * @return Highest position if negative strand, lowest position otherwise
@@ -460,4 +419,33 @@ public class PairedEndAlignment extends BasicAnnotation implements Alignment {
 		if(strand.equals(Strand.NEGATIVE)) return getFragmentStart();
 		return getFragmentEnd();
 	}
+	
+	/**
+	 * Get the alignment as an Annotation object
+	 * @param firstMate First mate
+	 * @param secondMate Second mate
+	 * @param fullFragment Whether to get full fragment as one block or separate reads as blocks
+	 * @return An annotation consisting of the aligned coordinates
+	 */
+	protected static BasicAnnotation asAnnotation(SingleEndAlignment firstMate, SingleEndAlignment secondMate, boolean fullFragment) {
+		
+		String chr = firstMate.getChr();
+		if(!chr.equals(secondMate.getChr())) {
+			throw new IllegalArgumentException("Can't make annotation from alignments on different chromosomes:\n" + firstMate.toBED() + "\n" + secondMate.toBED());
+		}
+		
+		if(fullFragment) {
+			int start = Math.min(firstMate.getStart(), secondMate.getStart());
+			int end = Math.max(firstMate.getEnd(), secondMate.getEnd());
+			return new BasicAnnotation(chr, start, end);
+		}
+		
+		Collection<Annotation> blocks = new ArrayList<Annotation>();
+		blocks.add(firstMate);
+		blocks.add(secondMate);
+		return new BasicAnnotation(blocks);
+		
+	}
+
+	
 }
