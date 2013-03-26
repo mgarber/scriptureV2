@@ -3,17 +3,12 @@
  */
 package broad.pda.seq.protection;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
@@ -22,7 +17,6 @@ import broad.core.math.Statistics;
 import broad.core.parser.StringParser;
 
 import nextgen.core.annotation.Annotation;
-import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
@@ -102,7 +96,14 @@ public class SampleData {
 			return geneScores.get(gene).getCount();
 		}
 		ScanStatisticScore score = new ScanStatisticScore(data, gene);
-		logger.debug(gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(gene) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
+		logger.debug("GET_GENE_COUNT\t" + gene.getName());
+		logger.debug("GET_GENE_COUNT\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
+		logger.debug("GET_GENE_COUNT\tglobal_length=" + score.getGlobalLength());
+		logger.debug("GET_GENE_COUNT\tglobal_count=" + score.getTotal());
+		logger.debug("GET_GENE_COUNT\tglobal_lambda=" + score.getGlobalLambda());
+		logger.debug("GET_GENE_COUNT\twindow_size=" + score.getCoordinateSpace().getSize(gene));
+		logger.debug("GET_GENE_COUNT\twindow_count=" + score.getCount());
+		logger.debug("GET_GENE_COUNT\tpval=" + score.getScanPvalue());
 		geneScores.put(gene, score);
 		return score.getCount();
 	}
@@ -119,7 +120,14 @@ public class SampleData {
 			return geneScores.get(gene).getScanPvalue();
 		}
 		ScanStatisticScore score = new ScanStatisticScore(data, gene);
-		logger.debug(gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(gene) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
+		logger.debug("GET_GENE_SCAN_PVAL\t" + gene.getName());
+		logger.debug("GET_GENE_SCAN_PVAL\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
+		logger.debug("GET_GENE_SCAN_PVAL\tglobal_length=" + score.getGlobalLength());
+		logger.debug("GET_GENE_SCAN_PVAL\tglobal_count=" + score.getTotal());
+		logger.debug("GET_GENE_SCAN_PVAL\tglobal_lambda=" + score.getGlobalLambda());
+		logger.debug("GET_GENE_SCAN_PVAL\twindow_size=" + score.getCoordinateSpace().getSize(gene));
+		logger.debug("GET_GENE_SCAN_PVAL\twindow_count=" + score.getCount());
+		logger.debug("GET_GENE_SCAN_PVAL\tpval=" + score.getScanPvalue());
 		geneScores.put(gene, score);
 		return score.getScanPvalue();
 	}
@@ -136,7 +144,14 @@ public class SampleData {
 			return geneScores.get(gene).getAverageCoverage();
 		}
 		ScanStatisticScore score = new ScanStatisticScore(data, gene);
-		logger.debug(gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(gene) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
+		logger.debug("GET_GENE_AVG_COVERAGE\t" + gene.getName());
+		logger.debug("GET_GENE_AVG_COVERAGE\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
+		logger.debug("GET_GENE_AVG_COVERAGE\tglobal_length=" + score.getGlobalLength());
+		logger.debug("GET_GENE_AVG_COVERAGE\tglobal_count=" + score.getTotal());
+		logger.debug("GET_GENE_AVG_COVERAGE\tglobal_lambda=" + score.getGlobalLambda());
+		logger.debug("GET_GENE_AVG_COVERAGE\twindow_size=" + score.getCoordinateSpace().getSize(gene));
+		logger.debug("GET_GENE_AVG_COVERAGE\twindow_count=" + score.getCount());
+		logger.debug("GET_GENE_AVG_COVERAGE\tpval=" + score.getScanPvalue());
 		geneScores.put(gene, score);
 		return score.getAverageCoverage();
 	}
@@ -149,7 +164,14 @@ public class SampleData {
 	public boolean isExpressed(Gene gene) {
 		if(!geneScores.containsKey(gene)) {
 			ScanStatisticScore score = new ScanStatisticScore(data, gene);
-			logger.debug(gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(gene) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + gene.getName());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + "global_length=" + score.getGlobalLength());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + "global_count=" + score.getTotal());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + "global_lambda=" + score.getGlobalLambda());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + "window_size=" + score.getCoordinateSpace().getSize(gene));
+			logger.debug("CHECK_GENE_EXPRESSION\t" + "window_count=" + score.getCount());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + "pval=" + score.getScanPvalue());
 			geneScores.put(gene, score);			
 		}
 		ScanStatisticScore score = geneScores.get(gene);
@@ -234,7 +256,14 @@ public class SampleData {
 		score.setTotal(geneTotal);
 		score.setRegionTotal(regionTotal);
 		score.refreshScanPvalue(data);
-		logger.debug(window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(window) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
+		logger.debug("RESCORE_WINDOW\t" + gene.getName());
+		logger.debug("RESCORE_WINDOW\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
+		logger.debug("RESCORE_WINDOW\tglobal_length=" + score.getGlobalLength());
+		logger.debug("RESCORE_WINDOW\tglobal_count=" + score.getTotal());
+		logger.debug("RESCORE_WINDOW\tglobal_lambda=" + score.getGlobalLambda());
+		logger.debug("RESCORE_WINDOW\twindow_size=" + score.getCoordinateSpace().getSize(window));
+		logger.debug("RESCORE_WINDOW\twindow_count=" + score.getCount());
+		logger.debug("RESCORE_WINDOW\tpval=" + score.getScanPvalue());
 		return score;
 	}
 	
@@ -243,7 +272,6 @@ public class SampleData {
 	 * @param gene The gene
 	 */
 	private void computeWindowScores(Gene gene) {
-		logger.debug("Computing window scores for sample " + sampleName + " and gene " + gene.getName());
 		Map<Annotation, ScanStatisticScore> scores = new TreeMap<Annotation, ScanStatisticScore>();
 		if(gene.getSize() < windowSize) {
 			logger.info(gene.getName() + " is smaller than window size. Not computing window binding site scores.");
@@ -264,7 +292,14 @@ public class SampleData {
 			score.setTotal(geneTotal);
 			score.setRegionTotal(regionTotal);
 			score.refreshScanPvalue(data);
-			logger.debug(window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(window) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
+			/*logger.debug("SCORE_ALL_WINDOWS_IN_GENE\t" + gene.getName());
+			logger.debug("SCORE_ALL_WINDOWS_IN_GENE\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
+			logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tglobal_length=" + score.getGlobalLength());
+			logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tglobal_count=" + score.getTotal());
+			logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tglobal_lambda=" + score.getGlobalLambda());
+			logger.debug("SCORE_ALL_WINDOWS_IN_GENE\twindow_size=" + score.getCoordinateSpace().getSize(window));
+			logger.debug("SCORE_ALL_WINDOWS_IN_GENE\twindow_count=" + score.getCount());
+			logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tpval=" + score.getScanPvalue());*/
 			scores.put(window, score);
 		}
 		windowScores.put(gene, scores);
@@ -320,9 +355,17 @@ public class SampleData {
 	 */
 	public static Annotation trimMaxContiguous(Annotation window, List<Double> data, double quantile) {
 	
+		String coverageString = "";
+		for(Double d : data) {
+			coverageString += d.toString() + " ";
+		}
+		
+		logger.debug("WINDOW_TO_TRIM\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\t" + coverageString);
+		
 		if(window.getSize() != data.size()) {
 			throw new IllegalArgumentException("Annotation and data must have same size. Name=" + window.getName() + " " + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + " size=" + window.getSize() + " data_size=" + data.size());
 		}
+		
 		
 		double[] array = new double[data.size()];
 		for(int i=0; i < data.size(); i++) {
@@ -337,6 +380,8 @@ public class SampleData {
 		}
 
 		double[] maxSum = MaximumContiguousSubsequence.maxSubSum3(array);
+		
+		logger.debug("TRIMMED_BOUNDARIES\t" + maxSum[1] + "-" + maxSum[2]);
 	
 		if(maxSum[0] > 0){
 			int deltaStart = new Double(maxSum[1]).intValue();
@@ -348,6 +393,9 @@ public class SampleData {
 			}
 			window.trim(deltaStart, deltaEnd);
 		}
+		
+		logger.debug("TRIMMED_WINDOW\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
+		
 		return window;
 	}
 

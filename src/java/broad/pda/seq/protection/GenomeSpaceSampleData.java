@@ -48,7 +48,14 @@ public class GenomeSpaceSampleData extends SampleData {
 	public boolean isExpressed(Gene gene) {
 		if(!genomeScores.containsKey(gene)) {
 			ScanStatisticScore score = new ScanStatisticScore(genomeData, gene);
-			logger.debug(gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(gene) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + gene.getName());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + "global_length=" + score.getGlobalLength());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + "global_count=" + score.getTotal());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + "global_lambda=" + score.getGlobalLambda());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + "window_size=" + score.getCoordinateSpace().getSize(gene));
+			logger.debug("CHECK_GENE_EXPRESSION\t" + "window_count=" + score.getCount());
+			logger.debug("CHECK_GENE_EXPRESSION\t" + "pval=" + score.getScanPvalue());
 			genomeScores.put(gene, score);			
 		}
 		ScanStatisticScore score = genomeScores.get(gene);
@@ -66,7 +73,14 @@ public class GenomeSpaceSampleData extends SampleData {
 	public double getGeneScanPval(Gene gene) {
 		if(!genomeScores.containsKey(gene)) {
 			ScanStatisticScore score = new ScanStatisticScore(genomeData, gene);
-			logger.debug(gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " count " + score.getCount() + " global lambda " + score.getGlobalLambda() + " size " + score.getCoordinateSpace().getSize(gene) + " global length " + score.getGlobalLength() + " pval " + score.getScanPvalue());
+			logger.debug("GET_GENE_SCAN_PVAL\t" + gene.getName());
+			logger.debug("GET_GENE_SCAN_PVAL\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
+			logger.debug("GET_GENE_SCAN_PVAL\t" + "global_length=" + score.getGlobalLength());
+			logger.debug("GET_GENE_SCAN_PVAL\t" + "global_count=" + score.getTotal());
+			logger.debug("GET_GENE_SCAN_PVAL\t" + "global_lambda=" + score.getGlobalLambda());
+			logger.debug("GET_GENE_SCAN_PVAL\t" + "window_size=" + score.getCoordinateSpace().getSize(gene));
+			logger.debug("GET_GENE_SCAN_PVAL\t" + "window_count=" + score.getCount());
+			logger.debug("GET_GENE_SCAN_PVAL\t" + "pval=" + score.getScanPvalue());
 			genomeScores.put(gene, score);			
 		}
 		ScanStatisticScore score = genomeScores.get(gene);

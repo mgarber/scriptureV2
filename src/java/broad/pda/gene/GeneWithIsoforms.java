@@ -131,7 +131,7 @@ public class GeneWithIsoforms extends Gene{
 	
 	
 	public boolean addContainedIsoform (Gene isoform){
-		boolean okToAdd = contains(isoform) && overlaps(isoform);
+		boolean okToAdd = geneSpanContains(isoform) && overlaps(isoform);
 		if(okToAdd) {
 
 			isoforms.add(isoform);
