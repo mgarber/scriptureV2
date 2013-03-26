@@ -19,8 +19,8 @@ import net.sf.samtools.SAMSequenceRecord;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.ChromosomeInconsistencyException;
-import nextgen.core.alignment.PairedEndAlignment;
-import nextgen.core.alignment.PairedEndAlignment.TranscriptionRead;
+import nextgen.core.alignment.FragmentAlignment;
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.alignment.SingleEndAlignment;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.writers.PairedEndWriter;
@@ -211,7 +211,7 @@ public class PairedEndReader {
 					SingleEndAlignment firstMate=new SingleEndAlignment(record);
 					SingleEndAlignment secondMate=new SingleEndAlignment(record2);
 
-					rtrn=new PairedEndAlignment(firstMate, secondMate);
+					rtrn=new FragmentAlignment(firstMate, secondMate);
 					rtrn.setProperPairFlag(record.getProperPairFlag());
 				
 				} else {

@@ -16,7 +16,7 @@ import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMRecordIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.AlignmentPair;
-import nextgen.core.alignment.PairedEndAlignment.TranscriptionRead;
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 
 import org.apache.commons.io.output.NullOutputStream;
 import org.apache.log4j.Logger;

@@ -19,7 +19,7 @@ import net.sf.samtools.SAMRecord.SAMTagAndValue;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
-import nextgen.core.alignment.PairedEndAlignment.TranscriptionRead;
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.*;
 
 public class SingleEndAlignment extends BasicAnnotation implements Alignment {
@@ -160,24 +160,6 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 	 */
 	public int getFragmentEnd() {
 		return getEnd();
-	}
-
-    /**
-     * This method checks whether the specified location on the specified 
-     * chromosome is contained within the alignment
-     * @param location
-     * @return
-     */
-	public boolean contains(String chromosome, double location, CoordinateSpace C) {
-		//TODO: Check in Coordinate Space: Will implement after populating coordinatespace
-		if(!this.getReferenceName().equals(chromosome))
-			return false;
-		else{
-			if (location >= getStart() && location <= getEnd())
-				return true;
-			else
-				return false;
-		}
 	}
 
 	/**

@@ -256,6 +256,7 @@ public abstract class AbstractAnnotation implements Annotation {
 		return result;
 	}
 	
+	@Override
 	public int compareTo (Annotation other) {
 		return compareToAnnotation(other);
 	}

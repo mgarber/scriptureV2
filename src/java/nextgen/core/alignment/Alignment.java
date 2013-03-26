@@ -4,7 +4,7 @@ import java.util.Collection;
 
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.feature.Window;
-import nextgen.core.alignment.PairedEndAlignment.TranscriptionRead;
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.Annotation;
 
 import net.sf.samtools.SAMRecord;
@@ -36,14 +36,6 @@ public interface Alignment extends Annotation {
 	 */
     public int getFragmentEnd();
 	
-    /**
-     * This method checks whether the specified location on the specified 
-     * chromosome is contained within the alignment
-     * @param location
-     * @return
-     */
-    public boolean contains(String chromosome, double location,CoordinateSpace C);
-
     /**
      * Returns the fragment size (insert+lengths of the reads) 
      * @return

@@ -24,7 +24,7 @@ import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMRecordIterator;
 import net.sf.samtools.SAMFileHeader.SortOrder;
 import nextgen.core.alignment.Alignment;
-import nextgen.core.alignment.PairedEndAlignment;
+import nextgen.core.alignment.FragmentAlignment;
 import nextgen.core.alignment.SingleEndAlignment;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
@@ -325,7 +325,7 @@ public class FilteredBamWriter {
 			for(SAMRecord r2: pair2){
 				if(isCompatiblePair(r1, r2)){
 					Pair<SAMRecord> p=new Pair<SAMRecord>(r1, r2);
-					Alignment align = new PairedEndAlignment(new SingleEndAlignment(r1), new SingleEndAlignment(r2));
+					Alignment align = new FragmentAlignment(new SingleEndAlignment(r1), new SingleEndAlignment(r2));
 					if(isValid(align)) {
 						rtrn.add(p);
 					}

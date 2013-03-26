@@ -325,6 +325,7 @@ public class BasicAnnotation extends AbstractAnnotation {
 		return blocks.overlaps(other.blocks, buffer);
 	}
 	
+	@Override
 	public int getOverlap(Annotation other) {
 		int overlap = 0;
 		if (getReferenceName().equals(other.getReferenceName())) {
