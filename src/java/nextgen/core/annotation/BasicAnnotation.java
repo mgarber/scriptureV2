@@ -433,7 +433,9 @@ public class BasicAnnotation extends AbstractAnnotation {
 
 	@Override
 	public void stitchTo(Annotation next) {
-		throw new UnsupportedOperationException("TODO");
+		setStart(Math.min(getStart(), next.getStart()));
+		setEnd(Math.max(getEnd(), next.getEnd()));
+		//throw new UnsupportedOperationException("TODO");
 	}
 
 	@Override

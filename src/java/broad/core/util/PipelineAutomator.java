@@ -944,6 +944,7 @@ public class PipelineAutomator {
 		logger.info("");
 		logger.info("Making wig and bigwig files of fragment end points.");
 		writeWigFragmentEnds(sortedBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, null);
+		writeWigFragments(sortedBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, null);
 		logger.info("");
 		logger.info("Done aligning to transcripts.");
 		
@@ -1159,6 +1160,7 @@ public class PipelineAutomator {
 			logger.info("");
 			logger.info("Making wig and bigwig files of fragment end points.");
 			writeWigFragmentEnds(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForFragmentEndWig());
+			writeWigFragments(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForFragmentEndWig());
 			logger.info("");
 			logger.info("Genome alignments done.\n");
 		}
@@ -1786,7 +1788,7 @@ public class PipelineAutomator {
 				logger.warn("Wig file " + wig1 + " already exists. Not remaking file.");
 			} else {
 				logger.info("Writing fragment ends of read 1 from bam file " + bamFile + " to wig file " + wig1 + ".");
-				WigWriter read1ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, true, false);
+				WigWriter read1ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, true, false, false);
 				read1ww.addReadFilter(new FirstOfPairFilter());
 				read1ww.addReadFilter(new ProperPairFilter());
 				read1ww.writeWig(wig1);
@@ -1816,7 +1818,7 @@ public class PipelineAutomator {
 					logger.warn("Wig file " + wig2 + " already exists. Not remaking file.");
 				} else {
 					logger.info("Writing fragment ends of read 2 from bam file " + bamFile + " to wig file " + wig2 + ".");
-					WigWriter read2ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, true, false);
+					WigWriter read2ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, true, false, false);
 					read2ww.addReadFilter(new SecondOfPairFilter());
 					read2ww.addReadFilter(new ProperPairFilter());
 					read2ww.writeWig(wig2);
@@ -1842,6 +1844,88 @@ public class PipelineAutomator {
 			logger.info("Waiting for wigToBigWig jobs to finish...");
 			PipelineUtils.waitForAllJobs(bigwigJobIDs, Runtime.getRuntime());
 			
+		}
+		
+	}
+	
+	/**
+	 * Write full fragment counts in wig and bigwig formats
+	 * @param bamFiles Bam files by sample name
+	 * @param bamDir Directory bam files are contained in
+	 * @param refFasta Fasta file of sequences these bam files were aligned against
+	 * @param geneBedFile Bed file of genes to count reads in or null if using genomic space
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	private void writeWigFragments(Map<String, String> bamFiles, String bamDir, String refFasta, String geneBedFile) throws IOException, InterruptedException {
+		
+		Map<String, String> wig = new TreeMap<String, String>();
+		
+		Map<String, String> bigwig = new TreeMap<String, String>();
+		
+		String wigToBigWig = configP.basicOptions.getWigToBigWigExecutable();
+		ArrayList<String> bigwigJobIDs = new ArrayList<String>();
+		
+		// Chromosome size file to pass to UCSC program wigToBigWig
+		String chrSizesForWigToBigWig = refFasta + ".sizes";
+		
+		// Chromosome size file to pass to wig writer if using genomic space
+		// Null if using transcriptome space
+		String chrSizesForWigWriter = null;
+		if(geneBedFile == null) {
+			chrSizesForWigWriter = chrSizesForWigToBigWig;
+		}
+		File chrSizeFile = new File(chrSizesForWigToBigWig);
+		
+		// Write chromosome size file
+		if(!chrSizeFile.exists()) {
+			FileWriter w = new FileWriter(chrSizesForWigToBigWig);
+			logger.info("Writing chromosome sizes to file " + chrSizesForWigToBigWig);
+			FastaSequenceIO fsio = new FastaSequenceIO(refFasta);
+			Collection<Sequence> seqs = fsio.loadAll();
+			for(Sequence seq : seqs) {
+				w.write(seq.getId() + "\t" + seq.getLength() + "\n");
+			}
+			w.close();
+		}
+		
+		
+		for(String sampleName : sampleNames) {
+			
+			String bamFile = bamFiles.get(sampleName);
+			wig.put(sampleName, bamFile + ".fullfrag.wig");
+			
+			bigwig.put(sampleName, bamFile + ".fullfrag.bw");
+			
+			
+			// Write wig file for read1
+			String wig1 = wig.get(sampleName);
+			File wigFile = new File(wig1);
+			if(wigFile.exists()) {
+				logger.warn("Wig file " + wig1 + " already exists. Not remaking file.");
+			} else {
+				logger.info("Writing fragment counts of from bam file " + bamFile + " to wig file " + wig1 + ".");
+				WigWriter ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, false, true, false);
+				ww.addReadFilter(new GenomicSpanFilter(configP.fragmentSizeOptions.getMaxGenomicSpan()));
+				ww.addReadFilter(new ProperPairFilter());
+				ww.writeWig(wig1);
+				logger.info("Done writing file " + wig1 + ".");
+			}
+			// Write bigwig file for read1
+			String bigwig1 = bigwig.get(sampleName);
+			File bigwigFile = new File(bigwig1);
+			if(bigwigFile.exists()) {
+				logger.warn("Bigwig file " + bigwig1 + " already exists. Not remaking file.");
+			} else {
+				String cmmd = wigToBigWig + " " + wig1 + " " + chrSizesForWigToBigWig + " " + bigwig1;
+				logger.info("");
+				logger.info("Making bigwig file for wig file " + wig1 + ".");
+				logger.info("Running UCSC command " + cmmd);
+				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+				bigwigJobIDs.add(jobID);
+				logger.info("LSF job ID is " + jobID + ".");
+				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
+			}
 		}
 		
 	}
