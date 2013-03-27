@@ -18,7 +18,6 @@ import org.jgrapht.GraphPath;
 import org.jgrapht.Graphs;
 
 import broad.core.annotation.BasicLightweightAnnotation;
-import broad.core.annotation.LightweightGenomicAnnotation;
 import broad.core.math.EmpiricalDistribution;
 import broad.pda.datastructures.Alignments;
 import broad.pda.seq.graph.ChromosomeWithBubblesJGraphT.BubbleEdge;
