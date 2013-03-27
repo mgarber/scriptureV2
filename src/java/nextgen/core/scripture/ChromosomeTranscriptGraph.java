@@ -2,6 +2,7 @@ package nextgen.core.scripture;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import org.jgrapht.GraphPath;
@@ -24,6 +25,11 @@ public class ChromosomeTranscriptGraph implements Serializable{
 		this.negativeGraph = new OrientedChromosomeTranscriptGraph(name, "-");
 	}
 
+	/**
+	 * Adds the annotation as a vertex to the positive/negative graph depending on the 
+	 * orientation of the vertex
+	 * @param annotation
+	 */
 	public void connectVertexToGraph(Annotation annotation) {
 		if(annotation.getStrand() == Strand.POSITIVE || annotation.isUnoriented()) {
 			plusGraph.connectVertexToGraph(annotation);
@@ -51,8 +57,19 @@ public class ChromosomeTranscriptGraph implements Serializable{
 		return paths;
 	}
 
-	public Gene pathToGene(GraphPath<Annotation, TranscriptGraphEdge> path) {
+	public Gene pathToGene(GraphPath<Annotation, TranscriptGraphEdge> path) { 
+		//System.out.println(path.toString());
 		return OrientedChromosomeTranscriptGraph.pathToGene(path);
 	}
 
+	public Collection<Gene> getOrphanGenes() { 
+		Collection<Gene> genes = new ArrayList<Gene>();
+		for(Annotation ann:plusGraph.getOrphanVertices()){
+			genes.add(new Gene(ann));
+		}
+		for(Annotation ann:negativeGraph.getOrphanVertices()){
+			genes.add(new Gene(ann));
+		}
+		return genes;
+	}
 }

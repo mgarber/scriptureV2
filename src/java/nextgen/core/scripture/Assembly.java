@@ -16,25 +16,30 @@ import nextgen.core.annotation.BasicAnnotation;
 public class Assembly extends BasicAnnotation{
 
 	private boolean isPossiblePremature;
+	private boolean isSpurious;
 	
 	public Assembly(Annotation annotation){
 		super(annotation);
 		this.isPossiblePremature=false;
+		this.isSpurious=false;
 	}
 	
 	public Assembly(Annotation annotation, boolean isPremature){
 		super(annotation);
 		this.isPossiblePremature=isPremature;
+		this.isSpurious=false;
 	}
 	
 	public Assembly(Collection<? extends Annotation> blocks, boolean isPremature){
 		super(blocks);
 		this.isPossiblePremature=isPremature;
+		this.isSpurious=false;
 	}
 	
 	public Assembly(Collection<? extends Annotation> blocks){
 		super(blocks);
 		this.isPossiblePremature=false;
+		this.isSpurious=false;
 	}
 	
 	public void setPossiblePremature(boolean premature){
@@ -43,6 +48,14 @@ public class Assembly extends BasicAnnotation{
 	
 	public boolean getPossiblePremature(){
 		return this.isPossiblePremature;
+	}
+	
+	public void setSpurious(boolean spurious){
+		this.isSpurious = spurious;
+	}
+	
+	public boolean isSpurious(){
+		return this.isSpurious;
 	}
 
 	public Iterator<Assembly> trimNodes() {
