@@ -57,7 +57,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	String bamFile;
 	boolean hasSize=false;
 	int size;
-	Collection<Predicate<Alignment>> readFilters = new ArrayList<Predicate<Alignment>>();;
+	Collection<Predicate<Alignment>> readFilters = new ArrayList<Predicate<Alignment>>();
 	private double globalLength = -99;
 	private double globalCount = -99;
 	private double globalLambda = -99;
@@ -65,7 +65,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	private Cache cache;
 	int cacheSize=1000000;
 	private boolean hasGlobalStats = false;
-	private SortedMap<String, Double> refSequenceCounts=new TreeMap<String, Double>();;
+	private SortedMap<String, Double> refSequenceCounts=new TreeMap<String, Double>();
 	
 	/**
 	 * Build with a BAM file
@@ -76,7 +76,6 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @throws IOException 
 	 */
 	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam) {
-		System.out.println("Entered the WRONG Alignment model ");
 
 		this.bamFile=bamFile;
 		
@@ -121,7 +120,6 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @throws IOException 
 	 */
 	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead strand) {
-		System.out.println("Entered the correct Alignment model ");
 
 		this.bamFile=bamFile;
 		
@@ -469,28 +467,12 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		//BasicAnnotation read=new BasicAnnotation(record.getChr(), record.getFragmentStart(), record.getFragmentEnd());
 		
 		for(Window window: windowCS){
-			//if ((!fullyContained && window.overlaps(record)) || (fullyContained && window.contains(record))) { //TODO I think we should be testing record.overlaps(window)
-			if ((!fullyContained && record.overlaps(window)) || (fullyContained && window.contains(record))) { //TODO I think we should be testing record.overlaps(window)
+			if ((!fullyContained && window.overlaps(record)) || (fullyContained && window.contains(record))) { //TODO I think we should be testing record.overlaps(window)
+			//if ((!fullyContained && record.overlaps(window)) || (fullyContained && window.contains(record))) { //TODO I think we should be testing record.overlaps(window)
 					
 				count = true;
 				break;
 			}
-			
-			/*
-			Collection<? extends Annotation> exons=window.getBlocks();
-			for(Annotation anno: exons){
-				BasicAnnotation align=new BasicAnnotation(anno);
-				if(!fullyContained && align.overlaps(read)){
-		    		count=true; 
-		        	continue;
-		        }
-		    	else if(fullyContained && align.contains(read)){
-		    		count=true;
-		    		continue;
-		    	}
-		    }
-		    */
-			
 		}
 		
 		return count;
@@ -1070,13 +1052,14 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			Collection<? extends Annotation> introns=read.getSpliceConnections();
 			boolean contains=false;
 			for(Annotation i: introns){
+				//TODO: CHECK
 				if(i.equals(intron, false)){
 					contains=true;
 				}
 			}
-				if(contains){count++;}
+			if(contains){count++;}
 		}
-		
+		//System.err.println(intron.toUCSC()+" Window overlaps record: "+count);
 		iter.close();
 		
 		return count;
