@@ -32,7 +32,7 @@ import net.sf.samtools.SAMFileReader;
 import net.sf.samtools.SAMFileHeader.SortOrder;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
-import nextgen.core.alignment.PairedEndAlignment.TranscriptionRead;
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;

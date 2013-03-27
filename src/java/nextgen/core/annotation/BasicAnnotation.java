@@ -26,6 +26,7 @@ public class BasicAnnotation extends AbstractAnnotation {
 	private Strand orientation = Strand.UNKNOWN;
 	private String name = null;
 	private double score;
+	private static Logger logger = Logger.getLogger(BasicAnnotation.class.getName());
 	
 	/********************************************************************************
 	 * CONSTRUCTORS
@@ -356,6 +357,7 @@ public class BasicAnnotation extends AbstractAnnotation {
 		return false;
 	}
 	
+	@Override
 	public int getOverlap(Annotation other) {
 		int overlap = 0;
 		if (getReferenceName().equals(other.getReferenceName())) {
@@ -465,7 +467,9 @@ public class BasicAnnotation extends AbstractAnnotation {
 
 	@Override
 	public void stitchTo(Annotation next) {
-		throw new UnsupportedOperationException("TODO");
+		setStart(Math.min(getStart(), next.getStart()));
+		setEnd(Math.max(getEnd(), next.getEnd()));
+		//throw new UnsupportedOperationException("TODO");
 	}
 
 	@Override

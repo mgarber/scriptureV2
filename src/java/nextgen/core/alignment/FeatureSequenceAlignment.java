@@ -7,11 +7,8 @@ import jaligner.SmithWatermanGotoh;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
@@ -39,13 +36,28 @@ public class FeatureSequenceAlignment {
 	private float gapOpen;
 	private float gapExtend;
 	private static Logger logger = Logger.getLogger(FeatureSequenceAlignment.class.getName());
-	private TreeMap<UnorderedGenePair, jaligner.Alignment> alignments;
+	private TreeMap<UnorderedGenePair, jaligner.Alignment> senseAlignments;
 	private TreeMap<UnorderedGenePair, jaligner.Alignment> antisenseAlignments;
 	
-	private static float DEFAULT_MATCH_SCORE = 5;
-	private static float DEFAULT_MISMATCH_SCORE = -4;
-	private static float DEFAULT_GAP_OPEN_PENALTY = 8;
-	private static float DEFAULT_GAP_EXTEND_PENALTY = 2;
+	/**
+	 * Default match score for Smith Waterman
+	 */
+	public static float DEFAULT_MATCH_SCORE = 5;
+	
+	/**
+	 * Default mismatch score for Smith Waterman
+	 */
+	public static float DEFAULT_MISMATCH_SCORE = -4;
+	
+	/**
+	 * Default gap open penalty for Smith Waterman
+	 */
+	public static float DEFAULT_GAP_OPEN_PENALTY = 8;
+	
+	/**
+	 * Default gap extend penalty for Smith Waterman
+	 */
+	public static float DEFAULT_GAP_EXTEND_PENALTY = 2;
 	
 	/**
 	 * @param featureBedFile Bed file of features
@@ -78,26 +90,19 @@ public class FeatureSequenceAlignment {
 		this(BEDFileParser.loadData(new File(featureBedFile)), genomeFasta, matchScore, mismatchScore, gapOpenPenalty, gapExtendPenalty);
 	}
 
-	
 	/**
-	 * @param genes Set of features
-	 * @param genomeFasta Genome fasta file
+	 * @param genes The features
+	 * @param chrs Map of chromosome names to sequences
 	 * @param matchScore Match score for Smith Waterman
 	 * @param mismatchScore Mismatch score for Smith Waterman
 	 * @param gapOpenPenalty Gap open penalty for Smith Waterman
 	 * @param gapExtendPenalty Gap extend penalty for Smith Waterman
 	 * @throws IOException
 	 */
-	public FeatureSequenceAlignment(Collection<Gene> genes, String genomeFasta, float matchScore, float mismatchScore, float gapOpenPenalty, float gapExtendPenalty) throws IOException {
+	public FeatureSequenceAlignment(Collection<Gene> genes, Map<String, broad.core.sequence.Sequence> chrs, float matchScore, float mismatchScore, float gapOpenPenalty, float gapExtendPenalty) throws IOException {
 		
-		logger.info("Loading chromosomes from file " + genomeFasta + "...");
-		FastaSequenceIO fsio = new FastaSequenceIO(genomeFasta);
-		List<broad.core.sequence.Sequence> chrs = fsio.loadAll();
 		chromosomes = new TreeMap<String, broad.core.sequence.Sequence>();
-		for(broad.core.sequence.Sequence chr : chrs) {
-			chromosomes.put(chr.getId(), chr);
-		}
-		logger.info("Loaded " + chromosomes.size() + " chromosomes.");
+		chromosomes.putAll(chrs);
 		
 		// Store genes and sequences
 		sequences = new TreeMap<Gene, jaligner.Sequence>();
@@ -122,7 +127,7 @@ public class FeatureSequenceAlignment {
 		gapOpen = gapOpenPenalty;
 		gapExtend = gapExtendPenalty;
 		scoringMatrix = MatrixGenerator.generate(matchScore, mismatchScore);
-		alignments = new TreeMap<UnorderedGenePair, jaligner.Alignment>();
+		senseAlignments = new TreeMap<UnorderedGenePair, jaligner.Alignment>();
 		antisenseAlignments = new TreeMap<UnorderedGenePair, jaligner.Alignment>();
 		
 		logger.info("Match score: " + matchScore);
@@ -133,15 +138,29 @@ public class FeatureSequenceAlignment {
 	}
 	
 	/**
+	 * @param genes Set of features
+	 * @param genomeFasta Genome fasta file
+	 * @param matchScore Match score for Smith Waterman
+	 * @param mismatchScore Mismatch score for Smith Waterman
+	 * @param gapOpenPenalty Gap open penalty for Smith Waterman
+	 * @param gapExtendPenalty Gap extend penalty for Smith Waterman
+	 * @throws IOException
+	 */
+	public FeatureSequenceAlignment(Collection<Gene> genes, String genomeFasta, float matchScore, float mismatchScore, float gapOpenPenalty, float gapExtendPenalty) throws IOException {
+		this(genes, FastaSequenceIO.getChrSequencesFromFasta(genomeFasta), matchScore, mismatchScore, gapOpenPenalty, gapExtendPenalty);
+	}
+	
+	
+	/**
 	 * Get the alignment between two genes
 	 * @param genes Gene pair
 	 * @return The alignment of transcript sequences
 	 */
-	private jaligner.Alignment getAlignment(UnorderedGenePair genes) {
-		if(!alignments.containsKey(genes)) {
-			align(genes);
+	private jaligner.Alignment getSenseAlignment(UnorderedGenePair genes) {
+		if(!senseAlignments.containsKey(genes)) {
+			alignSense(genes);
 		}
-		return alignments.get(genes);
+		return senseAlignments.get(genes);
 	}
 	
 	/**
@@ -151,17 +170,31 @@ public class FeatureSequenceAlignment {
 	 */
 	private jaligner.Alignment getAntisenseAlignment(UnorderedGenePair genes) {
 		if(!antisenseAlignments.containsKey(genes)) {
-			align(genes);
+			alignAntisense(genes);
 		}
 		return antisenseAlignments.get(genes);
 	}
+	
 	/**
-	 * Align the sequences of two genes
+	 * Align the sequences of two genes in sense direction; store alignment
 	 * @param gene1 Gene 1
 	 * @param gene2 Gene 2
-	 * @return Smith Waterman alignment
 	 */
-	private jaligner.Alignment align(UnorderedGenePair genes) {
+	private void alignSense(UnorderedGenePair genes) {
+		Gene gene1 = genes.getFirstGene();
+		Gene gene2 = genes.getSecondGene();
+		jaligner.Sequence seq1 = sequences.get(gene1);
+		jaligner.Sequence seq2 = sequences.get(gene2);
+		jaligner.Alignment senseAlign = SmithWatermanGotoh.align(seq1, seq2, scoringMatrix, gapOpen, gapExtend);
+		senseAlignments.put(genes, senseAlign);
+	}
+		
+	/**
+	 * Align the sequences of two genes in antisense direction; store alignment
+	 * @param gene1 Gene 1
+	 * @param gene2 Gene 2
+	 */
+	private void alignAntisense(UnorderedGenePair genes) {
 		Gene gene1 = genes.getFirstGene();
 		Gene gene2 = genes.getSecondGene();
 		jaligner.Sequence seq1 = sequences.get(gene1);
@@ -170,15 +203,12 @@ public class FeatureSequenceAlignment {
 		String seq2antisenseBases = Sequence.reverseSequence(seq2bases);
 		jaligner.Sequence seq2antisense = new jaligner.Sequence(seq2antisenseBases);
 		seq2antisense.setId(seq2.getId() + "_antisense");
-		jaligner.Alignment align = SmithWatermanGotoh.align(seq1, seq2, scoringMatrix, gapOpen, gapExtend);
 		jaligner.Alignment antisenseAlign = SmithWatermanGotoh.align(seq1, seq2antisense, scoringMatrix, gapOpen, gapExtend);
 		int correctedStart2 = seq2antisense.length() - antisenseAlign.getStart2() - antisenseAlign.getLength() + antisenseAlign.getGaps2();
 		antisenseAlign.setStart2(correctedStart2);
-		alignments.put(genes, align);
 		antisenseAlignments.put(genes, antisenseAlign);
-		return align;
 	}
-		
+
 	/**
 	 * String of information about the alignment
 	 * @param align The alignment
@@ -196,27 +226,19 @@ public class FeatureSequenceAlignment {
 	}
 	
 	
-	/**
-	 * Write all pairwise alignments to file
-	 * @param outFile Output file
-	 * @throws IOException
-	 */
-	private void writeAllPairwiseAlignments(String outFile) throws IOException {
-		writeAllPairwiseAlignments(outFile, 0, 0);
-	}
 	
 	/**
 	 * Get all sense direction alignments passing thresholds
 	 * @param minAlignLength Min alignment length
 	 * @param minPctIdentity Min percent identity
-	 * @return All sense alignments passing criteria
+	 * @return All sense alignments of unordered gene pair passing criteria
 	 */
-	public Collection<jaligner.Alignment> getAllPairwiseSenseAlignments(float minAlignLength, float minPctIdentity) {
-		Collection<jaligner.Alignment> rtrn = new ArrayList<jaligner.Alignment>();
+	public Map<UnorderedGenePair, jaligner.Alignment> getAllPairwiseSenseAlignments(float minAlignLength, float minPctIdentity) {
+		Map<UnorderedGenePair, jaligner.Alignment> rtrn = new TreeMap<UnorderedGenePair, jaligner.Alignment>();
 		for(UnorderedGenePair genes : featurePairs) {
-			jaligner.Alignment align = getAlignment(genes);
+			jaligner.Alignment align = getSenseAlignment(genes);
 			if(align.getLength() >= minAlignLength && align.getPercentIdentity() >= minPctIdentity) {
-				rtrn.add(align);
+				rtrn.put(genes, align);
 			}
 		}
 		return rtrn;
@@ -226,14 +248,14 @@ public class FeatureSequenceAlignment {
 	 * Get all antisense direction alignments passing thresholds
 	 * @param minAlignLength Min alignment length
 	 * @param minPctIdentity Min percent identity
-	 * @return All antisense alignments passing criteria
+	 * @return All antisense alignments of unordered gene pair passing criteria
 	 */
-	public Collection<jaligner.Alignment> getAllPairwiseAntisenseAlignments(float minAlignLength, float minPctIdentity) {
-		Collection<jaligner.Alignment> rtrn = new ArrayList<jaligner.Alignment>();
+	public Map<UnorderedGenePair, jaligner.Alignment> getAllPairwiseAntisenseAlignments(float minAlignLength, float minPctIdentity) {
+		Map<UnorderedGenePair, jaligner.Alignment> rtrn = new TreeMap<UnorderedGenePair, jaligner.Alignment>();
 		for(UnorderedGenePair genes : featurePairs) {
 			jaligner.Alignment align = getAntisenseAlignment(genes);
 			if(align.getLength() >= minAlignLength && align.getPercentIdentity() >= minPctIdentity) {
-				rtrn.add(align);
+				rtrn.put(genes, align);
 			}
 		}
 		return rtrn;
@@ -246,27 +268,8 @@ public class FeatureSequenceAlignment {
 	 * @param minPctIdentity Min percent identity to keep
 	 * @throws IOException
 	 */
-	private void writeAllSenseAlignmentsToBed(String outBedFile, int minAlignLength, float minPctIdentity) throws IOException {
-		logger.info("Writing all sense alignments to bed file " + outBedFile);
-		logger.info("Min alignment length: " + minAlignLength);
-		logger.info("Min percent identity: " + minPctIdentity);
-		FileWriter w = new FileWriter(outBedFile);
-		for(UnorderedGenePair genes : featurePairs) {
-			jaligner.Alignment align = getAlignment(genes);
-			if(align.getLength() >= minAlignLength && align.getPercentIdentity() >= minPctIdentity) {
-				try {
-					String print = alignmentAsBed(genes);
-					w.write(print + "\n");
-				} catch (Exception e) {
-					logger.error("Caught exception when getting alignment for regions " + genes.getFirstGene().getName() + " and " + genes.getSecondGene().getName());
-					logger.error("Alignment:");
-					logger.error(formattedInfoString(align));
-					e.printStackTrace();
-				}				
-			}
-		}
-		w.close();
-		logger.info("Done writing sense alignments.");
+	public void writeAllSenseAlignmentsToBed(String outBedFile, int minAlignLength, float minPctIdentity) throws IOException {
+		writeAllSenseAlignmentsToBed(outBedFile, false, minAlignLength, minPctIdentity);
 	}
 	
 	/**
@@ -276,62 +279,79 @@ public class FeatureSequenceAlignment {
 	 * @param minPctIdentity Min percent identity to keep
 	 * @throws IOException
 	 */
-	private void writeAllAntisenseAlignmentsToBed(String outBedFile, int minAlignLength, float minPctIdentity) throws IOException {
+	public void writeAllAntisenseAlignmentsToBed(String outBedFile, int minAlignLength, float minPctIdentity) throws IOException {
+		writeAllAntisenseAlignmentsToBed(outBedFile, false, minAlignLength, minPctIdentity);
+	}
+
+	/**
+	 * Write all pairwise alignments (sense direction only) to bed file in genome coordinates
+	 * @param outBedFile Output bed file
+	 * @param append Write to end of file rather than beginning
+	 * @param minAlignLength Min alignment length to keep
+	 * @param minPctIdentity Min percent identity to keep
+	 * @throws IOException
+	 */
+	public void writeAllSenseAlignmentsToBed(String outBedFile, boolean append, int minAlignLength, float minPctIdentity) throws IOException {
+		logger.info("Writing all sense alignments to bed file " + outBedFile);
+		logger.info("Min alignment length: " + minAlignLength);
+		logger.info("Min percent identity: " + minPctIdentity);
+		Map<UnorderedGenePair, jaligner.Alignment> senseAligns = getAllPairwiseSenseAlignments(minAlignLength, minPctIdentity);
+		FileWriter w = new FileWriter(outBedFile, append);
+		for(UnorderedGenePair genes : senseAligns.keySet()) {
+			jaligner.Alignment align = senseAligns.get(genes);
+			try {
+				String print = senseAlignmentAsBed(genes);
+				w.write(print + "\n");
+			} catch (Exception e) {
+				logger.error("Caught exception when getting alignment for regions " + genes.getFirstGene().getName() + " and " + genes.getSecondGene().getName());
+				logger.error("Alignment:");
+				logger.error(formattedInfoString(align));
+				e.printStackTrace();
+			}				
+		}
+		w.close();
+		logger.info("Done writing sense alignments.");
+	}
+
+	/**
+	 * Write all pairwise alignments (antisense direction only) to bed file in genome coordinates
+	 * @param outBedFile Output bed file
+	 * @param append Write to end of file rather than beginning
+	 * @param minAlignLength Min alignment length to keep
+	 * @param minPctIdentity Min percent identity to keep
+	 * @throws IOException
+	 */
+	public void writeAllAntisenseAlignmentsToBed(String outBedFile, boolean append, int minAlignLength, float minPctIdentity) throws IOException {
 		logger.info("Writing all antisense alignments to bed file " + outBedFile);
 		logger.info("Min alignment length: " + minAlignLength);
 		logger.info("Min percent identity: " + minPctIdentity);
-		FileWriter w = new FileWriter(outBedFile);
-		for(UnorderedGenePair genes : featurePairs) {
-			jaligner.Alignment antisenseAlign = getAntisenseAlignment(genes);
-			if(antisenseAlign.getLength() >= minAlignLength && antisenseAlign.getPercentIdentity() >= minPctIdentity) {
-       				try {
-					String print = antisenseAlignmentAsBed(genes);
-					w.write(print + "\n");				
-				} catch (Exception e) {
-					logger.error("Caught exception when getting alignment for regions " + genes.getFirstGene().getName() + " and " + genes.getSecondGene().getName());
-					logger.error("Alignment:");
-					logger.error(formattedInfoString(antisenseAlign));
-					e.printStackTrace();
-				}
-			}
+		Map<UnorderedGenePair, jaligner.Alignment> antisenseAligns = getAllPairwiseAntisenseAlignments(minAlignLength, minPctIdentity);
+		FileWriter w = new FileWriter(outBedFile, append);
+		for(UnorderedGenePair genes : antisenseAligns.keySet()) {
+			jaligner.Alignment align = antisenseAligns.get(genes);
+			try {
+				String print = antisenseAlignmentAsBed(genes);
+				w.write(print + "\n");
+			} catch (Exception e) {
+				logger.error("Caught exception when getting alignment for regions " + genes.getFirstGene().getName() + " and " + genes.getSecondGene().getName());
+				logger.error("Alignment:");
+				logger.error(formattedInfoString(align));
+				e.printStackTrace();
+			}				
 		}
 		w.close();
 		logger.info("Done writing antisense alignments.");
 	}
 
-	/**
-	 * Write all pairwise alignments to file
-	 * @param outFile Output file
-	 * @param minAlignLength Min alignment length to keep
-	 * @param minPctIdentity Min percent identity to keep
-	 * @throws IOException
-	 */
-	private void writeAllPairwiseAlignments(String outFile, int minAlignLength, float minPctIdentity) throws IOException {
-		logger.info("Writing all alignments to file " + outFile);
-		FileWriter w = new FileWriter(outFile);
-		for(UnorderedGenePair genes : featurePairs) {
-			jaligner.Alignment align = getAlignment(genes);
-			if(align.getLength() >= minAlignLength && align.getPercentIdentity() >= minPctIdentity) {
-				String print = formattedInfoString(align);
-				w.write(print + "\n");				
-			}
-			jaligner.Alignment antisenseAlign = getAntisenseAlignment(genes);
-			if(antisenseAlign.getLength() >= minAlignLength && antisenseAlign.getPercentIdentity() >= minPctIdentity) {
-				String print = formattedInfoString(antisenseAlign);
-				w.write(print + "\n");				
-			}
-		}
-		w.close();
-		logger.info("Done writing alignments.");
-	}
+
 	
 	/**
 	 * Get the aligned region as a feature in genomic coordinates
 	 * @param genes The pair of genes
 	 * @return The aligned region
 	 */
-	private Annotation alignmentAsFeature(UnorderedGenePair genes) {
-		return asFeature(getAlignment(genes), genes);
+	private Annotation senseAlignmentAsFeature(UnorderedGenePair genes) {
+		return asFeature(getSenseAlignment(genes), genes);
 	}
 	
 	/**
@@ -373,8 +393,8 @@ public class FeatureSequenceAlignment {
 	 * @param genes The pair of genes
 	 * @return
 	 */
-	private String alignmentAsBed(UnorderedGenePair genes) {
-		Annotation alignedRegion = alignmentAsFeature(genes);
+	private String senseAlignmentAsBed(UnorderedGenePair genes) {
+		Annotation alignedRegion = senseAlignmentAsFeature(genes);
 		return alignedRegion.toBED(41,144,41);
 	}
 	
@@ -397,7 +417,6 @@ public class FeatureSequenceAlignment {
 		CommandLineParser p = new CommandLineParser();
 		p.addStringArg("-b", "Bed file of features", true);
 		p.addStringArg("-g", "Genome fasta file", true);
-		p.addStringArg("-o", "Output file for all pairwise alignments", false, null);
 		p.addStringArg("-os", "Output bed file for sense alignments", false, null);
 		p.addStringArg("-oa", "Output bed file for antisense alignments", false, null);
 		p.addFloatArg("-ma", "Match score", false, DEFAULT_MATCH_SCORE);
@@ -409,7 +428,6 @@ public class FeatureSequenceAlignment {
 		p.parse(args);
 		String bedFile = p.getStringArg("-b");
 		String fastaFile = p.getStringArg("-g");
-		String outPairwiseFile = p.getStringArg("-o");
 		String outBedFileSense = p.getStringArg("-os");
 		String outBedFileAntisense = p.getStringArg("-oa");
 		float matchScore = p.getFloatArg("-ma");
@@ -421,10 +439,6 @@ public class FeatureSequenceAlignment {
 		
 		
 		FeatureSequenceAlignment fsa = new FeatureSequenceAlignment(bedFile, fastaFile, matchScore, mismatchScore, gapOpen, gapExtend);
-		
-		if(outPairwiseFile != null) {
-			fsa.writeAllPairwiseAlignments(outPairwiseFile, minLength, minIdentity);
-		}
 		
 		if(outBedFileSense != null) {
 			fsa.writeAllSenseAlignmentsToBed(outBedFileSense, minLength, minIdentity);
@@ -442,7 +456,7 @@ public class FeatureSequenceAlignment {
 	 * @author prussell
 	 *
 	 */
-	private class UnorderedGenePair implements Comparable<UnorderedGenePair> {
+	public class UnorderedGenePair implements Comparable<UnorderedGenePair> {
 		
 		private Gene firstGene;
 		private Gene secondGene;
@@ -463,10 +477,16 @@ public class FeatureSequenceAlignment {
 			}
 		}
 		
+		/**
+		 * @return The first gene
+		 */
 		public Gene getFirstGene() {
 			return firstGene;
 		}
 		
+		/**
+		 * @return The second gene
+		 */
 		public Gene getSecondGene() {
 			return secondGene;
 		}

@@ -12,7 +12,7 @@ import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.coordinatesystem.GenomicSpace;
 import nextgen.core.model.AlignmentModel;
-import nextgen.core.readers.PairedEndWriter;
+import nextgen.core.writers.PairedEndWriter;
 
 public class ShuffleBAM extends GenomeCommandLineProgram {
     private static final Log log = Log.getInstance(ShuffleBAM.class);

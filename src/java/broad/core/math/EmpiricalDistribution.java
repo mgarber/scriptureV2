@@ -687,12 +687,24 @@ public class EmpiricalDistribution {
 		DecimalFormat format = new DecimalFormat("###0.#####");
 		int total = getTotalObservations();
 		int totalSoFar = 0;
-		System.err.println("total " + total);
+		//System.err.println("total " + total);
+		
+		String header = "interval_start_inclusive\t";
+		header += "interval_end_inclusive\t";
+		header += "count\t";
+		header += "density\t";
+		header += "cumulative_count\t";
+		header += "cumulative_density";
+		bw.write(header + "\n");
+		
 		for(int i = 0; i < intervalDataNumber.length; i++) {
 			totalSoFar += intervalDataNumber[i];
-			double midPoint = (intervals[i][0] + intervals[i][1])/(double)2;
+			//double midPoint = (intervals[i][0] + intervals[i][1])/(double)2;
 			//System.out.println("midpoint: " +midPoint);
-			bw.write(format.format(midPoint));
+			//bw.write(format.format(midPoint));
+			bw.write(Double.valueOf(intervals[i][0]).toString());
+			bw.write("\t");
+			bw.write(Double.valueOf(intervals[i][1]).toString());
 			bw.write("\t");
 			bw.write(String.valueOf(intervalDataNumber[i]));
 			bw.write("\t");

@@ -585,20 +585,20 @@ public class Gene extends BasicAnnotation {
 	// TODO JE - I'm confused why this doesn't return a blocked UTR 
 	public Annotation get5UTR(){
 		if(getOrientation() == Strand.POSITIVE){
-			Annotation rtrn=new BasicAnnotation(getChr(), getStart(), this.getCDSRegion().getStart());
+			Annotation rtrn=new BasicAnnotation(getChr(), getStart(), this.getCDSRegion().getStart(), getStrand());
 			return rtrn;
 		}
-		Annotation rtrn=new BasicAnnotation(getChr(), this.getCDSRegion().getEnd(), getEnd());
+		Annotation rtrn=new BasicAnnotation(getChr(), this.getCDSRegion().getEnd(), getEnd(), getStrand());
 		return rtrn;
 	}
 	
 	// TODO JE - I'm confused why this doesn't return a blocked UTR 
 	public Annotation get3UTR(){
 		if(getOrientation() == Strand.NEGATIVE){
-			Annotation rtrn=new BasicAnnotation(getChr(), getStart(), this.getCDSRegion().getStart());
+			Annotation rtrn=new BasicAnnotation(getChr(), getStart(), this.getCDSRegion().getStart(), getStrand());
 			return rtrn;
 		}
-		Annotation rtrn=new BasicAnnotation(getChr(), this.getCDSRegion().getEnd(), getEnd());
+		Annotation rtrn=new BasicAnnotation(getChr(), this.getCDSRegion().getEnd(), getEnd(), getStrand());
 		return rtrn;
 	}
 	
@@ -673,10 +673,10 @@ public class Gene extends BasicAnnotation {
 	 */
 	public Alignments get3UtrIncludingIntrons(){
 		if(getOrientation() == Strand.NEGATIVE){
-			Alignments rtrn=new Alignments(getChr(), getStart(), this.getCDSRegion().getStart() - 1);
+			Alignments rtrn=new Alignments(getChr(), getStart(), this.getCDSRegion().getStart() - 1, getOrientation());
 			return rtrn;
 		}
-		Alignments rtrn=new Alignments(getChr(), this.getCDSRegion().getEnd() + 1, getEnd());
+		Alignments rtrn=new Alignments(getChr(), this.getCDSRegion().getEnd() + 1, getEnd(), getOrientation());
 		return rtrn;
 	}
 	
@@ -1052,8 +1052,23 @@ public class Gene extends BasicAnnotation {
 		return toBED(true, 0, 0, 0);
 	}
 	
+	/*
+	 * Can't use method in AbstractAnnotation because need CDS start and end. -PR
+	 */
 	public String toBED(boolean useExtraFields, int r, int g, int b){
-		String rtrn = super.toBED(r,g,b);  // calls AbstractAnnotation
+		if(r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
+			throw new IllegalArgumentException("RGB values must be between 0 and 255");
+		}
+		String rgb = r + "," + g + "," + b;
+		List<? extends Annotation> exons = getBlocks();
+		String rtrn=getReferenceName()+"\t"+getStart()+"\t"+getEnd()+"\t"+(getName() == null ? toUCSC() : getName())+"\t"+getScore()+"\t"+getOrientation()+"\t"+getCDSStart()+"\t"+getCDSEnd()+"\t"+rgb+"\t"+exons.size();
+		String sizes="";
+		String starts="";
+		for(Annotation exon : exons){
+			sizes=sizes+(exon.length())+",";
+			starts=starts+(exon.getStart()-getStart())+",";
+		}
+		rtrn=rtrn+"\t"+sizes+"\t"+starts;
 		if(extraFields != null & useExtraFields) {
 			for(String field : extraFields) {
 				rtrn = rtrn + "\t" + field;
@@ -1498,7 +1513,7 @@ public class Gene extends BasicAnnotation {
 	}
 		
 	
-	public boolean contains(Gene gene){
+	public boolean geneSpanContains(Gene gene){
 		return gene.getStart() >= getStart() && gene.getEnd() <= getEnd();
 	}
 	
@@ -2076,6 +2091,10 @@ public class Gene extends BasicAnnotation {
 		return genomicPosition;
 	}
 	
+	public int getMidpointGenomicCoords() {
+		return transcriptToGenomicPosition(getSize() / 2);
+	}
+	
 	/**
 	 * Convert an interval in transcriptome space to genome space
 	 * @param startPosOnTranscript Start position in transcriptome space
@@ -2105,7 +2124,7 @@ public class Gene extends BasicAnnotation {
 		List<Annotation> exons = new ArrayList<Annotation>(getExonSet());
 				
 		int position = 0;
-		if("-".equals(getOrientation())) {
+		if(getOrientation().equals(Strand.NEGATIVE)) {
 			for(int i = exons.size() -1 ; i >=0; i--) {
 				Annotation e = exons.get(i);
 				if(genomicPosition < e.getStart()) {
@@ -2228,8 +2247,8 @@ public class Gene extends BasicAnnotation {
 					orientation= AbstractAnnotation.getStrand(tokens[5]);
 					
 					if(tokens.length > 6) {
-						int cdsStart=new Integer(tokens[6]);
-						int cdsEnd=new Integer(tokens[7]);
+						int cdsStart=Integer.parseInt(tokens[6]);
+						int cdsEnd=Integer.parseInt(tokens[7]);
 						
 						String[] blockSizes=tokens[10].split(",");
 						String[] blockStarts=tokens[11].split(",");
@@ -2245,6 +2264,7 @@ public class Gene extends BasicAnnotation {
 						
 						Gene g = new Gene(chr, name, orientation, exons, cdsStart, cdsEnd);
 						assert(g.getStart() == start && g.getEnd() == end); // JE implementation check
+						assert(g.getCDSStart() == cdsStart && g.getEnd() == cdsEnd);
   						
 						g.setBedScore(bedScore);
 						

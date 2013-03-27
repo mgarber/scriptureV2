@@ -19,7 +19,7 @@ import broad.pda.datastructures.Alignments;
 
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
-import nextgen.core.alignment.PairedEndAlignment.TranscriptionRead;
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.*;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.GenomicSpace;
@@ -30,7 +30,7 @@ import nextgen.core.general.CloseableFilterIterator;
 import nextgen.core.model.score.WindowScore;
 import nextgen.core.readFilters.SplicedReadFilter;
 import nextgen.core.readers.PairedEndReader;
-import nextgen.core.readers.PairedEndWriter;
+import nextgen.core.writers.PairedEndWriter;
 import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.exception.RuntimeIOException;
 import org.apache.commons.collections15.Predicate;
@@ -196,7 +196,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	/**
 	 * Compute global stats and cache to a file for future use, or read from file if already cached
 	 */
-	private void computeGlobalStats() {
+	public void computeGlobalStats() {
 		try {
 			
 			SortedMap<String, Double> stats = null; 
@@ -218,7 +218,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			
 			// Compute stats
 			if (stats == null) {
-				logger.info("Computing global stats...");
+				logger.info("Computing global stats for bam file " + this.bamFile + "...");
 				loaded = false;
 				stats = getReferenceSequenceCounts();
 				

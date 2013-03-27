@@ -680,6 +680,14 @@ public class Sequence {
 		return seq;
 	}
 
+	/**
+	 * Get subsequence with extension
+	 * @param name Name of new sequence to return
+	 * @param start Start position of subsequence
+	 * @param end Position after last position to include
+	 * @param extension Extension
+	 * @return The subsequence
+	 */
 	public Sequence getSubSequence(String name, int start, int end, int extension) {
 		String subSeq=sequenceBases.substring(Math.max(start-extension, 0), Math.min(end+extension, sequenceBases.length()));
 		Sequence seq=new Sequence(name);
@@ -687,6 +695,13 @@ public class Sequence {
 		return seq;
 	}
 	
+	/**
+	 * Get subsequence
+	 * @param name Name of new sequence to return
+	 * @param start Start position of subsequence
+	 * @param end Position after last position to include
+	 * @return The subsequence
+	 */
 	public Sequence getSubSequence(String name, int start, int end) {
 		return getSubSequence(name, start, end,0);
 	}

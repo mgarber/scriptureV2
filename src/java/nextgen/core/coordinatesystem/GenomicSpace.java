@@ -398,5 +398,18 @@ public class GenomicSpace implements CoordinateSpace{
 		return getFragment(annotation.getChr(), annotation.getStart(), annotation.getEnd());
 	}
 
+	@Override
+	public int getSize(Annotation region) {
+		Collection<? extends Window> fragments = getFragment(region);
+		int size = fragments.iterator().next().size();
+		for(Window window : fragments) {
+			if(window.size() != size) {
+				throw new IllegalStateException("Fragment set for annotation consists of multiple regions with different sizes.");
+			}
+		}
+		//logger.info("GenomicSpace " + region.getName() + " " + region.getChr() + ":" + region.getStart() + " " + region.getEnd() + " " + size);
+		return size;
+	}
+
 }
 

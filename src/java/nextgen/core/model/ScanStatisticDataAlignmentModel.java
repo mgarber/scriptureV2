@@ -3,33 +3,12 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-
 import org.apache.log4j.Logger;
 
-import broad.core.datastructures.IntervalTree;
-import broad.core.datastructures.IntervalTree.Node;
-import broad.core.math.EmpiricalDistribution;
-import broad.core.math.Statistics;
-import broad.core.parser.StringParser;
-import broad.pda.datastructures.Alignments;
-import broad.pda.seq.segmentation.AlignmentDataModelStats;
-
-import net.sf.samtools.SAMFileReader;
-import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;
-import nextgen.core.annotation.AnnotationCollection;
 import nextgen.core.coordinatesystem.CoordinateSpace;
-import nextgen.core.feature.GenomeWindow;
-import nextgen.core.feature.Window;
 import nextgen.core.model.score.ScanStatisticScore;
-import nextgen.core.readers.PairedEndReader;
-import nextgen.core.readers.PairedEndWriter;
-import nextgen.core.utils.AnnotationUtils;
-import nextgen.core.exception.RuntimeIOException;
 import org.apache.commons.collections15.Predicate;
 
 

@@ -25,6 +25,8 @@ import org.broad.igv.Globals;
  */
 public class ConfigFileParser {
 
+
+
 	static Logger logger = Logger.getLogger(ConfigFileParser.class.getName());
 
 	private List<String> commands;
@@ -87,7 +89,7 @@ public class ConfigFileParser {
 	 * Config file option to write fragment endpoints to wig and bigwig file
 	 * Writes counts for positions overlapping genes in this bed file
 	 */
-	public static String OPTION_BED_FILE_FOR_FRAGMENT_END_WIG = "bed_file_fragment_ends";
+	public static String OPTION_BED_FILE_FOR_WIG = "bed_file_for_wig";
 	
 	/**
 	 * Path to UCSC WigToBigWig executable
@@ -98,6 +100,11 @@ public class ConfigFileParser {
 	 * Chromosome size file
 	 */
 	public static String OPTION_CHR_SIZE_FILE = "chr_size_file";
+	
+	/**
+	 * Jar file to compute alignment global stats
+	 */
+	public static String OPTION_GLOBAL_STATS_JAR = "alignment_global_stats_jar_file";
 	
 	/**
 	 * Config file option to provide options to tophat e.g. tophat_options --max-multihits 1
@@ -199,6 +206,16 @@ public class ConfigFileParser {
 	 * Config file option to provide an alternative jar file for Picard program CollectRnaSeqMetrics
 	 */
 	public static String OPTION_PICARD_COLLECT_RNASEQ_METRICS = "picard_collect_rnaseq_metrics";
+
+	/**
+	 * Config file option for bed annotation for transcriptome space stats
+	 */
+	public static final Object OPTION_TRANSCRIPTOME_SPACE_BED_FILE = "bed_transcriptome_space_stats";
+
+	/**
+	 * Config file option for chromosome size file for genomic space stats
+	 */
+	public static final Object OPTION_GENOME_SPACE_SIZE_FILE = "size_file_genomic_space_stats";
 
 	
 	/**
@@ -1182,11 +1199,11 @@ public class ConfigFileParser {
 		 * Get bed file that determines which genes to count when writing fragment end positions to wig and bigwig files
 		 * @return The bed file path
 		 */
-		public String getBedFileForFragmentEndWig() {
+		public String getBedFileForWig() {
 			try {
-				return this.optionMap.get(OPTION_BED_FILE_FOR_FRAGMENT_END_WIG);
+				return this.optionMap.get(OPTION_BED_FILE_FOR_WIG);
 			} catch(NullPointerException e) {
-				throw new NullPointerException("Bed file to use when writing fragment endpoints to wig file must be specified with option " + OPTION_BED_FILE_FOR_FRAGMENT_END_WIG);
+				throw new NullPointerException("Bed file to use when writing fragment endpoints to wig file must be specified with option " + OPTION_BED_FILE_FOR_WIG);
 			}
 		}
 		
@@ -1201,6 +1218,8 @@ public class ConfigFileParser {
 				throw new NullPointerException("WigToBigWig executable file must be specified with option " + OPTION_WIG_TO_BIGWIG_PATH);
 			}
 		}
+		
+		
 		
 		/**
 		 * Get chromosome size file
@@ -1397,6 +1416,30 @@ public class ConfigFileParser {
 			m.putAll(thOptions.getAllOptions());
 			m.putAll(bt2Options.getAllOptions());
 			return m;
+		}
+
+		/**
+		 * Get the jar file for alignment model global stats
+		 * @return Name of jar file
+		 */
+		public String getAlignmentGlobalStatsJar() {
+			return this.optionMap.get(OPTION_GLOBAL_STATS_JAR);
+		}
+		
+		/**
+		 * Get bed annotation for transcriptome space stats
+		 * @return Name of bed file
+		 */
+		public String getBedFileForTranscriptomeSpaceStats() {
+			return this.optionMap.get(OPTION_TRANSCRIPTOME_SPACE_BED_FILE);
+		}
+
+		/**
+		 * Get chromosome size file for genome space stats
+		 * @return Name of size file
+		 */
+		public String getChrSizeFileForGenomicSpaceStats() {
+			return this.optionMap.get(OPTION_GENOME_SPACE_SIZE_FILE);
 		}
 	}
 	
