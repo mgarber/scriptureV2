@@ -531,7 +531,7 @@ public class BEDFileParser {
 				int start=new Integer(tokens[1]);
 				int end=new Integer(tokens[2]);
 	
-				String name=tokens[3].toUpperCase().trim();
+				String name=tokens[3].trim();
 				String strand=tokens[5];
 	
 				int blockStart=new Integer(tokens[6]);

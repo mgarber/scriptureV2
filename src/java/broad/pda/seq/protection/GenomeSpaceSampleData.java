@@ -8,8 +8,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
 
-import org.apache.log4j.Logger;
-
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.GenomicSpace;
 import nextgen.core.model.AlignmentModel;
