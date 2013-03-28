@@ -13,7 +13,7 @@ import org.apache.log4j.Logger;
 
 import broad.core.parser.CommandLineParser;
 import broad.pda.annotation.BEDFileParser;
-import broad.pda.seq.protection.PairedSamplePeakCaller;
+import broad.pda.seq.protection.TwoSampleScanSkellamPeakCaller;
 
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;

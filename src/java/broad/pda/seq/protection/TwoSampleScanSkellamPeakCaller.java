@@ -34,7 +34,7 @@ import nextgen.core.model.score.WindowProcessor;
  * @author prussell
  *
  */
-public class PairedSamplePeakCaller implements PeakCaller {
+public class TwoSampleScanSkellamPeakCaller implements PeakCaller {
 	
 	protected Map<String, Map<Gene, Double>> backgroundScanPvalues;
 	protected ScanStatisticDataAlignmentModel backgroundData;
@@ -53,7 +53,7 @@ public class PairedSamplePeakCaller implements PeakCaller {
 	protected double pValueCutoffSkellam;
 	protected double pValueCutoffScan;
 	protected double trimPeakByQuantile;
-	protected static Logger logger = Logger.getLogger(PairedSamplePeakCaller.class.getName());
+	protected static Logger logger = Logger.getLogger(TwoSampleScanSkellamPeakCaller.class.getName());
 	protected TranscriptomeSpace transcriptomeSpace;
 	protected WindowProcessor<CountScore> backgroundProcessor;
 	protected WindowProcessor<ScanStatisticScore> signalProcessor;
