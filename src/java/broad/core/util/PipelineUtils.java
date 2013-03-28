@@ -1,10 +1,17 @@
 package broad.core.util;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.TreeMap;
+
+import broad.core.parser.StringParser;
 
 public class PipelineUtils {
 
@@ -141,7 +148,69 @@ public class PipelineUtils {
 		PipelineUtils.checkForLSFFailures(jobID, run);
 	}
 	
-
+	
+	public static Map<String, String> allJobsStatus(Runtime run) throws IOException, InterruptedException {
+		Process blatProc = run.exec("bjobs -aw");
+		blatProc.waitFor();
+		BufferedReader b = new BufferedReader(new InputStreamReader(blatProc.getInputStream()));
+		StringParser s = new StringParser();
+		Map<String, String> rtrn = new TreeMap<String, String>();
+		while(b.ready()) {
+			String line = b.readLine();
+			s.parse(line);
+			String jobID = s.asString(6);
+			String status = s.asString(2);
+			rtrn.put(jobID, status);
+		}
+		return rtrn;
+	}
+	
+	/**
+	 * Wait for all jobs to start
+	 * Returns as soon as all jobs have started regardless of whether they complete successfully
+	 * @param jobIDs List of job IDs to check
+	 * @param run
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	public static void waitForAllJobsToStart(ArrayList<String> jobIDs, Runtime run) throws IOException, InterruptedException {
+		if(jobIDs.isEmpty()) return;
+		
+		boolean pend = true;
+		while(pend) {
+			Thread.sleep(10000);
+			pend = false;
+			Map<String,String> status = allJobsStatus(run);
+			System.err.println("statuses:");
+			for(String j : status.keySet()) {
+				System.err.println(j + "\t" + status.get(j));
+			}
+			for(int i = 0; i < jobIDs.size(); i++) {
+				String jobID = jobIDs.get(i);
+				System.err.println(jobID + "\t" + status.get(jobID));
+				if(status.get(jobID) == null) {
+					pend = true;
+					Thread.sleep(500);
+				} else {
+					if(status.get(jobID).equals(("PEND"))) {
+						pend = true;
+					}
+				}
+			}
+			
+		}
+	}
+	
+	public static boolean jobFailedCouldNotReserveHeapSpace(String bsubOutFile) throws IOException {
+		FileReader r = new FileReader(bsubOutFile);
+		BufferedReader b = new BufferedReader (r);
+		while(b.ready()) {
+			String line = b.readLine();
+			if(line.startsWith("Successfully completed")) return false;
+			if(line.startsWith("Could not reserve enough space for object heap")) return true;
+		}
+		return false;
+	}
 	
     public static void waitForAllJobs(ArrayList<String> jobIDs, Runtime run) throws InterruptedException, IOException {
     	if(jobIDs.isEmpty()) return;
