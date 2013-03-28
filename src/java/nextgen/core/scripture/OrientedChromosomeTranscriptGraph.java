@@ -1,5 +1,7 @@
 package nextgen.core.scripture;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -20,16 +22,23 @@ import org.jgrapht.alg.ConnectivityInspector;
 import org.jgrapht.alg.KShortestPaths;
 import org.jgrapht.graph.DefaultDirectedWeightedGraph;
 import org.jgrapht.graph.DefaultWeightedEdge;
+import org.jgrapht.graph.GraphPathImpl;
+import org.jgrapht.util.VertexPair;
 
+import broad.core.annotation.LightweightGenomicAnnotation;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
-
+import broad.pda.datastructures.Alignments;
+import broad.pda.seq.graph.Path;
 
 public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGraph<Annotation, OrientedChromosomeTranscriptGraph.TranscriptGraphEdge > {
 	private static final long serialVersionUID = 1302380140695950943L;
 	private static Logger logger = Logger.getLogger(OrientedChromosomeTranscriptGraph.class.getName());
 	private static final int MAX_PATHS = 20;
 
+	private static final String quote="\"";
+	private static final double scaleFactor = 0.0025;
+	
 	private String name;
 	private Strand orientation;
 	private IntervalTree<Annotation> vertices;
@@ -70,13 +79,16 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 		return result;
 	}
 
-	public boolean addVertex(Annotation v) {
+	public boolean addVertex(Annotation v) { 
+		//TODO: Why checking again?
 		boolean result = canAdd(v);
 		if(!result) { return false;}
 
+		
 		result = super.addVertex(v);
 
 		if(result) {
+			//logger.info(" Vertex is added.");
 			vertices.put(v.getStart(), v.getEnd(), v);
 		}
 
@@ -84,12 +96,18 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 		return result;
 	}
 
+	/**
+	 * Adds an exon to a graph
+	 * @param v
+	 * @return
+	 */
 	public int connectVertexToGraph(Annotation v) {
 		int result = -1;
 		boolean canAdd = canAdd(v);
 		if(!canAdd) { return -1;}
 
 		Collection<TranscriptGraphEdge> abuttingEdges = getAbuttingEdges(v);
+		//logger.error("Size of the abutting edges = "+abuttingEdges.size());
 		if(abuttingEdges.size() == 0) {
 			boolean success = addVertex(v);
 			if(success) { result = 0;}
@@ -115,10 +133,20 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 
 	}
 
+	/**
+	 * Returns true if the specified annotation is unoriented or has the same orientation as this graph
+	 * @param v
+	 * @return
+	 */
 	private boolean canAdd(Annotation v) {
 		return v.isUnoriented() || v.getOrientation() == this.orientation;
 	}
 
+	/**
+	 * ?????????????????????????
+	 * @param v
+	 * @return
+	 */
 	private Collection<TranscriptGraphEdge> getAbuttingEdges(Annotation v) {		
 		Iterator<Node<TranscriptGraphEdge>> startOverlapIt = edgeTree.overlappers(v.getStart() - 1, v.getStart());
 		Iterator<Node<TranscriptGraphEdge>> endOverlapIt = edgeTree.overlappers(v.getEnd(), v.getEnd()+1);
@@ -126,16 +154,18 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 		Collection<TranscriptGraphEdge> abuttingEdges = new TreeSet<TranscriptGraphEdge> ();
 		
 		while (startOverlapIt.hasNext()) {
-			TranscriptGraphEdge overlappingEdge = startOverlapIt.next().getValue();
+			Node<TranscriptGraphEdge> node = startOverlapIt.next();
+			TranscriptGraphEdge overlappingEdge = node.getValue();
 			if(overlappingEdge.getEnd() + 1 == v.getStart()) {
-				abuttingEdges.addAll(startOverlapIt.next().getContainedValues());
+				abuttingEdges.addAll(node.getContainedValues());
 			}
 		}
 
 		while (endOverlapIt.hasNext()) {
-			TranscriptGraphEdge overlappingEdge = endOverlapIt.next().getValue();
+			Node<TranscriptGraphEdge> node = endOverlapIt.next();
+			TranscriptGraphEdge overlappingEdge = node.getValue();
 			if(overlappingEdge.getStart()  == v.getEnd()) {
-				abuttingEdges.addAll(endOverlapIt.next().getContainedValues());
+				abuttingEdges.addAll(node.getContainedValues());
 			}
 		}
 		return abuttingEdges;
@@ -168,12 +198,12 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 			if( augmentCount) {
 				setEdgeWeight(e, getEdgeWeight(e)+1);
 			}
-			logger.trace("Adding new edge " + e + " to graph between " + v1.toUCSC() + " and " + v2.toUCSC());
+			//logger.info("Adding new edge " + e.toUCSC() + " to graph between " + v1.toUCSC() + " and " + v2.toUCSC());
 		}else {
 			e = getEdgeFactory().createEdge(v1InGraph, v2InGraph);
 			boolean success = super.addEdge(v1InGraph, v2InGraph, e);
 			edgeTree.put(e.getStart(), e.getEnd(), e);
-			logger.trace("Adding new edge " + e + " to graph between " + v1.toUCSC() + " and " + v2.toUCSC());
+			//logger.info("Adding new edge " + e.toUCSC() + " to graph between " + v1.toUCSC() + " and " + v2.toUCSC());
 		}	
 		
 		return e;
@@ -182,13 +212,18 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 	public List<GraphPath<Annotation, TranscriptGraphEdge>> getPaths() {
 		List<GraphPath<Annotation, TranscriptGraphEdge>> paths = new ArrayList<GraphPath<Annotation, TranscriptGraphEdge>>();
 
+		//ORPHAN PATHS
+		//paths.addAll(getOrphanPaths());
+		
+		//NON-ORPHAN PATHS
 		Collection<Annotation> sources = getSourceVertices();
 		ConnectivityInspector<Annotation, TranscriptGraphEdge> ci = new ConnectivityInspector<Annotation, OrientedChromosomeTranscriptGraph.TranscriptGraphEdge>(this);
 		
+		//For each source
 		for(Annotation s : sources) {
 			KShortestPaths<Annotation, TranscriptGraphEdge> shortesPathAlg = new KShortestPaths<Annotation, OrientedChromosomeTranscriptGraph.TranscriptGraphEdge>(this, s, MAX_PATHS);
 			java.util.Set<Annotation> connectedSetOfS =  ci.connectedSetOf(s);
-			//logger.debug("Connected set of " + s.toUCSC() + " is " + connectedSetOfS);
+			logger.debug("Connected set of " + s.toUCSC() + " is " + connectedSetOfS);
 			for(Annotation t : connectedSetOfS) {
 				if(isSink(t)) {
 					List<GraphPath<Annotation, TranscriptGraphEdge>> sToTPaths = shortesPathAlg.getPaths(t);
@@ -206,7 +241,7 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 	}
 
 	public static Gene pathToGene(GraphPath<Annotation, TranscriptGraphEdge> gp) {
-		List<Annotation> pathVertices = Graphs.getPathVertexList(gp);
+		List<Annotation> pathVertices =  Graphs.getPathVertexList(gp);
 		return new Gene(pathVertices);
 	}
 
@@ -307,6 +342,101 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 		
 		return addedEdge;
 	}
+	
+	/**
+	 * Writes the graph to a file
+	 * @param save
+	 * @param region
+	 * @param setUpShortExonLabels
+	 * @param graphName
+	 * @throws IOException
+	 */
+	public void writeGraph(String save, Alignments region, boolean setUpShortExonLabels, String graphName) throws IOException {
+		FileWriter writer=new FileWriter(save);
+		
+		writer.write("digraph "+ graphName+" {\n rankdir=LR; \n node [shape = rectangle,color=red];\n");
+		//go through each and node and write it and its edges
+		//get all the graphs edges
+		//start by writing an invisible connection between every node and every node in sorted order
+		Iterator<Node<Annotation>> iter=vertices.iterator();
+		int counter=0;
+		while(iter.hasNext()){ //TODO: 1) Consider moving to the bottom 2) Consider not adding invisible edge to edges that already exist
+			Annotation node=iter.next().getValue();
+			if(node.overlaps(region)){
+				if(counter>0){writer.write("->");}
+				writer.write(quote+node.toUCSC()+quote);
+				counter++;
+			}
+		}
+		writer.write("[style=invis];\n"); //TODO: Scale the invisible link by the genomic size
+		iter=vertices.iterator();
+		//Then define the sizes of each node based on genomic sizes
+		while(iter.hasNext()){
+			Annotation exon=iter.next().getValue();
+			//double exonCount=this.getCount(exon);
+			//double localRate=this.getLocalRate(exon);
+			if(exon.overlaps(region)){
+				double normWidth=exon.length()*scaleFactor;
+				writer.write(quote+exon.toUCSC()+quote+" [width="+normWidth+", fixedsize=true");//, label="+exonCount+", comment="+localRate); 
+				writer.write("];\n");
+			}
+		}
+		
+		//This defines actual edges
+		Collection<TranscriptGraphEdge> edges = edgeSet();
+		for(TranscriptGraphEdge edge: edges){
+			VertexPair<Annotation> nodes=getNodePair(edge);
+			//System.err.println("WRITEGRAPH - edge" + edge.getConnection().toUCSC());
+			Annotation first=nodes.getFirst();
+			Annotation second=nodes.getSecond();
+			if(first.overlaps(region) || second.overlaps(region)){
+				writer.write(quote+first.toUCSC()+quote+"->"+quote+second.toUCSC()+quote);
+				//writer.write(", minlen="+(edge.getConnection().length()*(scaleFactor/3))); //TODO: Add scaling for intron sizes (default no scaling)
+				writer.write("];\n");
+			}
+		}
+					
+		writer.write("}");
+		
+		writer.close();
+	}
+
+
+	/**
+	 * Returns the pair of vertices for a specified edge
+	 * @param edge
+	 * @return
+	 */
+	public VertexPair<Annotation> getNodePair(TranscriptGraphEdge edge) {
+		return (new VertexPair<Annotation>(edge.getLeftNode(),edge.getRightNode()));
+	}
+	
+	
+	/**
+	 * Returns all orphan paths in graph (self edges for orphan vertices)
+	 * @return
+	 */
+	public Collection<GraphPath<Annotation, TranscriptGraphEdge>> getOrphanPaths(){
+		List<GraphPath<Annotation, TranscriptGraphEdge>> paths = new ArrayList<GraphPath<Annotation, TranscriptGraphEdge>>();
+		
+		Iterator<Annotation> iter=getOrphanVertices().iterator();
+		//Iterate through all vertices
+		while(iter.hasNext()){
+			Annotation align=iter.next();
+			
+			//Form new edge
+			List<TranscriptGraphEdge> edge=new ArrayList<TranscriptGraphEdge>();
+			edge.add(new TranscriptGraphEdge(new BasicAnnotation(align.getChr(), align.getEnd(), align.getEnd())));
+			//edge.setParent(this);
+			GraphPath<Annotation, TranscriptGraphEdge> path=new GraphPathImpl<Annotation, TranscriptGraphEdge>(this, align, align,edge, 0);
+			//edge.setNodeCount(align, getCount(align));
+			paths.add(path);	
+		}
+		
+		return paths;
+	}
+
+	
 	public static class TranscriptGraphEdgeFactory implements EdgeFactory<Annotation,  OrientedChromosomeTranscriptGraph.TranscriptGraphEdge> {
 
 		public TranscriptGraphEdge createEdge(Annotation arg0, Annotation arg1) {
@@ -337,11 +467,27 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 
 		private static final long serialVersionUID = -2038056582331579372L;
 		private Annotation annotation;
+		private Annotation v1;
+		private Annotation v2;
 
 		public TranscriptGraphEdge (Annotation a) {
 			this.annotation = a;
 		}
 
+		public TranscriptGraphEdge (Annotation a,Annotation v1,Annotation v2) {
+			this.annotation = a;
+			this.v1 = v1;
+			this.v2 = v2;
+		}
+		
+		public Annotation getLeftNode(){
+			return v1;
+		}
+		
+		public Annotation getRightNode(){
+			return v2;
+		}
+		
 		public int compareTo(Annotation o) {
 			return annotation.compareTo(o);
 		}
@@ -632,6 +778,6 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 			// TODO Auto-generated method stub
 			return false;
 		}
-
+		
 	}
 }

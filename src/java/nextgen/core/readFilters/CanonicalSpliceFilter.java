@@ -24,7 +24,7 @@ public class CanonicalSpliceFilter implements Predicate<Alignment>{
 
 	//TODO: ADD A FLAG TO ALLOW FOR NON-CANONICAL SPLICE SITES
 	//private Sequence genomeSequence;
-	private String genomeSequenceFile;
+	private String genomeSequenceFile=null;
 	private String currentChr;
 	private Sequence chrSeq;
 
@@ -32,12 +32,16 @@ public class CanonicalSpliceFilter implements Predicate<Alignment>{
 		this.genomeSequenceFile=genomeFile;
 	}
 	
+	public CanonicalSpliceFilter(){
+		this.genomeSequenceFile=null;
+	}
+	
 	@Override
 	public boolean evaluate(Alignment read) {
 		
 		//TODO: CHECK
 		if(genomeSequenceFile==null){
-			System.out.println("Genome sequence file is not provided");
+			//System.out.println("Genome sequence file is not provided");
 			return true;
 		}
 		if(read.getSpliceConnections().isEmpty()){return false;}

@@ -194,6 +194,23 @@ public class BasicAnnotation extends AbstractAnnotation {
 		return list;
 	}
 
+	/**
+	 * This function returns the blocks on either ends of a given splicejunction
+	 * @param spliceJunction
+	 * @return
+	 */
+	public Annotation[] getFlankingBlocks(Annotation spliceJunction) {
+		Annotation[] list = new Annotation[2];
+		for (SingleInterval block : blocks.getBlocks()) {
+			if(block.getEnd()==spliceJunction.getStart())
+				list[0] = new BasicAnnotation(referenceName, block.getStart(), block.getEnd(), orientation);
+			else if(block.getStart()==spliceJunction.getEnd()){
+				list[1] = new BasicAnnotation(referenceName, block.getStart(), block.getEnd(), orientation);
+			}
+		}
+		return list;
+	}
+	
 	public int numBlocks() {
 		return blocks.numBlocks();
 	}
@@ -293,9 +310,10 @@ public class BasicAnnotation extends AbstractAnnotation {
 	}
 
 	public void addBlocks(Collection<? extends Annotation> blocks) {
-		for(Annotation block: blocks){addBlocks(block);}
+		for(Annotation block: blocks){
+			addBlocks(block);			
+		}
 	}
-	
 	
 	public void shift(int delta) {
 		blocks.shift(delta);
@@ -311,18 +329,32 @@ public class BasicAnnotation extends AbstractAnnotation {
 	
 	@Override
 	public boolean overlaps(Annotation other, int buffer, boolean considerOrientation) {
-		if (BasicAnnotation.class.isInstance(other)) {
+		if (considerOrientation && (getOrientation() != other.getOrientation())) return false;
+		if (!getReferenceName().equalsIgnoreCase(other.getReferenceName())) return false;
+		return overlaps(other.getBlocks(),buffer);
+		/*if (BasicAnnotation.class.isInstance(other)) {
 			return overlaps((BasicAnnotation) other, buffer, considerOrientation);
 		} else {
 			BasicAnnotation basic = new BasicAnnotation(other);
 			return overlaps(basic, buffer, considerOrientation);
-		}
+		}*/
 	}
 	
-	public boolean overlaps(BasicAnnotation other, int buffer, boolean considerOrientation) {
-		if (considerOrientation && (getOrientation() != other.getOrientation())) return false;
-		if (!getReferenceName().equalsIgnoreCase(other.getReferenceName())) return false;
-		return blocks.overlaps(other.blocks, buffer);
+	public boolean overlaps(List<? extends Annotation> otherBlocks,int buffer){
+		//For each of this block
+		for(Annotation block:getBlocks()){
+			//For each of the other's blocks
+			SingleInterval X = new SingleInterval(block.getStart(),block.getEnd());
+			
+			for(Annotation other: otherBlocks){
+				//getBlocks() is already returning single intervals
+				SingleInterval Y = new SingleInterval(other.getStart(),other.getEnd());
+				//If this block overlaps the other block
+				if(X.overlaps(Y))
+					return true;
+			}
+		}
+		return false;
 	}
 	
 	@Override
