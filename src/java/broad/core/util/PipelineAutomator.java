@@ -966,7 +966,7 @@ public class PipelineAutomator {
 		logger.info("");
 		logger.info("Making wig and bigwig files of fragment end points.");
 		writeWigFragmentEnds(sortedBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, null);
-		writeWigFragments(sortedBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, null);
+		//writeWigFragments(sortedBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, null);
 		logger.info("");
 		logger.info("Done aligning to transcripts.");
 		
@@ -1185,7 +1185,7 @@ public class PipelineAutomator {
 			logger.info("");
 			logger.info("Making wig and bigwig files of fragment end points.");
 			writeWigFragmentEnds(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForWig());
-			writeWigFragments(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForWig());
+			//writeWigFragments(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForWig());
 			logger.info("");
 			logger.info("Done writing wig files.\n");
 		}
