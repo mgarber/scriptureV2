@@ -51,6 +51,7 @@ import nextgen.core.model.score.WindowScoreIterator;
  */
 public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	// This is a test comment by Jesse and EDITED IN ECLIPSE
+	// Second comment added online
 	static Logger logger = Logger.getLogger(AlignmentModel.class.getName());
 	protected CoordinateSpace coordinateSpace;
 	PairedEndReader  reader;
