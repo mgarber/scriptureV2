@@ -12,7 +12,7 @@ public class Chromosome {
 	private long length; //TODO
 	
 	/**
-	 * @param name   e.g. "chr12"
+	 * @param The name of the chromosome    e.g. "chr12"
 	 */
 	public Chromosome(final String name) {
 		this.name = name;
