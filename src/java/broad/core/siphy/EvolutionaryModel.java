@@ -26,6 +26,11 @@ import broad.core.annotation.LightweightGenomicAnnotation;
 import broad.core.math.MathUtil;
 import broad.core.sequence.Sequence;
 
+/**
+ * Represents an Markovian evolutionary model
+ * @author mgarber
+ *
+ */
 public class EvolutionaryModel {
 	private EvolutionaryModelParameters parameters;
 	private HashMap<Double, Matrix> transitionMatrixCache = new HashMap<Double, Matrix>();
