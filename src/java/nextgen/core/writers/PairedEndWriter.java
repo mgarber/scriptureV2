@@ -85,6 +85,10 @@ public class PairedEndWriter {
 		testCodec.setOutputStream(new NullOutputStream());
 	}
 	
+	public void setMaxAllowableInsert(int x) {
+		maxAllowableInsert = x;
+	}
+	
 	/**
 	 * Convert the bamFile provided in the constructor to paired end format.
 	 */
