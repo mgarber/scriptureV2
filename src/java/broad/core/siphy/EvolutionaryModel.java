@@ -34,7 +34,7 @@ public class EvolutionaryModel {
 	static final double TINY_DIFF   = 0.00001;
 	private static DecimalFormat numberFormat = new  DecimalFormat("##0.####");
 	int alphabetSize;
-
+    ///test for version 
 	Matrix R;  //Rate matrix after extracting frequency;
 	Matrix Q; //Full Rate matrix copy (R*diagRho).
 	
