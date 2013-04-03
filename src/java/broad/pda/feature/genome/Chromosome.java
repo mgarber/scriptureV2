@@ -2,6 +2,7 @@ package broad.pda.feature.genome;
 
 
 /**
+ * Represents a chromosome in a genome
  * @author engreitz
  *
  */
