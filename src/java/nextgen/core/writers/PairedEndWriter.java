@@ -10,6 +10,7 @@ import net.sf.samtools.BAMFileWriter;
 import net.sf.samtools.BAMIndex;
 import net.sf.samtools.BAMRecordCodec;
 import net.sf.samtools.SAMFileHeader;
+import net.sf.samtools.SAMTag;
 import net.sf.samtools.SAMFileHeader.SortOrder;
 import net.sf.samtools.SAMFileReader;
 import net.sf.samtools.SAMRecord;
@@ -50,7 +51,7 @@ public class PairedEndWriter {
 	private SAMFileReader reader;
 	private SAMFileHeader header;
 	private BAMRecordCodec testCodec;
-	private int maxAllowableInsert=20000000;
+	private int maxAllowableInsert=5000000;
 	
 	
 	/**
@@ -88,8 +89,7 @@ public class PairedEndWriter {
 	 * Convert the bamFile provided in the constructor to paired end format.
 	 */
 	public void convertInputToPairedEnd() {
-		System.out.println("Entered the wrong function");
-
+		
 		SAMRecordIterator iter = reader.iterator();		
 		Map<String, AlignmentPair> tempCollection=new TreeMap<String, AlignmentPair>();
 		int numRead = 0;
@@ -150,16 +150,13 @@ public class PairedEndWriter {
 	 * FOR STRANDED DATA
 	 */
 	public void convertInputToPairedEnd(TranscriptionRead txnRead) {
-		System.out.println("Entered the correct function");
 		SAMRecordIterator iter = reader.iterator();		
 		Map<String, AlignmentPair> tempCollection=new TreeMap<String, AlignmentPair>();
 		int numRead = 0;
 		while(iter.hasNext()) {
 			SAMRecord record=iter.next();
 			String name=record.getReadName();
-			if(name.equalsIgnoreCase("HWI-ST333_0244_FC:8:2311:15895:2763#TGCTCG")){
-				System.out.println("Is negative stranded originally? "+record.getReadNegativeStrandFlag());
-			}
+
 			//If the read is unmapped, skip
 			if(record.getReadUnmappedFlag()) continue;
 			//If the read is not paired or the mate is unmapped, write it as it is
@@ -249,9 +246,16 @@ public class PairedEndWriter {
 				if(pair.hasValue1()){records=pair.getValue1();}
 				else{records=pair.getValue2();}
 				
-				for(SAMRecord record: records){
-					record.setMateUnmappedFlag(true);
-					addRecord(record);
+				for(SAMRecord record: records) {
+					// If mate is unpaired, fix SAMRecord settings accordingly
+		            record.setReferenceIndex(SAMRecord.NO_ALIGNMENT_REFERENCE_INDEX);
+		            record.setAlignmentStart(SAMRecord.NO_ALIGNMENT_START);
+		            record.setMateReferenceIndex(SAMRecord.NO_ALIGNMENT_REFERENCE_INDEX);
+		            record.setMateAlignmentStart(SAMRecord.NO_ALIGNMENT_START);
+		            record.setMateNegativeStrandFlag(!record.getReadNegativeStrandFlag());
+		            record.setMateUnmappedFlag(true);
+		            record.setAttribute(SAMTag.MQ.name(), null);
+		            record.setInferredInsertSize(0);
 				}
 			}
 		}
@@ -290,26 +294,28 @@ public class PairedEndWriter {
 		// in order to figure out which one is failing
 		boolean encoded = true;
 		
-		try {
-			testCodec.encode(record);
-
-		} catch (RuntimeException e) {
+		//if distance between pairs is greater than the max allowable we will skip it
+		if (record.getInferredInsertSize() > maxAllowableInsert) {
+			logger.warn("Skipping read " + record.toString() + " because insert size is greater than " + maxAllowableInsert);
 			encoded = false;
-			logger.error(e.getMessage());
-			if (e.getMessage().indexOf("operator maps off end") >= 0) {
-				logger.error("Known issue: skipping read " + record.toString() );
-				logger.error("(This can happen when reads map greater than ~20Mb away from each other)");
-				// TODO I think this is a bug with samtools
-			} 
-			//if distance between pairs is greater than the max allowable we will add it
-			else if(record.getCigarLength()>maxAllowableInsert){
-				logger.error("Skipped  read "+record.toString()+ " because length greater than "+maxAllowableInsert);
-			}
-			else {
-				throw e;
+		} else {
+			try {
+				testCodec.encode(record);
+			} catch (RuntimeException e) {
+				encoded = false;
+				logger.error(e.getMessage());
+				if (e.getMessage().indexOf("operator maps off end") >= 0) {
+					logger.error("Known issue: skipping read " + record.toString() );
+					logger.error("(This can happen when reads map greater than ~20Mb away from each other)");
+					// TODO I think this is a bug with samtools
+				} 
+				else {
+					logger.error("Failing on record: " + record);
+					throw e;
+				}
 			}
 		}
-		
+
 		if (encoded) writer.addAlignment(record);
 	}
 	

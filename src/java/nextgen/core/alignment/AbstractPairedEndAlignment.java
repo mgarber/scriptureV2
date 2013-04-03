@@ -372,7 +372,9 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		// end of add (test version)
         
         Annotation fragment = getReadAlignmentBlocks(null);
-		record.setCigarString(fragment.getLengthOnReference() + "M");  // NOTE: losing information about indels in the SingleEndAlignments		
+		record.setCigarString(fragment.getLengthOnReference() + "M");  // NOTE: losing information about indels in the SingleEndAlignments	
+		record.setInferredInsertSize(fragment.getLengthOnReference());
+
 		return record;
 	}
 	
