@@ -8,13 +8,6 @@ import junit.framework.TestCase;
  *
  */
 public class TestAnnotations extends TestCase {
-	
-	// Test comment added in Eclipse
-	
-
-	// This is a conflicting comment on the browser
-
-	// This is a conflicting comment on the browser
 
 	/**
 	 * @param args
