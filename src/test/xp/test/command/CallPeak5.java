@@ -45,6 +45,12 @@ import xp.test.Utils.JieCodeSortingCollection;
  *                   revise to read more format? (at least shortbed index).
  *                   add qvalue table
  *                   set the correct max score for pvalue.
+ *                   use blocks instead of start end ( revise in JieCodeSortCollection)
+ *    To Do:  Extension 100bp ? not conflict with blocks?
+ *        
+ *            Control is enriched than Case?
+ *            separate ScoreUSB to ExpDistribution.
+ *            Windows Sliding ? ( EnvScore?  improve FocusEnv?)
  *                          
  *                          
  *    
