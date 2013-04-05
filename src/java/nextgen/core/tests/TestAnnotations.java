@@ -14,6 +14,8 @@ public class TestAnnotations extends TestCase {
 
 	// This is a conflicting comment on the browser
 
+	// This is a conflicting comment on the browser
+
 	/**
 	 * @param args
 	 */
