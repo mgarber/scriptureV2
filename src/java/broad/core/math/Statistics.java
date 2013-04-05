@@ -715,6 +715,10 @@ public class Statistics {
 		return (observation - mean)*Math.sqrt(controlObservations.length)/(controlVariance + fudge_factor);
 	}
 	
+	public static double zScore(double observation, double mean, double variance, int length) {
+		return (observation - mean)*Math.sqrt(length)/(variance);
+	}
+	
 	/**
 	 * Two sample T statistic
 	 * @param g1 Measurements from group 1
