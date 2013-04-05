@@ -8,6 +8,9 @@ import junit.framework.TestCase;
  *
  */
 public class TestAnnotations extends TestCase {
+	
+	// Test comment added in Eclipse
+	
 
 	/**
 	 * @param args
