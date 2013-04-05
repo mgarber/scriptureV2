@@ -34,10 +34,15 @@ public class BamIteratorFactory
 	}
 	public static Iterator<Alignment> makeIterator(File bamFile, String mode)
 	{
+		/*
+		 * TODO: Adding PairedEnd Reader
+		 */
+		/*
 		if ( mode.equals("p") || mode.equals("P") || mode.equals("Paired") || mode.equals("paired") )
 		{
 			return new BamToPairedEndIterator(bamFile);
 		}
+		
 		else if (mode.equals("s") || mode.equals("S") || mode.equals("Single") || mode.equals("single"))
 		{
 			return new BamToSingleEndIterator(bamFile);
@@ -46,6 +51,8 @@ public class BamIteratorFactory
 		{
 			return new BamToSingleEndIterator(bamFile);
 		}
+		*/
+		return new BamToSingleEndIterator(bamFile);
 		
 	}
 	

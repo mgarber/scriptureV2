@@ -3,6 +3,8 @@ package nextgen.core.readers;
 import java.io.File;
 import java.io.IOException;
 
+import xp.test.Converter.BamToPairedEndIterator;
+
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
 import net.sf.picard.cmdline.StandardOptionDefinitions;

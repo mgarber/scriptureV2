@@ -19,6 +19,11 @@ public class BedGraphMultiScore {
 	this.score=old_coverage_state;
 	
 	}
+	public BedGraphMultiScore(BedGraphMultiScore b)
+	{
+	  this(b.getTid(),b.getStart(),b.getEnd(),b.getScore().clone());
+	}
+	
 	public int getTid() {
 		return tid;
 	}
@@ -51,6 +56,18 @@ public class BedGraphMultiScore {
 	public int length() {
 		// TODO Auto-generated method stub
 		return getEnd()-getStart();
+	}
+	public int getScoreLength()
+	{
+		return score.length;
+	}
+	public int getScoreSum()
+	{
+		int s=0;
+		for (int i = 0; i < score.length; i++) {
+			s+=score[i];
+		}
+		return s;
 	}
 	
 

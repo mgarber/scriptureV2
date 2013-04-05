@@ -79,6 +79,7 @@ private int advance()
 		 if (last_chr!=a.getTid())
 		 {
 			 //logger.info("new chromsome :"+a.getTid()+" "+tid2chr.get(a.getTid()));
+			 
 			 for(int j=0;j<coverage_state.length;j++)
 			 {
 				 coverage_state[j]=0;

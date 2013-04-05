@@ -12,6 +12,8 @@ public class TestAnnotations extends TestCase {
 	// Test comment added in Eclipse
 	
 
+	// This is a conflicting comment on the browser
+
 	/**
 	 * @param args
 	 */

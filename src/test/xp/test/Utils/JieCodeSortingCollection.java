@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 
@@ -18,9 +19,13 @@ import nextgen.core.coordinatesystem.GenomicSpace;
 
 /**
  *  Created on 2013-3-7  
+ *  
+ *  Log:
+ *  2013-03-14 Now adding blocks instead of start and end
  */
 public class JieCodeSortingCollection {
 	static Logger logger = Logger.getLogger(JieCodeSortingCollection.class.getName());
+	
 	private HashMap<String,Integer> chr2tid;
 	private ArrayList<String> tid2chr;
 	private SortingCollection<JieCode> sortingArray;
@@ -29,12 +34,36 @@ public class JieCodeSortingCollection {
 	private static File tmpDir = new File(System.getProperty("java.io.tmpdir"));
 	private HashMap<Integer, Long> classIndexToReadsNumber = new HashMap<Integer,Long>();
 	private HashMap<Integer, Long> classIndexToCoverageLength = new HashMap<Integer,Long>();
-    private int classNumber=0;	
+    private int classNumber=0;
+    private int windowSize=0; // extend reads ? , is half windowSize.
+    private int halfWindowSize=0;
+    /**
+	 * 2013-4-4
+	 * extends the ends of reads to halfWindowSize,
+	 * now the coverage is how many reads number in the window center on this position.
+	 * log: count nearby reads 
+	 *         |
+	 *       ----->
+	 *  <----     --->
+	 *   
+	 *   
+	 */ 
 	
 	
 	public int getClassNumber() {
 		return classNumber;
 	}
+	public int getWindowSize() {
+		return windowSize;
+	}
+	public void setWindowSize(int window) {
+		this.windowSize = window;
+		this.halfWindowSize = window/2;
+		//logger.debug("window"+window);
+		//logger.debug("halfWindowSize " + this.halfWindowSize);
+		//logger.debug("WindowSize " + this.windowSize);
+	}
+	
 	public void setClassNumber(int classNumber) {
 		this.classNumber = classNumber;
 	}
@@ -46,6 +75,7 @@ public class JieCodeSortingCollection {
 	public JieCodeSortingCollection(GenomicSpace gs)
 	{
 		setGenomicSpace(gs);
+		//logger.setLevel(Level.DEBUG);
 		this.sortingArray = SortingCollection.newInstance(JieCode.class, new JieCodec(), new JieCodeComparator(), MAX_NUM , tmpDir);
 	}
 	public void setGenomicSpace(GenomicSpace gs)
@@ -74,11 +104,14 @@ public class JieCodeSortingCollection {
 	
 	public void add(Iterator<? extends Annotation> iter)
 	{
-		logger.info("reading Iterator to array " + iter);
+		logger.info("reading Iterator to array ");
 		this.classNumber+=1;
+		int i=0;
 		while (iter.hasNext())
 		{
 			this.add(iter.next());
+			i++;
+			if(i%1000000==0) logger.info("reading "+i+" reads");
 		}
 	}
 	public void add(Iterator<? extends Annotation> iter, int classIndex)
@@ -97,6 +130,8 @@ public class JieCodeSortingCollection {
 			
 		}
 		add(iter);
+		logger.info("Adding Reads Number: " + this.classIndexToReadsNumber.get(classIndex));
+		logger.info("Coverage NT number "+ this.classIndexToCoverageLength.get(classIndex));
 	}
 	
 	
@@ -105,11 +140,53 @@ public class JieCodeSortingCollection {
 		sortingArray.add(a);
 		
 	};
-	public void add(Annotation a, int classIndex)
+	public void add(Annotation b, int classIndex)
+	/**
+	 * if blocks > 1 then  only add blocks region.
+	 * else
+	 * add blocks + windowSize region ( accumulate the nearby reads to this position ) 
+	 * 
+	 *  
+	 * 
+	 */
 	{
+		List<? extends Annotation> alist=b.getBlocks();
+		
+	    if(alist.size()==1)
+	    {
+	    	int startPos=b.getStart();
+	    	int stopPos=b.getEnd();
+	    	if(halfWindowSize > 0)
+	    	{	
+	    	startPos-=halfWindowSize;
+	    	stopPos+=halfWindowSize;
+	    	if(startPos<0) startPos=0;
+	    	//TODO IF > chromosome end
+	    	logger.debug("windowSize "+windowSize);
+	    	
+	    	}
+	    	 JieCode  start=new JieCode(chr2tid.get(b.getChr()),startPos,true, classIndex);
+			 JieCode  stop= new JieCode(chr2tid.get(b.getChr()),stopPos,false, classIndex);
+			  
+			 sortingArray.add(start);
+			 sortingArray.add(stop);
+			 
+			 int length=stopPos-startPos;
+			 //logger.debug(b.getStart() + " TO " +startPos);
+			 Long readsnum = classIndexToReadsNumber.get(Integer.valueOf(classIndexState));
+			 Long coverage = classIndexToCoverageLength.get(Integer.valueOf(classIndexState));
+			 classIndexToReadsNumber.put(Integer.valueOf(classIndexState),readsnum+1);
+			 classIndexToCoverageLength.put(Integer.valueOf(classIndex), coverage+Long.valueOf(length));
+	    	
+	    }
+	    else
+	    {	
+		for(Annotation a: alist)
+		{
+		 
 		 JieCode  start=new JieCode(chr2tid.get(a.getChr()),a.getStart(),true, classIndex);
 		 JieCode  stop= new JieCode(chr2tid.get(a.getChr()),a.getEnd(),false, classIndex);
-		 
+		  
 		 sortingArray.add(start);
 		 sortingArray.add(stop);
 		 int length=stop.getPos()-start.getPos();
@@ -118,7 +195,8 @@ public class JieCodeSortingCollection {
 		 classIndexToReadsNumber.put(Integer.valueOf(classIndexState),readsnum+1);
 		 classIndexToCoverageLength.put(Integer.valueOf(classIndex), coverage+Long.valueOf(length));
 		 
-		 
+		}
+	    }
 	}
 	
 	
@@ -141,67 +219,6 @@ public class JieCodeSortingCollection {
 		return sortingArray.iterator();
 	}
 	
-	private class BedGraphMultiScore
-	{
-		int tid;
-		int start;
-		int end;
-		double scores;
-		public BedGraphMultiScore(int tid, int start, int end, double scores) {
-			super();
-			this.tid = tid;
-			this.start = start;
-			this.end = end;
-			this.scores = scores;
-		}
-		public int getTid() {
-			return tid;
-		}
-		public int getStart() {
-			return start;
-		}
-		public int getEnd() {
-			return end;
-		}
-		public double getScores() {
-			return scores;
-		}
-		
-		
-	}
-	/*
-	private class BedGraphJieCodeIterator implements Iterator<BedGraphJieCode>
-	{
-
-		@Override
-		
-		public boolean hasNext() {
-			// TODO Auto-generated method stub
-			
-			return false;
-		}
-
-		@Override
-		public BedGraphJieCode next() {
-			// TODO Auto-generated method stub
-			return null;
-		}
-
-		@Override
-		public void remove() {
-			// TODO Auto-generated method stub
-			
-		}
-		
-	}
-	
-	public Iterator<BedGraphJieCode> getBedGraphIterator()
-	{
-		
-		
-		
-	}
-	*/
 
 
 }

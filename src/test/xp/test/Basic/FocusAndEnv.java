@@ -11,10 +11,17 @@ public class FocusAndEnv {
    private BedGraphMultiScore envs;
 public FocusAndEnv(BedGraphMultiScore focus, BedGraphMultiScore envs) {
 	super();
-	this.focus = focus;
-	this.envs = envs;
+	this.focus = new BedGraphMultiScore(focus);
+	this.envs = new BedGraphMultiScore(envs);
 }
-@Override
+
+public FocusAndEnv(FocusAndEnv a)
+
+{
+	this(a.getFocus(),a.getEnvs());
+}
+	@Override
+
 public String toString() {
 	return "FocusAndEnv [focus=" + focus + ", envs=" + envs + "]";
 }
@@ -30,5 +37,6 @@ public BedGraphMultiScore getEnvs() {
 public void setEnvs(BedGraphMultiScore envs) {
 	this.envs = envs;
 }
+
    
 }
