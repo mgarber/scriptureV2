@@ -50,8 +50,8 @@ public class BedGraphMultiScore {
 	}
 	@Override
 	public String toString() {
-		return "BedGraphMultiScore [tid=" + tid + ", start=" + start + ", end="
-				+ end + ", score=" + Arrays.toString(score) + "]";
+		return "[ "+ tid + "\t" + start + "\t"
+				+ end + "\t" + Arrays.toString(score)+" ]";
 	}
 	public int length() {
 		// TODO Auto-generated method stub

@@ -11,7 +11,7 @@ import broad.core.math.Distribution;
 
 public class SkellamScoreMachine implements ScoreMachine {
 	private double threshold = 8.0;
-	private double MAXSCORE=300.0;
+	private static double MAXSCORE=30.0;
 	private static final Logger logger = Logger
 			.getLogger(SkellamScoreMachine.class);
 
@@ -156,7 +156,7 @@ public class SkellamScoreMachine implements ScoreMachine {
 	}
 	
 	
-	private Double getSkellamScore(int signalCount, double signalLambda, int controlCount, double controlLambda)  {
+	private static Double getSkellamScore(int signalCount, double signalLambda, int controlCount, double controlLambda)  {
 		int k=signalCount-controlCount;
 		if(controlLambda==0 || signalLambda==0)
 		{
