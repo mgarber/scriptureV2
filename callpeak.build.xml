@@ -1,14 +1,13 @@
-<project name="CallPeak" default="jar">
- <property name="src.dir"       value="${basedir}/src/" />
-    <property name="lib.dir"       value="${basedir}/lib/" />
+<project name="CallPeak" default="build">
+<property name="src.dir"       value="${basedir}/src/" />
+<property name="lib.dir"       value="${basedir}/lib/" />
 <property name="dist.dir"      value="${basedir}/dist/" />
-	<!--<property name="dist.dir"      value="/Volumes/seq_mgarber/" />-->
-	<property name="build.dir"	value="${basedir}/build/"/>
+<!--<property name="dist.dir"      value="/Volumes/seq_mgarber/" />-->
+    <property name="build.dir"	value="${basedir}/build/"/>
     <property name="jar.path"      value="${dist.dir}${jar.name}" />
     <property name="dist.lib.dir"     value="${dist.dir}lib/" />
  <!-- build specific properties. These are normally set by Hudson during the build process -->
-    <property name="version"       value="v1.0" />
-	<property name="tilling.version" value="0.7.2" />
+    <property name="version"       value="v0.01" />
 	
 	<!-- All jar files in lib file -->
 	<path id="master-classpath">
@@ -35,6 +34,20 @@
         <echo message="Version ${version}"/>
     </target>
 
+
+<target name="unpack" depends="init">
+	    <!-- Unzip jars to the tmp directory -->
+        <unzip dest="${build.dir}">
+            <patternset>
+                <include name="**/*"/>
+                <exclude name="META-INF/**"/>
+            </patternset>
+            <fileset dir="${lib.dir}">
+                <include name="**/*.jar"/>
+            </fileset>
+        </unzip>
+</target>
+
 <target name="compile" depends="init">
         <javac srcdir="${src.dir}"  debug="on" destdir="${build.dir}">
 
@@ -44,7 +57,19 @@
         </javac>
 </target>
 
-<target name="jar" depends="compile">
+<target name="build" depends="unpack,compile">  
+        <jar destfile="${dist.dir}/jar/CallPeak7.jar" basedir="${build.dir}" compress="true">
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="xp.test.command.CallPeak7"/>
+            </manifest>
+	    <fileset dir="${lib.dir}">
+        	<include name="*.jar"/>
+      	    </fileset>
+        </jar>
+</target>
+<!--	
+<target name="build" depends="compile,unpack">
         <mkdir dir="${dist.dir}/jar"/>
         <jar destfile="${dist.dir}/jar/CallPeak8.jar" basedir="build">
             <zipgroupfileset dir="lib" includes="*.jar"/>
@@ -61,7 +86,7 @@
             </manifest>
         </jar>
     </target>
-
+-->
 <target name="clean">
         <delete dir="${build.dir}" />
         <delete dir="${dist.dir}" />
