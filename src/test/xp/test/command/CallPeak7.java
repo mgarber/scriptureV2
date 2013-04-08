@@ -15,6 +15,7 @@ import net.sf.picard.cmdline.Usage;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.coordinatesystem.GenomicSpace;
 
+import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.apache.log4j.Logger;
 
 import xp.test.Basic.Peak;
@@ -162,6 +163,9 @@ public class CallPeak7 extends CommandLineProgram{
     	 out.write("# COMMAND LINE:   "+this.getCommandLine()+"\n");
     	 out.write(getIllustration());
     	 out.write(String.format("# chr\tbeg\tend\tid\tscore\t(A+B)\tA/(A+B)\tCaseA\tCtrlA\tCaseB\tCtrlB\tFoldChangeA\tFoldChangeB\tlog2(FoldChangeA/FoldChangeB)\n"));
+    	 
+    	 
+    	 SummaryStatistics stats = new SummaryStatistics();
     	 while(peakFactory.hasNext())
     	 {
     		 i++;
@@ -203,7 +207,9 @@ public class CallPeak7 extends CommandLineProgram{
     		foldChangeB=Math.max(foldChangeB, 1.0);
             out.write(String.format("\t%.4f",foldChangeA));    		 
             out.write(String.format("\t%.4f",foldChangeB));
-            out.write(String.format("\t%.4f",Math.log(foldChangeA/foldChangeB)/Math.log(2.0)));    		
+            double logFoldChangeDiff = Math.log(foldChangeA/foldChangeB)/Math.log(2.0);
+            stats.addValue(logFoldChangeDiff);
+            out.write(String.format("\t%.4f", logFoldChangeDiff));    		
             
             
             /*******************************/
@@ -212,6 +218,7 @@ public class CallPeak7 extends CommandLineProgram{
     		 if(i%1000==0)
     			 logger.info(i+" peaks");
     	 }
+    	 logger.info(stats.getSummary());
     	 out.close();
     	 if(PEAKDETAIL) peakOut.close();
     	 

@@ -17,7 +17,6 @@ import java.util.Set;
 
 import org.apache.log4j.Logger;
 
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import broad.core.annotation.ShortBED;
 
@@ -93,7 +92,7 @@ public class ShortBEDTabixDBI implements AlignmentDBI<ShortBED> {
 		@Override
 		public void remove() {
 			// TODO Auto-generated method stub
-		  throw new NotImplementedException();	
+//		  throw new NotImplementedException();	
 		}
     	
     }
