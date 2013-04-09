@@ -22,7 +22,7 @@ import xp.test.Basic.Peak;
 import xp.test.Basic.PeakFactory;
 import xp.test.Basic.SkellamScoreMachine;
 import xp.test.Converter.BamIteratorFactory;
-import xp.test.DBI.ShortBEDTabixDBI;
+//import xp.test.DBI.ShortBEDTabixDBI;
 
 
 /**
@@ -72,8 +72,8 @@ import xp.test.DBI.ShortBEDTabixDBI;
 
 
 
-public class CallPeak7 extends CommandLineProgram{
-	static Logger logger = Logger.getLogger(CallPeak7.class.getName());	
+public class CallPeakDiff extends CommandLineProgram{
+	static Logger logger = Logger.getLogger(CallPeakDiff.class.getName());	
 	
 	private static final String PROGRAM_VERSION = "0.02";
 	
@@ -85,35 +85,61 @@ public class CallPeak7 extends CommandLineProgram{
     @Option(doc="This is control A bam", shortName="X") public File CONTROLA;
     @Option(doc="This is control B bam", shortName="Y") public File CONTROLB;
     @Option(doc="Chromosome Size",shortName="G") public String CHROMSIZES;
-    @Option(doc="output file",shortName="o") public String FOUT="tmp.CallPeak7.out";
-    //@Option(doc="paired end",shortName="p") public boolean ISPAIRED;
-    @Option(doc="data format", shortName="f") public String FORMAT="bam";
+    @Option(doc="output file",shortName="o") public String FOUT="tmp.CallPeakDiff.out";
+    @Option(doc="paired end",shortName="p") public boolean ISPAIRED;
+    @Option(doc="if CaseA Paired", shortName="PA") public boolean CASEAPAIRED;
+    @Option(doc="if CaseB Paired", shortName="PB") public boolean CASEBPAIRED;
+    @Option(doc="if ControlA Paired", shortName="PX") public boolean CONTROLAPAIRED;
+    @Option(doc="if ControlB Paired", shortName="PY") public boolean CONTROLBPAIRED;
+    //@Option(doc="data format", shortName="f") public String FORMAT="bam";
     @Option(doc="window size (count reads number nearby)", shortName="w") public int WINDOWSIZE=0; 
     @Option(doc="print peak detail. default: false",shortName="d") public boolean PEAKDETAIL=false;
     @Option(doc="peak prefix") public String PREFIX="Peak";
     @Option(doc="score threshold") public Double SCORETHRESHOLD=8.0;
     @Option(doc="max gap") public int MAXGAP=200;
+    @Option(doc="max allowable gap between two paired end reads") public int MAXALLOWABLEINSERT=5000;
     public static void main(String[] argv){
-    	System.exit(new CallPeak7().instanceMain(argv));
+    	System.exit(new CallPeakDiff().instanceMain(argv));
         
     }
 
 	@Override
 	protected int doWork() {
 		// TODO Auto-generated method stub
-	//	 logger.setLevel(Level.DEBUG);
+	    //logger.setLevel(Level.DEBUG);
+		
+		 boolean ignoreBlocksDetails[]= new boolean[4];
+		 for (int i = 0; i < ignoreBlocksDetails.length; i++) {
+			ignoreBlocksDetails[i]=false;
+		}
     	 logger.info("initialize genomic space");
     	 GenomicSpace GENOMESPACE = new GenomicSpace(CHROMSIZES);
     	 logger.info("initialize genomic space done");
     	
     	 logger.info(GENOMESPACE.getReferenceNames());
     	 try {
-    	 String isPaired="s";
-   // 	 if(ISPAIRED) isPaired="p";
+    	 String isCaseAPaired="s";
+    	 String isCaseBPaired="s";
+    	 String isControlAPaired="s";
+    	 String isControlBPaired="s";
+    	 if (CASEAPAIRED) isCaseAPaired="p";
+    	 if (CASEBPAIRED) isCaseBPaired="p";
+    	 if (CONTROLAPAIRED) isControlAPaired="p";
+    	 if (CONTROLBPAIRED) isControlBPaired="p";
+    	 
+    	 if(ISPAIRED) 
+    	 {
+    	  isCaseAPaired="p";
+    	  isCaseBPaired="p";
+    	  isControlAPaired="p";
+    	  isControlBPaired="p";
+    	 }
     	 Iterator<? extends Annotation> caseAIter ; 
     	 Iterator<? extends Annotation> caseBIter ; 
     	 Iterator<? extends Annotation> controlAIter ; 
     	 Iterator<? extends Annotation> controlBIter ; 
+    	 
+    	 /*  
     	 if(FORMAT.equalsIgnoreCase("shortbed"))
     	 {
     		 ShortBEDTabixDBI caseADBI= new ShortBEDTabixDBI(CASEA.getAbsolutePath(),GENOMESPACE);
@@ -125,20 +151,34 @@ public class CallPeak7 extends CommandLineProgram{
         	 controlAIter=controlADBI.iterate();
         	 controlBIter=controlBDBI.iterate();
     	 }
+    	 
     	 else
     	
     	 {
-    	 caseAIter = BamIteratorFactory.makeIterator(CASEA,isPaired); 
-    	 caseBIter = BamIteratorFactory.makeIterator(CASEB,isPaired); 
-    	 controlAIter = BamIteratorFactory.makeIterator(CONTROLA,isPaired); 
-    	 controlBIter = BamIteratorFactory.makeIterator(CONTROLB,isPaired); 
-    	 }
+    	 */
+    	 caseAIter = BamIteratorFactory.makeIterator(CASEA,isCaseAPaired, MAXALLOWABLEINSERT); 
+    	 caseBIter = BamIteratorFactory.makeIterator(CASEB,isCaseBPaired, MAXALLOWABLEINSERT); 
+    	 controlAIter = BamIteratorFactory.makeIterator(CONTROLA,isControlAPaired, MAXALLOWABLEINSERT); 
+    	 controlBIter = BamIteratorFactory.makeIterator(CONTROLB,isControlBPaired, MAXALLOWABLEINSERT); 
+    	 //}
     	 
-    	 Iterator<? extends Annotation>[] iters=new Iterator[4];
+    	 @SuppressWarnings("unchecked")
+		Iterator<? extends Annotation>[] iters=new Iterator[4];
     	 iters[0]=caseAIter;
     	 iters[1]=controlAIter;
     	 iters[2]=caseBIter;
     	 iters[3]=controlBIter;
+    	
+    	 
+    	 /*
+    	  * if is paired end 
+    	  * ignore the blocks detail
+    	  */
+    	 if (isCaseAPaired.equalsIgnoreCase("p")) ignoreBlocksDetails[0]=true;
+    	 if (isCaseBPaired.equalsIgnoreCase("p")) ignoreBlocksDetails[2]=true;
+    	 if (isControlAPaired.equalsIgnoreCase("p")) ignoreBlocksDetails[1]=true;
+    	 if (isControlBPaired.equalsIgnoreCase("p")) ignoreBlocksDetails[3]=true;
+    	 
     	 FileWriter out=new FileWriter(FOUT);
     	 FileWriter peakOut = null;
     	 if(PEAKDETAIL)
@@ -146,11 +186,11 @@ public class CallPeak7 extends CommandLineProgram{
     	 
     	 SkellamScoreMachine scoreMachine = new SkellamScoreMachine();
     	 scoreMachine.setThreshold(SCORETHRESHOLD);
-    	 PeakFactory<SkellamScoreMachine>  peakFactory= new PeakFactory<SkellamScoreMachine>(iters,GENOMESPACE,scoreMachine,WINDOWSIZE);
+    	 PeakFactory<SkellamScoreMachine>  peakFactory= new PeakFactory<SkellamScoreMachine>(iters,GENOMESPACE,scoreMachine,WINDOWSIZE,ignoreBlocksDetails);
     	 peakFactory.setPrefix(PREFIX);
     	 peakFactory.setMAXGAP(MAXGAP);
     	 int i=0;
-    	 out.write("# Table Generated by Program CallPeak7 "+PROGRAM_VERSION+" \n");
+    	 out.write("# Table Generated by Program CallPeakDiff "+PROGRAM_VERSION+" \n");
     	 DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
     	 Date date = new Date();
     	 out.write("# "+dateFormat.format(date)+"\n");

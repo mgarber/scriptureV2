@@ -101,20 +101,35 @@ public class JieCodeSortingCollection {
 	public ArrayList<String> getTid2chr() {
 		return tid2chr;
 	}
-	
+	/**
+	 * add Paired End Read
+	 * @param iter
+	 * @param ignoreBlocksDetail
+	 */
 	public void add(Iterator<? extends Annotation> iter)
+	{
+		add(iter,false); //default to single end;
+	}
+	public void add(Iterator<? extends Annotation> iter, boolean ignoreBlocksDetail)
 	{
 		logger.info("reading Iterator to array ");
 		this.classNumber+=1;
 		int i=0;
 		while (iter.hasNext())
 		{
-			this.add(iter.next());
+			this.add(iter.next(), ignoreBlocksDetail);
 			i++;
 			if(i%1000000==0) logger.info("reading "+i+" reads");
 		}
 	}
+	
 	public void add(Iterator<? extends Annotation> iter, int classIndex)
+	{
+		add(iter,classIndex,false); //default to single end read
+		
+	}
+	
+	public void add(Iterator<? extends Annotation> iter, int classIndex, boolean ignoreBlocksDetail)
 	{
 		this.classIndexState=classIndex;
 		
@@ -140,19 +155,19 @@ public class JieCodeSortingCollection {
 		sortingArray.add(a);
 		
 	};
-	public void add(Annotation b, int classIndex)
+	public void add(Annotation b, int classIndex, boolean ignoreBlocksDetail)
 	/**
 	 * if blocks > 1 then  only add blocks region.
 	 * else
 	 * add blocks + windowSize region ( accumulate the nearby reads to this position ) 
 	 * 
-	 *  
+	 *  if ignoreBlocksDetail , treat as one big read.  // use it when treat with paired end reads.
 	 * 
 	 */
 	{
 		List<? extends Annotation> alist=b.getBlocks();
 		
-	    if(alist.size()==1)
+	    if(alist.size()==1 || ignoreBlocksDetail)
 	    {
 	    	int startPos=b.getStart();
 	    	int stopPos=b.getEnd();
@@ -208,9 +223,14 @@ public class JieCodeSortingCollection {
 	{
 		return classIndexToReadsNumber.get(Integer.valueOf(classIndex));
 	}
+	
 	public void add(Annotation a)
 	{
-		add(a ,this.classIndexState);
+		add(a, false);
+	}
+	public void add(Annotation a, boolean ignoreBlocksDetail)
+	{
+		add(a ,this.classIndexState, ignoreBlocksDetail);
 	}
 	
 	
