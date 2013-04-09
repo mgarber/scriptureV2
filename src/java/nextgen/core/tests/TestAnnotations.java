@@ -19,6 +19,8 @@ public class TestAnnotations extends TestCase {
 		testBasicAnnotation();
 	}
 	
+	// This is a test comment made online
+	
 	public static void testBasicAnnotation() {
 		System.out.println("testBasicAnnotation");
 		Annotation a = new BasicAnnotation("chr1:500-600");
