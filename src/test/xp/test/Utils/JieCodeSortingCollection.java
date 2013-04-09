@@ -144,7 +144,7 @@ public class JieCodeSortingCollection {
 			classIndexToReadsNumber.put((Integer)classIndex, Long.valueOf(0));
 			
 		}
-		add(iter);
+		add(iter,ignoreBlocksDetail);
 		logger.info("Adding Reads Number: " + this.classIndexToReadsNumber.get(classIndex));
 		logger.info("Coverage NT number "+ this.classIndexToCoverageLength.get(classIndex));
 	}
@@ -187,7 +187,8 @@ public class JieCodeSortingCollection {
 			 sortingArray.add(stop);
 			 
 			 int length=stopPos-startPos;
-			 //logger.debug(b.getStart() + " TO " +startPos);
+			 //logger.debug(b.toBED());
+			 //logger.debug(startPos + " TO " +stopPos +"Length:"+length);
 			 Long readsnum = classIndexToReadsNumber.get(Integer.valueOf(classIndexState));
 			 Long coverage = classIndexToCoverageLength.get(Integer.valueOf(classIndexState));
 			 classIndexToReadsNumber.put(Integer.valueOf(classIndexState),readsnum+1);

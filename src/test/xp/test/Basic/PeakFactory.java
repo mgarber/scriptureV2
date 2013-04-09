@@ -125,7 +125,7 @@ public class PeakFactory<F extends ScoreMachine> implements Iterator<Peak> {
 	}
 	public PeakFactory(Iterator<? extends Annotation>[] iters, GenomicSpace GS, F _scoreMachine, int _windowSize, boolean[] ignoreBlocksDetails) 
 	{
-	 logger.setLevel(Level.DEBUG);
+	// logger.setLevel(Level.DEBUG);
 	 annotationIters=iters;
 	 sampleNumber=annotationIters.length;
 	 GENOMESPACE=GS;	 
@@ -149,11 +149,12 @@ public class PeakFactory<F extends ScoreMachine> implements Iterator<Peak> {
 	private void initIters()
 	{
 		int i=0;
-		logger.debug(globalLambdas);
+		//logger.debug(globalLambdas);
 		codes.setWindowSize(windowSize); // default is 0, if windowSize is 0, it is coverage we count.
 		for(Iterator<? extends Annotation> iter :  annotationIters)
 		{
 		//To Do: Report the file names?	
+		//logger.debug("add ignore?"+ ignoreBlocksDetails[i]);
 		codes.add(iter,i,ignoreBlocksDetails[i]); 
 		globalLambdas[i]=(double)codes.getCoverage(i)/GENOMESPACE.getLength();
 		i++;
