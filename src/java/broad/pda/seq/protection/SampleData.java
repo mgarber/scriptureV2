@@ -45,11 +45,14 @@ public class SampleData {
 	protected double expressionCutoffValue;
 	//private CachedScoreFile windowScoreFile;
 	private boolean gotWindowScoresFromFile;
-	private static int DEFAULT_MAX_GENOMIC_SPAN = 300000;
+	private static int DEFAULT_MAX_GENOMIC_SPAN = 100000;
 	protected boolean expressionByScanPval;
+	private String originalBamFile;
+	private boolean read1TranscriptionStrand;
 	
 	/**
 	 * @param bamFile Bam file
+	 * @param firstReadTranscriptionStrand Whether read 1 is in direction of transcription
 	 * @param genes Genes by chromosome
 	 * @param window Window size
 	 * @param step Step size
@@ -57,7 +60,9 @@ public class SampleData {
 	 * @param expByScanPval Expression is assessed by scan P value. If false, uses average read depth
 	 * @throws IOException 
 	 */
-	public SampleData(String bamFile, Map<String, Collection<Gene>> genes, int window, int step, double expressionCutoff, boolean expByScanPval) throws IOException {
+	public SampleData(String bamFile, boolean firstReadTranscriptionStrand, Map<String, Collection<Gene>> genes, int window, int step, double expressionCutoff, boolean expByScanPval) throws IOException {
+		originalBamFile = bamFile;
+		read1TranscriptionStrand = firstReadTranscriptionStrand;
 		StringParser p = new StringParser();
 		p.parse(bamFile, "\\.");
 		sampleName = p.asString(0);
@@ -69,6 +74,7 @@ public class SampleData {
 		genesByChr = genes;
 		data = new TranscriptomeSpaceAlignmentModel(bamFile, new TranscriptomeSpace(genes));
 		data.addFilter(new GenomicSpanFilter(DEFAULT_MAX_GENOMIC_SPAN));
+		//TODO add fragment length filter?
 		processor = new ScanStatisticScore.Processor(data);
 		genesByName = new TreeMap<String, Gene>();
 		for(String chr : genesByChr.keySet()) {
@@ -198,7 +204,13 @@ public class SampleData {
 		return windowScores.get(gene).get(window).getCount();
 	}
 	
-	
+	/**
+	 * Whether read 1 is in direction of transcription
+	 * @return True iff first read transcription strand is true
+	 */
+	public boolean firstReadTranscriptionStrand() {
+		return read1TranscriptionStrand;
+	}
 	
 	/**
 	 * Get scores for each window in the gene
@@ -319,6 +331,14 @@ public class SampleData {
 	 */
 	public String getSampleName() {
 		return sampleName;
+	}
+	
+	/**
+	 * Get name of original bam file
+	 * @return Bam file name
+	 */
+	public String getOriginalBamFile() {
+		return originalBamFile;
 	}
 	
 	/**

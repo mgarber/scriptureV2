@@ -31,10 +31,12 @@ import broad.pda.annotation.BEDFileParser;
 import nextgen.core.analysis.PeakCaller;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
+import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
+import nextgen.core.utils.AlignmentUtils;
 import nextgen.core.utils.AnnotationUtils;
 
 /**
@@ -72,9 +74,15 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private String sampleFile;
 	private String bedAnnotationFile;
 	private String sizeFile;
-	private static int RGB_RED = 255;
-	private static int RGB_GREEN = 0;
-	private static int RGB_BLUE = 0;
+	private static int RGB_RED_WITH_GENE = 106;
+	private static int RGB_GREEN_WITH_GENE = 7;
+	private static int RGB_BLUE_WITH_GENE = 205;
+	private static int RGB_RED_AGAINST_GENE = 218;
+	private static int RGB_GREEN_AGAINST_GENE = 2;
+	private static int RGB_BLUE_AGAINST_GENE = 38;
+	private static int RGB_RED_UNKNOWN = 62;
+	private static int RGB_GREEN_UNKNOWN = 63;
+	private static int RGB_BLUE_UNKNOWN = 73;
 	
 	
 	protected MultiSampleScanPeakCaller(MultiSampleScanPeakCaller other) throws IOException {
@@ -182,6 +190,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		ArrayList<String> jobIDs = new ArrayList<String>();
 		String outDir = commandLineOutDir(commandArgs);
 		File o = new File(outDir);
+		@SuppressWarnings("unused")
 		boolean madeDir = o.mkdir();
 		if(!o.exists()) {
 			throw new IOException("Could not create directory " + outDir);
@@ -198,7 +207,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				}
 				String cmmd = "java -jar -Xmx30g -Xms20g -Xmn15g " + jar + " " + args;
 				logger.info("Running command: " + cmmd);
-				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+				String jobID = sample.getSampleName() + "_" + chr + "_" + Long.valueOf(System.currentTimeMillis()).toString();
 				jobIDs.add(jobID);
 				cmmds.put(jobID, cmmd);
 				logger.info("LSF job ID is " + jobID + ".");
@@ -275,6 +284,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private void writeSingleSampleScanPeaksAllSamples(String outDir) throws IOException {
 		logger.info("Writing single sample scan peaks for each sample...");
 		File o = new File(outDir);
+		@SuppressWarnings("unused")
 		boolean madeDir = o.mkdir();
 		if(!o.exists()) {
 			throw new IOException("Could not create directory " + outDir);
@@ -325,7 +335,20 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			for(Gene gene : genes.get(chr)) {
 				Collection<Annotation> peaks = getSingleSampleScanPeaks(sample, gene);
 				for(Annotation window : peaks) {
-					w.write(window.toBED(RGB_RED, RGB_GREEN, RGB_BLUE) + "\n");
+					int r = RGB_RED_UNKNOWN;
+					int g = RGB_GREEN_UNKNOWN;
+					int b = RGB_BLUE_UNKNOWN;
+					if(window.getOrientation().equals(gene.getOrientation()) && !window.getOrientation().equals(Strand.UNKNOWN)) {
+						r = RGB_RED_WITH_GENE;
+						g = RGB_GREEN_WITH_GENE;
+						b = RGB_BLUE_WITH_GENE;
+					}
+					if(!window.getOrientation().equals(gene.getOrientation()) && !window.getOrientation().equals(Strand.UNKNOWN)) {
+						r = RGB_RED_AGAINST_GENE;
+						g = RGB_GREEN_AGAINST_GENE;
+						b = RGB_BLUE_AGAINST_GENE;
+					}
+					w.write(window.toBED(r, g, b) + "\n");
 				}
 			}
 		}
@@ -367,6 +390,10 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			return;
 		}
 		
+		double geneCount = data.getCount(gene);
+		int geneSize = gene.getSize();
+		double geneAvgCoverage = geneCount / geneSize;
+		
 		logger.info("Finding scan peaks for sample " + sample.getSampleName() + " and gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ")");
 		
 		// Get fixed size windows with sufficient count and significant scan statistic
@@ -393,7 +420,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		}
 		
 		// Merge overlapping windows
-		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocksAnyOrientation(scanSignificantWindows);
+		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(scanSignificantWindows);
 		
 		
 		// Trim each window
@@ -409,7 +436,6 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			ScanStatisticScore score = sample.scoreWindow(gene, window);
 			double p = score.getScanPvalue();
 			if(p < peakWindowScanPvalCutoff) {
-				window.setScore(p);
 				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + gene.getName());
 				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
 				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_length=" + score.getGlobalLength());
@@ -422,9 +448,35 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			}
 		}
 		
-		// Name windows
+		// Add finishing touches to peaks
 		for(Annotation window : finalPeaks) {
+			
+			// Name peaks
 			window.setName(gene.getName() + ":" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
+			
+			// Set peak score to enrichment
+			double windowCount = data.getCount(window);
+			int windowSize1 = window.getSize();
+			double windowAvgCoverage = windowCount / windowSize1;
+			double enrichment = windowAvgCoverage / geneAvgCoverage;
+			window.setScore(enrichment);
+			
+			// Assign orientation to peaks
+			window.setOrientation(AlignmentUtils.assignOrientationToWindow(sample.getOriginalBamFile(), window, sample.firstReadTranscriptionStrand(), 0.9));
+		
+			logger.debug("FINAL_PEAK\t" + gene.getName());
+			logger.debug("FINAL_PEAK\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
+			logger.debug("FINAL_PEAK\tname=" + window.getName());
+			logger.debug("FINAL_PEAK\twindow_count=" + windowCount);
+			logger.debug("FINAL_PEAK\twindow_size=" + windowSize1);
+			logger.debug("FINAL_PEAK\twindow_avg_coverage=" + windowAvgCoverage);
+			logger.debug("FINAL_PEAK\tgene_count=" + geneCount);
+			logger.debug("FINAL_PEAK\tgene_size=" + geneSize);
+			logger.debug("FINAL_PEAK\tgene_avg_coverage=" + geneAvgCoverage);
+			logger.debug("FINAL_PEAK\tenrichment_over_transcript=" + enrichment);
+			logger.debug("FINAL_PEAK\tscore=" + window.getScore());
+			logger.debug("FINAL_PEAK\torientation=" + window.getOrientation().toString());
+			
 		}
 		
 		singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
@@ -611,9 +663,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @param window The window
 	 * @return The corrected P value
 	 */
+	@SuppressWarnings({ "static-method", "unused" })
 	private double tStatisticWindowScoreFDR(Gene gene, Annotation window) {
 		throw new UnsupportedOperationException("TODO");
-		// TODO
 	}
 	
 	/* (non-Javadoc)
@@ -709,6 +761,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @param maxNumPermutations The max number of permutations to get
 	 * @return An iterator over at most the max number of sample identity permutations (control or signal)
 	 */
+	@SuppressWarnings("unused")
 	private Iterator<SamplePermutation> getIterRandomOrAllSampleIdentityPermutations(int maxNumPermutations) {
 		
 		if(!permutationScoring) {
@@ -848,6 +901,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		private String EXPRESSION_AVG_COVERAGE_CUTOFF_LABEL = "Expression_avg_coverage_cutoff";
 		private String CONTROL_LABEL = "Control";
 		private String SIGNAL_LABEL = "Signal";
+		private String FIRST_READ_TRANSCRIPTION_STRAND_LABEL = "first_read_transcription_strand";
+		private String SECOND_READ_TRANSCRIPTION_STRAND_LABEL = "second_read_transcription_strand";
 		private GenomeSpaceSampleData expressionSampleData;
 		private ArrayList<SampleData> controlData;
 		private ArrayList<SampleData> signalData;
@@ -925,12 +980,12 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				s.parse(line);
 				
 				if(s.getFieldCount() == 0) continue;
-				if(s.getFieldCount() > 3) crashWithHelpMessage();
 				
 				String label = s.asString(0);
 				String bamFile = s.asString(1);
 
 				if(label.equals(EXPRESSION_LABEL)) {
+					if(s.getFieldCount() > 2) crashWithHelpMessage();
 					if(foundExpressionData) {
 						crashWithHelpMessage();
 					}
@@ -942,15 +997,33 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				}
 				
 				if(label.equals(CONTROL_LABEL)) {
+					if(s.getFieldCount() != 3) crashWithHelpMessage();
 					logger.info("Creating sample data object for bam file " + bamFile);
-					SampleData sample = new SampleData(bamFile, genes, windowSize, stepSize, cutoff, expByScanPval);
+					boolean firstReadTranscriptionStrand = false;
+					if(s.asString(2).equals(FIRST_READ_TRANSCRIPTION_STRAND_LABEL)) {
+						firstReadTranscriptionStrand = true;
+					} else {
+						if(!s.asString(2).equals(SECOND_READ_TRANSCRIPTION_STRAND_LABEL)) {
+							crashWithHelpMessage();
+						}
+					}
+					SampleData sample = new SampleData(bamFile, firstReadTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval);
 					controlData.add(sample);
 					continue;
 				}
 				
 				if(label.equals(SIGNAL_LABEL)) {
+					if(s.getFieldCount() != 3) crashWithHelpMessage();
 					logger.info("Creating sample data object for bam file " + bamFile);
-					SampleData sample = new SampleData(bamFile, genes, windowSize, stepSize, cutoff, expByScanPval);
+					boolean firstReadTranscriptionStrand = false;
+					if(s.asString(2).equals(FIRST_READ_TRANSCRIPTION_STRAND_LABEL)) {
+						firstReadTranscriptionStrand = true;
+					} else {
+						if(!s.asString(2).equals(SECOND_READ_TRANSCRIPTION_STRAND_LABEL)) {
+							crashWithHelpMessage();
+						}
+					}
+					SampleData sample = new SampleData(bamFile, firstReadTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval);
 					signalData.add(sample);
 					continue;
 				}
@@ -986,9 +1059,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			logger.error(EXPRESSION_LABEL + "\t<bam_file_name>");
 			logger.error("");
 			logger.error("Each additional line must be of the form:");
-			logger.error(CONTROL_LABEL + "\t<bam_file_name>");
+			logger.error(CONTROL_LABEL + "\t<bam_file_name>\t" + FIRST_READ_TRANSCRIPTION_STRAND_LABEL + " OR " + SECOND_READ_TRANSCRIPTION_STRAND_LABEL);
 			logger.error("- or -");
-			logger.error(SIGNAL_LABEL + "\t<bam_file_name>");
+			logger.error(SIGNAL_LABEL + "\t<bam_file_name>" + FIRST_READ_TRANSCRIPTION_STRAND_LABEL + " OR " + SECOND_READ_TRANSCRIPTION_STRAND_LABEL);
 			logger.error("");
 			logger.error("**********");
 			logger.error("");

@@ -467,7 +467,7 @@ public class TwoSampleScanSkellamAnalysis extends TwoSampleScanSkellamPeakCaller
 		}
 		
 		// Merge overlapping windows
-		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocksAnyOrientation(sigWindowsFixedSize);
+		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(sigWindowsFixedSize);
 		//logger.info(gene.getName() + "\tnum_merged_windows=" + mergedWindows.size());
 		if(mergedWriter != null) {
 			for(Annotation a : mergedWindows) {
