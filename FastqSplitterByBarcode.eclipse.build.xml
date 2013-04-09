@@ -19,7 +19,6 @@
 
 
 
-
 <target name="init" >
  
         
@@ -34,7 +33,6 @@
         <echo message="Version ${version}"/>
     </target>
 
-
 <target name="unpack" depends="init">
 	    <!-- Unzip jars to the tmp directory -->
         <unzip dest="${build.dir}">
@@ -47,21 +45,19 @@
             </fileset>
         </unzip>
 </target>
-
+<!--
 <target name="compile" depends="init">
         <javac srcdir="${src.dir}"  debug="on" destdir="${build.dir}">
 
             <classpath refid="master-classpath"/>
-                <!--<pathelement path="${build.dir}"/>
-            </classpath>-->
         </javac>
 </target>
-
-<target name="build" depends="unpack,compile">  
-        <jar destfile="${dist.dir}/jar/CallPeak7.jar" basedir="${build.dir}" compress="true">
+-->
+<target name="build" depends="unpack">  
+        <jar destfile="${dist.dir}/jar/FastqSplitterByBarcode.jar" basedir="${build.dir}" compress="true">
             <manifest>
                 <attribute name="Built-By" value="${user.name}" />
-                <attribute name="Main-Class" value="xp.test.command.CallPeak7"/>
+                <attribute name="Main-Class" value="broad.pda.seq.fastq.FastqSplitterByBarcode"/>
             </manifest>
 	    <fileset dir="${lib.dir}">
         	<include name="*.jar"/>

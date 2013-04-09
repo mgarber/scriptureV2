@@ -32,7 +32,7 @@ public class GenomeSpaceSampleData extends SampleData {
 	 * @throws IOException
 	 */
 	public GenomeSpaceSampleData(String bamFile, String chrSizeFile, Map<String, Collection<Gene>> genes, int window, int step, double expressionCutoff) throws IOException {
-		super(bamFile, genes, window, step, expressionCutoff, true);
+		super(bamFile, false, genes, window, step, expressionCutoff, true);
 		genomeData = new AlignmentModel(bamFile, new GenomicSpace(chrSizeFile));
 		genomeScores = new TreeMap<Gene, ScanStatisticScore>();
 	}

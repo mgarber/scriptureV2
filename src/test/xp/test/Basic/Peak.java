@@ -6,6 +6,8 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 
+import cern.colt.Arrays;
+
 /**
  *  Created on 2013-4-1  
  */
@@ -86,7 +88,7 @@ public class Peak {
 		int a=add(b);
 		if(a==1) listScores.add(score);
 		if(this.score<score) 
-			this.score=score;
+			this.score=score; // Score is always the max 
 		
 	}
 	
@@ -168,6 +170,19 @@ public class Peak {
 	{
 		
 		return String.format("%s\t%d\t%d\t%s\t%.2f", chr,start,end,name,score);
+	}
+	
+	public String toPeakDetail()
+	{
+		String s="";
+		s+=this.toSimpleBED()+"\tAVERAGE:"+Arrays.toString(getAverageScores())+"\n";
+		
+		for(BedGraphMultiScore i : this.listBedGraph)
+		{
+			s+="\t"+String.format("%d %d ",i.getStart(),i.getEnd())+Arrays.toString(i.getScore())+"\n";
+		}
+		return s;
+		
 	}
 	
 	

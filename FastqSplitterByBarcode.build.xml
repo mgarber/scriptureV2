@@ -58,10 +58,10 @@
 </target>
 
 <target name="build" depends="unpack,compile">  
-        <jar destfile="${dist.dir}/jar/CallPeak7.jar" basedir="${build.dir}" compress="true">
+        <jar destfile="${dist.dir}/jar/FastqSplitterByBarcode.jar" basedir="${build.dir}" compress="true">
             <manifest>
                 <attribute name="Built-By" value="${user.name}" />
-                <attribute name="Main-Class" value="xp.test.command.CallPeak7"/>
+                <attribute name="Main-Class" value="broad.pda.seq.fastq.FastqSplitterByBarcode"/>
             </manifest>
 	    <fileset dir="${lib.dir}">
         	<include name="*.jar"/>

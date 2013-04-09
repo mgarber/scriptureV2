@@ -21,9 +21,24 @@ import nextgen.core.coordinatesystem.GenomicSpace;
  * 
  * @author zhuxp
  * 
- * read from FocusAndEnv
- * report the peaks
- * 
+ * read from Iterator<? extends Annotaiton>
+ *      into JieCodeSortingCollection  
+ *      and then iterate the peaks
+ *      
+ *      Parameter: 
+ *      MAXGAP (default 200);
+ *      SCORE THRESHOLD ( in ScoreMachine );
+ *      coverageThreshold ( speed up , don't count the score for low coverage region )
+ *      TODO: AUTOMATIC define coverage threshold. (according to window size and lambda)
+ *      
+ * EXAMPLE:
+ *       PeakFactory<SkellamScoreMachine>  peakFactory= new PeakFactory<SkellamScoreMachine>(iters,GENOMESPACE,scoreMachine,WINDOWSIZE);
+ *       while(peakFactory.hasNext())
+ *       {
+ *        Peak peak=peakFactory.next();
+ *        System.out.println(peak.toShortBed());
+ *       }
+ *       
  */
 public class PeakFactory<F extends ScoreMachine> implements Iterator<Peak> {
 	private static final Logger logger = Logger
@@ -106,6 +121,7 @@ public class PeakFactory<F extends ScoreMachine> implements Iterator<Peak> {
 	 initIters();
 	 reader = new LocalEnvReader( new BedGraphMultiScoreReader(codes));
 	 scoreMachine = _scoreMachine ;
+	 
 	 bufferPeak=null;
 	 counter=0;
 	 advance();
@@ -263,6 +279,11 @@ public class PeakFactory<F extends ScoreMachine> implements Iterator<Peak> {
 	}
 	public void setPrefix(String prefix) {
 		this.prefix = prefix;
+		String name=bufferPeak.getName();
+		//logger.info(name);
+		name=name.replace("Peak", prefix);
+		//logger.info(name);
+		bufferPeak.setName(name);
 	}
 	
 	
