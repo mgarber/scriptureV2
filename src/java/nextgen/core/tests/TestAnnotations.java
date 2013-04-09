@@ -9,6 +9,8 @@ import junit.framework.TestCase;
  */
 public class TestAnnotations extends TestCase {
 
+	// This is a test comment.
+	
 	/**
 	 * @param args
 	 */
