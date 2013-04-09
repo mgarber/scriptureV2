@@ -207,7 +207,7 @@ public final class MultiSampleScanSkellamAnalysis {
 		}
 
 		// Merge overlapping peaks
-		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocksAnyOrientation(jointSignificantSampleLevelPeaks);
+		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(jointSignificantSampleLevelPeaks);
 		
 		// Add to cached set
 		jointSignificantPeaks.put(gene, mergedWindows);
