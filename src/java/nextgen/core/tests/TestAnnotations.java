@@ -18,9 +18,6 @@ public class TestAnnotations extends TestCase {
 		testCompoundInterval();
 		testBasicAnnotation();
 	}
-	
-	// This is a test comment made in Eclipse
-	// This is a test comment made online
 
 	public static void testBasicAnnotation() {
 		System.out.println("testBasicAnnotation");
