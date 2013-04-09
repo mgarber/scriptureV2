@@ -1,44 +1,25 @@
 package xp.test.command;
 
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.Iterator;
 
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
 import net.sf.picard.cmdline.Usage;
-import net.sf.samtools.util.BinaryCodec;
-import net.sf.samtools.util.RuntimeEOFException;
-import net.sf.samtools.util.SortingCollection;
-import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.coordinatesystem.GenomicSpace;
-import broad.core.annotation.ShortBED;
-import broad.core.math.Distribution;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import xp.test.Basic.BedGraphMultiScore;
-import xp.test.Basic.FocusAndEnv;
 import xp.test.Basic.Peak;
 import xp.test.Basic.PeakFactory;
 import xp.test.Basic.SkellamScoreMachine;
 import xp.test.Converter.BamIteratorFactory;
-import xp.test.Converter.BedGraphMultiScoreReader;
-import xp.test.Converter.LocalEnvReader;
-import xp.test.Converter.WindowEnvReader;
 import xp.test.DBI.ShortBEDTabixDBI;
-import xp.test.Utils.JieCode;
-import xp.test.Utils.JieCodeSortingCollection;
 
 /**
  * 2013-4-3
