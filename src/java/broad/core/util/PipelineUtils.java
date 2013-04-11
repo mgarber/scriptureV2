@@ -42,7 +42,7 @@ public class PipelineUtils {
 	}
 
 	public static int bsubProcess(Runtime run, String jobID, String command, String output, String queue, int memory) throws IOException, InterruptedException {
-		String fullCommand="bsub -M " + memory + " -q " + queue+" -J "+jobID+ " -o "+output+" "+command;
+		String fullCommand="bsub -R rusage[mem=" + memory + "] -q " + queue+" -J "+jobID+ " -o "+output+" "+command;
 		return bsubProcess(run, fullCommand);
 	}
 	
