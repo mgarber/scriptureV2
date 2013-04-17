@@ -11,10 +11,13 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.apache.log4j.Logger;
+
 import broad.core.parser.StringParser;
 
 public class PipelineUtils {
 
+	private static Logger logger = Logger.getLogger(PipelineUtils.class.getName());
 	static int waitTime=60000; //1 minute
 	
 	public static int bsubProcess(Runtime run, String command) throws IOException, InterruptedException {
@@ -332,7 +335,7 @@ public class PipelineUtils {
 			String[] tokens=line.split(" ");
 			String completionStatus=tokens[2];
 			if(completionStatus.equalsIgnoreCase("EXIT") || line.contains("job killed")){
-				System.err.println("WARN: Job "+tokens[0]+" FAILED"); 
+				logger.warn("Job "+ tokens[0] + "(" + jobID + ") FAILED");
 				throw new IllegalArgumentException("Job " + jobID + " failed");
 			}
 			//System.err.println(i);
