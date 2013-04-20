@@ -9,6 +9,7 @@ import nextgen.core.alignment.Alignment;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 
 import org.apache.commons.collections15.Predicate;
+import org.apache.log4j.Logger;
 
 /**
  * @author prussell

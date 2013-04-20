@@ -219,8 +219,8 @@ public interface Annotation extends Comparable<Annotation> {
 	
 	/**
 	 * Trim annotation by a set number of bases, taking into account blocks. 
-	 * @param deltaStart  positive trims the gene.  e.g. deltaStart=1 removes one base from the front
-	 * @param deltaEnd  positive trims the gene.   e.g. deltaStart=1 removes one base fromt he end
+	 * @param deltaStart  (Positive) The number of bases to remove from the beginning of gene.  e.g. deltaStart=1 removes one base from the front
+	 * @param deltaEnd  (Positive) The number of bases to remove from the end of gene.   e.g. deltaStart=1 removes one base fromt he end
 	 */
 	public void trim(int deltaStart, int deltaEnd);
 	

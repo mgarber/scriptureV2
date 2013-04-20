@@ -123,7 +123,13 @@ public abstract class AbstractAnnotation implements Annotation {
 		}
 		
 		setStart(getReferenceCoordinateAtPosition(deltaStart,true));
-		setEnd(getReferenceCoordinateAtPosition(length()-deltaEnd, true));
+		/*
+		 * PR added the -1 and +1 on 4/20/13
+		 * This deals with the situation where we are removing an entire exon
+		 * Need to get the reference coordinate of the end of the previous exon (instead of the beginning of the exon to remove) so the intron is not included,
+		 * then add +1 to include the final position of the previous exon
+		 */
+		setEnd(getReferenceCoordinateAtPosition(length() - deltaEnd - 1, true) + 1);
 		
 	}
 	

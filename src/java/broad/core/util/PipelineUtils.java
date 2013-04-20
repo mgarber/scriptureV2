@@ -335,7 +335,7 @@ public class PipelineUtils {
 			String[] tokens=line.split(" ");
 			String completionStatus=tokens[2];
 			if(completionStatus.equalsIgnoreCase("EXIT") || line.contains("job killed")){
-				logger.warn("Job "+ tokens[0] + "(" + jobID + ") FAILED");
+				logger.warn("Job "+ tokens[0] + " (" + jobID + ") FAILED");
 				throw new IllegalArgumentException("Job " + jobID + " failed");
 			}
 			//System.err.println(i);

@@ -566,6 +566,7 @@ public class BEDFileParser {
 	}
 
 	public static Map<String, Collection<Gene>> loadDataByChr(File file) throws IOException{
+		logger.info("Loading genes from file " + file.getName() + "...");
 		BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(file)));
 	
 		Map<String, Collection<Gene>> rtrn=new TreeMap<String, Collection<Gene>>();
