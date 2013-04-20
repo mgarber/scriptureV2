@@ -24,7 +24,10 @@ import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.model.score.WindowProcessor;
 import nextgen.core.model.score.WindowScoreIterator;
+import nextgen.core.readFilters.FragmentLengthFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
+import nextgen.core.readFilters.MappingQualityFilter;
+import nextgen.core.readFilters.NumHitsFilter;
 
 /**
  * @author prussell
@@ -34,6 +37,7 @@ public class SampleData {
 
 	protected String sampleName;
 	protected TranscriptomeSpaceAlignmentModel data;
+	protected TranscriptomeSpaceAlignmentModel maxFragmentLengthData;
 	protected Map<Gene, ScanStatisticScore> geneScores;
 	protected Map<Gene, Map<Annotation, ScanStatisticScore>> windowScores;
 	protected int windowSize;
@@ -46,6 +50,7 @@ public class SampleData {
 	//private CachedScoreFile windowScoreFile;
 	private boolean gotWindowScoresFromFile;
 	private static int DEFAULT_MAX_GENOMIC_SPAN = 100000;
+	private static int DEFAULT_MAX_FRAGMENT_LENGTH = 150;
 	protected boolean expressionByScanPval;
 	private String originalBamFile;
 	private boolean read1TranscriptionStrand;
@@ -73,7 +78,18 @@ public class SampleData {
 		expressionByScanPval = expByScanPval;
 		genesByChr = genes;
 		data = new TranscriptomeSpaceAlignmentModel(bamFile, new TranscriptomeSpace(genes));
+		maxFragmentLengthData = new TranscriptomeSpaceAlignmentModel(bamFile, new TranscriptomeSpace(genes));
+		
+		// Read filters
 		data.addFilter(new GenomicSpanFilter(DEFAULT_MAX_GENOMIC_SPAN));
+		data.addFilter(new MappingQualityFilter(5,10));
+		data.addFilter(new NumHitsFilter(1));
+		
+		maxFragmentLengthData.addFilter(new GenomicSpanFilter(DEFAULT_MAX_GENOMIC_SPAN));
+		maxFragmentLengthData.addFilter(new MappingQualityFilter(5,10));
+		maxFragmentLengthData.addFilter(new NumHitsFilter(1));
+		maxFragmentLengthData.addFilter(new FragmentLengthFilter(maxFragmentLengthData.getCoordinateSpace(), DEFAULT_MAX_FRAGMENT_LENGTH));
+		
 		//TODO add fragment length filter?
 		processor = new ScanStatisticScore.Processor(data);
 		genesByName = new TreeMap<String, Gene>();
@@ -252,21 +268,41 @@ public class SampleData {
 	}
 	
 	/**
+	 * Get scan statistic score for a window based on filtering fragments overlapping the window by size
+	 * @param gene The gene
+	 * @param window The window
+	 * @return Scan statistic score for window with global stats referring to parent transcript
+	 */
+	public ScanStatisticScore scoreWindowWithFragmentLengthFilter(Gene gene, Annotation window) {
+		return scoreWindow(gene, window, maxFragmentLengthData.getCount(window));
+	}
+	
+	/**
 	 * Get scan statistic score for a specified window
 	 * @param gene Parent gene
 	 * @param window The window
 	 * @return Scan statistic score for window with global stats referring to parent transcript
 	 */
 	public ScanStatisticScore scoreWindow(Gene gene, Annotation window) {
+		return scoreWindow(gene, window, data.getCount(window));
+	}
+	
+	/**
+	 * Get scan statistic score for a specified window
+	 * @param gene Parent gene
+	 * @param window The window
+	 * @param count The number to use as the region count in score
+	 * @return Scan statistic score for window with global stats referring to parent transcript
+	 */
+	public ScanStatisticScore scoreWindow(Gene gene, Annotation window, double count) {
 		double geneTotal = getGeneCount(gene);
 		double geneLength = gene.getSize();
 		ScanStatisticScore score = new ScanStatisticScore(data, window);
 		double regionLength = window.getSize();
-		double regionTotal = data.getCount(window);
 		score.setGlobalLength(geneLength);
 		score.setRegionLength(regionLength);
 		score.setTotal(geneTotal);
-		score.setRegionTotal(regionTotal);
+		score.setCount(count);
 		score.refreshScanPvalue(data);
 		logger.debug("RESCORE_WINDOW\t" + gene.getName());
 		logger.debug("RESCORE_WINDOW\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
@@ -298,11 +334,11 @@ public class SampleData {
 			ScanStatisticScore score = iter.next();
 			Annotation window = score.getAnnotation();
 			double regionLength = window.getSize();
-			double regionTotal = data.getCount(window);
+			double count = data.getCount(window);
 			score.setGlobalLength(geneLength);
 			score.setRegionLength(regionLength);
 			score.setTotal(geneTotal);
-			score.setRegionTotal(regionTotal);
+			score.setRegionTotal(count);
 			score.refreshScanPvalue(data);
 			/*logger.debug("SCORE_ALL_WINDOWS_IN_GENE\t" + gene.getName());
 			logger.debug("SCORE_ALL_WINDOWS_IN_GENE\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());

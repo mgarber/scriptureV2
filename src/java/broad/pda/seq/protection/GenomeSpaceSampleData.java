@@ -12,6 +12,9 @@ import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.GenomicSpace;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
+import nextgen.core.readFilters.GenomicSpanFilter;
+import nextgen.core.readFilters.MappingQualityFilter;
+import nextgen.core.readFilters.NumHitsFilter;
 
 /**
  * @author prussell
@@ -34,6 +37,8 @@ public class GenomeSpaceSampleData extends SampleData {
 	public GenomeSpaceSampleData(String bamFile, String chrSizeFile, Map<String, Collection<Gene>> genes, int window, int step, double expressionCutoff) throws IOException {
 		super(bamFile, false, genes, window, step, expressionCutoff, true);
 		genomeData = new AlignmentModel(bamFile, new GenomicSpace(chrSizeFile));
+		genomeData.addFilter(new MappingQualityFilter(5,10));
+		genomeData.addFilter(new NumHitsFilter(1));
 		genomeScores = new TreeMap<Gene, ScanStatisticScore>();
 	}
 
