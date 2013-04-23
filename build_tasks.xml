@@ -110,6 +110,22 @@
         </jar>
     </target>
 	
+    <!-- build the UMI dupmarker jar-->
+    <target name="umidups" depends="compile, unpack">  
+        <jar destfile="${dist.dir}markdups.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="nextgen.core.programs.MarkDuplicatesFromNameUMI"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+        			
 	  <!-- build the multiple alignment jar -->
 	    <target name="ma" depends="compile, unpack">
 	        <jar destfile="${dist.dir}ma.jar" basedir="${build.dir}" compress="true">

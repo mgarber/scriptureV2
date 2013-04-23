@@ -483,7 +483,7 @@ public class MultipleAlignment  {
 		if(ref == null) {
 			throw new IllegalArgumentException("Bad refId, multiple alignment does not include " + refId);
 		}
-		target.takeIntersection(ref);
+		target = new BasicGenomicAnnotation(target.intersect(ref));
 		//System.out.println("RefStart " + refStart + " ref.getRegionStart() " + ref.getRegionStart() + " refEnd " + refEnd );
 		int stringStartPos = ref.getGapAdjustedCoordinate(target.getStart() - ref.getRegionStart());
 		int stringEndPos   = ref.getGapAdjustedCoordinate(target.getEnd()   - ref.getRegionStart());

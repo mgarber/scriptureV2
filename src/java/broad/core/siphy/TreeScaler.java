@@ -628,7 +628,7 @@ public class TreeScaler {
 					scaler.alignment.encodeAsMatrix();
 				} else if(! (refSequence.getStart() <= region.getStart() && refSequence.getEnd() > region.getEnd())) {
 					//System.err.print( " was not within alignment boundaries.");
-					region.takeIntersection(refSequence);
+					region = new BED(region.intersect(refSequence)); //Changed by Manuel to account for new Annotation logic
 					//System.err.print(" -- Interesected it with reference: chr" + region.getChromosome() + ":" + region.getStart() + "-" + region.getEnd() );
 					if(region.getLength() == 0) {
 						//System.err.print(" but got empty intersection => Skipped");
