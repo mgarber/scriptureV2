@@ -25,7 +25,7 @@ public class FragmentAlignment extends AbstractPairedEndAlignment {
 
     	this.firstMate = read1;
         this.secondMate = read2;
-        attributeMap = new HashMap<String,String>();
+        refreshAttributeMap();
     }
     
     /**
@@ -40,7 +40,7 @@ public class FragmentAlignment extends AbstractPairedEndAlignment {
     	this.firstMate = read1;
         this.secondMate = read2;
         this.txnRead = strand;
-        attributeMap = new HashMap<String,String>();
+        refreshAttributeMap();
     }
     
     @Override
