@@ -255,10 +255,13 @@ public abstract class AbstractAnnotation implements Annotation {
 	}
 	
 	
+	@Override
 	public List<Annotation> intersect(List<? extends Annotation> others) {
 		List<Annotation> result = new ArrayList<Annotation>();
-		for (Annotation other : others) 
-			result.add(intersect(other));
+		for (Annotation other : others) {
+			Annotation intersect = intersect(other);
+			if(intersect != null) result.add(intersect);
+		}
 		return result;
 	}
 	

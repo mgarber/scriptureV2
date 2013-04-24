@@ -370,7 +370,7 @@ public interface Annotation extends Comparable<Annotation> {
 	 * Returns the result of intersecting this instance with a list of annotations,
 	 * with one (possibly blocked) intersection Annotation for each provided annotation
 	 * @param other annotations
-	 * @return
+	 * @return List of intersections or empty list if none
 	 */
 	public List<Annotation> intersect(List<? extends Annotation> annotations);
 
