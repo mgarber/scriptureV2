@@ -213,7 +213,7 @@ public class Gene extends BasicAnnotation {
 			setExtraFields(gene.getExtraFields());
 		if (gene.scores !=null)
 			setScores(gene.getScores());
-		
+		setBedScore(gene.bedScore);
 		if (gene.attributes !=null)
 			setAttributes(gene.getAttributes());
 		if (gene.samRecord!=null)
@@ -1061,7 +1061,7 @@ public class Gene extends BasicAnnotation {
 		}
 		String rgb = r + "," + g + "," + b;
 		List<? extends Annotation> exons = getBlocks();
-		String rtrn=getReferenceName()+"\t"+getStart()+"\t"+getEnd()+"\t"+(getName() == null ? toUCSC() : getName())+"\t"+getScore()+"\t"+getOrientation()+"\t"+getCDSStart()+"\t"+getCDSEnd()+"\t"+rgb+"\t"+exons.size();
+		String rtrn=getReferenceName()+"\t"+getStart()+"\t"+getEnd()+"\t"+(getName() == null ? toUCSC() : getName())+"\t"+getBedScore()+"\t"+getOrientation()+"\t"+getCDSStart()+"\t"+getCDSEnd()+"\t"+rgb+"\t"+exons.size();
 		String sizes="";
 		String starts="";
 		for(Annotation exon : exons){
@@ -2268,6 +2268,7 @@ public class Gene extends BasicAnnotation {
   						
 						g.setBedScore(bedScore);
 						
+						
 						if(tokens.length > 12) {
 							extraColumns = new String[tokens.length - 12];
 							for(int j = 12; j < tokens.length; j++) {
@@ -2275,7 +2276,6 @@ public class Gene extends BasicAnnotation {
 							}
 							g.setExtraFields(extraColumns);
 						}
-						
 						return g;
 						
 					}
