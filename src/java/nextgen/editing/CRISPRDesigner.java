@@ -3,6 +3,8 @@ package nextgen.editing;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -13,6 +15,10 @@ import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 
+import net.sf.samtools.SAMFileReader;
+import net.sf.samtools.SAMRecord;
+import net.sf.samtools.SAMRecordIterator;
+import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.Gene;
@@ -57,10 +63,13 @@ public class CRISPRDesigner {
 		int    genomicStart;
 		Strand orientation;
 		private Gene gene;
+		public String fastaSeqId;
+		List<SAMRecord> matches;
 
 		public CRISPRTarget(SequenceRegion targetRegion) {
 			sequence = targetRegion.getSequenceBases();
 			start = targetRegion.getStart();
+			matches = new ArrayList<SAMRecord>();
 		}
 
 		public String toString() {
@@ -69,7 +78,18 @@ public class CRISPRDesigner {
 				.append("\t").append(genomicStart)
 				.append("\t").append(getDistanceToTarget())
 				.append("\t").append(orientation)
-				.append("\t").append(gene.getOrientation());
+				.append("\t").append(gene.getOrientation())
+				.append("\t").append(matches.size());
+			
+			for(SAMRecord r : matches) {
+				sb.append("\t")
+					.append(r.getReferenceName())
+					.append("_")
+					.append(r.getAlignmentStart())
+					.append("(")
+					.append(r.getReadNegativeStrandFlag() ? "-" : "+")
+					.append(")");
+			}
 			return sb.toString();
 		}
 		
@@ -86,6 +106,23 @@ public class CRISPRDesigner {
 		public void setGene(Gene gene) {
 			this.gene = gene;
 			
+		}
+
+		public void setFastaSeqId(String fastaId) {
+			this.fastaSeqId = fastaId;
+			
+		}
+
+		public String getFastaSeqId() {
+			return fastaSeqId;
+		}
+
+		public boolean isSequence(String seq) {
+			return seq.equals(this.sequence);
+		}
+
+		public void addMatch(SAMRecord aln) {
+			matches.add(aln);
 		}
 
 	}
@@ -122,10 +159,12 @@ public class CRISPRDesigner {
 
 	public static String USAGE = "Usage: CRISPRDesigner TASK=<task> <task_args>\n" +
 			"\tTasks:\n" +
-			"\t\tDesign. Get putative CRISPR matches to sequence: \n\t\t-in <Annotation file in BED format> \n\t\t-num <Number of desired targets per sequence> "+
+			"\n\tDesign. Get putative CRISPR matches to sequence: \n\t\t-in <Annotation file in BED format> \n\t\t-num <Number of desired targets per sequence> "+
 			"\n\t\t-sequenceDir <Directory of the genomic sequence. Assumes each chromosome in its own directory <sequenceDIr>/N/chrN.fa> " +
 			"\n\t\t-promoterStart <In bases before the TSS> \n\t\t-promoterEnd <In bases past the TSS>" +
-			"\t\tDesign2. Get putative CRISPR matches to sequence: \n\t\t-in <FASTA Sequence> \n\t\t-num <Number of desired targets>\n" +
+			"\n\tDesign2. Get putative CRISPR matches to sequence: \n\t\t-in <FASTA Sequence> \n\t\t-num <Number of desired targets>" +
+			"\n\t\tIf  you wish to invoke Bowtie to test for other possible matches by adding the following paramters: " +
+			"\n\t\t-bowtieBuild <e.g. full path to the bowtie build> -bowtieExcutable <path to the Bowtie executable > " +
 			"\n";
 
 	/**
@@ -133,8 +172,9 @@ public class CRISPRDesigner {
 	 * @throws SearchException 
 	 * @throws NumberFormatException 
 	 * @throws IOException 
+	 * @throws InterruptedException 
 	 */
-	public static void main(String[] args) throws NumberFormatException, SearchException, IOException {
+	public static void main(String[] args) throws NumberFormatException, SearchException, IOException, InterruptedException {
 		ArgumentMap argMap = CLUtil.getParameters(args, USAGE, "Design2");
 		CRISPRDesigner designer = new CRISPRDesigner();
 		if ("Design".equals(argMap.getTask())) {
@@ -172,10 +212,10 @@ public class CRISPRDesigner {
 					List<CRISPRTarget> targets = designer.design(promoterRegion, numToDesign);
 					adjustPositions(targets, promoterRegion, g);
 
-					if(targets.size() < numToDesign ) {
+					if (targets.size() < numToDesign ) {
 						promoterRegion.reverse();
 						List<CRISPRTarget> reverseTargets = designer.design(promoterRegion, numToDesign - targets.size()); 
-						promoterRegion.setOrientation(!promoterRegion.isNegativeStrand() ?   "+" : "-");
+						promoterRegion.setOrientation(promoterRegion.isNegativeStrand() ?  Strand.POSITIVE : Strand.NEGATIVE);
 						adjustPositions(reverseTargets, promoterRegion, g);
 						targets.addAll(reverseTargets);
 					}
@@ -184,13 +224,86 @@ public class CRISPRDesigner {
 				}
 
 			}
+			
+			if(argMap.isPresent("bowtieBuild")) {
+				String bowtieBuild = argMap.getMandatory("bowtieBuild");
+				String bowtie     =  argMap.getMandatory("bowtieExecutable");
+				String fastaFile = writeTargetsAsFasta(result );
+				String alignmentFile = runBowtie (bowtie, bowtieBuild, fastaFile);
+				if( alignmentFile != null ) {
+					updateResultsWithAlignment(alignmentFile, result);
+				}
+				
+			}
+
 			writeDesign(argMap, result);
-
-
 		}else {
 			System.err.println(USAGE);
 		}
 
+	}
+
+	private static void updateResultsWithAlignment(String alignmentFile, LinkedHashMap<String, List<CRISPRTarget>> result) {
+		File alignmentFileFile = new File(alignmentFile);
+		if(!alignmentFileFile.exists()) {
+			logger.info("Alignmnent file " + alignmentFile + " did not exists. Bowtie must not have succeeded");
+			return;
+		} 
+		
+		SAMFileReader samReader = new SAMFileReader(alignmentFileFile);
+		SAMRecordIterator rIt = samReader.iterator();
+		while (rIt.hasNext()) {
+			SAMRecord aln = rIt.next();
+			String readName = aln.getReadName();
+			String targetGene = readName.split("___")[0];
+			String seq = aln.getReadString();
+			
+			List<CRISPRTarget> geneTargets = result.get(targetGene);
+			
+			for (CRISPRTarget t : geneTargets) {
+				if (t.isSequence(seq) || t.isSequence(Sequence.complement(seq))) {
+					t.addMatch(aln);
+					break;
+				}
+			}
+
+		}
+		rIt.close();
+		samReader.close();
+		
+	}
+
+	private static String runBowtie(String bowtie, String bowtieBuild, String fastaFile) throws IOException, InterruptedException {
+		String samTmpFile = fastaFile+".bowtie2.sam";
+		String bowtieCmd = bowtie + " --local -f -k 5 " +  bowtieBuild + " -U  " + fastaFile + "  " +  samTmpFile ;
+		logger.debug("starting bowtie: " + bowtieCmd);
+		Process p = Runtime.getRuntime().exec(bowtieCmd);
+		
+		logger.debug("Waiting for bowtie to finish");
+		int time = p.waitFor();
+		logger.debug("Bowtie finished " + time + " " + p.exitValue());
+		
+
+		return p.exitValue() == 0 ? samTmpFile : null;
+	}
+
+	private static String writeTargetsAsFasta(LinkedHashMap<String, List<CRISPRTarget>> result) throws IOException {
+		String out = "tmp."+System.currentTimeMillis()+".fa" ;
+		FastaSequenceIO fsio = new FastaSequenceIO(out);
+		for (String targetGene : result.keySet()) {
+			List<CRISPRTarget> constructs = result.get(targetGene);
+			int n = 0;
+			for(CRISPRTarget c : constructs) {
+				String fastaId = targetGene + "___" + n + "_" + String.valueOf(c.getDistanceToTarget() ).replace("-", "neg");
+				c.setFastaSeqId(fastaId);
+				Sequence cS = new Sequence(c.getFastaSeqId() );
+				cS.setSequenceBases(c.sequence);
+				n++;
+				fsio.append(cS, out);
+			}
+		}
+
+		return out;
 	}
 
 
