@@ -202,12 +202,12 @@ public class GeneWithIsoforms extends Gene{
 	
 	//This function assigns the same bed score to all isoforms
 	public void setBedScore(double scr){
-		throw new UnsupportedOperationException("Broken");
-		/*this.bedScore=scr;
+		//throw new UnsupportedOperationException("Broken");
+		bedScore=scr;
 		if (! this.isoforms.isEmpty()){
 			for (Gene iso:this.isoforms)
 				iso.setBedScore(scr);
-		}*/
+		}
 	}
 	
 	public void setExtraFields(double [] scores) {
@@ -259,11 +259,11 @@ public class GeneWithIsoforms extends Gene{
 		//return new RefSeqGene(this.getChr(), this.getStart(), this.getEnd(), this.getName(),this.getCountScore(),this.getBedScore(), this.getOrientation(), this.exonStarts, this.exonEnds,this.exonScores,this.sequence);
 		//RefSeqGene g=new RefSeqGene(toBED(),false);
 		Gene g=new Gene(this);
-		throw new UnsupportedOperationException("Broken");
-		//g.setSequence(this.sequence);
-		//g.setBedScore(this.getBedScore());
-		//g.setCountScore(this.getCountScore());
-		//return  g;
+		//throw new UnsupportedOperationException("Broken");
+		g.setSequence(this.sequence);
+		g.setBedScore(this.getBedScore());
+		g.setCountScore(this.getCountScore());
+		return  g;
 	}
 	
 	public boolean overlapsByGenomicRegion(
