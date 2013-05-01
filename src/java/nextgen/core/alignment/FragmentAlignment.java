@@ -2,6 +2,7 @@ package nextgen.core.alignment;
 
 import java.util.HashMap;
 
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.BasicAnnotation;
 
 import org.apache.log4j.Logger;
@@ -21,11 +22,7 @@ public class FragmentAlignment extends AbstractPairedEndAlignment {
      * @param read2
      */
     public FragmentAlignment(SingleEndAlignment read1, SingleEndAlignment read2) {
-    	super(asAnnotation(read1, read2, true));   //TODO How to deal with pairs that have different chromosomes?
-
-    	this.firstMate = read1;
-        this.secondMate = read2;
-        attributeMap = new HashMap<String,String>();
+    	this(read1, read2, TranscriptionRead.UNSTRANDED);
     }
     
     /**
@@ -39,7 +36,7 @@ public class FragmentAlignment extends AbstractPairedEndAlignment {
 
     	this.firstMate = read1;
         this.secondMate = read2;
-        this.txnRead = strand;
+        setFragmentStrand(strand);
         attributeMap = new HashMap<String,String>();
     }
     
