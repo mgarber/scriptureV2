@@ -164,5 +164,8 @@ public interface AnnotationCollection<T extends Annotation> {
 	public <W extends WindowScore> WindowScoreIterator<W> scan(int windowSize, int overlap, WindowProcessor<W> processor);
 	public <W extends WindowScore> WindowScoreIterator<W> scan(Annotation region, int windowSize, int overlap, WindowProcessor<W> processor);
 	public WindowScoreIterator<CountScore> scan(Annotation region, int windowSize, int overlap);
+
+
+	public double getRefSequenceLambda(String refname);
 	
 }

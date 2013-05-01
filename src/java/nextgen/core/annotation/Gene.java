@@ -43,10 +43,10 @@ public class Gene extends BasicAnnotation {
 	int cdsStart; // beginning of CDS
 	int cdsEnd; // end of CDS
 	double[] exonScores;
-	String sequence;
+	protected String sequence;
 	private String samRecord;
 	private double countScore=0; //Moran -added this as init value 
-	double bedScore; //the transcript score as it appears in a bed file
+	public double bedScore; //the transcript score as it appears in a bed file
 	String [] extraFields;
 	private Collection<Gene> isoforms;
 	
@@ -212,8 +212,7 @@ public class Gene extends BasicAnnotation {
 		if (gene.extraFields != null)
 			setExtraFields(gene.getExtraFields());
 		if (gene.scores !=null)
-			setScores(gene.getScores());
-		
+			setScores(gene.getScores());		
 		if (gene.attributes !=null)
 			setAttributes(gene.getAttributes());
 		if (gene.samRecord!=null)
@@ -222,6 +221,8 @@ public class Gene extends BasicAnnotation {
 			this.countScore=gene.getCountScore();
 		if(gene.sequence!=null)
 			setSequence(gene.sequence);
+		this.setBedScore(gene.getBedScore());
+			
 	}
 	
 	
@@ -1061,7 +1062,7 @@ public class Gene extends BasicAnnotation {
 		}
 		String rgb = r + "," + g + "," + b;
 		List<? extends Annotation> exons = getBlocks();
-		String rtrn=getReferenceName()+"\t"+getStart()+"\t"+getEnd()+"\t"+(getName() == null ? toUCSC() : getName())+"\t"+getScore()+"\t"+getOrientation()+"\t"+getCDSStart()+"\t"+getCDSEnd()+"\t"+rgb+"\t"+exons.size();
+		String rtrn=getReferenceName()+"\t"+getStart()+"\t"+getEnd()+"\t"+(getName() == null ? toUCSC() : getName())+"\t"+getBedScore()+"\t"+getOrientation()+"\t"+getCDSStart()+"\t"+getCDSEnd()+"\t"+rgb+"\t"+exons.size();
 		String sizes="";
 		String starts="";
 		for(Annotation exon : exons){
@@ -2275,7 +2276,6 @@ public class Gene extends BasicAnnotation {
 							}
 							g.setExtraFields(extraColumns);
 						}
-						
 						return g;
 						
 					}
@@ -2292,11 +2292,13 @@ public class Gene extends BasicAnnotation {
 				}
 			}
 			else{
-				return new Gene(chr, start, end, name);
+				Gene g = new Gene(chr, start, end, name);
+				return g;
 			}
 		}
 		else{
-			return new Gene(chr, start, end);
+			Gene g = new Gene(chr, start, end);
+			return g;
 		}
 		
 	}

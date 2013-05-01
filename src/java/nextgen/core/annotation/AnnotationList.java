@@ -448,4 +448,10 @@ public class AnnotationList<T extends Annotation> extends AbstractAnnotationColl
 	public CoordinateSpace getCoordinateSpace() {
 		return coordinateSpace;
 	}
+
+	@Override
+	public double getRefSequenceLambda(String refname) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
 }
