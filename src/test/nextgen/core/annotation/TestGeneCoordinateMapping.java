@@ -1,8 +1,8 @@
-package broad.pda.gene;
+package nextgen.core.annotation;
 
 import nextgen.core.annotation.Gene;
 
-public class TestRefSeqPositionMapping  extends junit.framework.TestCase{
+public class TestGeneCoordinateMapping  extends junit.framework.TestCase{
 	public void testPlusMapping() throws Exception {
 		int [] exonStarts = {1000000, 1001250,1002000, 1005000};
 		int [] exonEnds = {1000100, 1001350,1002200, 1005200};
