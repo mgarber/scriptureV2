@@ -117,7 +117,6 @@ public class RAPPeakCaller implements PeakCaller{
 		for(String chr:chrSizes.keySet()){
 			
 			double backgroundLambda = backgroundSample.getRefSequenceLambda(chr);
-			
 			double length = (double)chrSizes.get(chr) - (double)getMaskedLength(chr);
 			backgroundLambda = (backgroundLambda*backgroundSample.getRefSequenceLength(chr))/length;
 			double rapLambda = rapSample.getRefSequenceLambda(chr);
