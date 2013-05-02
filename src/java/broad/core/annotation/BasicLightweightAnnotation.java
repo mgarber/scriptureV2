@@ -158,7 +158,7 @@ public class BasicLightweightAnnotation extends BasicAnnotation implements Light
 	
 
 	public boolean inReversedOrientation() {
-		return "-".equals(getOrientation());
+		return getOrientation().equals(Strand.NEGATIVE);
 	}
 
 	/**
@@ -412,12 +412,13 @@ public class BasicLightweightAnnotation extends BasicAnnotation implements Light
 
 		
 	}
-
-	@Override
+	
 	public void setOrientation(String orientation) {
-		// TODO Auto-generated method stub
+		setOrientation(orientation.charAt(0));
 		
 	}
+
+
 
 	@Override
 	public String getChromosome() {

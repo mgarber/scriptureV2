@@ -31,7 +31,7 @@ import broad.pda.seq.segmentation.AlignmentDataModelStats;
  * @author prussell
  *
  */
-public class PairedSampleBindingSiteAnalysis extends PairedSamplePeakCaller {
+public class TwoSampleScanSkellamAnalysis extends TwoSampleScanSkellamPeakCaller {
 
 	@SuppressWarnings("unused")
 	private static int DEFAULT_MAX_FRAGMENT_LENGTH = 2000;
@@ -53,7 +53,7 @@ public class PairedSampleBindingSiteAnalysis extends PairedSamplePeakCaller {
 	 * @throws IllegalArgumentException
 	 * @throws IOException
 	 */
-	public PairedSampleBindingSiteAnalysis(String backgroundAlignmentFile, String signalAlignmentFile, String bedFile, int window, int step, double alphaSkellam, double alphaScan, double trimQuantile) throws IllegalArgumentException, IOException {
+	public TwoSampleScanSkellamAnalysis(String backgroundAlignmentFile, String signalAlignmentFile, String bedFile, int window, int step, double alphaSkellam, double alphaScan, double trimQuantile) throws IllegalArgumentException, IOException {
 		this(backgroundAlignmentFile, signalAlignmentFile, BEDFileParser.loadDataByChr(new File(bedFile)), window, step, alphaSkellam, alphaScan, trimQuantile);
 	}
 	
@@ -71,7 +71,7 @@ public class PairedSampleBindingSiteAnalysis extends PairedSamplePeakCaller {
 	 * @throws IllegalArgumentException
 	 * @throws IOException
 	 */
-	public PairedSampleBindingSiteAnalysis(String backgroundAlignmentFile, String signalAlignmentFile, Map<String, Collection<Gene>> genesByChr, int window, int step, double alphaSkellam, double alphaScan, double trimQuantile) throws IllegalArgumentException, IOException {
+	public TwoSampleScanSkellamAnalysis(String backgroundAlignmentFile, String signalAlignmentFile, Map<String, Collection<Gene>> genesByChr, int window, int step, double alphaSkellam, double alphaScan, double trimQuantile) throws IllegalArgumentException, IOException {
 		genes = genesByChr;
 		transcriptomeSpace = new TranscriptomeSpace(genes);
 		backgroundData = new ScanStatisticDataAlignmentModel(backgroundAlignmentFile, transcriptomeSpace);
@@ -87,7 +87,7 @@ public class PairedSampleBindingSiteAnalysis extends PairedSamplePeakCaller {
 		backgroundName = sampleNameFromBamName(backgroundAlignmentFile);
 		signalName = sampleNameFromBamName(signalAlignmentFile);
 		significantPeaks = new TreeMap<Gene, Collection<Annotation>>();
-		logger.info("Instantiated " + PairedSampleBindingSiteAnalysis.class.getName() + " object.");
+		logger.info("Instantiated " + TwoSampleScanSkellamAnalysis.class.getName() + " object.");
 	}
 
 	/**
@@ -467,7 +467,7 @@ public class PairedSampleBindingSiteAnalysis extends PairedSamplePeakCaller {
 		}
 		
 		// Merge overlapping windows
-		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocksAnyOrientation(sigWindowsFixedSize);
+		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(sigWindowsFixedSize);
 		//logger.info(gene.getName() + "\tnum_merged_windows=" + mergedWindows.size());
 		if(mergedWriter != null) {
 			for(Annotation a : mergedWindows) {
@@ -618,7 +618,7 @@ public class PairedSampleBindingSiteAnalysis extends PairedSamplePeakCaller {
 		String outDebug = p.getStringArg("-outdebug");
 		
 		
-		PairedSampleBindingSiteAnalysis svbs = new PairedSampleBindingSiteAnalysis(backgroundFile, signalFile, bedFile, windowSize, stepSize, alphaSkellam, alphaScan, trimQuantile);
+		TwoSampleScanSkellamAnalysis svbs = new TwoSampleScanSkellamAnalysis(backgroundFile, signalFile, bedFile, windowSize, stepSize, alphaSkellam, alphaScan, trimQuantile);
 		
 		svbs.addGenomicSpanFilter(maxGenomicSpan);
 		svbs.findAndWritePeaks(outFile,outDebug);

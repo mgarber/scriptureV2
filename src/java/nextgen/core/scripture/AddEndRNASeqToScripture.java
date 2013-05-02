@@ -45,9 +45,10 @@ public class AddEndRNASeqToScripture {
 	private AlignmentModel model;
 	//private BEDFileParser annotationParser;
 	private int windowSize;
+	private int extension;
 	Map<String,Collection<Gene>> annotations;
 	private TranscriptionRead strand;
-	//private static int DEFAULT_EXTENSION = 0;
+	private static int DEFAULT_EXTENSION = 0;
 	private static int DEFAULT_WINDOW_SIZE = 2;
 	
 	static final String usage = "Usage: AddEndRNASeqToScripture -task <task name> "+
@@ -63,13 +64,13 @@ public class AddEndRNASeqToScripture {
 			"\n\t\tOptional Arguments"+
 			"\n**************************************************************"+
 			"\\nn\t\t-window <Specifies the size of the fixed window use to scan the genome. We recommend a size of 2-5bp for better resolution of gene ends. Default = 5bp> "+
-//			"\n\t\t-extension <Specifies the size of the fixed window use to scan the genome. We recommend a size of 2-5bp for better resolution of gene ends> "+
+			"\n\t\t-extension <Specifies the size of the fixed window use to scan the genome. We recommend a size of 2-5bp for better resolution of gene ends> "+
 
 			"\n";
 	
-	public AddEndRNASeqToScripture(File bamFile5p,File bamFile3p,TranscriptionRead str,String annotationFile,String outputName,int windowS,File fullBam) throws IOException{
+	public AddEndRNASeqToScripture(File bamFile5p,File bamFile3p,TranscriptionRead str,String annotationFile,String outputName,int windowS,File fullBam,int ext) throws IOException{
 		
-		model5p=new AlignmentModel(bamFile5p.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,str); 
+		model5p=new AlignmentModel(bamFile5p.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,str,false); 
 		
 		TranscriptionRead oppStrand = TranscriptionRead.UNSTRANDED;
 		if(str == (TranscriptionRead.FIRST_OF_PAIR))
@@ -78,17 +79,17 @@ public class AddEndRNASeqToScripture {
 			if(str == (TranscriptionRead.SECOND_OF_PAIR))
 				oppStrand = TranscriptionRead.FIRST_OF_PAIR;
 		strand = str;
-		model3p=new AlignmentModel(bamFile3p.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,oppStrand);
+		model3p=new AlignmentModel(bamFile3p.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,oppStrand,false);
 		model=new AlignmentModel(fullBam.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand);
 		//Read annotation file
 		//annotationParser = new BEDFileParser(annotationFile);	
 				
 		annotations= BEDFileParser.loadDataByChr(new File(annotationFile));
 		windowSize = windowS;
-		
+		extension = ext;
 		
 		numberOfIsoformsPerGene(outputName);
-		//findCompleteTranscripts(outputName);
+		findCompleteTranscripts(outputName);
 	}
 	
 	public void numberOfIsoformsPerGene(String outputName) throws IOException{
@@ -258,7 +259,19 @@ public class AddEndRNASeqToScripture {
 						/*
 						 * ITERATE IN THE TRANSCRIPTOME SPACE ONLY
 						 */
-						Iterator<? extends Window> giter = space.getWindowIterator(gene, windowSize, 0);
+						int start = 0;
+						int end =0;
+						if(gene.isNegativeStrand()){
+							end = extension;
+							//logger.info("Start: "+start+" End: "+end);
+						}
+						else{
+							start = extension;
+						}
+						Annotation ge = gene.copy();
+						ge.expand(start, end);
+
+						Iterator<? extends Window> giter = space.getWindowIterator(ge, windowSize, 0);
 						
 						boolean flag5p = false;
 						Annotation prev5p = null;
@@ -653,7 +666,7 @@ public class AddEndRNASeqToScripture {
 		
 		logger.info("Checking strand equality:");
 
-		new AddEndRNASeqToScripture(new File(argMap.getMandatory("5p")),new File(argMap.getMandatory("3p")),strand,argMap.getMandatory("annotations"),argMap.getOutput(),argMap.getInteger("window", DEFAULT_WINDOW_SIZE),new File(argMap.getMandatory("full")));
+		new AddEndRNASeqToScripture(new File(argMap.getMandatory("5p")),new File(argMap.getMandatory("3p")),strand,argMap.getMandatory("annotations"),argMap.getOutput(),argMap.getInteger("window", DEFAULT_WINDOW_SIZE),new File(argMap.getMandatory("full")),argMap.getInteger("extension", DEFAULT_EXTENSION));
 		
 	}
 	

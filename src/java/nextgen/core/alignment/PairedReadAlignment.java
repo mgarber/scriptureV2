@@ -33,7 +33,7 @@ public class PairedReadAlignment extends AbstractPairedEndAlignment {
     	this.firstMate = read1;
         this.secondMate = read2;
         setFragmentStrand(strand);
-        attributeMap = new HashMap<String,String>();
+        refreshAttributeMap();
     }
     
     @Override

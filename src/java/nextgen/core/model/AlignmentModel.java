@@ -50,8 +50,8 @@ import nextgen.core.model.score.WindowScoreIterator;
  * This will be a bridge to the analysis modules
  * @author skadri
  */
-public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 
+public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	static Logger logger = Logger.getLogger(AlignmentModel.class.getName());
 	protected CoordinateSpace coordinateSpace;
 	PairedEndReader  reader;
@@ -97,7 +97,6 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		this.bamFile=bamFile;
 		
 		if (readOrCreatePairedEndBam) {
-			//System.out.println("Passing to Paired "+strand.toString());
 			this.bamFile = PairedEndReader.getOrCreatePairedEndFile(bamFile,strand);
 			String file = PairedEndReader.getPairedEndFile(bamFile);
 			if (file == null) {
@@ -141,7 +140,6 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		this.bamFile=bamFile;
 		
 		if (readOrCreatePairedEndBam) {
-			//System.out.println("Passing to Paired "+strand.toString());
 			this.bamFile = PairedEndReader.getOrCreatePairedEndFile(bamFile,strand);
 			String file = PairedEndReader.getPairedEndFile(bamFile);
 			if (file == null) {

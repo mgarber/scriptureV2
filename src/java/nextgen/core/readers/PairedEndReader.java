@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.logging.Logger;
+
 
 import net.sf.picard.util.Log;
 import net.sf.samtools.SAMFileHeader;

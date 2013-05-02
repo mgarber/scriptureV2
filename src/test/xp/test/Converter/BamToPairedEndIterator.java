@@ -10,11 +10,10 @@ import net.sf.samtools.SAMFileReader;
 import net.sf.samtools.SAMFormatException;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMRecordIterator;
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.alignment.Alignment;
-import nextgen.core.alignment.PairedEndAlignment;
-import nextgen.core.alignment.PairedEndAlignment.TranscriptionRead;
+import nextgen.core.alignment.PairedReadAlignment;
 import nextgen.core.alignment.SingleEndAlignment;
-import nextgen.core.readers.BamToPairedEndIteratorTest;
 /**
  * Revised from PairedEndWriter
  * Goal : Iterate the paired end reads in bam file.
@@ -23,7 +22,7 @@ import nextgen.core.readers.BamToPairedEndIteratorTest;
  * @EXAMPLE
  * {@code
  *
- * BamToPairedEndIterator iter = new BamToPairedEndIterator(File bamfile);
+ * BamToPairedEndIterator iter = new BamToPairedEndIterator(File bamfile, 5000); // 5000 is maxAllowableInsert
  * while (iter.hasNext()) {
  *		    Alignment  record= iter.next();
  *		    System.out.println(record);
@@ -72,21 +71,17 @@ public class BamToPairedEndIterator implements Iterator<Alignment> {
 	
 	//static public final String mateLineFlag="mateLine";
 
-	public BamToPairedEndIterator(File bamFile)
-	{
-		
-		this(bamFile,TranscriptionRead.FIRST_OF_PAIR,"a");
-	}
 	
-	 public BamToPairedEndIterator(File bamFile, TranscriptionRead txnRead)
-	 {
-		 this(bamFile,txnRead,"a");
-	 }	
+
+
+	 
 	/**
 	 * @param bamFile Input SAM or BAM file to extract header and/or reads from.
 	 * @param 
 	 */
-	public BamToPairedEndIterator(File bamFile, TranscriptionRead txnRead, String flag) {
+	 
+
+	public BamToPairedEndIterator(File bamFile, TranscriptionRead txnRead, String flag, int maxAllowableInsert) {
 		/**
 		 * @param bamFile Input SAM or BAM file to extract header and/or reads from.
 		 * @param  txnRead  if first read or second read is in direction of trasncription.
@@ -106,9 +101,28 @@ public class BamToPairedEndIterator implements Iterator<Alignment> {
 		iter = reader.iterator();
 		bufferCollection = new TreeMap<String,Alignment>();
 		this.txnRead=txnRead;
-		nextAlignment=_next();
+		this.maxAllowableInsert=maxAllowableInsert;
+		nextAlignment=advance();
 		
 	}
+	
+	
+	public BamToPairedEndIterator(File bamFile, int maxAllowableInsert)
+	{
+		
+		this(bamFile,TranscriptionRead.FIRST_OF_PAIR,"a", maxAllowableInsert);
+	}
+	
+	 public BamToPairedEndIterator(File bamFile, TranscriptionRead txnRead, int maxAllowableInsert)
+	 {
+		 this(bamFile,txnRead,"a", maxAllowableInsert);
+	 }	
+		
+	 public BamToPairedEndIterator(File bamFile, TranscriptionRead txnRead, String flag) {
+				this(bamFile,txnRead,flag,20000000);
+			}
+	
+	
 	public boolean hasNext()
 	{
 		
@@ -137,11 +151,11 @@ public class BamToPairedEndIterator implements Iterator<Alignment> {
 	{  
 	 Alignment lastAlignment=(Alignment) nextAlignment;
 	
-		nextAlignment=_next();
+		nextAlignment=advance();
 		return lastAlignment;
 		
 	}
-	private Alignment _next()
+	private Alignment advance()
 		{
 		   /*
 		    *  private class used to iterate the bam file
@@ -218,7 +232,7 @@ public class BamToPairedEndIterator implements Iterator<Alignment> {
 					     }
 					     }
 				bufferCollection.remove(name);
-				PairedEndAlignment p = new PairedEndAlignment(s2,s1);
+				PairedReadAlignment p = new PairedReadAlignment(s2,s1);
 				return p;
 			  }
 			  else

@@ -498,9 +498,9 @@ public class Sequence {
 	
 	public void getRegion(SequenceRegion region) {
 		region.setSequenceBases(sequenceBases.substring(region.getStart(), region.getEnd()));
-		if("-".equals(region.getOrientation())) {
+		if(region.inReversedOrientation()) {
 			region.reverse();
-			System.err.println("Sequence reversed");
+			//System.err.println("Sequence reversed");
 		}
 	}
 	
@@ -807,14 +807,14 @@ public class Sequence {
 		char[] rtrn=new char[bases.length];
 		
 		for(int i=0; i<bases.length; i++){
-			if(bases[i]=='A'){rtrn[i]='T';}
-			else if(bases[i]=='C'){rtrn[i]='G';}
-			else if(bases[i]=='G'){rtrn[i]='C';}
-			else if(bases[i]=='T'){rtrn[i]='A';}
-			else if(bases[i]=='a'){rtrn[i]='t';}
-			else if(bases[i]=='c'){rtrn[i]='g';}
-			else if(bases[i]=='g'){rtrn[i]='c';}
-			else if(bases[i]=='t'){rtrn[i]='a';}
+			if(bases[i]=='A'){rtrn[bases.length - 1 - i]='T';}
+			else if(bases[i]=='C'){rtrn[bases.length - 1 - i]='G';}
+			else if(bases[i]=='G'){rtrn[bases.length - 1 - i]='C';}
+			else if(bases[i]=='T'){rtrn[bases.length - 1 - i]='A';}
+			else if(bases[i]=='a'){rtrn[bases.length - 1 - i]='t';}
+			else if(bases[i]=='c'){rtrn[bases.length - 1 - i]='g';}
+			else if(bases[i]=='g'){rtrn[bases.length - 1 - i]='c';}
+			else if(bases[i]=='t'){rtrn[bases.length - 1 - i]='a';}
 			else{rtrn[i]='N';}
 		}
 		

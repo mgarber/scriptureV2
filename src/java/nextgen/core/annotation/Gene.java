@@ -43,10 +43,10 @@ public class Gene extends BasicAnnotation {
 	int cdsStart; // beginning of CDS
 	int cdsEnd; // end of CDS
 	double[] exonScores;
-	protected String sequence;
+	String sequence;
 	private String samRecord;
 	private double countScore=0; //Moran -added this as init value 
-	public double bedScore; //the transcript score as it appears in a bed file
+	double bedScore; //the transcript score as it appears in a bed file
 	String [] extraFields;
 	private Collection<Gene> isoforms;
 	

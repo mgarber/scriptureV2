@@ -240,35 +240,34 @@ public class WigWriter {
 					
 				}
 				return rtrn;
-			} else {
-				//logger.info("Using chromosome size file to find counts...");
-				double norm = 1;
+			}
+			//logger.info("Using chromosome size file to find counts...");
+			double norm = 1;
+			if (normalize) {
+				norm = (double) data.getCount(region)/(genomeSpace.getLength(region.getChr()));
+			}
+			WindowScoreIterator<CountScore> wIter = data.scan(region, 1,0);
+			TreeMap<Integer,Double> rtrn = new TreeMap<Integer,Double>();
+			while (wIter.hasNext()){
+				CountScore score = wIter.next();
+				//logger.info("Checking score: " + score);
+				Annotation a = score.getAnnotation();
+				int pos = a.getStart();
+				double count = score.getCount();
 				if (normalize) {
-					norm = (double) data.getCount(region)/(genomeSpace.getLength(region.getChr()));
-				}
-				WindowScoreIterator<CountScore> wIter = data.scan(region, 1,0);
-				TreeMap<Integer,Double> rtrn = new TreeMap<Integer,Double>();
-				while (wIter.hasNext()){
-					CountScore score = wIter.next();
-					//logger.info("Checking score: " + score);
-					Annotation a = score.getAnnotation();
-					int pos = a.getStart();
-					double count = score.getCount();
-					if (normalize) {
-						if (count>0) {
-							rtrn.put(pos, (count/norm));
-						}
-					} else {
-						if (count>0) {
-							rtrn.put(pos, count);
-						}
+					if (count>0) {
+						rtrn.put(pos, (count/norm));
+					}
+				} else {
+					if (count>0) {
+						rtrn.put(pos, count);
 					}
 				}
-				return rtrn;
 			}
+			return rtrn;
 		}
 		
-		// Count last read position only
+		// Count first read position only
 		double norm = 1;
 		if (normalize) {
 			norm = data.getCount(region)/region.length();
@@ -277,9 +276,9 @@ public class WigWriter {
 		TreeMap<Integer, Double> rtrn = new TreeMap<Integer, Double>();
 		while(iter.hasNext()) {
 			Alignment read = iter.next();
-			int lastPos = read.getFirstFragmentPositionStranded();
+			int firstPos = read.getFirstFragmentPositionStranded();
 			read = null;
-			Integer i = Integer.valueOf(lastPos);
+			Integer i = Integer.valueOf(firstPos);
 			if(rtrn.containsKey(i)) {
 				double oldVal = rtrn.get(i).doubleValue();
 				double newVal = oldVal + 1;

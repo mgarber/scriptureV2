@@ -13,6 +13,9 @@ public class ConvertBamToPairedEnd extends CommandLineProgram {
     @Option(doc="Input BAM file (default format)", shortName="I")
     String INPUT;
     
+    @Option(doc="Maximum insert length allowed")
+    Integer MAX_INSERT = 5000000;
+    
 	/**
 	 * Stock main method.
 	 *
@@ -28,6 +31,7 @@ public class ConvertBamToPairedEnd extends CommandLineProgram {
 		
 		try {
 			PairedEndWriter writer = new PairedEndWriter(new File(INPUT));
+			writer.setMaxAllowableInsert(MAX_INSERT);
 			writer.convertInputToPairedEnd();
 			
 		} catch (Exception e) {

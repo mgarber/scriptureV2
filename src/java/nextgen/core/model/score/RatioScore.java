@@ -62,27 +62,44 @@ public class RatioScore extends CountScore {
 	 * Binomial test: combine numerator and denominator counts, then calculate cumulative probability of seeing >= this proportion
 	 * @return -log10 p-value for the numerator having more reads than expected.
 	 */
-	public double getEnrichmentBinomialPValue() {
+	public double getEnrichmentBinomialScore() {
+		double p=getEnrichmentBinomialPValue();
+		return -1.0 * Math.log10(p);
+	}
+	
+	/**
+	 * Binomial test: combine numerator and denominator counts, then calculate cumulative probability of seeing >= this proportion
+	 * @return p-value for the numerator having more reads than expected
+	 */
+	public double getEnrichmentBinomialPValue(){
 		int total = (int) Math.round(getNumeratorCount() + getDenominatorCount());
 		double p = getNumeratorTotal() / (getNumeratorTotal() + getDenominatorTotal());
 		BinomialDistribution b = new BinomialDistribution(total, p);
 		double pGreater = 1 - b.cumulativeProbability((int) Math.round(getNumeratorCount()));
 		double pEqual = b.probability((int) Math.round(getNumeratorCount()));
-		return -1.0 * Math.log10(pGreater + pEqual);
+		return pGreater + pEqual;
 	}
 	
 	/**
 	 * Binomial test: combine numerator and denominator counts, then calculate cumulative probability of seeing less than this proportion
 	 * @return -log10 p-value for the numerator having less reads than expected.
 	 */
-	public double getDepletionBinomialPValue() {
+	public double getDepletionBinomialScore() {
+		double p=getDepletionBinomialPValue();
+		return -1.0 * Math.log10(p);
+	}
+	
+	/**
+	 * Binomial test: combine numerator and denominator counts, then calculate cumulative probability of seeing less than this proportion
+	 * @return p-value for the numerator having less reads than expected.
+	 */
+	public double getDepletionBinomialPValue(){
 		int total = (int) Math.round(getNumeratorCount() + getDenominatorCount());
 		double p = getNumeratorTotal() / (getNumeratorTotal() + getDenominatorTotal());
 		BinomialDistribution b = new BinomialDistribution(total, p);
-		return -1.0 * Math.log10(b.cumulativeProbability((int) Math.round(getNumeratorCount())));
+		return b.cumulativeProbability((int) Math.round(getNumeratorCount()));
 	}
 	
-
 	public double getLog2Ratio() {
 		return Math.log(getRatio()) / Math.log(2);
 	}
@@ -103,7 +120,7 @@ public class RatioScore extends CountScore {
 		annotation.setScore(getScore());
 		return annotation.toBED() + "\t" + getRatio() + "\t" + getLog2Ratio() + "\t" + getNumeratorCount() + "\t" + getNumeratorRPKM() + 
 				"\t" + getNumeratorRegionTotal() + "\t" + getNumeratorTotal() + "\t" + getDenominatorCount() + "\t" + getDenominatorRPKM() + 
-				"\t" + getDenominatorRegionTotal() + "\t" + getDenominatorTotal() + "\t" + getEnrichmentBinomialPValue() + "\t" + getDepletionBinomialPValue();
+				"\t" + getDenominatorRegionTotal() + "\t" + getDenominatorTotal() + "\t" + getEnrichmentBinomialScore() + "\t" + getDepletionBinomialScore();
 	}
 	
 	public static class Processor extends WindowProcessor.AbstractProcessor<RatioScore> {

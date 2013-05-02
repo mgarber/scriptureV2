@@ -690,7 +690,7 @@ public class EmpiricalDistribution {
 		//System.err.println("total " + total);
 		
 		String header = "interval_start_inclusive\t";
-		header += "interval_end_inclusive\t";
+		header += "interval_end_exclusive\t";
 		header += "count\t";
 		header += "density\t";
 		header += "cumulative_count\t";

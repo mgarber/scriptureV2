@@ -27,17 +27,28 @@ import nextgen.core.alignment.Alignment;
 
 
 public class BamIteratorFactory
+
+
 {
+	
 	public static Iterator<Alignment> makeIterator(File bamFile)
 	{
 		return makeIterator(bamFile,"s");
 	}
+	
 	public static Iterator<Alignment> makeIterator(File bamFile, String mode)
 	{
+		return makeIterator(bamFile,mode,5000); //default maxAllowableInsert is 5000;
+	}
+	public static Iterator<Alignment> makeIterator(File bamFile, String mode, int maxAllowableInsert)
+	{
+		
+		
 		if ( mode.equals("p") || mode.equals("P") || mode.equals("Paired") || mode.equals("paired") )
 		{
-			return new BamToPairedEndIterator(bamFile);
+			return new BamToPairedEndIterator(bamFile,maxAllowableInsert);
 		}
+		
 		else if (mode.equals("s") || mode.equals("S") || mode.equals("Single") || mode.equals("single"))
 		{
 			return new BamToSingleEndIterator(bamFile);
@@ -46,6 +57,8 @@ public class BamIteratorFactory
 		{
 			return new BamToSingleEndIterator(bamFile);
 		}
+		
+		//return new BamToSingleEndIterator(bamFile);
 		
 	}
 	

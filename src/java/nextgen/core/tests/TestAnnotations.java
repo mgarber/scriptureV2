@@ -9,6 +9,8 @@ import junit.framework.TestCase;
  */
 public class TestAnnotations extends TestCase {
 
+	// This is a test comment.
+	
 	/**
 	 * @param args
 	 */
@@ -17,6 +19,8 @@ public class TestAnnotations extends TestCase {
 		testBasicAnnotation();
 	}
 	
+	// Add a comment: wheee!
+
 	public static void testBasicAnnotation() {
 		System.out.println("testBasicAnnotation");
 		Annotation a = new BasicAnnotation("chr1:500-600");

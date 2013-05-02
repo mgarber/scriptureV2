@@ -2,7 +2,10 @@ package nextgen.core.alignment;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
@@ -14,7 +17,6 @@ import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
 import nextgen.core.annotation.*;
-import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.writers.PairedEndWriter;
 
 /**
@@ -41,6 +43,81 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		super(b);
 	}
      
+	/**
+	 * Populate the attribute map with combined attribute values based on the two mates
+	 */
+	public void refreshAttributeMap() {
+		attributeMap = new HashMap<String,String>();
+		List<SAMRecord.SAMTagAndValue> firstMateAttributes = firstMate.toSAMRecord().getAttributes();
+		List<SAMRecord.SAMTagAndValue> secondMateAttributes = secondMate.toSAMRecord().getAttributes();
+		Map<String, String> firstMateAttributeMap = new TreeMap<String, String>();
+		Map<String, String> secondMateAttributeMap = new TreeMap<String, String>();
+		TreeSet<String> allTags = new TreeSet<String>();
+		for(SAMRecord.SAMTagAndValue tv : firstMateAttributes) {
+			String tag = tv.tag;
+			String value = tv.value.toString();
+			firstMateAttributeMap.put(tag, value);
+			allTags.add(tag);
+			//logger.info("First mate tag " + tag + " value " + value);
+		}
+		for(SAMRecord.SAMTagAndValue tv : secondMateAttributes) {
+			String tag = tv.tag;
+			String value = tv.value.toString();
+			secondMateAttributeMap.put(tag, value);
+			allTags.add(tag);
+			//logger.info("Second mate tag " + tag + " value " + value);
+		}
+		for(String tag : allTags) {
+			String combinedAttribute = combineAttributes(tag, firstMateAttributeMap.get(tag), secondMateAttributeMap.get(tag));
+			//logger.info("Combined " + combinedAttribute);
+			if(combinedAttribute != null) attributeMap.put(tag, combinedAttribute);
+		}
+	}
+	
+	/**
+	 * Combine sam tag values for the two mates
+	 * Currently sums integer values and ignores string values
+	 * @param tag The tag (not currently used but maybe support different tags differently in the future)
+	 * @param firstMateValue First mate value for tag
+	 * @param secondMateValue Second mate value for tag
+	 * @return The combined value or null if can't combine
+	 */
+	private static String combineAttributes(String tag, String firstMateValue, String secondMateValue) {
+		
+		//TODO support string values
+		
+		if(firstMateValue == null && secondMateValue == null) {
+			return null;
+		}
+		
+		if(firstMateValue == null) {
+			try {
+				int value2 = Integer.parseInt(secondMateValue);
+				return Integer.valueOf(value2).toString();
+			} catch (NumberFormatException e) {
+				return null;
+			}			
+		}
+		
+		if(secondMateValue == null) {
+			try {
+				int value1 = Integer.parseInt(firstMateValue);
+				return Integer.valueOf(value1).toString();
+			} catch (NumberFormatException e) {
+				return null;
+			}			
+		}
+		
+		try {
+			int value1 = Integer.parseInt(firstMateValue);
+			int value2 = Integer.parseInt(secondMateValue);
+			return Integer.valueOf(value1 + value2).toString();
+		} catch (NumberFormatException e) {}
+		
+		return null;
+		
+	}
+	
    	/**
      * Returns the strand for the first of pair
      * @return
@@ -376,7 +453,9 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		// end of add (test version)
         
         Annotation fragment = getReadAlignmentBlocks(null);
-		record.setCigarString(fragment.getLengthOnReference() + "M");  // NOTE: losing information about indels in the SingleEndAlignments		
+		record.setCigarString(fragment.getLengthOnReference() + "M");  // NOTE: losing information about indels in the SingleEndAlignments	
+		record.setInferredInsertSize(fragment.getLengthOnReference());
+
 		return record;
 	}
 	

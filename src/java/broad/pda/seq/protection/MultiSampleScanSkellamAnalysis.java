@@ -29,9 +29,9 @@ import nextgen.core.utils.AnnotationUtils;
  * @author prussell
  *
  */
-public final class SingleInputReplicateSignal {
+public final class MultiSampleScanSkellamAnalysis {
 	
-	private Collection<PairedSampleBindingSiteAnalysis> pairedSamples;
+	private Collection<TwoSampleScanSkellamAnalysis> pairedSamples;
 	private Map<String, Collection<Gene>> genes;
 	private Map<Gene, Collection<Annotation>> jointSignificantPeaks;
 	private int windowSize;
@@ -46,17 +46,17 @@ public final class SingleInputReplicateSignal {
 	private static double DEFAULT_ALPHA_SCAN = 0.01;
 	private static double DEFAULT_TRIM_QUANTILE = 0.7;
 	
-	private Map<Gene, Map<PairedSampleBindingSiteAnalysis, Collection<Annotation>>> sampleLevelPeaks;
+	private Map<Gene, Map<TwoSampleScanSkellamAnalysis, Collection<Annotation>>> sampleLevelPeaks;
 	private boolean hasSampleLevelPeaks;
 	
-	private static Logger logger = Logger.getLogger(SingleInputReplicateSignal.class.getName());
+	private static Logger logger = Logger.getLogger(MultiSampleScanSkellamAnalysis.class.getName());
 	
 	/**
 	 * Instantiate with bed file of genes and default peak calling parameters
 	 * @param bedFile
 	 * @throws IOException
 	 */
-	private SingleInputReplicateSignal(String backgroundBamFile, String signalSampleBamList, String bedFile) throws IOException {
+	private MultiSampleScanSkellamAnalysis(String backgroundBamFile, String signalSampleBamList, String bedFile) throws IOException {
 		this(backgroundBamFile, signalSampleBamList, bedFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE, DEFAULT_ALPHA_SKELLAM, DEFAULT_ALPHA_SCAN, DEFAULT_TRIM_QUANTILE);
 	}
 	
@@ -72,7 +72,7 @@ public final class SingleInputReplicateSignal {
 	 * @param trimMaxQuantile Quantile parameter to trim max contiguous subsequence for peak calling in signal sample
 	 * @throws IOException
 	 */
-	private SingleInputReplicateSignal(String backgroundBamFile, String signalSampleBamList, String bedFile, int window, int step, double skellamPvalCutoff, double scanPvalCutoff, double trimMaxQuantile) throws IOException {
+	private MultiSampleScanSkellamAnalysis(String backgroundBamFile, String signalSampleBamList, String bedFile, int window, int step, double skellamPvalCutoff, double scanPvalCutoff, double trimMaxQuantile) throws IOException {
 		genes = BEDFileParser.loadDataByChr(new File(bedFile));
 		jointSignificantPeaks = new TreeMap<Gene, Collection<Annotation>>();
 		windowSize = window;
@@ -80,13 +80,13 @@ public final class SingleInputReplicateSignal {
 		alphaSkellam = skellamPvalCutoff;
 		alphaScan = scanPvalCutoff;
 		trimQuantile = trimMaxQuantile;
-		pairedSamples = new ArrayList<PairedSampleBindingSiteAnalysis>();
+		pairedSamples = new ArrayList<TwoSampleScanSkellamAnalysis>();
 		hasSampleLevelPeaks = false;
 		FileReader r = new FileReader(signalSampleBamList);
 		BufferedReader b = new BufferedReader(r);
 		while(b.ready()) {
 			String signalBamFile = b.readLine();
-			PairedSampleBindingSiteAnalysis p = new PairedSampleBindingSiteAnalysis(backgroundBamFile, signalBamFile, genes, windowSize, stepSize, alphaSkellam, alphaScan, trimQuantile);
+			TwoSampleScanSkellamAnalysis p = new TwoSampleScanSkellamAnalysis(backgroundBamFile, signalBamFile, genes, windowSize, stepSize, alphaSkellam, alphaScan, trimQuantile);
 			pairedSamples.add(p);
 		}
 	}
@@ -122,9 +122,9 @@ public final class SingleInputReplicateSignal {
 		}
 		
 		// Filter for background expression
-		PairedSampleBindingSiteAnalysis firstSample = pairedSamples.iterator().next();
+		TwoSampleScanSkellamAnalysis firstSample = pairedSamples.iterator().next();
 		double expressionPval = firstSample.getBackgroundData().scoreWindow(gene).getScanPvalue();
-		if(expressionPval > PairedSamplePeakCaller.EXPRESSION_PVALUE_CUTOFF) {
+		if(expressionPval > TwoSampleScanSkellamPeakCaller.EXPRESSION_PVALUE_CUTOFF) {
 			logger.info(gene.getName() + "\tnot_expressed");
 			return null;
 		}
@@ -155,7 +155,7 @@ public final class SingleInputReplicateSignal {
 		
 		
 		// Get significant peaks from each sample and filter for joint significance
-		for(PairedSampleBindingSiteAnalysis sample : pairedSamples) {
+		for(TwoSampleScanSkellamAnalysis sample : pairedSamples) {
 			
 			
 			
@@ -207,7 +207,7 @@ public final class SingleInputReplicateSignal {
 		}
 
 		// Merge overlapping peaks
-		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocksAnyOrientation(jointSignificantSampleLevelPeaks);
+		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(jointSignificantSampleLevelPeaks);
 		
 		// Add to cached set
 		jointSignificantPeaks.put(gene, mergedWindows);
@@ -220,11 +220,11 @@ public final class SingleInputReplicateSignal {
 	 * @throws IOException
 	 */
 	private void findSampleLevelPeaks() throws IOException {
-		sampleLevelPeaks = new TreeMap<Gene, Map<PairedSampleBindingSiteAnalysis, Collection<Annotation>>>();
+		sampleLevelPeaks = new TreeMap<Gene, Map<TwoSampleScanSkellamAnalysis, Collection<Annotation>>>();
 		for(String chr : genes.keySet()) {
 			for(Gene gene : genes.get(chr)) {
-				Map<PairedSampleBindingSiteAnalysis, Collection<Annotation>> peaksThisGene = new HashMap<PairedSampleBindingSiteAnalysis, Collection<Annotation>>();
-				for(PairedSampleBindingSiteAnalysis sample : pairedSamples) {
+				Map<TwoSampleScanSkellamAnalysis, Collection<Annotation>> peaksThisGene = new HashMap<TwoSampleScanSkellamAnalysis, Collection<Annotation>>();
+				for(TwoSampleScanSkellamAnalysis sample : pairedSamples) {
 					Collection<Annotation> peaks = sample.getSignificantPeaks(gene);
 					peaksThisGene.put(sample, peaks);
 				}
@@ -244,7 +244,7 @@ public final class SingleInputReplicateSignal {
 	 */
 	private double jointSkellamPval(Annotation region, double backgroundLambda, double signalLambda) throws IOException {
 		ArrayList<Double> indPvals = new ArrayList<Double>();
-		for(PairedSampleBindingSiteAnalysis sample : pairedSamples) {
+		for(TwoSampleScanSkellamAnalysis sample : pairedSamples) {
 			double pval = sample.skellamPval(region, backgroundLambda, signalLambda);
 			indPvals.add(Double.valueOf(pval));
 		}
@@ -260,7 +260,7 @@ public final class SingleInputReplicateSignal {
 	 */
 	private double jointScanPval(Gene parentGene, Annotation window) {
 		ArrayList<Double> indPvals = new ArrayList<Double>();
-		for(PairedSampleBindingSiteAnalysis sample : pairedSamples) {
+		for(TwoSampleScanSkellamAnalysis sample : pairedSamples) {
 			double pval = sample.signalScanPval(parentGene, window);
 			indPvals.add(Double.valueOf(pval));
 		}
@@ -300,7 +300,7 @@ public final class SingleInputReplicateSignal {
 		String outBed = p.getStringArg("--output");
 		String outSampleLevelBed = p.getStringArg("--out_sample_level_peaks");
 		
-		SingleInputReplicateSignal ra = new SingleInputReplicateSignal(backgroundBamFile, signalSampleBamList, bedFile, window, step, skellamPvalCutoff, scanPvalCutoff, trimMaxQuantile);
+		MultiSampleScanSkellamAnalysis ra = new MultiSampleScanSkellamAnalysis(backgroundBamFile, signalSampleBamList, bedFile, window, step, skellamPvalCutoff, scanPvalCutoff, trimMaxQuantile);
 		FileWriter jointWriter = new FileWriter(outBed);
 		FileWriter sampleLevelWriter = null;
 		if(outSampleLevelBed != null) {

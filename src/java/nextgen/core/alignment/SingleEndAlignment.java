@@ -48,7 +48,12 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
     	else
     		setOrientation(Strand.POSITIVE);
     	
-    	record = read;
+    	try {
+    		record = (SAMRecord) read.clone();
+    	} catch (CloneNotSupportedException e) {
+    		logger.warn("Caught exception on record " + read.getReadName());
+    		e.printStackTrace();
+    	}
     	assert(read.getAlignmentEnd() == getEnd()); // sanity check
     }
         

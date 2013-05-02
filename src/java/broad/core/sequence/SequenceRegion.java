@@ -4,14 +4,12 @@ import java.util.Collection;
 import java.util.List;
 
 import nextgen.core.annotation.Annotation;
-import nextgen.core.annotation.Annotation.Strand;
-
 import broad.core.annotation.BasicGenomicAnnotation;
 import broad.core.annotation.GenomicAnnotation;
 import broad.core.annotation.LightweightGenomicAnnotation;
 import broad.core.annotation.TwoSubjectAnnotation;
 
-public class SequenceRegion extends Sequence implements LightweightGenomicAnnotation{
+public class SequenceRegion extends Sequence implements Annotation{
 	BasicGenomicAnnotation annotation;
 	private String containingSequenceId;
 	public static final int INF = 1000000000;
@@ -29,7 +27,6 @@ public class SequenceRegion extends Sequence implements LightweightGenomicAnnota
 		this.containingSequenceId = containingSequenceId;
 		annotation = new BasicGenomicAnnotation(containingSequenceId, chr, start, end);
 		annotation.setSequence(this);
-		annotation.setEnd(INF);
 	}
 	
 	public SequenceRegion(String containingSequenceId, LightweightGenomicAnnotation annotation) {
