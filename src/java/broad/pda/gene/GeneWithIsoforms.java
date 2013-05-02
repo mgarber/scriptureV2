@@ -203,7 +203,7 @@ public class GeneWithIsoforms extends Gene{
 	//This function assigns the same bed score to all isoforms
 	public void setBedScore(double scr){
 		//throw new UnsupportedOperationException("Broken");
-		bedScore=scr;
+		this.setBedScore(scr);
 		if (! this.isoforms.isEmpty()){
 			for (Gene iso:this.isoforms)
 				iso.setBedScore(scr);

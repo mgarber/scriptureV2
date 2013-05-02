@@ -16,12 +16,12 @@ public class BatchedMultiSampleScanPeakCaller extends MultiSampleScanPeakCaller 
 	private String sampleName;
 	private String chr;
 	private SampleData sampleData;
-
+	
 	private BatchedMultiSampleScanPeakCaller(MultiSampleScanPeakCaller m, String sample, String chrName) throws IOException {
 		super(m);
 		sampleName = sample;
 		chr = chrName;
-
+				
 		boolean foundSample = false;
 		for(SampleData s : allSamples) {
 			if(s.getSampleName().equals(sampleName)) {
@@ -35,7 +35,7 @@ public class BatchedMultiSampleScanPeakCaller extends MultiSampleScanPeakCaller 
 		if(foundSample) {
 			logger.info("Found sample " + sampleName + ".");
 		}
-
+		
 	}
 
 	protected static String[] extendSuperArgsForSampleAndChr(String[] commandArgs, String sampleName, String chrName) {
@@ -47,7 +47,7 @@ public class BatchedMultiSampleScanPeakCaller extends MultiSampleScanPeakCaller 
 		rtrn[commandArgs.length + 1] = chrName;
 		return rtrn;
 	}
-
+	
 	private static String[] getSuperCommandArgs(String[] extendedCommandArgs) {
 		String[] rtrn = new String[extendedCommandArgs.length - 2];
 		for(int i=0; i < rtrn.length; i++) {
@@ -55,26 +55,26 @@ public class BatchedMultiSampleScanPeakCaller extends MultiSampleScanPeakCaller 
 		}
 		return rtrn;
 	}
-
+	
 	private static String getSampleName(String[] extendedCommandArgs) {
 		return extendedCommandArgs[extendedCommandArgs.length - 2];
 	}
-
+	
 	private static String getChrName(String[] extendedCommandArgs) {
 		return extendedCommandArgs[extendedCommandArgs.length - 1];
 	}
-
+	
 	private void writePeaks(String outDir) throws IOException {
 		String outFile = getPeakBedFileName(sampleData, outDir, chr);
 		writeSingleSampleScanPeaks(sampleData, outFile, chr);
 	}
-
+	
 	/**
 	 * @param args
 	 * @throws IOException 
 	 */
 	public static void main(String[] args) throws IOException {
-
+		
 		String[] superArgs = getSuperCommandArgs(args);
 		String sampleName = getSampleName(args);
 		String chrName = getChrName(args);
@@ -85,7 +85,7 @@ public class BatchedMultiSampleScanPeakCaller extends MultiSampleScanPeakCaller 
 			b.setLoggerLevel(Level.DEBUG);
 		}
 		b.writePeaks(outDir);
-
+		
 	}
 
 }
