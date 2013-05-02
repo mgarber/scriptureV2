@@ -163,7 +163,7 @@ public class SampleData {
 	 */
 	public double getGeneAverageCoverage(Gene gene) {
 		if(geneScores.containsKey(gene)) {
-			return geneScores.get(gene).getAverageCoverage();
+			return geneScores.get(gene).getAverageCoverage(data);
 		}
 		ScanStatisticScore score = new ScanStatisticScore(data, gene);
 		logger.debug("GET_GENE_AVG_COVERAGE\t" + gene.getName());
@@ -175,7 +175,7 @@ public class SampleData {
 		logger.debug("GET_GENE_AVG_COVERAGE\twindow_count=" + score.getCount());
 		logger.debug("GET_GENE_AVG_COVERAGE\tpval=" + score.getScanPvalue());
 		geneScores.put(gene, score);
-		return score.getAverageCoverage();
+		return score.getAverageCoverage(data);
 	}
 	
 	/**

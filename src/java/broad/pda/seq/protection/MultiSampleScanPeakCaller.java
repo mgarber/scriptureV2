@@ -28,6 +28,8 @@ import broad.core.parser.StringParser;
 import broad.core.util.PipelineUtils;
 import broad.pda.annotation.BEDFileParser;
 
+import net.sf.samtools.util.CloseableIterator;
+import nextgen.core.alignment.Alignment;
 import nextgen.core.analysis.PeakCaller;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
@@ -490,11 +492,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
 			return;
 		}
-		
-		double geneCount = data.getCount(gene);
-		int geneSize = gene.getSize();
-		double geneAvgCoverage = geneCount / geneSize;
-		
+				
 		logger.info("Finding scan peaks for sample " + sample.getSampleName() + " and gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ")");
 		
 		// Get fixed size windows with sufficient count and significant scan statistic
@@ -537,6 +535,12 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			}
 		}
 		
+		// If no significant windows return
+		if(scanSignificantWindows.isEmpty()) {
+			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
+			return;
+		}
+		
 		// Merge overlapping windows
 		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(scanSignificantWindows);
 		for(Annotation window : mergedWindows) {
@@ -570,6 +574,10 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			}
 		}
 		
+		double geneAvgCoverage = sample.getGeneAverageCoverage(gene);
+		double geneCount = sample.getGeneCount(gene);
+		int geneSize = coord.getSize(gene);
+		
 		// Add finishing touches to peaks
 		for(Annotation window : finalPeaks) {
 			
@@ -577,15 +585,16 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			window.setName(gene.getName() + ":" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
 			
 			// Set peak score to enrichment
-			double windowCount = data.getCount(window);
-			int windowSize1 = window.getSize();
-			double windowAvgCoverage = windowCount / windowSize1;
+			ScanStatisticScore windowScore = sample.scoreWindow(gene, window);
+			double windowAvgCoverage = windowScore.getAverageCoverage(data);
 			double enrichment = windowAvgCoverage / geneAvgCoverage;
 			window.setScore(enrichment);
+			double windowCount = windowScore.getCount();
+			int windowSize1 = coord.getSize(window);
 			
 			// Assign orientation to peaks
 			window.setOrientation(AlignmentUtils.assignOrientationToWindow(sample.getOriginalBamFile(), window, sample.firstReadTranscriptionStrand(), 0.9));
-		
+			
 			logger.debug("FINAL_PEAK\t" + gene.getName());
 			logger.debug("FINAL_PEAK\t" + window.toBED());
 			logger.debug("FINAL_PEAK\tname=" + window.getName());
@@ -676,7 +685,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				continue;
 			}
 			for(Annotation window : scores.keySet()) {
-				double windowAvgCoverage = scores.get(window).getAverageCoverage();
+				double windowAvgCoverage = scores.get(window).getAverageCoverage(sample.getData());
 				double enrichment = windowAvgCoverage / geneAvgCoverage;
 				//logger.info(sample.getSampleName() + "\t" + gene.getName() + "\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\tavg_coverage=" + windowAvgCoverage + "\twindow_enrichment=" + enrichment);
 				sampleWindowEnrichments.put(window, Double.valueOf(enrichment));

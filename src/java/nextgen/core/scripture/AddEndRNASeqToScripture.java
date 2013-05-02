@@ -134,7 +134,7 @@ public class AddEndRNASeqToScripture {
 				//For each isoform calculate coverage
 				double avg=0.0;
 				for(Gene isoform:isoformMap.get(gene)){
-					avg+=new ScanStatisticScore(model,isoform).getAverageCoverage();
+					avg+=new ScanStatisticScore(model,isoform).getAverageCoverage(model);
 				}
 				avg = avg/(double)isoformMap.get(gene).size();
 				bwCov.write(isoformMap.get(gene).size()+"\t"+avg+"\n");
