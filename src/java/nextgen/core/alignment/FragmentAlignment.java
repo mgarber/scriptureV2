@@ -22,7 +22,6 @@ public class FragmentAlignment extends AbstractPairedEndAlignment {
      */
     public FragmentAlignment(SingleEndAlignment read1, SingleEndAlignment read2) {
     	this(read1, read2, TranscriptionRead.UNSTRANDED);
-    	
     }
     
     /**

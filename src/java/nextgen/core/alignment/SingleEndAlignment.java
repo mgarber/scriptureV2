@@ -56,8 +56,8 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
     	}
     	assert(read.getAlignmentEnd() == getEnd()); // sanity check
     }
-        
-    /**
+    
+     /**
      * This is to populate our Alignment from the old legacy IGV alignments
      * @param read
      */

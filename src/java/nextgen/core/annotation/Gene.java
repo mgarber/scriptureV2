@@ -970,7 +970,7 @@ public class Gene extends BasicAnnotation {
 		List<? extends Annotation> thisExons  = new ArrayList<Annotation>(getExonSet());
 		Collection<Annotation> overlappingExons = new TreeSet<Annotation>();
 		for(Annotation exon: otherExons) {
-			Alignments exonClone = new Alignments(exon);
+			Annotation exonClone = new BasicAnnotation(exon);
 			overlappingExons.addAll(exonClone.intersect(thisExons));
 		}
 		
@@ -2268,6 +2268,7 @@ public class Gene extends BasicAnnotation {
 						assert(g.getCDSStart() == cdsStart && g.getEnd() == cdsEnd);
   						
 						g.setBedScore(bedScore);
+						
 						
 						if(tokens.length > 12) {
 							extraColumns = new String[tokens.length - 12];
