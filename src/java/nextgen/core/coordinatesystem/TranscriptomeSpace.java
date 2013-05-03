@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import org.apache.log4j.Logger;
@@ -29,6 +30,8 @@ public class TranscriptomeSpace implements CoordinateSpace{
 
 	GeneTree geneTree;
 	static Logger logger = Logger.getLogger(TranscriptomeSpace.class.getName());
+	static final public int PERMUTATION_ATTEMPTS = 10;
+	static private Random generator = new Random();
 
 	public TranscriptomeSpace(Map<String,Collection<Gene>> chrToGenesMap){
 		this(null, chrToGenesMap,null);
@@ -458,7 +461,27 @@ protected class GeneTree {
 	
 	@Override
 	public void permuteAnnotation(Annotation a, Annotation bounds) {
-		throw new UnsupportedOperationException("TODO");
+		int permutationSpace=bounds.length();
+		
+		//Annotation newAnnotation = a.copy();
+		//newAnnotation.setReferenceName(bounds.getReferenceName());
+
+		boolean found = true;
+		for (int i = 0; i < PERMUTATION_ATTEMPTS; i++) {
+			//int newStart = bounds.getReferenceCoordinateAtPosition(generator.nextInt(permutationSpace));
+			int newStart = generator.nextInt(permutationSpace);
+			//logger.info(newStart);
+			Annotation newAnnotation=this.moveAnnotation(a, newStart, bounds);
+			//newAnnotation.moveToCoordinate(newStart);
+			if (newAnnotation!=null) {
+				found = true;
+				a=newAnnotation;
+				//this.moveAnnotation(a, newStart, bounds);
+				//a.moveToCoordinate(newStart); //TODO Need to account for splice junctions
+				break;
+			}
+		}
+		if (!found) throw new PermutationNotFoundException(PERMUTATION_ATTEMPTS);
 	}
 
 	@Override
@@ -495,6 +518,26 @@ protected class GeneTree {
 		}
 		//logger.info("TranscriptomeSpace " + region.getName() + " " + region.getChr() + ":" + region.getStart() + " " + region.getEnd() + " " + rtrn);
 		return rtrn;
+	}
+
+	/**
+	 * Moves the annotation to a new start location using the coordinate space to decide on gaps
+	 * @param read the read to be moved
+	 * @param newStartLocation the start location of the annotation (relative to the annotation start)
+	 * @param gene the original transcript moving over
+	 * @return A new annotation object in the start location reflecting the move
+	 */
+	public Annotation moveAnnotation(Annotation read, int relativeStart, Annotation gene) {
+		//take original and add the new start
+		Gene g=new Gene(gene);
+		int relativeEnd=relativeStart+read.length();
+		if(relativeEnd<gene.length()){
+			GeneWindow w=g.trimGene(relativeStart, relativeEnd);
+			//logger.info(read.length()+" "+g.length());
+			logger.info(w.toUCSC()+" "+read.toUCSC());
+			return w;
+		}
+		return null;
 	}
 	
 }

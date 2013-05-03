@@ -565,6 +565,10 @@ public class BEDFileParser {
 	
 	}
 
+	public static Map<String, Collection<Gene>> loadDataByChr(String file) throws IOException{
+		return loadDataByChr(new File(file));
+	}
+	
 	public static Map<String, Collection<Gene>> loadDataByChr(File file) throws IOException{
 		logger.info("Loading genes from file " + file.getName() + "...");
 		BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(file)));
@@ -2255,6 +2259,18 @@ public class BEDFileParser {
 		}
 		return closestDownstream;
 		
+	}
+
+	public static Gene getGene(String geneFile, String geneName) throws IOException {
+		Collection<Gene> genes=BEDFileParser.loadData(new File(geneFile));
+		
+		for(Gene g: genes){
+			if(g.getName().equalsIgnoreCase(geneName)){
+				return g;
+			}
+		}
+		
+		return null;
 	}
 	
 

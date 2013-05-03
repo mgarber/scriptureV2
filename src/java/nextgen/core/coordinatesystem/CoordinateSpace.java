@@ -143,4 +143,5 @@ public interface CoordinateSpace {
 	 */
 	public Annotation getReferenceAnnotation(String name);
 	
+	
 }
