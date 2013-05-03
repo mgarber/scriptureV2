@@ -32,6 +32,11 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 	private SAMRecord record;
 	Collection<Annotation> splicedEdges;
 	boolean hasIndel;
+    /**
+     * 	true: this unpaired mate was the first mate
+	 *	false: this unpaired mate was second mate
+	 */
+	boolean isFirstMate;
 	
     public SingleEndAlignment(SAMRecord read) {
     	super(read.getReferenceName(), read.getAlignmentStart()-1, read.getAlignmentStart()); //This is a dummy setup
@@ -67,6 +72,10 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
     		setOrientation(Strand.POSITIVE);
     }
     
+    public SingleEndAlignment(SAMRecord read,boolean isFirstMateFlag){
+    	this(read);
+    	setIsFirstMate(isFirstMateFlag);
+    }
 
     //Cigar string is used to populate the alignment blocks and read length fields
     private void parseCigar(String cigarString, String chr, int start) {
@@ -113,6 +122,19 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 		return this.getReadAlignmentBlocks(null).toBED();
 	}
   
+    /**
+     * Will set the value of the isFirstMate flag 
+     * @param value true: this unpaired mate was the first mate
+     * 				false: this unpaired mate was second mate
+     */
+    public void setIsFirstMate(boolean value){
+    	isFirstMate = value;
+    }
+    
+    public boolean getIsFirstMate(){
+    	return isFirstMate;
+    }
+
 	/**
      * Returns the length of the read
      * @return

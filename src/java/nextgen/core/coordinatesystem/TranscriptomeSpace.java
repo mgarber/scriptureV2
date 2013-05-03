@@ -12,6 +12,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import org.apache.log4j.Logger;
 import nextgen.core.annotation.*;
+import nextgen.core.exception.IncompleteMethodImplementationException;
 import nextgen.core.feature.GeneWindow;
 import nextgen.core.feature.Window;
 import nextgen.core.model.AlignmentModel;
@@ -263,9 +264,10 @@ public class TranscriptomeSpace implements CoordinateSpace{
 	 * Returns an iterator over the subset of genes in the coordinate space
 	 * @param genes
 	 * @return
+	 * @throws IncompleteMethodImplementationException 
 	 */
-	Iterator<Collection<Window>> getWindowIterator(Collection<Gene> genes) {
-		return null;
+	Iterator<Collection<Window>> getWindowIterator(Collection<Gene> genes) throws IncompleteMethodImplementationException {
+		throw new IncompleteMethodImplementationException("TranscriptomeSpace.getWindowIterator() Method not yet implemented");
 	}
 
 	

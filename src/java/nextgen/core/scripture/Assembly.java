@@ -17,11 +17,14 @@ public class Assembly extends BasicAnnotation{
 
 	private boolean isPossiblePremature;
 	private boolean isSpurious;
+	private int isConfident;
 	
 	public Assembly(Annotation annotation){
 		super(annotation);
 		this.isPossiblePremature=false;
 		this.isSpurious=false;
+		//Unset = 0
+		isConfident = 0;
 	}
 	
 	public Assembly(Annotation annotation, boolean isPremature){
@@ -55,9 +58,33 @@ public class Assembly extends BasicAnnotation{
 	}
 	
 	public boolean isSpurious(){
-		return this.isSpurious;
+		return isSpurious;
 	}
 
+	public boolean isConfidentIsSet(){
+		if(isConfident==0)
+			return false;
+		else
+			return true;
+	}
+	
+	public void setConfident(boolean value){
+		if(value){
+			isConfident = 1;
+		}
+		else{
+			isConfident = 2;
+		}
+	}
+	
+	public boolean isConfident(){
+		
+		if(isConfident == 1)
+			return true;
+		else
+			return false;
+	}
+	
 	public Iterator<Assembly> trimNodes() {
 		Collection<Assembly> rtrn=new ArrayList<Assembly>();
 		//walk back one intron at a time from the assembly and test compatibility

@@ -18,11 +18,7 @@ public class PairedReadAlignment extends AbstractPairedEndAlignment {
      * @param read2
      */
     public PairedReadAlignment(SingleEndAlignment read1, SingleEndAlignment read2) {
-    	super(asAnnotation(read1, read2, false));   //TODO How to deal with pairs that have different chromosomes?
-
-    	this.firstMate = read1;
-        this.secondMate = read2;
-        refreshAttributeMap();
+    	this(read1, read2, TranscriptionRead.UNSTRANDED);
     }
     
     /**
@@ -36,7 +32,7 @@ public class PairedReadAlignment extends AbstractPairedEndAlignment {
 
     	this.firstMate = read1;
         this.secondMate = read2;
-        this.txnRead = strand;
+        setFragmentStrand(strand);
         refreshAttributeMap();
     }
     

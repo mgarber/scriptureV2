@@ -1,5 +1,6 @@
 package nextgen.core.annotation;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -11,6 +12,7 @@ import java.util.TreeSet;
 import org.apache.log4j.Logger;
 
 import nextgen.core.annotation.Annotation.Strand;
+import nextgen.core.scripture.BuildScriptureCoordinateSpace;
 
 import broad.pda.datastructures.Alignments;
 import broad.core.error.ParseException;
@@ -201,6 +203,7 @@ public class BasicAnnotation extends AbstractAnnotation {
 	 */
 	public Annotation[] getFlankingBlocks(Annotation spliceJunction) {
 		Annotation[] list = new Annotation[2];
+		//List<? extends Annotation> blks = getBlocks();
 		for (SingleInterval block : blocks.getBlocks()) {
 			if(block.getEnd()==spliceJunction.getStart())
 				list[0] = new BasicAnnotation(referenceName, block.getStart(), block.getEnd(), orientation);
@@ -493,6 +496,38 @@ public class BasicAnnotation extends AbstractAnnotation {
 	}
 
 
+	public static void main(String[] args)throws IOException{
+		
+		Collection<BasicAnnotation> blocks = new ArrayList<BasicAnnotation>();
+		blocks.add(new BasicAnnotation("chr1",1000,2000,Strand.POSITIVE));
+		blocks.add(new BasicAnnotation("chr1",3000,4000,Strand.POSITIVE));
+		blocks.add(new BasicAnnotation("chr1",5000,6000,Strand.POSITIVE));
+		BasicAnnotation a = new BasicAnnotation(blocks);
+		
+		Collection<BasicAnnotation> blocks1 = new ArrayList<BasicAnnotation>();
+		blocks1.add(new BasicAnnotation("chr1",1000,2000,Strand.POSITIVE));
+		blocks1.add(new BasicAnnotation("chr1",3000,4500,Strand.POSITIVE));
+		blocks1.add(new BasicAnnotation("chr1",5500,7000,Strand.POSITIVE));
+		BasicAnnotation b = new BasicAnnotation(blocks1);
+		
+		System.out.println(a.toBED());
+		System.out.println(b.toBED());
+		
+		for(Annotation exon1: b.getBlocks()){
+			for(Annotation intron2:a.getSpliceConnections()){
+				if(exon1.overlaps(intron2)){
+					Annotation p = a.minus(exon1);
+					Annotation q = b.minus(exon1);
+					System.out.println(p.toBED());
+					System.out.println(q.toBED());
+					//System.out.println(BuildScriptureCoordinateSpace.compatible(p,q));
+				}
+			}
+		}
+		Annotation c = b.intersect(a);
+		System.out.println(c.toBED());
+		//System.out.println(BuildScriptureCoordinateSpace.compatible(b,c));
+	}
 	
 	
 	/********************************************************************************

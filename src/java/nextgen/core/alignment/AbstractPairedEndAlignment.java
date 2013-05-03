@@ -31,8 +31,8 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
     //Second in pair alignment
     SingleEndAlignment secondMate;
     //Whether first of pair or second of pair are in direction of transcription. Unstranded option in case of an unstranded library
-    TranscriptionRead txnRead;
     Map<String,String> attributeMap;
+    private Strand orientation = Strand.UNKNOWN;
     boolean isProperPair;
 	private static Logger logger = Logger.getLogger(FragmentAlignment.class.getName());
 
@@ -231,12 +231,7 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	 */
 	@Override
 	public Strand getFragmentStrand() {
-		if(this.txnRead==TranscriptionRead.FIRST_OF_PAIR)
-			return this.firstMate.getFragmentStrand();
-		else if(this.txnRead==TranscriptionRead.SECOND_OF_PAIR)
-			return this.secondMate.getFragmentStrand();
-		else
-			return Strand.UNKNOWN;
+		return orientation;
 	}
 	
 	/**
@@ -248,11 +243,11 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	 */
 	public void setFragmentStrand(String strand) {
 		if(strand.equalsIgnoreCase("first"))
-			txnRead=TranscriptionRead.FIRST_OF_PAIR;
+			orientation = firstMate.getFragmentStrand();
 		else if(strand.equalsIgnoreCase("second"))
-			txnRead=TranscriptionRead.SECOND_OF_PAIR;
+			orientation = secondMate.getFragmentStrand();
 		else if(strand.equalsIgnoreCase("none"))
-			txnRead=TranscriptionRead.UNSTRANDED;
+			orientation = Strand.UNKNOWN;
 		else{
 			logger.error("Fragment strand set to unknown");
 		}
@@ -265,7 +260,15 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	 */
 	@Override
 	public void setFragmentStrand(TranscriptionRead strand) {
-		txnRead = strand;
+		if(strand.equals(TranscriptionRead.FIRST_OF_PAIR)){
+			orientation = firstMate.getFragmentStrand();
+		}
+		else if(strand.equals(TranscriptionRead.SECOND_OF_PAIR)){
+			orientation = secondMate.getFragmentStrand();
+		}
+		else
+			orientation = Strand.UNKNOWN;
+			
 	}
 	
 	/**
@@ -464,11 +467,11 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	@Override
 	public Collection<Annotation> getReadAlignments(CoordinateSpace space) {
 		Collection<Annotation> rtrn=new ArrayList<Annotation>();
-		rtrn.add(this.firstMate.getReadAlignmentBlocks(space));
-		rtrn.add(this.secondMate.getReadAlignmentBlocks(space));
+		rtrn.add(firstMate.getReadAlignmentBlocks(space));
+		rtrn.add(secondMate.getReadAlignmentBlocks(space));
 		//set orientation to strand orientation
 		for(Annotation m:rtrn){
-			m.setOrientation(this.getFragmentStrand());
+			m.setOrientation(getFragmentStrand());
 		}
 		return rtrn;
 	}
@@ -517,7 +520,9 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		if(fullFragment) {
 			int start = Math.min(firstMate.getStart(), secondMate.getStart());
 			int end = Math.max(firstMate.getEnd(), secondMate.getEnd());
-			return new BasicAnnotation(chr, start, end);
+			BasicAnnotation ann = new BasicAnnotation(chr, start, end);
+			ann.setName(firstMate.getName());
+			return ann;
 		}
 		
 		Collection<Annotation> blocks = new ArrayList<Annotation>();

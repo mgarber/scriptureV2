@@ -65,10 +65,14 @@ public class ChromosomeTranscriptGraph implements Serializable{
 	public Collection<Gene> getOrphanGenes() { 
 		Collection<Gene> genes = new ArrayList<Gene>();
 		for(Annotation ann:plusGraph.getOrphanVertices()){
-			genes.add(new Gene(ann));
+			Gene gene = new Gene(ann);
+			gene.setOrientation(Strand.POSITIVE);
+			genes.add(gene);
 		}
 		for(Annotation ann:negativeGraph.getOrphanVertices()){
-			genes.add(new Gene(ann));
+			Gene gene = new Gene(ann);
+			gene.setOrientation(Strand.NEGATIVE);
+			genes.add(gene);
 		}
 		return genes;
 	}

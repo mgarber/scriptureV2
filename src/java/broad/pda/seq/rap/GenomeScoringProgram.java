@@ -4,6 +4,7 @@ import java.io.File;
 
 import net.sf.picard.cmdline.Option;
 import net.sf.picard.util.Log;
+import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.*;
 import nextgen.core.annotation.*;
 
@@ -49,7 +50,9 @@ public abstract class GenomeScoringProgram extends GenomeCommandLineProgram {
 			processor = new LengthScore.Processor(target);
 		} else if (SCORE.equalsIgnoreCase("sum")) {
 			processor = new SumScore.Processor(target);
-		} else {
+		} else if(SCORE.equalsIgnoreCase("all")){
+			processor = new WindowAllScore.Processor((AlignmentModel)target, (AlignmentModel)control);
+		}else{
 			throw new IllegalArgumentException("Could not find scoring class for " + SCORE);
 		}
 		
