@@ -1,10 +1,8 @@
 package nextgen.core.annotation;
 
-<<<<<<< HEAD
-=======
+
 import nextgen.core.annotation.Gene;
 
->>>>>>> 14c1344ca900ff77529602d73b017607e7d1e29f
 public class TestGeneCoordinateMapping  extends junit.framework.TestCase{
 	public void testPlusMapping() throws Exception {
 		int [] exonStarts = {1000000, 1001250,1002000, 1005000};
