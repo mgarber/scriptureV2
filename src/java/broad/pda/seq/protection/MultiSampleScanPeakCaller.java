@@ -28,6 +28,8 @@ import broad.core.parser.StringParser;
 import broad.core.util.PipelineUtils;
 import broad.pda.annotation.BEDFileParser;
 
+import net.sf.samtools.util.CloseableIterator;
+import nextgen.core.alignment.Alignment;
 import nextgen.core.analysis.PeakCaller;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
@@ -57,12 +59,14 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	protected static Logger logger = Logger.getLogger(MultiSampleScanPeakCaller.class.getName());
 	protected int windowSize;
 	protected int stepSize;
-	private static int DEFAULT_WINDOW_SIZE = 30;
+	private static int DEFAULT_WINDOW_SIZE = 20;
 	private static int DEFAULT_STEP_SIZE = 1;
 	private static double DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF = 0.001;
 	private static double DEFAULT_PEAK_WINDOW_COUNT_CUTOFF = 10;
 	private static double DEFAULT_TRIM_PEAK_QUANTILE = 0.6;
 	private static int DEFAULT_BATCH_MEM_REQUEST = 8;
+	private static double DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF = 0.01;
+	private static boolean DEFAULT_FIRST_READ_TRANSCRIPTION_STRAND = false;
 	protected int numControls;
 	protected int numSignals;
 	protected int numSamples;
@@ -103,21 +107,19 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	
 	
 	/**
-	 * Specify parameters
+	 * Instantiate using file of sample information
 	 * @param sampleListFile File containing sample list
 	 * @param bedFile Bed gene annotation
 	 * @param chrSizeFile Chromosome size file
 	 * @param window Window size
 	 * @param step Step size
-	 * @param maxPermutations Max number of permutations
 	 * @param peakScanPvalCutoff P value cutoff for scan statistic
+	 * @param peakCountCutoff Minimum number of reads to keep a window for a possible peak
 	 * @param trimPeakQuantile Quantile for trim max contiguous algorithm
-	 * @param doPermutationScoring Whether to do permutation test
 	 * @throws IOException
 	 */
-	private MultiSampleScanPeakCaller(String sampleListFile, String bedFile, String chrSizeFile, int window, int step, double peakScanPvalCutoff, double peakCountCutoff, double trimPeakQuantile) throws IOException {
+	public MultiSampleScanPeakCaller(String sampleListFile, String bedFile, String chrSizeFile, int window, int step, double peakScanPvalCutoff, double peakCountCutoff, double trimPeakQuantile) throws IOException {
 		
-		// Set basic parameters
 		sampleFile = sampleListFile;
 		bedAnnotationFile = bedFile;
 		sizeFile = chrSizeFile;
@@ -130,8 +132,62 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		peakWindowCountCutoff = peakCountCutoff;
 		trimQuantile = trimPeakQuantile;
 		
-		// Read sample information
-		SampleFileParser p = new SampleFileParser(sampleListFile, chrSizeFile);
+		if(sampleFile != null) {
+			initializeSamplesFromSampleListFile(chrSizeFile);
+			initializeScoreMaps();
+		}
+		
+	}
+	
+	/**
+	 * Instantiate with a single sample and an expression sample and default paramters
+	 * @param expressionBamFile Bam file for expression sample
+	 * @param signalBamFile Bam file for signal sample
+	 * @param bedFile Bed gene annotation
+	 * @param chrSizeFile Chromosome size file
+	 * @throws IOException
+	 */
+	public MultiSampleScanPeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile) throws IOException {
+		this(expressionBamFile, signalBamFile, bedFile, chrSizeFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF, DEFAULT_PEAK_WINDOW_COUNT_CUTOFF, DEFAULT_TRIM_PEAK_QUANTILE, DEFAULT_FIRST_READ_TRANSCRIPTION_STRAND);
+	}
+	
+	/**
+	 * Instantiate with a single signal sample and an expression sample
+	 * @param expressionBamFile Bam file for expression sample
+	 * @param signalBamFile Bam file for signal sample
+	 * @param bedFile Bed gene annotation
+	 * @param chrSizeFile Chromosome size file
+	 * @param window Window size
+	 * @param step Step size
+	 * @param expressionScanPvalCutoff P value cutoff for scan statistic to measure expression in expression sample
+	 * @param peakScanPvalCutoff P value cutoff for scan statistic to measure peak height within transcript
+	 * @param peakCountCutoff Minimum number of reads to keep a window for a possible peak
+	 * @param trimPeakQuantile Quantile for trim max contiguous algorithm
+	 * @param firstReadTranscriptionStrand Whether read 1 is with direction of transcription
+	 * @throws IOException
+	 */
+	public MultiSampleScanPeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile, int window, int step, double expressionScanPvalCutoff, double peakScanPvalCutoff, double peakCountCutoff, double trimPeakQuantile, boolean firstReadTranscriptionStrand) throws IOException {
+		this(null, bedFile, chrSizeFile, window, step, peakScanPvalCutoff, peakCountCutoff, trimPeakQuantile);
+		initializeWithSingleSample(expressionBamFile, signalBamFile, expressionScanPvalCutoff, chrSizeFile, firstReadTranscriptionStrand);
+		initializeScoreMaps();
+	}
+	
+	private void initializeWithSingleSample(String expressionBamFile, String signalBamFile, double expressionScanPvalCutoff, String chrSizeFile, boolean firstReadTranscriptionStrand) throws IOException {
+		controlSamples = new ArrayList<SampleData>();
+		numControls = controlSamples.size();
+		signalSamples = new ArrayList<SampleData>();
+		SampleData signalSample = new SampleData(signalBamFile, firstReadTranscriptionStrand, genes, windowSize, stepSize, expressionScanPvalCutoff, true);
+		signalSamples.add(signalSample);
+		numSignals = signalSamples.size();
+		expressionData = new GenomeSpaceSampleData(expressionBamFile, chrSizeFile, genes, windowSize, stepSize, expressionScanPvalCutoff);
+		allSamples = new ArrayList<SampleData>();
+		allSamples.addAll(controlSamples);
+		allSamples.addAll(signalSamples);
+		numSamples = allSamples.size();
+	}
+	
+	private void initializeSamplesFromSampleListFile(String chrSizeFile) throws IOException {
+		SampleFileParser p = new SampleFileParser(sampleFile, chrSizeFile);
 		controlSamples = p.getControlDatasets();
 		numControls = controlSamples.size();
 		signalSamples = p.getSignalDatasets();
@@ -141,8 +197,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		allSamples.addAll(controlSamples);
 		allSamples.addAll(signalSamples);
 		numSamples = allSamples.size();
-
-		// Initialize score maps
+	}
+	
+	private void initializeScoreMaps() {
 		tStatisticWindowScores = new TreeMap<Gene, Map<Annotation, Double>>();
 		singleSampleWindowEnrichmentOverGene = new HashMap<SampleData, Map<Gene, Map<Annotation, Double>>>();
 		singleSampleScanPeaks = new HashMap<SampleData, Map<Gene, Collection<Annotation>>>();
@@ -156,7 +213,6 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				singleSampleScanPeaks.put(sample, m);
 			}
 		}
-		
 	}
 	
 	/**
@@ -436,11 +492,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
 			return;
 		}
-		
-		double geneCount = data.getCount(gene);
-		int geneSize = gene.getSize();
-		double geneAvgCoverage = geneCount / geneSize;
-		
+				
 		logger.info("Finding scan peaks for sample " + sample.getSampleName() + " and gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ")");
 		
 		// Get fixed size windows with sufficient count and significant scan statistic
@@ -483,6 +535,12 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			}
 		}
 		
+		// If no significant windows return
+		if(scanSignificantWindows.isEmpty()) {
+			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
+			return;
+		}
+		
 		// Merge overlapping windows
 		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(scanSignificantWindows);
 		for(Annotation window : mergedWindows) {
@@ -516,6 +574,10 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			}
 		}
 		
+		double geneAvgCoverage = sample.getGeneAverageCoverage(gene);
+		double geneCount = sample.getGeneCount(gene);
+		int geneSize = coord.getSize(gene);
+		
 		// Add finishing touches to peaks
 		for(Annotation window : finalPeaks) {
 			
@@ -523,15 +585,16 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			window.setName(gene.getName() + ":" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
 			
 			// Set peak score to enrichment
-			double windowCount = data.getCount(window);
-			int windowSize1 = window.getSize();
-			double windowAvgCoverage = windowCount / windowSize1;
+			ScanStatisticScore windowScore = sample.scoreWindow(gene, window);
+			double windowAvgCoverage = windowScore.getAverageCoverage(data);
 			double enrichment = windowAvgCoverage / geneAvgCoverage;
 			window.setScore(enrichment);
+			double windowCount = windowScore.getCount();
+			int windowSize1 = coord.getSize(window);
 			
 			// Assign orientation to peaks
 			window.setOrientation(AlignmentUtils.assignOrientationToWindow(sample.getOriginalBamFile(), window, sample.firstReadTranscriptionStrand(), 0.9));
-		
+			
 			logger.debug("FINAL_PEAK\t" + gene.getName());
 			logger.debug("FINAL_PEAK\t" + window.toBED());
 			logger.debug("FINAL_PEAK\tname=" + window.getName());
@@ -622,7 +685,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				continue;
 			}
 			for(Annotation window : scores.keySet()) {
-				double windowAvgCoverage = scores.get(window).getAverageCoverage();
+				double windowAvgCoverage = scores.get(window).getAverageCoverage(sample.getData());
 				double enrichment = windowAvgCoverage / geneAvgCoverage;
 				//logger.info(sample.getSampleName() + "\t" + gene.getName() + "\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\tavg_coverage=" + windowAvgCoverage + "\twindow_enrichment=" + enrichment);
 				sampleWindowEnrichments.put(window, Double.valueOf(enrichment));

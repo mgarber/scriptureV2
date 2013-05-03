@@ -91,64 +91,13 @@ public class PairedEndWriter {
 	
 	/**
 	 * Convert the bamFile provided in the constructor to paired end format.
+	 * If no transcription read is supplied, set to unstranded
 	 */
-	public void convertInputToPairedEnd() {
-		
-		SAMRecordIterator iter = reader.iterator();		
-		Map<String, AlignmentPair> tempCollection=new TreeMap<String, AlignmentPair>();
-		int numRead = 0;
-		while(iter.hasNext()) {
-			SAMRecord record=iter.next();
-			String name=record.getReadName();
-			//If the read is unmapped, skip
-			if(record.getReadUnmappedFlag()) continue;
-			//If the read is not paired or the mate is unmapped, write it as it is
-			if(!record.getReadPairedFlag() || record.getMateUnmappedFlag()){
-				//mate unmapped so just write it
-				
-				if(record.getReadPairedFlag()) {record.setMateUnmappedFlag(true);} //revised for not set single end MateUnmapped @zhuxp
-				try {
-					writer.addAlignment(record);
-				} catch (Exception e) {
-					logger.error(e.getMessage());
-					logger.error("Skipping read " + name );
-					continue;
-				}
-			}
-			// read is paired && mate is mapped	
-			else{
-					
-				//create or get the existing pair
-				AlignmentPair pair = tempCollection.containsKey(name) ? pair=tempCollection.get(name) :  new AlignmentPair();
 
-				//add to pair
-				pair.add(record);
-					
-				//add to Collection
-				tempCollection.put(name, pair);
-
-				//If so
-				if(pair.isComplete()){
-					//Remove from collection
-					tempCollection.remove(name);
-					//Make paired line for each combo
-					Collection<SAMRecord> fragmentRecords = pair.makePairs();
-					//write to output
-					writeAll(fragmentRecords);
-				}
-			}		
-			numRead++;
-			if(numRead % 1000000 == 0) {
-				logger.info("Processed " + numRead + " reads, free mem: " + Runtime.getRuntime().freeMemory() + " tempCollection size : " + tempCollection.size() );
-			}
-		}
-		
-		//Write remainder
-		writeRemainder(tempCollection);
-		
-		close();
+	public void convertInputToPairedEnd(){
+		this.convertInputToPairedEnd(TranscriptionRead.UNSTRANDED);
 	}
-	
+
 	/**
 	 * Convert the bamFile provided in the constructor to paired end format.
 	 * FOR STRANDED DATA
@@ -160,7 +109,6 @@ public class PairedEndWriter {
 		while(iter.hasNext()) {
 			SAMRecord record=iter.next();
 			String name=record.getReadName();
-
 			//If the read is unmapped, skip
 			if(record.getReadUnmappedFlag()) continue;
 			//If the read is not paired or the mate is unmapped, write it as it is
@@ -180,7 +128,7 @@ public class PairedEndWriter {
 					}
 				}
 				//Second read is the transcription read
-				else{
+				else if(txnRead.equals(TranscriptionRead.SECOND_OF_PAIR)){
 					//This is the first read
 					//Reverse orientation
 					if(record.getFirstOfPairFlag()){
@@ -190,6 +138,9 @@ public class PairedEndWriter {
 					else{
 						//NOTHING
 					}
+				}//UNSTRANDED
+				else{
+					//NOTHING
 				}
 				try {
 					writer.addAlignment(record);
@@ -204,7 +155,7 @@ public class PairedEndWriter {
 					
 				//create or get the existing pair
 				AlignmentPair pair = tempCollection.containsKey(name) ? pair=tempCollection.get(name) :  new AlignmentPair();
-
+				
 				//add to pair
 				pair.add(record);
 					

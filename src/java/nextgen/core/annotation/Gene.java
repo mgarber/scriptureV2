@@ -43,7 +43,7 @@ public class Gene extends BasicAnnotation {
 	int cdsStart; // beginning of CDS
 	int cdsEnd; // end of CDS
 	double[] exonScores;
-	String sequence;
+	protected String sequence;
 	private String samRecord;
 	private double countScore=0; //Moran -added this as init value 
 	double bedScore; //the transcript score as it appears in a bed file
@@ -212,8 +212,7 @@ public class Gene extends BasicAnnotation {
 		if (gene.extraFields != null)
 			setExtraFields(gene.getExtraFields());
 		if (gene.scores !=null)
-			setScores(gene.getScores());
-		setBedScore(gene.bedScore);
+			setScores(gene.getScores());		
 		if (gene.attributes !=null)
 			setAttributes(gene.getAttributes());
 		if (gene.samRecord!=null)
@@ -222,6 +221,8 @@ public class Gene extends BasicAnnotation {
 			this.countScore=gene.getCountScore();
 		if(gene.sequence!=null)
 			setSequence(gene.sequence);
+		this.setBedScore(gene.getBedScore());
+			
 	}
 	
 	
@@ -2280,11 +2281,13 @@ public class Gene extends BasicAnnotation {
 				}
 			}
 			else{
-				return new Gene(chr, start, end, name);
+				Gene g = new Gene(chr, start, end, name);
+				return g;
 			}
 		}
 		else{
-			return new Gene(chr, start, end);
+			Gene g = new Gene(chr, start, end);
+			return g;
 		}
 		
 	}

@@ -15,7 +15,6 @@ import org.apache.log4j.Logger;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
-import nextgen.core.feature.GeneWindow;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
 import broad.core.annotation.ShortBEDReader;
@@ -86,29 +85,6 @@ public class GenomicSpace implements CoordinateSpace{
 	}
 	
 	
-	/**
-	 * Returns a fragment of type Window between start and end on chromosome
-	 */
-	public Collection<? extends Window> getFragment(String chr, int start, int end) {
-		Collection<Window> rtrn=new TreeSet<Window>();
-		if(!this.chromosomeSizes.containsKey(chr)){
-			logger.warn(chr+" is not in the genomic space it is possible that the fragment will extend past the chromosome end");
-			rtrn.add(new GenomeWindow(chr,start,end));
-			return rtrn;
-		}
-		/*
-		 * Check that the fragment coordinates are contained within the coordinate space 
-		 * If not, adjust the fragment ends. 
-		 */
-		if(start<0)
-			start = 0;
-		if(end>this.chromosomeSizes.get(chr))
-			end = this.chromosomeSizes.get(chr);
-		
-		rtrn.add(new GenomeWindow(chr,start,end));
-		return rtrn;
-	}
-
 	/**
 	 * Returns an interval tree over the genomic region
 	 */
@@ -295,6 +271,9 @@ public class GenomicSpace implements CoordinateSpace{
 		return this.chromosomeSizes.get(chr);
 	}
 
+	public long getUnmaskedLength(String chr){
+		return (this.getLength(chr) - maskedRegions.getBasesCovered(this.getReferenceAnnotation(chr)));
+	}
 	@Override
 	public void permuteAnnotation(Annotation a) {
 		permuteAnnotation(a, new BasicAnnotation(a.getChr(), 0, chromosomeSizes.get(a.getChr())));
@@ -393,8 +372,34 @@ public class GenomicSpace implements CoordinateSpace{
 	}
 
 
+	/**
+	 * Returns a fragment of type Window between start and end on chromosome
+	 * @param 
+	 */
+	public Collection<? extends Window> getFragment(String chr, int start, int end) {
+		Collection<Window> rtrn=new TreeSet<Window>();
+		if(!this.chromosomeSizes.containsKey(chr)){
+			logger.warn(chr+" is not in the genomic space it is possible that the fragment will extend past the chromosome end");
+			rtrn.add(new GenomeWindow(chr,start,end));
+			return rtrn;
+		}
+		/*
+		 * Check that the fragment coordinates are contained within the coordinate space 
+		 * If not, adjust the fragment ends. 
+		 */
+		if(start<0)
+			start = 0;
+		if(end>this.chromosomeSizes.get(chr))
+			end = this.chromosomeSizes.get(chr);
+		
+		rtrn.add(new GenomeWindow(chr,start,end));
+		return rtrn;
+	}
+
+	
 	@Override
 	public Collection<? extends Window> getFragment(Annotation annotation) {
+				
 		return getFragment(annotation.getChr(), annotation.getStart(), annotation.getEnd());
 	}
 

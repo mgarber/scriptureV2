@@ -28,6 +28,7 @@ import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
 import nextgen.core.general.CloseableFilterIterator;
 import nextgen.core.model.score.WindowScore;
+import nextgen.core.readFilters.SameOrientationFilter;
 import nextgen.core.readFilters.SplicedReadFilter;
 import nextgen.core.readers.PairedEndReader;
 import nextgen.core.writers.PairedEndWriter;
@@ -66,7 +67,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	int cacheSize=1000000;
 	private boolean hasGlobalStats = false;
 	private SortedMap<String, Double> refSequenceCounts=new TreeMap<String, Double>();
-	
+
 	/**
 	 * Build with a BAM file
 	 * Populate the alignment collection
@@ -77,42 +78,14 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 */
 	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam) {
 
-		this.bamFile=bamFile;
+		this(bamFile,coordinateSpace,readFilters,readOrCreatePairedEndBam,TranscriptionRead.UNSTRANDED);				
+	}
+	
+	public AlignmentModel(){
 		
-		if (readOrCreatePairedEndBam) {
-			this.bamFile = PairedEndReader.getOrCreatePairedEndFile(bamFile);
-			String file = PairedEndReader.getPairedEndFile(bamFile);
-			if (file == null) {
-				file = PairedEndWriter.getDefaultFile(bamFile);
-				PairedEndWriter writer = new PairedEndWriter(new File(this.bamFile), file);
-				writer.convertInputToPairedEnd();
-			}
-			this.bamFile = file;
-		} else {
-			this.bamFile = bamFile;
-		}
-				
-		// Establish the data alignment model like previously
-		this.reader = new PairedEndReader(new File(this.bamFile));
-		
-		//If the passed coordinate space is null then make a Genomic Space
-		if(coordinateSpace==null){
-			//create a new GenomicSpace using the sizes in the BAM File
-			coordinateSpace=new GenomicSpace(reader.getRefSequenceLengths());
-		}
-		// Set the coordinate space
-		this.coordinateSpace=coordinateSpace;
-		
-		// Initialize the cache
-		this.cache=new Cache(this.reader, this.cacheSize);
-		
-		// Initialize the readFilters
-		this.readFilters.addAll(readFilters);
-				
 	}
 	
 	/**
-	 * TODO: Remove after stranded alignment model works
 	 * Populate the alignment collection
 	 * @param bamFile
 	 * @param coordinateSpace 
@@ -137,7 +110,50 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 				
 		// Establish the data alignment model like previously
-		this.reader = new PairedEndReader(new File(this.bamFile));
+		this.reader = new PairedEndReader(new File(this.bamFile),strand);
+		
+		//If the passed coordinate space is null then make a Genomic Space
+		if(coordinateSpace==null){
+			//create a new GenomicSpace using the sizes in the BAM File
+			coordinateSpace=new GenomicSpace(reader.getRefSequenceLengths());
+		}
+		// Set the coordinate space
+		this.coordinateSpace=coordinateSpace;
+		
+		// Initialize the cache
+		this.cache=new Cache(this.reader, this.cacheSize);
+		
+		// Initialize the readFilters
+		this.readFilters.addAll(readFilters);
+				
+	}
+	
+	/**
+	 * Populate the alignment collection
+	 * @param bamFile
+	 * @param coordinateSpace 
+	 * @param readFilters 
+	 * @throws IOException 
+	 */
+	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead strand,boolean fragment) {
+
+		this.bamFile=bamFile;
+		
+		if (readOrCreatePairedEndBam) {
+			this.bamFile = PairedEndReader.getOrCreatePairedEndFile(bamFile,strand);
+			String file = PairedEndReader.getPairedEndFile(bamFile);
+			if (file == null) {
+				file = PairedEndWriter.getDefaultFile(bamFile);
+				PairedEndWriter writer = new PairedEndWriter(new File(this.bamFile), file);
+				writer.convertInputToPairedEnd(strand);
+			}
+			this.bamFile = file;
+		} else {
+			this.bamFile = bamFile;
+		}
+				
+		// Establish the data alignment model like previously
+		this.reader = new PairedEndReader(new File(this.bamFile),strand,fragment);
 		
 		//If the passed coordinate space is null then make a Genomic Space
 		if(coordinateSpace==null){
@@ -295,6 +311,32 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 	}
 	
+	/**
+	 * Use the coordinate space to decide what is an overlapping read using strandedness
+	 * @param window
+	 * @param fullyContained
+	 * @return
+	 */
+	public double getCountStranded(Annotation window, boolean fullyContained) {
+		// Check to see if user is requesting a count of the whole chromosome, which we may have stored.
+		// Make sure not to just call this function in getChrLambda!  otherwise infinite loop
+		Annotation refAnnotation = null;
+		try {
+			refAnnotation = coordinateSpace.getReferenceAnnotation(window.getChr());
+		} catch (IllegalArgumentException e) {
+			logger.warn("Coordinate space does not contain reference " + window.getChr() + " ... getCount() returning 0.");
+			return 0.0;
+		}
+		if (refAnnotation != null && window.equals(refAnnotation)) {
+			//logger.info("getting saved chr count");
+			if(!this.hasGlobalStats) computeGlobalStats();
+			return refSequenceCounts.get(window.getChr());
+		} else {
+			CloseableIterator<AlignmentCount> iter=getOverlappingReadCountsStranded(window, fullyContained);
+			double result = getCount(iter);
+			return result;
+		}
+	}
 	
 	/**
 	 * Use the coordinate space to decide what is an overlapping read
@@ -415,6 +457,15 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	/**
 	 * Return the reads that overlap with this region in coordinate space
 	 */
+	private CloseableIterator<AlignmentCount> getOverlappingReadCountsStranded(Annotation region, boolean fullyContained) {
+		//get Alignments over the whole region
+		Predicate<Alignment> filter=new SameOrientationFilter(region);
+		return new WrapAlignmentCountIterator(new CloseableFilterIterator<Alignment>(new UnpackingIterator(this.cache.query(region, fullyContained, this.coordinateSpace)), filter));
+	}
+	
+	/**
+	 * Return the reads that overlap with this region in coordinate space
+	 */
 	public CloseableIterator<Alignment> getOverlappingSplicedReads(Annotation region, boolean fullyContained) {
 		//get Alignments over the whole region
 		Predicate<Alignment> filter=new SplicedReadFilter();
@@ -467,7 +518,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		//BasicAnnotation read=new BasicAnnotation(record.getChr(), record.getFragmentStart(), record.getFragmentEnd());
 		
 		for(Window window: windowCS){
-			if ((!fullyContained && window.overlaps(record)) || (fullyContained && window.contains(record))) { //TODO I think we should be testing record.overlaps(window)
+			if (((!fullyContained && window.overlaps(record)) || (fullyContained && window.contains(record)))) { //TODO I think we should be testing record.overlaps(window)
 			//if ((!fullyContained && record.overlaps(window)) || (fullyContained && window.contains(record))) { //TODO I think we should be testing record.overlaps(window)
 					
 				count = true;
@@ -869,6 +920,9 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		
 	}
 
+	public boolean containsReference(String refName){
+		return this.coordinateSpace.getReferenceNames().contains(refName);
+	}
 	
 	public double getGlobalCount() {
 		if (!this.hasGlobalStats) {
@@ -961,6 +1015,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		if (!hasGlobalStats) {
 			computeGlobalStats();
 		}
+		if(!containsReference(refName)) return 0.0;
 		return refSequenceCounts.get(refName) / getRefSequenceLength(refName);
 	}
 	
