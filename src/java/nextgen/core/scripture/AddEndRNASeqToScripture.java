@@ -34,6 +34,7 @@ import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.feature.Window;
 import nextgen.core.model.AlignmentModel;
+import nextgen.core.model.AlignmentModel.AlignmentCount;
 import nextgen.core.model.score.ScanStatisticScore;
 
 public class AddEndRNASeqToScripture {
@@ -57,13 +58,14 @@ public class AddEndRNASeqToScripture {
 			"\n**************************************************************"+
 			"\n\n\t\t-3p <3P Alignment (mapped to genome) for which expression must be calculated. Index file MUST be provided.> "+
 			"\n\n\t\t-5p <5P Alignment (mapped to genome) for which expression must be calculated. Index file MUST be provided.> "+
+			"\n\n\t\t-full <full length Alignment (mapped to genome) for which expression must be calculated. Index file MUST be provided.> "+
 			"\n\t\t-out <Output file [Defaults to stdout]> "+
 			"\n\t\t-annotations <Reconstruction bed file. [BED by default]> "+
 
 			"\n\n**************************************************************"+
 			"\n\t\tOptional Arguments"+
 			"\n**************************************************************"+
-			"\\nn\t\t-window <Specifies the size of the fixed window use to scan the genome. We recommend a size of 2-5bp for better resolution of gene ends. Default = 5bp> "+
+			"\n\t\t-window <Specifies the size of the fixed window use to scan the genome. We recommend a size of 2-5bp for better resolution of gene ends. Default = 5bp> "+
 			"\n\t\t-extension <Specifies the size of the fixed window use to scan the genome. We recommend a size of 2-5bp for better resolution of gene ends> "+
 
 			"\n";
@@ -268,7 +270,8 @@ public class AddEndRNASeqToScripture {
 						else{
 							start = extension;
 						}
-						Annotation ge = gene.copy();
+						Gene ge = gene.copy();
+						//EXPAND IS A STRAND-INDEPENDENT FUNCTION
 						ge.expand(start, end);
 
 						Iterator<? extends Window> giter = space.getWindowIterator(ge, windowSize, 0);
@@ -276,12 +279,8 @@ public class AddEndRNASeqToScripture {
 						boolean flag5p = false;
 						Annotation prev5p = null;
 						Annotation peak5p =null;
-						boolean flag3p = false;
-						Annotation prev3p = null;
-						Annotation peak3p =null;
 						
 						List<Annotation> this5pPeaks = new ArrayList<Annotation>();
-						List<Annotation> this3pPeaks = new ArrayList<Annotation>();
 						//For every window in the transcript
  						while(giter.hasNext()){
 							Window window = giter.next();
@@ -338,8 +337,45 @@ public class AddEndRNASeqToScripture {
 								else{
 									//nothing
 								}
-							}
-							
+							}							
+						}
+ 						//Last peak
+ 						if(flag5p){
+							this5pPeaks.add(peak5p);
+						}
+ 						for(Annotation p:this5pPeaks){
+ 							double windowCount = get5pWindowCount(p,gene.getOrientation());
+							double zscore = Statistics.zScore(windowCount, nulls5p[0],nulls5p[1],p.getSize());
+							p.setScore(zscore);
+							bw5pBed.write(p.toBED()+"\n");
+							bw5p.write(gene.getName()+"\t"+p.toUCSC()+"\t"+windowCount+"\t"+zscore+"\t"+calculate5pDistance(gene,p)+"\n");
+						}
+ 						
+ 						/**
+ 						 * 3P 
+ 						 */
+ 						start = 0;
+						end =0;
+						if(gene.isNegativeStrand()){
+							start = extension;
+							//logger.info("Start: "+start+" End: "+end);
+						}
+						else{
+							end = extension;
+						}
+						Gene gs = gene.copy();
+						//EXPAND IS A STRAND-INDEPENDENT FUNCTION
+						ge.expand(start, end);
+
+						Iterator<? extends Window> iter = space.getWindowIterator(gs, windowSize, 0);
+						boolean flag3p = false;
+						Annotation prev3p = null;
+						Annotation peak3p =null;
+						
+						List<Annotation> this3pPeaks = new ArrayList<Annotation>();
+						//For every window in the transcript
+ 						while(iter.hasNext()){
+							Window window = iter.next();							
 							/*
 							 * 3p
 							 */
@@ -394,20 +430,15 @@ public class AddEndRNASeqToScripture {
 							}
 						}
  						//Last peak
- 						if(flag5p){
-							this5pPeaks.add(peak5p);
-						}
- 						for(Annotation p:this5pPeaks){
-							bw5pBed.write(p.toBED()+"\n");
-							bw5p.write(gene.getName()+"\t"+p.toUCSC()+"\n");
-						}
- 						//Last peak
  						if(flag3p){
 							this3pPeaks.add(peak3p);
 						}
  						for(Annotation p:this3pPeaks){
+ 							double windowCount = get3pWindowCount(p,gene.getOrientation());
+							double zscore = Statistics.zScore(windowCount, nulls3p[0],nulls3p[1],p.getSize());
+							p.setScore(zscore);							
 							bw3pBed.write(p.toBED()+"\n");
-							bw3p.write(gene.getName()+"\t"+p.toUCSC()+"\n");
+							bw3p.write(gene.getName()+"\t"+p.toUCSC()+"\t"+windowCount+"\t"+zscore+"\t"+calculate3pDistance(gene,p)+"\n");
 						}
  						
  						if(gene.getBlocks().size()==1){
@@ -455,31 +486,31 @@ public class AddEndRNASeqToScripture {
 		bw3pBed.close();
 	}
 	
-	private double get5pWindowCount(Window window,Strand orientation){
+	private double get5pWindowCount(Annotation window,Strand orientation){
 		double windowCount = 0.0;
 		//Get the reads in the window
 		
-		Iterator<Alignment> readiter = model5p.getOverlappingReads(window,false);
+		Iterator<AlignmentCount> readiter = model5p.getOverlappingReadCountsStranded(window, false);
 		//for all reads in the window
 		while(readiter.hasNext()){
-			Alignment read = readiter.next();
-			if(passesChecks(read,window,orientation)){
-				windowCount +=1.0;
+			AlignmentCount read = readiter.next();
+			if(passesChecks(read.getRead(),window,orientation)){
+				windowCount += read.getCount();
 			}
 		}
 		return windowCount;
 	}
 	
-	private double get3pWindowCount(Window window,Strand orientation){
+	private double get3pWindowCount(Annotation window,Strand orientation){
 		double windowCount = 0.0;
 		//Get the reads in the window
 		
-		Iterator<Alignment> readiter = model3p.getOverlappingReads(window,false);
+		Iterator<AlignmentCount> readiter = model3p.getOverlappingReadCountsStranded(window, false);
 		//for all reads in the window
 		while(readiter.hasNext()){
-			Alignment read = readiter.next();
-			if(passesChecks(read,window,orientation)){
-				windowCount +=1.0;
+			AlignmentCount read = readiter.next();
+			if(passesChecks(read.getRead(),window,orientation)){
+				windowCount += read.getCount();
 			}
 		}
 		return windowCount;
@@ -589,7 +620,7 @@ public class AddEndRNASeqToScripture {
 	 * @param window
 	 * @return
 	 */
-	private boolean passesChecks(Alignment read,Window window,Strand orientation){
+	private boolean passesChecks(Alignment read,Annotation window,Strand orientation){
 		
 		if(SingleEndAlignment.class.isInstance(read)){
 			SingleEndAlignment align = (SingleEndAlignment) read;
@@ -620,12 +651,87 @@ public class AddEndRNASeqToScripture {
 	}
 	
 	/**
+	 * Returns true is the specified alignment starts in window and 
+	 * if Single ended, matches the mate of transcription
+	 * if paired ended, the mate in the direction of transcription starts in the window
+	 * @param read
+	 * @param window
+	 * @return
+	 */
+	private boolean passesChecks(Alignment read,Window window,Strand orientation){
+		
+		if(SingleEndAlignment.class.isInstance(read)){
+			SingleEndAlignment align = (SingleEndAlignment) read;
+			//Check if read is the correct read
+			//if read starts in window
+			if(((strand==TranscriptionRead.FIRST_OF_PAIR && align.getIsFirstMate()) || 
+					(strand==TranscriptionRead.SECOND_OF_PAIR && !align.getIsFirstMate())) 
+						&& (readStartFallsInWindow(read,window))
+							&& (read.getOrientation().equals(orientation))){
+				return true;
+			}
+		}
+		//ELSE PAIRED
+		else{
+			PairedReadAlignment align = (PairedReadAlignment) read;
+			Annotation mate;
+			if(strand==TranscriptionRead.FIRST_OF_PAIR){
+				mate = align.getFirstMate();
+			}
+			else{
+				mate = align.getSecondMate();
+			}
+			if(readStartFallsInWindow(mate,window)){
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * Returns true is the specified alignment starts in window and 
+	 * if Single ended, matches the opposite mate of transcription
+	 * if paired ended, the mate not in the direction of transcription starts in the window
+	 * @param read
+	 * @param window
+	 * @return
+	 */
+	private boolean passesOppositeChecks(Alignment read,Annotation window,Strand orientation){
+		
+		if(SingleEndAlignment.class.isInstance(read)){
+			SingleEndAlignment align = (SingleEndAlignment) read;
+			//Check if read is the correct read
+			//if read starts in window
+			if(((strand==TranscriptionRead.FIRST_OF_PAIR && !align.getIsFirstMate()) || 
+					(strand==TranscriptionRead.SECOND_OF_PAIR && align.getIsFirstMate())) 
+						&& (readStartFallsInWindow(read,window))
+							&& (!read.getOrientation().equals(orientation))){
+				return true;
+			}
+		}
+		//ELSE PAIRED
+		else{
+			PairedReadAlignment align = (PairedReadAlignment) read;
+			Annotation mate;
+			if(strand==TranscriptionRead.FIRST_OF_PAIR){
+				mate = align.getSecondMate();
+			}
+			else{
+				mate = align.getFirstMate();
+			}
+			if(readStartFallsInWindow(mate,window)){
+				return true;
+			}
+		}
+		return false;
+	}
+	/**
 	 * Returns true if the oriented start of the read falls in the window
 	 * @param align
 	 * @param window
 	 * @return
 	 */
-	private boolean readStartFallsInWindow(Annotation align,Window window){
+	private boolean readStartFallsInWindow(Annotation align,Annotation window){
 		
 		int start;
 		if(align.isNegativeStrand()){
@@ -639,6 +745,26 @@ public class AddEndRNASeqToScripture {
 		else
 			return false;
 	}
+	
+	private int calculate5pDistance(Gene gene,Annotation p){
+		
+		if(gene.isNegativeStrand()){
+			return p.getEnd()-gene.getEnd();
+		}
+		else{
+			return gene.getStart()-p.getStart();
+		}
+	}
+
+	private int calculate3pDistance(Gene gene,Annotation p){
+		
+		if(!gene.isNegativeStrand()){
+			return p.getEnd()-gene.getEnd();
+		}
+		else{
+			return gene.getStart()-p.getStart();
+		}
+	}
 
 	
 	public static void main (String [] args) throws ParseException, IOException {
@@ -651,7 +777,7 @@ public class AddEndRNASeqToScripture {
 		 * @param for ArgumentMap - size, usage, default task
 		 * argMap maps the command line arguments to the respective parameters
 		 */
-		ArgumentMap argMap = CLUtil.getParameters(args,usage,"5p");
+		ArgumentMap argMap = CLUtil.getParameters(args,usage,"dowork");
 		TranscriptionRead strand = TranscriptionRead.UNSTRANDED;
 		if(argMap.get("strand").equalsIgnoreCase("first")){
 			strand = TranscriptionRead.FIRST_OF_PAIR;

@@ -457,7 +457,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	/**
 	 * Return the reads that overlap with this region in coordinate space
 	 */
-	private CloseableIterator<AlignmentCount> getOverlappingReadCountsStranded(Annotation region, boolean fullyContained) {
+	public CloseableIterator<AlignmentCount> getOverlappingReadCountsStranded(Annotation region, boolean fullyContained) {
 		//get Alignments over the whole region
 		Predicate<Alignment> filter=new SameOrientationFilter(region);
 		return new WrapAlignmentCountIterator(new CloseableFilterIterator<Alignment>(new UnpackingIterator(this.cache.query(region, fullyContained, this.coordinateSpace)), filter));
@@ -643,7 +643,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		public void close() {}*/
 	}
 	
-	private class AlignmentCount{
+	public class AlignmentCount{
 		Alignment read;
 		int numReplicates;
 		Collection<Alignment> containedReads;
@@ -661,15 +661,15 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			this.containedReads.add(read);
 		}
 
-		double getCount(){
+		public double getCount(){
 			return numReplicates*read.getWeight();
 		}
 		
-		int getNumReads(){
+		public int getNumReads(){
 			return this.numReplicates;
 		}
 		
-		Alignment getRead(){
+		public Alignment getRead(){
 			return this.read;
 		}
 	}
