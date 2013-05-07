@@ -782,7 +782,6 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		public ShuffledIterator(CloseableIterator<Alignment> itr, Annotation region) {
 			super(itr, coordinateSpace, region);
 		}
-		@Override
 		public Alignment next() {
 			Alignment next = itr.next();
 			Annotation blockedAnnotation = next.getReadAlignmentBlocks(coordinateSpace);

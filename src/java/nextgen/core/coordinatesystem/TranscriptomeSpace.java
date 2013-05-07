@@ -440,6 +440,13 @@ protected class GeneTree {
 		public long getLength(String chr) {
 			return this.metaAnnotation.get(chr).getSize();
 		}
+
+		public Annotation getRandomAnnotation() {
+			int geneIdx = generator.nextInt(genesByName.size());
+			List<Gene> geneList = new ArrayList<Gene>(genesByName.values()); //VERY INNEFICIENT, DON'T know how to make this more efficient 
+																			 // without building a custom map that keeps the list of values
+			return geneList.get(geneIdx);
+		}
 	}
 
 
@@ -457,12 +464,25 @@ protected class GeneTree {
 	}
 
 	@Override
-	public void permuteAnnotation(Annotation a) {
-		throw new UnsupportedOperationException("TODO");
+	public Annotation permuteAnnotation(Annotation a) {
+		//1 sample a random gene which is large enough.
+		Annotation context = null;
+		int attempts = 0;
+		boolean found = false;
+		while(!found && attempts < PERMUTATION_ATTEMPTS) {
+			context = geneTree.getRandomAnnotation();
+			attempts++;
+			found = context.length() > a.length();
+		}
+		
+		if (!found) throw new PermutationNotFoundException(PERMUTATION_ATTEMPTS);
+		
+		return permuteAnnotation(a, context);
 	}
 	
 	@Override
-	public void permuteAnnotation(Annotation a, Annotation bounds) {
+	public Annotation permuteAnnotation(Annotation a, Annotation bounds) {
+		Annotation newAnnotation = null;
 		int permutationSpace=bounds.length();
 		
 		//Annotation newAnnotation = a.copy();
@@ -473,7 +493,7 @@ protected class GeneTree {
 			//int newStart = bounds.getReferenceCoordinateAtPosition(generator.nextInt(permutationSpace));
 			int newStart = generator.nextInt(permutationSpace);
 			//logger.info(newStart);
-			Annotation newAnnotation=this.moveAnnotation(a, newStart, bounds);
+			newAnnotation=this.moveAnnotation(a, newStart, bounds);
 			//newAnnotation.moveToCoordinate(newStart);
 			if (newAnnotation!=null) {
 				found = true;
@@ -484,6 +504,8 @@ protected class GeneTree {
 			}
 		}
 		if (!found) throw new PermutationNotFoundException(PERMUTATION_ATTEMPTS);
+		
+		return newAnnotation;
 	}
 
 	@Override
@@ -536,7 +558,7 @@ protected class GeneTree {
 		if(relativeEnd<gene.length()){
 			GeneWindow w=g.trimGene(relativeStart, relativeEnd);
 			//logger.info(read.length()+" "+g.length());
-			logger.info(w.toUCSC()+" "+read.toUCSC());
+			logger.trace(w.toUCSC()+" "+read.toUCSC());
 			return w;
 		}
 		return null;
