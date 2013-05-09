@@ -1201,7 +1201,7 @@ public class PipelineAutomator {
 		if(configP.basicOptions.getWigWriterJar() != null && configP.basicOptions.getBedFileForWig() != null) {
 			logger.info("");
 			logger.info("Making wig files of position counts normalized to transcript average coverage.");
-			writeWigPositionCountNormalizedToTranscriptAverage(currentBamFiles, currentBamDir, configP.basicOptions.getBedFileForWig());
+			writeWigPositionCountNormalizedToTranscriptAverage(currentBamFiles, currentBamDir, configP.basicOptions.getBedFileForWig(), configP.basicOptions.getGenomeFasta());
 			logger.info("");
 			logger.info("Done writing wig files.\n");
 		}
@@ -1792,13 +1792,30 @@ public class PipelineAutomator {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	private void writeWigPositionCountNormalizedToTranscriptAverage(Map<String, String> bamFiles, String bamDir, String geneBedFile) throws IOException, InterruptedException {
+	private void writeWigPositionCountNormalizedToTranscriptAverage(Map<String, String> bamFiles, String bamDir, String geneBedFile, String refFasta) throws IOException, InterruptedException {
+		String wigToBigWig = configP.basicOptions.getWigToBigWigExecutable();
 		Map<String, Collection<Gene>> genes = BEDFileParser.loadDataByChr(new File(geneBedFile));
 		Collection<String> chrNames = genes.keySet();
 		Map<String, Map<String, String>> wigFiles = new TreeMap<String, Map<String, String>>();
+		Map<String, String> fullWigFiles = new TreeMap<String, String>();
+		Map<String, String> fullBigwigFiles = new TreeMap<String, String>();
 		ArrayList<String> wigJobIDs = new ArrayList<String>();
 		String wigWriter = configP.basicOptions.getWigWriterJar();
 		for(String sample : sampleNames) {
+			String wigFile = bamDir + "/" + sample + ".wig";
+			String bigwigFile = bamDir + "/" + sample + ".bw";
+			fullWigFiles.put(sample, wigFile);
+			fullBigwigFiles.put(sample, bigwigFile);
+			File bw = new File(fullBigwigFiles.get(sample));
+			if(bw.exists()) {
+				logger.warn("Bigwig file " + bw + " already exists. Not remaking wig or bigwig.");
+				continue;
+			}
+			File wf = new File(fullWigFiles.get(sample));
+			if(wf.exists()) {
+				logger.warn("Wig file " + wf + " already exists. Not remaking file.");
+				continue;
+			}
 			String bamFile = bamFiles.get(sample);
 			Map<String, String> wigFilesByChr = new TreeMap<String, String>();
 			for(String chr : chrNames) {
@@ -1822,8 +1839,62 @@ public class PipelineAutomator {
 			}
 			wigFiles.put(sample, wigFilesByChr);
 		}
+		logger.info("");
 		logger.info("Waiting for wig writer jobs to finish...");
 		PipelineUtils.waitForAllJobs(wigJobIDs, Runtime.getRuntime());
+		logger.info("");
+		logger.info("Combining chromosome wig files...");
+		for(String sample : wigFiles.keySet()) {
+			logger.info(sample);
+			String wigFile = fullWigFiles.get(sample);
+			FileWriter w = new FileWriter(wigFile);
+			for(String chrFile : wigFiles.get(sample).values()) {
+				FileReader r = new FileReader(chrFile);
+				BufferedReader b = new BufferedReader(r);
+				while(b.ready()) {
+					w.write(b.readLine() + "\n");
+				}
+				r.close();
+				b.close();
+			}
+			w.close();
+		}
+		logger.info("Done combining chromosome wig files. Delete individual chromosome files to save storage.");
+		logger.info("");
+		logger.info("Making bigwig files...");
+		String chrSizeFile = writeChrSizeFile(refFasta);
+		ArrayList<String> bigwigJobIDs = new ArrayList<String>();
+		for(String sample : fullBigwigFiles.keySet()) {
+			String wig = fullWigFiles.get(sample);
+			String bigwig = fullBigwigFiles.get(sample);
+			String cmmd = wigToBigWig + " " + wig + " " + chrSizeFile + " " + bigwig;
+			logger.info("");
+			logger.info("Making bigwig file for wig file " + wig + ".");
+			logger.info("Running UCSC command " + cmmd);
+			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+			bigwigJobIDs.add(jobID);
+			logger.info("LSF job ID is " + jobID + ".");
+			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
+		}
+		logger.info("Waiting for wigToBigWig jobs to finish...");
+		PipelineUtils.waitForAllJobs(bigwigJobIDs, Runtime.getRuntime());
+
+	}
+	
+	private static String writeChrSizeFile(String refFasta) throws IOException {
+		String sizeFileName = refFasta + ".sizes";
+		File chrSizeFile = new File(sizeFileName);
+		if(!chrSizeFile.exists()) {
+			FileWriter w = new FileWriter(sizeFileName);
+			logger.info("Writing chromosome sizes to file " + sizeFileName);
+			FastaSequenceIO fsio = new FastaSequenceIO(refFasta);
+			Collection<Sequence> seqs = fsio.loadAll();
+			for(Sequence seq : seqs) {
+				w.write(seq.getId() + "\t" + seq.getLength() + "\n");
+			}
+			w.close();
+		}
+		return sizeFileName;
 	}
 	
 	/**
@@ -1844,28 +1915,15 @@ public class PipelineAutomator {
 		String wigToBigWig = configP.basicOptions.getWigToBigWigExecutable();
 		ArrayList<String> bigwigJobIDs = new ArrayList<String>();
 		
-		// Chromosome size file to pass to UCSC program wigToBigWig
-		String chrSizesForWigToBigWig = refFasta + ".sizes";
-		
 		// Chromosome size file to pass to wig writer if using genomic space
 		// Null if using transcriptome space
+		String chrSizesForWigToBigWig = writeChrSizeFile(refFasta);
 		String chrSizesForWigWriter = null;
 		if(geneBedFile == null) {
 			chrSizesForWigWriter = chrSizesForWigToBigWig;
 		}
-		File chrSizeFile = new File(chrSizesForWigToBigWig);
 		
-		// Write chromosome size file
-		if(!chrSizeFile.exists()) {
-			FileWriter w = new FileWriter(chrSizesForWigToBigWig);
-			logger.info("Writing chromosome sizes to file " + chrSizesForWigToBigWig);
-			FastaSequenceIO fsio = new FastaSequenceIO(refFasta);
-			Collection<Sequence> seqs = fsio.loadAll();
-			for(Sequence seq : seqs) {
-				w.write(seq.getId() + "\t" + seq.getLength() + "\n");
-			}
-			w.close();
-		}
+		
 		
 		
 		for(String sampleName : sampleNames) {
