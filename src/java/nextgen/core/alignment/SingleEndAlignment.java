@@ -389,4 +389,9 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 		return this.hasIndel;
 	}
 
+	@Override
+	public int[] getIntervalBetweenReads() {
+		return null;
+	}
+
 }
