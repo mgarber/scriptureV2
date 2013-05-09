@@ -1132,6 +1132,23 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return count;
 	}
 
+	/**
+	 * Get number of replicates of each read overlapping the region
+	 * @param region The region
+	 * @param fullyContained Count fully contained reads only
+	 * @return For each unique read position, the number of replicates
+	 */
+	public Map<Alignment, Integer> getOverlappingReadReplicateCounts(Annotation region, boolean fullyContained) {
+		CloseableIterator<AlignmentCount> iter=getOverlappingReadCounts(region, fullyContained);
+		Map<Alignment, Integer> rtrn = new TreeMap<Alignment, Integer>();
+		while(iter.hasNext()) {
+			AlignmentCount a = iter.next();
+			Alignment align = a.getRead();
+			int count = a.getNumReads();
+			rtrn.put(align, Integer.valueOf(count));
+		}
+		return rtrn;
+	}
 
 	public CloseableIterator<Alignment> getOverlappingReads(Annotation region, boolean fullyContained) {
 		CloseableIterator<AlignmentCount> iter=getOverlappingReadCounts(region, fullyContained);
