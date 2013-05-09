@@ -505,7 +505,11 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return new ShuffledIterator(this.getOverlappingReads(region, true), region);
 	}
 		
-
+	private static boolean intervalContainsRegion(int[] interval, Annotation region) {
+		if(interval == null) return false;
+		return interval[0] <= region.getStart() && interval[1] >= region.getEnd();
+	}
+	
 	/**
 	 * Test whether a given record overlaps a window
 	 * @param record
@@ -756,7 +760,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			AlignmentCount alignment=iter.next();
 			if(isValid(alignment.getRead())){
 				if(this.hasWindow) {
-					boolean contained=overlapsWindow(alignment.getRead(), regionCS, fullyContained); 
+					boolean contained=overlapsWindow(alignment.getRead(), regionCS, fullyContained);
 					if(contained){return alignment;}
 				}
 				else {return alignment;}

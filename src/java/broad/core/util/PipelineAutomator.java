@@ -1196,6 +1196,18 @@ public class PipelineAutomator {
 				writeAlignmentGlobalStats(configP.basicOptions.getAlignmentGlobalStatsJar(), configP.basicOptions.getBedFileForTranscriptomeSpaceStats(), configP.basicOptions.getChrSizeFileForGenomicSpaceStats());
 			}
 		}
+		
+		// Make wig files of normalized position counts
+		if(configP.basicOptions.getWigWriterJar() != null && configP.basicOptions.getBedFileForWig() != null) {
+			logger.info("");
+			logger.info("Making wig files of position counts normalized to transcript average coverage.");
+			writeWigPositionCountNormalizedToTranscriptAverage(currentBamFiles, currentBamDir, configP.basicOptions.getBedFileForWig());
+			logger.info("");
+			logger.info("Done writing wig files.\n");
+		}
+		
+		
+		
 	}
 	
 
@@ -1773,6 +1785,48 @@ public class PipelineAutomator {
 	}
 	
 	/**
+	 * Write wig files of position count normalized by average coverage over gene
+	 * @param bamFiles Bam files by sample name
+	 * @param bamDir Bam directory
+	 * @param geneBedFile Bed file of genes to use
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	private void writeWigPositionCountNormalizedToTranscriptAverage(Map<String, String> bamFiles, String bamDir, String geneBedFile) throws IOException, InterruptedException {
+		Map<String, Collection<Gene>> genes = BEDFileParser.loadDataByChr(new File(geneBedFile));
+		Collection<String> chrNames = genes.keySet();
+		Map<String, Map<String, String>> wigFiles = new TreeMap<String, Map<String, String>>();
+		ArrayList<String> wigJobIDs = new ArrayList<String>();
+		String wigWriter = configP.basicOptions.getWigWriterJar();
+		for(String sample : sampleNames) {
+			String bamFile = bamFiles.get(sample);
+			Map<String, String> wigFilesByChr = new TreeMap<String, String>();
+			for(String chr : chrNames) {
+				String prefix = bamDir + "/" + sample + "_" + chr;
+				String file = prefix + ".wig";
+				wigFilesByChr.put(chr, file);
+				File f = new File(file);
+				if(f.exists()) {
+					logger.warn("Wig file " + file + " already exists. Not remaking file.");
+					continue;
+				}
+				logger.info("Writing wig file " + file + "...");
+				String cmmd = "java -jar -Xmx15g -Xms10g -Xmn5g " + wigWriter + " -b " + bamFile + " -g " + geneBedFile + " -n true -o " + prefix + " -chr " + chr;
+				
+				logger.info("Running command: " + cmmd);
+				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+				wigJobIDs.add(jobID);
+				logger.info("LSF job ID is " + jobID + ".");
+				// Submit job
+				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/write_wig_" + sample + "_" + chr + "_" + jobID + ".bsub", "week", 16);
+			}
+			wigFiles.put(sample, wigFilesByChr);
+		}
+		logger.info("Waiting for wig writer jobs to finish...");
+		PipelineUtils.waitForAllJobs(wigJobIDs, Runtime.getRuntime());
+	}
+	
+	/**
 	 * Write fragment end points to wig and bigwig files
 	 * @param bamFiles Bam files by sample name
 	 * @param bamDir Directory containing bam files
@@ -1832,7 +1886,7 @@ public class PipelineAutomator {
 				WigWriter read1ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, true, false, false);
 				read1ww.addReadFilter(new FirstOfPairFilter());
 				read1ww.addReadFilter(new ProperPairFilter());
-				read1ww.writeWig(wig1);
+				read1ww.writeFullWigAndBigwig(wig1);
 				logger.info("Done writing file " + wig1 + ".");
 			}
 			// Write bigwig file for read1
@@ -1862,7 +1916,7 @@ public class PipelineAutomator {
 					WigWriter read2ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, true, false, false);
 					read2ww.addReadFilter(new SecondOfPairFilter());
 					read2ww.addReadFilter(new ProperPairFilter());
-					read2ww.writeWig(wig2);
+					read2ww.writeFullWigAndBigwig(wig2);
 					logger.info("Done writing file " + wig2 + ".");
 				}
 				// Write bigwig file for read2
@@ -1949,7 +2003,7 @@ public class PipelineAutomator {
 				WigWriter ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, false, true, false);
 				ww.addReadFilter(new GenomicSpanFilter(configP.fragmentSizeOptions.getMaxGenomicSpan()));
 				ww.addReadFilter(new ProperPairFilter());
-				ww.writeWig(wig1);
+				ww.writeFullWigAndBigwig(wig1);
 				logger.info("Done writing file " + wig1 + ".");
 			}
 			// Write bigwig file for read1
