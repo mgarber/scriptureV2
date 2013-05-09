@@ -1,12 +1,9 @@
 package nextgen.core.annotation;
 
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,11 +12,9 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import net.sf.samtools.SAMRecord;
-import nextgen.core.alignment.Alignment;
+import nextgen.core.feature.GeneWindow;
 
 import org.apache.log4j.Logger;
-import org.broad.igv.sam.AlignmentBlock;
 
 import broad.core.annotation.BasicGenomicAnnotation;
 import broad.core.annotation.BasicLightweightAnnotation;
@@ -28,13 +23,8 @@ import broad.core.annotation.LightweightGenomicAnnotation;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.sequence.Sequence;
-import broad.core.util.CollapseByIntersection;
 import broad.pda.datastructures.Alignments;
 import broad.pda.rnai.ExtractSequence;
-import broad.pda.seq.segmentation.GenomeWithGaps2;
-
-import nextgen.core.feature.GeneWindow;
-import nextgen.core.feature.Window;
 
 public class Gene extends BasicAnnotation {
 	static Logger logger = Logger.getLogger(Gene.class.getName());
@@ -43,7 +33,7 @@ public class Gene extends BasicAnnotation {
 	int cdsStart; // beginning of CDS
 	int cdsEnd; // end of CDS
 	double[] exonScores;
-	protected String sequence;
+	private String sequence;
 	private String samRecord;
 	private double countScore=0; //Moran -added this as init value 
 	double bedScore; //the transcript score as it appears in a bed file
@@ -209,6 +199,11 @@ public class Gene extends BasicAnnotation {
 	public Gene(Gene gene) {
 		this(gene.getChr(), gene.getName(), gene.getOrientation(), gene.getExonSet(), gene.getCDSStart(), gene.getCDSEnd());
 				
+		initFromGene(gene);
+			
+	}
+
+	protected void initFromGene(Gene gene) {
 		if (gene.extraFields != null)
 			setExtraFields(gene.getExtraFields());
 		if (gene.scores !=null)
@@ -222,7 +217,6 @@ public class Gene extends BasicAnnotation {
 		if(gene.sequence!=null)
 			setSequence(gene.sequence);
 		this.setBedScore(gene.getBedScore());
-			
 	}
 	
 	

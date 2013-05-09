@@ -1,25 +1,17 @@
 package broad.pda.feature.genome;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
-
 import broad.core.annotation.BasicGenomicAnnotation;
-import broad.core.annotation.GFF;
 import broad.core.annotation.GenomicAnnotation;
-import broad.core.error.ParseException;
 import broad.core.sequence.SequenceRegion;
 
 /**
@@ -28,7 +20,7 @@ import broad.core.sequence.SequenceRegion;
  * @author mgarber
  *
  */
-public abstract class DirectoryInstalledGenomeAssembly {
+public  class DirectoryInstalledGenomeAssembly {
 	protected File sequenceDirectory;
 	private Chromosome X;
 	private Chromosome Y;
@@ -41,7 +33,7 @@ public abstract class DirectoryInstalledGenomeAssembly {
 	private File annotationDirectory;
 
 	
-	public abstract String getLetterCode();
+
 	
 	public DirectoryInstalledGenomeAssembly(File sequenceDirectory) throws Exception {
 		if(!sequenceDirectory.isDirectory()) {
@@ -263,7 +255,7 @@ public abstract class DirectoryInstalledGenomeAssembly {
 		Iterator<Chromosome> it = getAutosomes().iterator();
 		while(it.hasNext()) {
 			chosen = it.next();
-			currentSize += chosen.getSize();
+			currentSize += chosen.length();
 			if(currentSize/(double)genomeSize >= draw) {
 				break;
 			}
@@ -277,18 +269,11 @@ public abstract class DirectoryInstalledGenomeAssembly {
 		return c.drawRandomRegion(size);
 	}
 	
-	public void insertRegionAtRandom(SequenceRegion region) {
-		Chromosome c = drawChromosome();
-		c.insertAtRandomPoint(region);
-	}
-	
-	public abstract File getPreferredSequenceDir();
 	
 	public File getSequenceDir() {
-		return sequenceDirectory == null ? getPreferredSequenceDir() : sequenceDirectory;
+		return sequenceDirectory;
 	}
 	
-	public abstract String getName();
 	/**
 	 * to be overrided if repeats are in directories
 	 * @return
@@ -313,49 +298,7 @@ public abstract class DirectoryInstalledGenomeAssembly {
 				"chr"+chrSymbol + ".fa.out");
 	}
 	
-	public void loadRepeats(boolean loadStatisticsOnly) throws FileNotFoundException {
-		Chromosome c = null;
-		HashMap<String, RepeatStatistic> repeatStatMap = new HashMap<String, RepeatStatistic>();
-		HashMap<String, RepeatStatistic> repeatFamStatMap = new HashMap<String, RepeatStatistic>();
-		HashMap<String, RepeatStatistic> unpRepeatStatMap = new HashMap<String, RepeatStatistic>();
-		HashMap<String, RepeatStatistic> unpRepeatFamStatMap = new HashMap<String, RepeatStatistic>();
 
-		ArrayList<Chromosome> placedList = new ArrayList<Chromosome>(autosomes);
-		if(X != null) {
-			placedList.add(X);
-		}
-		Iterator<Chromosome> it = placedList.iterator();
-		while(it.hasNext()) {
-			c = it.next();
-			File repeatFile = getRepeatFile(c.getSymbol());
-			c.computeRepeatStatistics(repeatFile, loadStatisticsOnly);				
-			updateRepeatStatMap(repeatStatMap, c.getRepeatStats().iterator());
-			updateRepeatStatMap(repeatFamStatMap, c.getRepeatFamilyStats().iterator());
-			if(loadStatisticsOnly) {
-				c.unloadRepeats();
-			}
-		}
-		repeatStatistics = repeatStatMap.values();
-		repeatFamilyStatistics = repeatFamStatMap.values();
-		
-		it = random.iterator();
-		while(it.hasNext()) {
-			c = it.next();
-			File repeatFile = new File(repeatDirectory.getAbsolutePath() + "/"  + 
-					(areRepeatsInDeepDirHierarchy() ? c.getSymbol() + "/" : "") + 
-					"chr"+c.getSymbol() + ".fa.out");
-			if(repeatFile.exists()) {
-				c.computeRepeatStatistics(repeatFile, doRepeatListNeedsCleanup());				
-				updateRepeatStatMap(unpRepeatStatMap, c.getRepeatStats().iterator());
-				updateRepeatStatMap(unpRepeatFamStatMap, c.getRepeatFamilyStats().iterator());
-			}
-			if(loadStatisticsOnly) {
-				c.unloadRepeats();
-			}
-		}		
-		unpRepeatStatistics = unpRepeatStatMap.values();
-		unpRepeatFamilyStatistics = unpRepeatFamStatMap.values();
-	} 
 	
 	private Chromosome findChromosomeInList(List<Chromosome> chrs, String symbol) {
 		Iterator<Chromosome> it = chrs.iterator();
@@ -369,11 +312,6 @@ public abstract class DirectoryInstalledGenomeAssembly {
 		return c;
 	}
 	
-	public Collection<RepeatStatistic> getRepeatStatistics() { return repeatStatistics;}
-	public Collection<RepeatStatistic> getRepeatFamilyStatistics() { return repeatFamilyStatistics;}
-	public Collection<RepeatStatistic> getUnplacedRepeatStatistics() { return unpRepeatStatistics;}
-	public Collection<RepeatStatistic> getUnplacedRepeatFamilyStatistics() { return unpRepeatFamilyStatistics;}
-
 	public File getAnnotationDirectory() {
 		return annotationDirectory;
 	}
@@ -386,7 +324,7 @@ public abstract class DirectoryInstalledGenomeAssembly {
 		Chromosome c = null;
 		while(nonRandomChrIt.hasNext()) {
 			c = nonRandomChrIt.next();
-			double chrSizePrct = c.getSize()/(double)totalGenomicSize;
+			double chrSizePrct = c.length()/(double)totalGenomicSize;
 			int chunkSize = (int) Math.round(totalSize * chrSizePrct);
 			BasicGenomicAnnotation chunk = new BasicGenomicAnnotation("chr" + c.getSymbol() + "_chunk");
 			chunk.setChromosome(c.getSymbol());
