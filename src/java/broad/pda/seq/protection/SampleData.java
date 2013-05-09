@@ -39,6 +39,7 @@ public class SampleData {
 	protected TranscriptomeSpaceAlignmentModel data;
 	protected TranscriptomeSpaceAlignmentModel maxFragmentLengthData;
 	protected Map<Gene, ScanStatisticScore> geneScores;
+	protected Map<Gene, Double> geneAvgCoverage;
 	protected Map<Gene, Map<Annotation, ScanStatisticScore>> windowScores;
 	protected int windowSize;
 	protected int stepSize;
@@ -66,6 +67,7 @@ public class SampleData {
 	 * @throws IOException 
 	 */
 	public SampleData(String bamFile, boolean firstReadTranscriptionStrand, Map<String, Collection<Gene>> genes, int window, int step, double expressionCutoff, boolean expByScanPval) throws IOException {
+		geneAvgCoverage = new TreeMap<Gene, Double>();
 		originalBamFile = bamFile;
 		read1TranscriptionStrand = firstReadTranscriptionStrand;
 		StringParser p = new StringParser();
@@ -90,7 +92,6 @@ public class SampleData {
 		maxFragmentLengthData.addFilter(new NumHitsFilter(1));
 		maxFragmentLengthData.addFilter(new FragmentLengthFilter(maxFragmentLengthData.getCoordinateSpace(), DEFAULT_MAX_FRAGMENT_LENGTH));
 		
-		//TODO add fragment length filter?
 		processor = new ScanStatisticScore.Processor(data);
 		genesByName = new TreeMap<String, Gene>();
 		for(String chr : genesByChr.keySet()) {
@@ -105,6 +106,27 @@ public class SampleData {
 		logger.info("Instantiated sample data object. Name = " + sampleName + ", window size = " + windowSize + ", step size = " + stepSize);
 		//windowScoreFile = new CachedScoreFile(getDefaultWindowScoreFileName());
 		//gotWindowScoresFromFile = windowScoreFile.readWindowScoresFromFile();
+	}
+	
+	@Override
+	public int hashCode() {
+		return sampleName.hashCode();
+	}
+	
+	/**
+	 * Set genome wide scan P value cutoff for expression of transcript
+	 * @param expressionScanPvalCutoff P value cutoff for transcript expression against genomic background
+	 */
+	public void setExpressionScanPvalueCutoff(double expressionScanPvalCutoff) {
+		expressionCutoffValue = expressionScanPvalCutoff;
+	}
+
+	/**
+	 * Get genome wide scan P value cutoff for expression of transcript
+	 * @return P value cutoff for transcript expression against genomic background
+	 */
+	public double getExpressionScanPvalueCutoff() {
+		return expressionCutoffValue;
 	}
 	
 	/**
@@ -162,10 +184,12 @@ public class SampleData {
 	 * @return The average coverage of the gene
 	 */
 	public double getGeneAverageCoverage(Gene gene) {
-		if(geneScores.containsKey(gene)) {
-			return geneScores.get(gene).getAverageCoverage(data);
+		if(geneAvgCoverage.containsKey(gene)) {
+			return geneAvgCoverage.get(gene).doubleValue();
 		}
 		ScanStatisticScore score = new ScanStatisticScore(data, gene);
+		geneScores.put(gene, score);
+		double avgCoverage = score.getAverageCoverage(data);
 		logger.debug("GET_GENE_AVG_COVERAGE\t" + gene.getName());
 		logger.debug("GET_GENE_AVG_COVERAGE\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
 		logger.debug("GET_GENE_AVG_COVERAGE\tglobal_length=" + score.getGlobalLength());
@@ -174,8 +198,9 @@ public class SampleData {
 		logger.debug("GET_GENE_AVG_COVERAGE\twindow_size=" + score.getCoordinateSpace().getSize(gene));
 		logger.debug("GET_GENE_AVG_COVERAGE\twindow_count=" + score.getCount());
 		logger.debug("GET_GENE_AVG_COVERAGE\tpval=" + score.getScanPvalue());
-		geneScores.put(gene, score);
-		return score.getAverageCoverage(data);
+		logger.debug("GET_GENE_AVG_COVERAGE\tavg_coverage\t" + avgCoverage);
+		geneAvgCoverage.put(gene, Double.valueOf(avgCoverage));
+		return avgCoverage;
 	}
 	
 	/**
@@ -245,6 +270,7 @@ public class SampleData {
 	 * Get the default name of the window score file in the current directory
 	 * @return The file name
 	 */
+	@SuppressWarnings("unused")
 	private String getDefaultWindowScoreFileName() {
 		return getDefaultWindowScoreFileName(".");
 	}
@@ -265,6 +291,30 @@ public class SampleData {
 	private String getDefaultWindowScoreFileName(String directory) {
 		String name = "window_scores_" + sampleName + "_" + windowSize + "_" + stepSize;
 		return directory + "/" + name;
+	}
+	
+	/**
+	 * Get enrichment of a window over a gene
+	 * @param gene The gene
+	 * @param window Window contained in the gene
+	 * @return Enrichment of window over gene background
+	 */
+	public double getEnrichmentOverGene(Gene gene, Annotation window) {
+		if(!gene.contains(window)) {
+			throw new IllegalArgumentException("Gene must contain window.");
+		}
+		double geneAvgCov = getGeneAverageCoverage(gene);
+		ScanStatisticScore windowScore = scoreWindow(gene, window);
+		double windowAvgCoverage = windowScore.getAverageCoverage(data);
+		double enrichment = windowAvgCoverage / geneAvgCov;
+		logger.debug("GET_ENRICHMENT_OVER_GENE\t" + gene.getName());
+		logger.debug("GET_ENRICHMENT_OVER_GENE\t" + window.toBED());
+		logger.debug("GET_ENRICHMENT_OVER_GENE\twindow_size=" + window.getSize());
+		logger.debug("GET_ENRICHMENT_OVER_GENE\tcount=" + windowScore.getCount());
+		logger.debug("GET_ENRICHMENT_OVER_GENE\tgene_avg_coverage=" + geneAvgCov);
+		logger.debug("GET_ENRICHMENT_OVER_GENE\twindow_avg_coverage=" + windowAvgCoverage);
+		logger.debug("GET_ENRICHMENT_OVER_GENE\tenrichment=" + enrichment);
+		return enrichment;
 	}
 	
 	/**
@@ -325,7 +375,6 @@ public class SampleData {
 			logger.info(gene.getName() + " is smaller than window size. Not computing window binding site scores.");
 			windowScores.put(gene, scores);
 			return;
-			// TODO should be able to score genes that are smaller than window size
 		}		
 		WindowScoreIterator<ScanStatisticScore> iter = data.scan(gene, windowSize, windowSize - stepSize, processor);
 		double geneTotal = getGeneCount(gene);
@@ -357,6 +406,7 @@ public class SampleData {
 	 * Get the logger
 	 * @return The logger
 	 */
+	@SuppressWarnings("static-method")
 	public Logger getLogger() {
 		return logger;
 	}
