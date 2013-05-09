@@ -289,8 +289,8 @@ public class BasicAnnotation extends AbstractAnnotation {
 		this.name =  name;
 	}
 	
-	public void setScore(double score) {
-		this.score = score;
+	public void setScore(double s) {
+		score = s;
 	}
 	
 	public void addBlocks(Annotation block) {

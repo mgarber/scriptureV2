@@ -31,6 +31,40 @@ public class GeneSetIntersect {
 	private static Logger logger = Logger.getLogger(GeneSetIntersect.class.getName());
 	
 	/**
+	 * Map each gene to the collection of overlappers in another set
+	 * @param genes The genes by chromosome
+	 * @param otherGenes The other set by chromosome
+	 * @return By chromosome: map of each gene that has overlappers in the other set to its overlappers
+	 */
+	public static Map<String, Map<Gene, Collection<Gene>>> mapGenesToOverlappers(Map<String, Collection<Gene>> genes, Map<String, Collection<Gene>> otherGenes) {
+		Map<String, Map<Gene, Collection<Gene>>> rtrn = new TreeMap<String, Map<Gene, Collection<Gene>>>();
+		for(String chr : genes.keySet()) {
+			if(!otherGenes.containsKey(chr)) {
+				continue;
+			}
+			Map<Gene, Collection<Gene>> overlappers = new TreeMap<Gene, Collection<Gene>>();
+			for(Gene gene : genes.get(chr)) {
+				Collection<Gene> overlappersThisGene = new TreeSet<Gene>();
+				for(Gene other : otherGenes.get(chr)) {
+					if(other.getEnd() < gene.getStart() || other.getStart() > gene.getEnd()) {
+						continue;
+					}
+					if(gene.overlaps(other)) {
+						overlappersThisGene.add(other);
+					}
+				}
+				if(!overlappersThisGene.isEmpty()) {
+					overlappers.put(gene, overlappersThisGene);
+				}
+			}
+			if(!overlappers.isEmpty()) {
+				rtrn.put(chr, overlappers);
+			}
+		}
+		return rtrn;
+	}
+	
+	/**
 	 * Get overlap between two gene sets
 	 * @param genes First gene set by chromosome
 	 * @param intersectGenes Genes to intersect with by chromosome

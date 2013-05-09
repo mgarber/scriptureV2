@@ -571,7 +571,17 @@ public class Gene extends BasicAnnotation {
 	public Gene get3UTRGene() {
 		if(!hasCDS()){return new Gene(this);}
 		Annotation UTRRegion=get3UTR();
-		Gene rtrn=this.trimAbsolute(UTRRegion.getStart(), UTRRegion.getEnd());		
+		Gene rtrn=this.trimAbsolute(UTRRegion.getStart(), UTRRegion.getEnd());	
+		if(rtrn == null) {
+			return rtrn;
+		}
+		String geneName = "";
+		if(getName() == null) {
+			geneName += getChr() + "_" + getStart() + "_" + getEnd();
+		} else {
+			geneName += getName();
+		}
+		rtrn.setName(geneName + "_3UTR");
 		return rtrn;
 	}
 
@@ -580,6 +590,16 @@ public class Gene extends BasicAnnotation {
 		if(!hasCDS()){return new Gene(this);}
 		Annotation UTRRegion=get5UTR();
 		Gene rtrn=this.trimAbsolute(UTRRegion.getStart(), UTRRegion.getEnd());		
+		if(rtrn == null) {
+			return rtrn;
+		}
+		String geneName = "";
+		if(getName() == null) {
+			geneName += getChr() + "_" + getStart() + "_" + getEnd();
+		} else {
+			geneName += getName();
+		}
+		rtrn.setName(geneName + "_3UTR");
 		return rtrn;
 	}
 	
@@ -2256,7 +2276,7 @@ public class Gene extends BasicAnnotation {
 						assert(g.getCDSStart() == cdsStart && g.getEnd() == cdsEnd);
   						
 						g.setBedScore(bedScore);
-						
+						g.setScore(bedScore);
 						
 						if(tokens.length > 12) {
 							extraColumns = new String[tokens.length - 12];
@@ -2271,12 +2291,14 @@ public class Gene extends BasicAnnotation {
 					else{
 						Gene g=new Gene(chr, start, end, name, orientation);
 						g.setBedScore(bedScore);
+						g.setScore(bedScore);
 						return g;
 					}
 				}
 				else{
 					Gene g=new Gene(chr, start, end, name);
 					g.setBedScore(bedScore);
+					g.setScore(bedScore);
 					return g;
 				}
 			}

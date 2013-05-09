@@ -531,8 +531,7 @@ public final class CommandLineParser {
 	 */
 	private void enforceUniqueFlag(String flag) {
 		if(hasFlag(flag)) {
-			System.err.println("Flag " + flag + " has already been used."); 
-			System.exit(-1);
+			throw new IllegalStateException("Flag " + flag + " has already been used."); 
 		}
 	}
 	
@@ -542,8 +541,7 @@ public final class CommandLineParser {
 	 */
 	private void enforceUniqueDescription(String description) {
 		if(hasDescription(description)) {
-			System.err.println("Description " + description + " has already been used."); 
-			System.exit(-1);
+			throw new IllegalStateException("Description " + description + " has already been used."); 
 		}
 	}
 	

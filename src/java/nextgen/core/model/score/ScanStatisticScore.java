@@ -82,7 +82,7 @@ public class ScanStatisticScore extends CountScore {
 	
 	public double getAverageCoverage(AlignmentModel data) { 
 		int regionSize = coordSpace.getSize(annotation);
-		CloseableIterator<Alignment> readsIter = data.getOverlappingReads(getAnnotation(), false);
+		CloseableIterator<Alignment> readsIter = data.getOverlappingReads(annotation, false);
 		int basesInReads = 0;
 		while(readsIter.hasNext()) {
 			Alignment read = readsIter.next();
