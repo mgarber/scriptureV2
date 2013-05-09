@@ -418,12 +418,12 @@ public class MaskedGenomicSpace implements CoordinateSpace{
 	}
 
 	@Override
-	public void permuteAnnotation(Annotation a) {
+	public Annotation permuteAnnotation(Annotation a) {
 		throw new UnsupportedOperationException("TODO");
 	}
 	
 	@Override
-	public void permuteAnnotation(Annotation a, Annotation bounds) {
+	public Annotation permuteAnnotation(Annotation a, Annotation bounds) {
 		throw new UnsupportedOperationException("TODO");
 	}
 	

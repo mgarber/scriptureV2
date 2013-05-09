@@ -275,8 +275,8 @@ public class GenomicSpace implements CoordinateSpace{
 		return (this.getLength(chr) - maskedRegions.getBasesCovered(this.getReferenceAnnotation(chr)));
 	}
 	@Override
-	public void permuteAnnotation(Annotation a) {
-		permuteAnnotation(a, new BasicAnnotation(a.getChr(), 0, chromosomeSizes.get(a.getChr())));
+	public Annotation permuteAnnotation(Annotation a) {
+		return permuteAnnotation(a, new BasicAnnotation(a.getChr(), 0, chromosomeSizes.get(a.getChr())));
 	}
 	
 	public boolean hasChromosome(String chr) {
@@ -284,7 +284,7 @@ public class GenomicSpace implements CoordinateSpace{
 	}
 		
 	@Override
-	public void permuteAnnotation(Annotation a, Annotation bounds) {
+	public Annotation permuteAnnotation(Annotation a, Annotation bounds) {
 		MaskFilter<Annotation> filter = new MaskFilter<Annotation>();
 		
 		int permutationSpace = bounds.size() - a.getLengthOnReference();
@@ -302,6 +302,8 @@ public class GenomicSpace implements CoordinateSpace{
 			}
 		}
 		if (!found) throw new PermutationNotFoundException(PERMUTATION_ATTEMPTS);
+		
+		return newAnnotation;
 	}
 	
 
