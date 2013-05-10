@@ -428,7 +428,7 @@ public class BasicAnnotation extends AbstractAnnotation {
 
 
 	private Annotation split(int start, int end) {
-		return this.intersect(new Alignments(this.getChr(), start, end));
+		return this.intersect(new Alignments(getChr(), start, end));
 		
 		/*CompoundInterval newInterval=new CompoundInterval(blocks);
 		newInterval.setStart(start);

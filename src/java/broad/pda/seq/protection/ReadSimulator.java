@@ -110,8 +110,7 @@ public class ReadSimulator {
 					|| annotationFile.endsWith(".gtf")
 					|| annotationFile.endsWith(".GTF") ? new GTFFileParser(
 							annotationFile) : new BEDFileParser(annotationFile);
-							DirectoryInstalledGenomeAssembly org = new DirectoryInstalledGenomeAssembly(
-									genomeDir);
+							DirectoryInstalledGenomeAssembly org = new DirectoryInstalledGenomeAssembly(genomeDir);
 
 							List<Gene> annotationRefSeqs = new ArrayList<Gene>();
 
@@ -127,11 +126,8 @@ public class ReadSimulator {
 							}
 
 							if (argMap.containsKey("boundProteins")) {
-								annotationBoundProteins = generateBoundRegions(argMap
-										.getMandatory("boundProteins").split(","),
-										annotationRefSeqs);
-								writeBindings(annotationBoundProteins, prefix,
-										annotationRefSeqs);
+								annotationBoundProteins = generateBoundRegions(argMap.getMandatory("boundProteins").split(","), annotationRefSeqs);
+								writeBindings(annotationBoundProteins, prefix, annotationRefSeqs);
 							} else {
 								annotationBoundProteins = loadBoundRegions(prefix, annotations);
 							}
@@ -146,27 +142,23 @@ public class ReadSimulator {
 							String perfectMatchCigar = readLength + "M";
 							// Setting header file for transcriptome alignment
 							SAMFileHeader transcriptomeHeader = new SAMFileHeader();
-							transcriptomeHeader.addProgramRecord(new SAMProgramRecord(
-									"Scripture-simulator"));
+							transcriptomeHeader.addProgramRecord(new SAMProgramRecord("Scripture-simulator"));
 							transcriptomeHeader.addComment("Simulated reads");
 							transcriptomeHeader.setSortOrder(SortOrder.coordinate);
 							for (String annotName : annotations) {
 								logger.debug("annotation " + annotName);
 								Gene annot = annotationParser.get(annotName);
-								transcriptomeHeader.addSequence(new SAMSequenceRecord(
-										annotName, annot.getTranscriptLength()));
+								transcriptomeHeader.addSequence(new SAMSequenceRecord(annotName, annot.getTranscriptLength()));
 							}
 
 							// Setting up genome alignment header file
 							SAMFileHeader genomeHeader = new SAMFileHeader();
-							genomeHeader.addProgramRecord(new SAMProgramRecord(
-									"Scripture-simulator"));
+							genomeHeader.addProgramRecord(new SAMProgramRecord("Scripture-simulator"));
 							genomeHeader.addComment("Simulated reads");
 							genomeHeader.setSortOrder(SortOrder.coordinate);
 							List<Chromosome> chrs = org.getAllNonRandomChromosomes();
 							for (Chromosome chr : chrs) {
-								genomeHeader.addSequence(new SAMSequenceRecord(chr.toString(),
-										chr.length()));
+								genomeHeader.addSequence(new SAMSequenceRecord(chr.getName(), chr.length()));
 							}
 
 							// This is as close as the first read may get to the end of the gene
@@ -178,11 +170,8 @@ public class ReadSimulator {
 
 							File transcriptomeBamFile = new File(prefix + ".transcriptome.bam");
 							File genomeBamFile = new File(prefix + ".genome.bam");
-							SAMFileWriter transcriptomeAlignmentWriter = alnWriterFactory
-									.makeSAMOrBAMWriter(transcriptomeHeader, false,
-											transcriptomeBamFile);
-							SAMFileWriter genomeAlignmentWriter = alnWriterFactory
-									.makeSAMOrBAMWriter(genomeHeader, false, genomeBamFile);
+							SAMFileWriter transcriptomeAlignmentWriter = alnWriterFactory.makeSAMOrBAMWriter(transcriptomeHeader, false,	transcriptomeBamFile);
+							SAMFileWriter genomeAlignmentWriter = alnWriterFactory.makeSAMOrBAMWriter(genomeHeader, false, genomeBamFile);
 
 							Random r = new Random();
 							Chromosome lastChr = null;
@@ -261,54 +250,34 @@ public class ReadSimulator {
 									int pos = 0;
 									double draw = rdg.nextUniform(0, 1);
 									if (bindings.size() == 0 || draw > pctReadsFromCrosslink) { // If
-										// no
-										// crosslink
-										// OR
-										// draw
-										// from
-										// non
-										// crosslinked
-										// segments
+										// no  crosslink OR draw from non crosslinked segments
 										// while(true) {
-										pos = r.nextInt(transcriptLength
-												- firstReadDistToGeneEnd);
-										// if(distToBoundProt(pos, boundMidpoints) >
-										// insertSizeMean) {
-										// break; //TODO: streamline this, it is very
-										// inneficient
+										pos = r.nextInt(transcriptLength - firstReadDistToGeneEnd);
+										// if(distToBoundProt(pos, boundMidpoints) > insertSizeMean) {
+										// break; //TODO: streamline this, it is very inneficient
 										// }
 										// }
 									} else {
 
-										int protein = bindings.size() == 1 ? 0 : rdg.nextInt(0,
-												bindings.size() - 1);
-										boolean secondAtCrosslink = pctSecondReadAtCrosslink > rdg
-												.nextUniform(0, 1);
+										int protein = bindings.size() == 1 ? 0 : rdg.nextInt(0,	bindings.size() - 1);
+										boolean secondAtCrosslink = pctSecondReadAtCrosslink > rdg.nextUniform(0, 1);
 										if (secondAtCrosslink) {
-											pos = (int) bindings.get(protein).getMiddle()
-													+ BOUND_REGION_SIZE / 2;
+											pos = (int) bindings.get(protein).getMiddle() + BOUND_REGION_SIZE / 2;
 										} else {
 											int insertSize = 0;
 											while (insertSize <= 0) {
-												insertSize = (int) Math.round(rdg.nextGaussian(
-														insertSizeMean, insertSizeSD));
+												insertSize = (int) Math.round(rdg.nextGaussian(insertSizeMean, insertSizeSD));
 											}
-											int lower = Math.max(0, (int) bindings.get(protein)
-													.getMiddle() - insertSize);
-											int upper = Math.min(transcriptLength - readLength,
-													(int) bindings.get(protein).getMiddle()
-													+ insertSize);
-											logger.debug("insertSize " + insertSize + " lower "
-													+ lower + " upper " + upper);
+											int lower = Math.max(0, (int) bindings.get(protein).getMiddle() - insertSize);
+											int upper = Math.min(transcriptLength - readLength,	(int) bindings.get(protein).getMiddle()	+ insertSize);
+											logger.debug("insertSize " + insertSize + " lower "	+ lower + " upper " + upper);
 											pos = rdg.nextInt(lower, upper);
 										}
 
 									}
 									SAMRecord transcriptAln = new SAMRecord(transcriptomeHeader);
-									transcriptAln.setReadName("SCR_" + j + "_"
-											+ System.nanoTime());
-									transcriptAln.setReadString(annot.getSequence().substring(
-											pos, pos + readLength));
+									transcriptAln.setReadName("SCR_" + j + "_"	+ System.nanoTime());
+									transcriptAln.setReadString(annot.getSequence().substring(pos, pos + readLength));
 									transcriptAln.setBaseQualities(quality);
 									transcriptAln.setAlignmentStart(pos + 1);
 									transcriptAln.setReferenceName(annotations[i]);
@@ -363,8 +332,8 @@ public class ReadSimulator {
 										transcriptomeAlignmentWriter
 										.addAlignment(transcriptAlnPair);
 
-										SAMRecord genomeAln = mapSamRecord(transcriptAln, annot);
-										SAMRecord genomeAlnPair = mapSamRecord(transcriptAlnPair, annot);
+										SAMRecord genomeAln = mapSamRecord(transcriptAln, annot, genomeHeader);
+										SAMRecord genomeAlnPair = mapSamRecord(transcriptAlnPair, annot, genomeHeader);
 										genomeAln.setMateReferenceName(genomeAln
 												.getReferenceName());
 										genomeAlnPair.setMateReferenceName(genomeAln
@@ -388,9 +357,8 @@ public class ReadSimulator {
 										transcriptAln.setFirstOfPairFlag(false);
 										transcriptAln.setMateUnmappedFlag(true);
 										transcriptAln.setProperPairFlag(false);
-										SAMRecord genomeAln = mapSamRecord(transcriptAln, annot);
-										transcriptomeAlignmentWriter
-										.addAlignment(transcriptAln);
+										SAMRecord genomeAln = mapSamRecord(transcriptAln, annot, genomeHeader);
+										transcriptomeAlignmentWriter.addAlignment(transcriptAln);
 										genomeAlignmentWriter.addAlignment(genomeAln);
 									}
 
@@ -421,9 +389,8 @@ public class ReadSimulator {
 		}
 	}
 
-	public static net.sf.samtools.SAMRecord mapSamRecord(net.sf.samtools.SAMRecord sam, Gene gene) {
+	public static net.sf.samtools.SAMRecord mapSamRecord(net.sf.samtools.SAMRecord sam, Gene gene, SAMFileHeader header) {
 		net.sf.samtools.SAMRecord  mappedSam = null;
-		SAMFileHeader header = sam.getHeader();
 
 		Alignment alignment = new SingleEndAlignment(sam);
 
@@ -439,18 +406,18 @@ public class ReadSimulator {
 			boolean flip=false;
 			int relativeStart=samGene.getStart();
 			int relativeEnd=samGene.getEnd();
-			if(gene.isNegativeStrand()){
+			/*if(gene.isNegativeStrand()){
 				relativeStart=(gene.getSize())-(gene.getEnd());
 				relativeEnd=(gene.getSize())-(gene.getStart()); //+1
 				flip=true;
-			}
+			}*/
 			Gene geneSAM = gene.copy();
 
-			geneSAM.trim(relativeStart, relativeEnd); //put back end-1
+			geneSAM.transcriptToGenomicPosition(relativeStart, relativeEnd); //put back end-1
 
 			geneSAM.setName(samGene.getName());
 			geneSAM.setSequence(samGene.getSequence());
-			int seqIdx = header.getSequenceIndex(samGene.getChr());
+			int seqIdx = header.getSequenceIndex(gene.getChr());
 
 			logger.debug("gene chr: " + geneSAM.getChr() + " header idx: " + seqIdx);
 			try {
@@ -487,20 +454,18 @@ public class ReadSimulator {
 
 	private static void writeBindings(HashMap<String, List<LightweightGenomicAnnotation>> annotationBoundProteins,
 			String prefix, List<Gene> annotationRefSeqs) throws IOException {
-		BufferedWriter tBw = new BufferedWriter(new FileWriter(prefix
-				+ ".transcriptome.bound.bed"));
-		BufferedWriter gBw = new BufferedWriter(new FileWriter(prefix
-				+ ".genome.bound.bed"));
+		BufferedWriter tBw = new BufferedWriter(new FileWriter(prefix + ".transcriptome.bound.bed"));
+		BufferedWriter gBw = new BufferedWriter(new FileWriter(prefix + ".genome.bound.bed"));
 
 		for (Gene annotation : annotationRefSeqs) {
-			List<LightweightGenomicAnnotation> bindings = annotationBoundProteins
-					.get(annotation.getName());
+			List<LightweightGenomicAnnotation> bindings = annotationBoundProteins.get(annotation.getName());
 			for (LightweightGenomicAnnotation binding : bindings) {
 				binding.setOrientation(".");
 				tBw.write(new BED(binding).toShortString());
 				tBw.newLine();
-				Gene toGenome = annotation.copy();
-				toGenome.trim(binding.getStart(), binding.getEnd());
+				
+				Gene toGenome = annotation.transcriptToGenomicPosition(binding.getStart(), binding.getEnd());
+				//toGenome.trim(binding.getStart(), binding.getEnd());
 				toGenome.setName(binding.getName());
 				gBw.write(toGenome.toBED());
 				gBw.newLine();
@@ -511,8 +476,7 @@ public class ReadSimulator {
 		gBw.close();
 	}
 
-	private static HashMap<String, List<LightweightGenomicAnnotation>> loadBoundRegions(
-			String prefix, String[] annotations) throws IOException,
+	private static HashMap<String, List<LightweightGenomicAnnotation>> loadBoundRegions(String prefix, String[] annotations) throws IOException,
 			ParseException {
 		HashMap<String, List<LightweightGenomicAnnotation>> rtrn = new HashMap<String, List<LightweightGenomicAnnotation>>();
 		File boundRegionFile = new File(prefix + ".transcriptome.bound.bed");
@@ -584,20 +548,16 @@ public class ReadSimulator {
 				annotations.size());
 
 		for (int i = 0; i < annotationsBindEventsStr.length; i++) {
-			int numberOfBindings = Integer
-					.parseInt(annotationsBindEventsStr[i]);
+			int numberOfBindings = Integer.parseInt(annotationsBindEventsStr[i]);
 			Gene annotation = annotations.get(i);
 			int transcriptLength = annotation.getTranscriptLength();
 
 			// Now we need to place the proteins on the transcript, we will drop
 			// proteins if the do not fit.
 			int maxProteinsFitting = (int) Math
-					.floor((transcriptLength - 2 * MIN_DIST_BETWEEN_BOUND)
-							/ (double) MIN_DIST_BETWEEN_BOUND) - 1;
+					.floor((transcriptLength - 2 * MIN_DIST_BETWEEN_BOUND)	/ (double) MIN_DIST_BETWEEN_BOUND) - 1;
 			if (numberOfBindings > maxProteinsFitting) {
-				logger.info("Requested number of proteins for transcript "
-						+ annotation.getName()
-						+ " is too large, re-setting to " + maxProteinsFitting);
+				logger.info("Requested number of proteins for transcript "	+ annotation.getName() + " is too large, re-setting to " + maxProteinsFitting);
 				numberOfBindings = maxProteinsFitting;
 			}
 
@@ -607,16 +567,12 @@ public class ReadSimulator {
 			for (int k = 0; k < numberOfBindings; k++) {
 				int iterations = 0;
 				while (true) {
-					int pos = r.nextInt(transcriptLength
-							- MIN_DIST_BETWEEN_BOUND);
-					if (pos > MIN_DIST_BETWEEN_BOUND
-							&& didNotLandNearExistingProt(bindings, pos)) {
+					int pos = r.nextInt(transcriptLength - MIN_DIST_BETWEEN_BOUND);
+					if (pos > MIN_DIST_BETWEEN_BOUND && didNotLandNearExistingProt(bindings, pos)) {
 						int start = pos - BOUND_REGION_SIZE / 2;
 						int end = pos + BOUND_REGION_SIZE / 2;
-						LightweightGenomicAnnotation binding = new BasicLightweightAnnotation(
-								annotation.getName(), start, end);
-						binding.setName(annotation.getName() + "__" + k
-								+ "__binding");
+						LightweightGenomicAnnotation binding = new BasicLightweightAnnotation(annotation.getName(), start, end);
+						binding.setName(annotation.getName() + "__" + k	+ "__binding");
 						bindings.add(binding);
 						break;
 					}

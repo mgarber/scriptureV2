@@ -66,7 +66,11 @@ public  class DirectoryInstalledGenomeAssembly {
 				continue;
 			}
 			//System.out.println("Processing " + dir + " looking for agp " + seqDirPath + "/" + seqSubDirs[i] + "/chr" + seqSubDirs[i] + ".agp");
-			Chromosome chr = new Chromosome(seqDirPath + "/" + seqSubDirs[i] + "/chr" + seqSubDirs[i] + ".agp");
+			String agpFile = seqDirPath + "/" + seqSubDirs[i] + "/chr" + seqSubDirs[i] + ".agp";
+			String [] fileComponents = agpFile.split(File.separator);
+			String name = fileComponents[fileComponents.length - 1].replace(".agp", "");
+			
+			Chromosome chr = new Chromosome(name, seqDirPath + "/" + seqSubDirs[i] + "/chr" + seqSubDirs[i] + ".agp");
 			if(chr.getSymbol().endsWith("_random") ) {
 				random.add((chr));
 			} else if("X".equals(seqSubDirs[i])) {
