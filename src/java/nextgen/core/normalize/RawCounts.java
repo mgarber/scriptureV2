@@ -33,7 +33,7 @@ public class RawCounts implements NormalizedCount {
 	 */
 	@Override
 	public double getNormalizedCount(Annotation region) {
-		return getRawCount(region);
+		return data.getCount(region);
 	}
 
 	/* (non-Javadoc)
@@ -41,22 +41,6 @@ public class RawCounts implements NormalizedCount {
 	 */
 	@Override
 	public Map<Integer, Double> getNormalizedCountsByPosition(Annotation region) {
-		return getRawCountsByPosition(region);
-	}
-
-	/* (non-Javadoc)
-	 * @see nextgen.core.normalize.NormalizedCount#getRawCount(nextgen.core.annotation.Annotation)
-	 */
-	@Override
-	public double getRawCount(Annotation region) {
-		return data.getCount(region);
-	}
-
-	/* (non-Javadoc)
-	 * @see nextgen.core.normalize.NormalizedCount#getRawCountsByPosition(nextgen.core.annotation.Annotation)
-	 */
-	@Override
-	public Map<Integer, Double> getRawCountsByPosition(Annotation region) {
 		TreeMap<Integer,Double> rtrn = new TreeMap<Integer,Double>();
 		WindowProcessor<CountScore> processor = new CountScore.Processor(data);
 		WindowScoreIterator<CountScore> scoreIter = data.scan(region, 1, 0, processor);
@@ -67,5 +51,6 @@ public class RawCounts implements NormalizedCount {
 		}
 		return rtrn;
 	}
+
 
 }

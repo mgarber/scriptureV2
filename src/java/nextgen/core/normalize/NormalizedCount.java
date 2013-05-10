@@ -27,22 +27,5 @@ public interface NormalizedCount {
 	 */
 	public Map<Integer, Double> getNormalizedCountsByPosition(Annotation region);
 
-	/**
-	 * Get raw count for the region
-	 * @param region The region
-	 * @return The raw count over the region
-	 */
-	public double getRawCount(Annotation region);
-	
-	/**
-	 * Get position level raw counts across a region
-	 * @param region The region
-	 * @return Position level raw count by position
-	 */
-	public Map<Integer, Double> getRawCountsByPosition(Annotation region);
-	
-	
-	
-	
 }
 
