@@ -88,17 +88,13 @@ public class GeneWithIsoforms extends Gene{
 	
 	public GeneWithIsoforms(Gene gene) {
 		//super (gene.toBED(),false);
-		super(gene);
+		super(gene.getChr(), gene.getName(), gene.getOrientation(), gene.getExonSet(), gene.getCDSStart(), gene.getCDSEnd());
+		
 		this.numOfIsoforms=1; 
 		isoforms=new ArrayList <Gene>();
-		setSequence(gene.getSequence());
-		setCountScore(gene.getCountScore());
-		setBedScore(gene.getBedScore());
-		
-		//if (gene.getExons()!=null) {this.setExons(gene.getExons(), gene.getExonsScores());}
-		
-		this.numOfIsoforms=1; this.isoforms=new ArrayList <Gene>();
+		initFromGene(gene);
 	}
+	
 	public boolean IsExactOverlappingIsoform(Gene gene){
 		return gene.getChr().equalsIgnoreCase(this.getChr()) && gene.getStart()== this.getStart() && gene.getEnd()==this.getEnd();
 	}
@@ -203,7 +199,7 @@ public class GeneWithIsoforms extends Gene{
 	//This function assigns the same bed score to all isoforms
 	public void setBedScore(double scr){
 		//throw new UnsupportedOperationException("Broken");
-		this.setBedScore(scr);
+		super.setBedScore(scr);
 		if (! this.isoforms.isEmpty()){
 			for (Gene iso:this.isoforms)
 				iso.setBedScore(scr);
@@ -260,9 +256,9 @@ public class GeneWithIsoforms extends Gene{
 		//RefSeqGene g=new RefSeqGene(toBED(),false);
 		Gene g=new Gene(this);
 		//throw new UnsupportedOperationException("Broken");
-		g.setSequence(this.sequence);
-		g.setBedScore(this.getBedScore());
-		g.setCountScore(this.getCountScore());
+		g.setSequence(getSequence());
+		g.setBedScore(getBedScore());
+		g.setCountScore(getCountScore());
 		return  g;
 	}
 	

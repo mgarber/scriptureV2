@@ -4,6 +4,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -19,6 +20,8 @@ import net.sf.samtools.SAMFileWriterFactory;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMSequenceDictionary;
 import net.sf.samtools.SAMSequenceRecord;
+import nextgen.core.annotation.Annotation.Strand;
+import nextgen.core.annotation.Gene;
 
 import org.apache.log4j.Logger;
 import org.broad.igv.Globals;
@@ -369,4 +372,62 @@ public class AlignmentUtils {
 		
 		return sizes;
 	}
+	
+	public static Gene SAMFormatFullBED(SAMRecord sam){
+		String chr=sam.getReferenceName();
+    	int start=sam.getAlignmentStart()-1; //TODO: Do we need the -1, it is a left over from the method above.
+    	Strand strand=sam.getReadNegativeStrandFlag() ? Strand.NEGATIVE : Strand.POSITIVE;
+    	String cigar= sam.getCigarString(); //parse cigar and put the breaks into their component parts, in parallel keep track of the splices
+    	Collection<Alignments> aligns=parseCigar(cigar, chr, start);
+		Gene gene=new Gene( aligns);
+		gene.setName(sam.getReadName());
+		gene.setOrientation(strand);
+		if(sam.getReadString() != null) {gene.setSequence(sam.getReadString()); }
+    	return gene;
+	}
+	
+	private static Collection<Alignments> parseCigar(String cigar, String chr, int start){
+		ArrayList[] array=parseCigar(cigar); //type , numbers
+		
+		ArrayList<Character> type=array[0];
+		ArrayList<Integer> numbers=array[1];
+		
+		Collection<Alignments> rtrn=new ArrayList();
+		
+		int currentStart=start;
+		boolean shouldReturn=true;
+		
+		for(int i=0; i<type.size(); i++){
+			char flag=type.get(i);
+			Integer num=numbers.get(i);
+			//end is currentStart+num-1;
+			if(flag==('M')){Alignments align=new Alignments(chr, currentStart, currentStart+num); currentStart=currentStart+num; rtrn.add(align);}
+			else if(flag==('N')){currentStart=currentStart+num;} //currentStart=currentStart+num-1;
+			else{shouldReturn=false;}
+		}
+		if(!shouldReturn){return new ArrayList();}
+		return rtrn;
+	}
+	
+	private static ArrayList[] parseCigar(String cigar){
+		char[] chars=cigar.toCharArray();
+		
+		ArrayList type=new ArrayList();
+		ArrayList numbers=new ArrayList();
+		
+		ArrayList ordered=new ArrayList();
+		String str="";
+		for(int i=0; i<chars.length; i++){
+			if(chars[i]=='M' || chars[i]=='N' || chars[i]=='I' || chars[i]=='D' || chars[i]=='S' || chars[i]=='H' || chars[i]=='P'){numbers.add(new Integer(str)); type.add(chars[i]); str=str+chars[i]; ordered.add(str);  str="";}
+			else{str=str+chars[i];}
+		}
+		
+		//System.err.println(ordered);
+		
+		ArrayList[] rtrn={type, numbers};
+		return rtrn;
+	}
+	
+	
+
 }

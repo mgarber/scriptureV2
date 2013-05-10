@@ -29,7 +29,7 @@ public class SequenceRegion extends Sequence implements Annotation{
 		annotation.setSequence(this);
 	}
 	
-	public SequenceRegion(String containingSequenceId, LightweightGenomicAnnotation annotation) {
+	public SequenceRegion(String containingSequenceId, Annotation annotation) {
 		super(annotation.getName());
 		this.containingSequenceId = containingSequenceId;
 		this.annotation = new BasicGenomicAnnotation(annotation);
