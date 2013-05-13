@@ -1,23 +1,30 @@
 package nextgen.core.utils;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.apache.log4j.Logger;
 
-import net.sf.samtools.util.CloseableIterator;
-import nextgen.core.alignment.Alignment;
+import broad.pda.annotation.BEDFileParser;
+
+
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Annotation.Strand;
-import nextgen.core.annotation.BasicAnnotation;
-import nextgen.core.annotation.CompoundInterval;
 import nextgen.core.annotation.Gene;
-import nextgen.core.annotation.SingleInterval;
-import nextgen.core.feature.GeneWindow;
-import nextgen.core.feature.Window;
 
+/**
+ * @author prussell
+ *
+ */
 public class AnnotationUtils {
 
+	private static Logger logger = Logger.getLogger(AnnotationUtils.class.getName());
+	
 	/**
 	 * Merge annotations that overlap in the same orientation as each other, and leave singleton windows the same
 	 * @param windows Annotation set
@@ -111,5 +118,79 @@ public class AnnotationUtils {
 		return rtrn;
 
 	}
+	
+	
+	/**
+	 * Map each child annotation to its largest parent defined as annotations overlapping and containing child
+	 * @param children Child annotations by chromosome
+	 * @param parents Parent annotations by chromosome
+	 * @return Map of child to largest parent. Does not include children with no parents.
+	 */
+	public static Map<Annotation, Annotation> mapChildToLargestParent(Map<String, Collection<Annotation>> children, Map<String, Collection<Annotation>> parents) {
+		Map<Annotation, Annotation> rtrn = new TreeMap<Annotation, Annotation>();
+		Map<Annotation, Collection<Annotation>> allRelationships = mapChildToParents(children, parents);
+		for(Annotation child : allRelationships.keySet()) {
+			int largestParentSize = 0;
+			for(Annotation parent : allRelationships.get(child)) {
+				if(parent.getSize() > largestParentSize) {
+					rtrn.put(child, parent);
+					largestParentSize = parent.getSize();
+				}
+			}
+		}
+		return rtrn;
+	}
+	
+	
+	/**
+	 * Map each child annotation to its set of parents defined as annotations overlapping and containing child
+	 * @param children Child annotations by chromosome
+	 * @param parents Parent annotations by chromosome
+	 * @return Map of child to set of parents. Does not include children with no parents.
+	 */
+	public static Map<Annotation, Collection<Annotation>> mapChildToParents(Map<String, Collection<Annotation>> children, Map<String, Collection<Annotation>> parents) {
+		logger.info("Mapping child annotations to parent annotations...");
+		Map<Annotation, Collection<Annotation>> rtrn = new TreeMap<Annotation, Collection<Annotation>>();
+		for(String chr : children.keySet()) {
+			logger.info(chr);
+			if(!parents.containsKey(chr)) {
+				continue;
+			}
+			for(Annotation child : children.get(chr)) {
+				Collection<Annotation> parentSet = new TreeSet<Annotation>();
+				for(Annotation other : parents.get(chr)) {
+					if(other.getEnd() < child.getStart() || other.getStart() > child.getEnd()) {
+						continue;
+					}
+					if(other.contains(child) && other.overlaps(child)) {
+						parentSet.add(other);
+					}
+				}
+				if(!parentSet.isEmpty()) {
+					rtrn.put(child, parentSet);
+				}
+			}
+		}
+		return rtrn;
+	}
+	
+	/**
+	 * Load annotations in the bed file as annotation objects
+	 * @param bedFile Bed file
+	 * @return Map of chromosome to collection of annotations
+	 * @throws IOException
+	 */
+	public static Map<String, Collection<Annotation>> loadAnnotations(String bedFile) throws IOException {
+		Map<String, Collection<Annotation>> rtrn = new TreeMap<String, Collection<Annotation>>();
+		Map<String, Collection<Gene>> genes = BEDFileParser.loadDataByChr(new File(bedFile));
+		for(String chr : genes.keySet()) {
+			Collection<Annotation> a = new TreeSet<Annotation>();
+			a.addAll(genes.get(chr));
+			rtrn.put(chr, a);
+		}
+		return rtrn;
+	}
+
+
 
 }

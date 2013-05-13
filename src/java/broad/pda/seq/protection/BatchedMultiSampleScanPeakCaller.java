@@ -81,11 +81,12 @@ public class BatchedMultiSampleScanPeakCaller extends MultiSampleScanPeakCaller 
 		MultiSampleScanPeakCaller m = createFromCommandArgs(superArgs);
 		BatchedMultiSampleScanPeakCaller b = new BatchedMultiSampleScanPeakCaller(m, sampleName, chrName);
 		String outDir = commandLineOutDir(superArgs);
+		b.initializeFilterRejectWriters(chrName, outDir + "/" + FILTER_REJECT_DIR);
 		if(commandLineHasDebugFlag(superArgs)) {
 			b.setLoggerLevel(Level.DEBUG);
 		}
 		b.writePeaks(outDir);
-		
+		b.closeFilterRejectWriters();
 	}
 
 }

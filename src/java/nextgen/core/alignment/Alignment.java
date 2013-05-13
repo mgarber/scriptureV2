@@ -198,4 +198,13 @@ public interface Alignment extends Annotation {
 	public boolean hasIndel();
 	
 	public void setFragmentStrand(TranscriptionRead strand);
+	
+	/**
+	 * Get the coordinates of the first and last position of the interval between the reads
+	 * @return The coordinates of the space between the reads or null if single read or reads overlap
+	 */
+	public int[] getIntervalBetweenReads();
+	
+	
+	
 }

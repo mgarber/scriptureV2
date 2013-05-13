@@ -28,7 +28,6 @@ import broad.core.parser.StringParser;
 import broad.core.util.PipelineUtils;
 import broad.pda.annotation.BEDFileParser;
 
-import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.analysis.PeakCaller;
 import nextgen.core.annotation.Annotation;
@@ -36,6 +35,7 @@ import nextgen.core.annotation.Gene;
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
+import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.utils.AlignmentUtils;
@@ -67,6 +67,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private static int DEFAULT_BATCH_MEM_REQUEST = 8;
 	private static double DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF = 0.01;
 	private static boolean DEFAULT_FIRST_READ_TRANSCRIPTION_STRAND = false;
+	private static double DEFAULT_PEAK_MAX_PCT_DUPLICATES = 0.5;
+	private static boolean DEFAULT_FILTER_BY_STRAND = true;
+	private boolean filterByStrand;
 	protected int numControls;
 	protected int numSignals;
 	protected int numSamples;
@@ -78,7 +81,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private boolean permutationScoring;
 	private String sampleFile;
 	private String bedAnnotationFile;
-	private String sizeFile;
+	protected String sizeFile;
+	private boolean firstReadTranscriptionStrand;
+	private double peakCutoffMaxReplicatePct;
 	private static int RGB_RED_WITH_GENE = 106;
 	private static int RGB_GREEN_WITH_GENE = 7;
 	private static int RGB_BLUE_WITH_GENE = 205;
@@ -88,10 +93,27 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private static int RGB_RED_UNKNOWN = 62;
 	private static int RGB_GREEN_UNKNOWN = 63;
 	private static int RGB_BLUE_UNKNOWN = 73;
-	
+	private Map<SampleData, FileWriter> expressionFilterRejectWriters;
+	private static String REJECT_FILE_PREFIX_EXPRESSION_FILTER = "expression_filter";
+	private Map<SampleData, FileWriter> windowCountRejectFileWriters;
+	private static String REJECT_FILE_PREFIX_WINDOW_COUNT = "window_count_filter";
+	private Map<SampleData, FileWriter> windowScanPvalAllFragmentsRejectFileWriters;
+	private static String REJECT_FILE_PREFIX_WINDOW_SCAN_PVAL_ALL_FRAGMENTS = "window_scan_pval_all_fragments_filter";
+	private Map<SampleData, FileWriter> windowScanPvalWithFragmentLengthFilterRejectFileWriters;
+	private static String REJECT_FILE_PREFIX_WINDOW_SCAN_PVAL_WITH_FRAGMENT_LENGTH = "fragment_length_filter";
+	private Map<SampleData, FileWriter> peakScanPvalRejectWriters;
+	private static String REJECT_FILE_PREFIX_PEAK_SCAN_PVAL = "peak_scan_pval_filter";
+	private Map<SampleData, FileWriter> duplicateRejectWriters;
+	private static String REJECT_FILE_PREFIX_DUPLICATE = "duplication_filter";
+	private Map<SampleData, FileWriter> strandRejectWriters;
+	private static String REJECT_FILE_PREFIX_STRAND = "strand_filter";
+	private ArrayList<FileWriter> allRejectFileWriters;
+	protected static String FILTER_REJECT_DIR = "filter_rejects";
+
 	
 	protected MultiSampleScanPeakCaller(MultiSampleScanPeakCaller other) throws IOException {
-		this(other.sampleFile, other.bedAnnotationFile, other.sizeFile, other.windowSize, other.stepSize, other.peakWindowScanPvalCutoff, other.peakWindowCountCutoff, other.trimQuantile);
+		this(other.sampleFile, other.bedAnnotationFile, other.sizeFile, other.windowSize, other.stepSize);
+		copyParameters(other);
 	}
 	
 	/**
@@ -102,7 +124,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 */
 	@SuppressWarnings("unused")
 	private MultiSampleScanPeakCaller(String sampleListFile, String bedFile, String chrSizeFile) throws IOException {
-		this(sampleListFile, bedFile, chrSizeFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE, DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF, DEFAULT_PEAK_WINDOW_COUNT_CUTOFF, DEFAULT_TRIM_PEAK_QUANTILE);
+		this(sampleListFile, bedFile, chrSizeFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE);
 	}
 	
 	
@@ -113,12 +135,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @param chrSizeFile Chromosome size file
 	 * @param window Window size
 	 * @param step Step size
-	 * @param peakScanPvalCutoff P value cutoff for scan statistic
-	 * @param peakCountCutoff Minimum number of reads to keep a window for a possible peak
-	 * @param trimPeakQuantile Quantile for trim max contiguous algorithm
 	 * @throws IOException
 	 */
-	public MultiSampleScanPeakCaller(String sampleListFile, String bedFile, String chrSizeFile, int window, int step, double peakScanPvalCutoff, double peakCountCutoff, double trimPeakQuantile) throws IOException {
+	public MultiSampleScanPeakCaller(String sampleListFile, String bedFile, String chrSizeFile, int window, int step) throws IOException {
 		
 		sampleFile = sampleListFile;
 		bedAnnotationFile = bedFile;
@@ -128,15 +147,127 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		genes = BEDFileParser.loadDataByChr(new File(bedFile));
 		coord = new TranscriptomeSpace(genes);
 		random = new Random();
-		peakWindowScanPvalCutoff = peakScanPvalCutoff;
-		peakWindowCountCutoff = peakCountCutoff;
-		trimQuantile = trimPeakQuantile;
 		
 		if(sampleFile != null) {
-			initializeSamplesFromSampleListFile(chrSizeFile);
+			initializeSamplesFromSampleListFile();
 			initializeScoreMaps();
 		}
 		
+		trimQuantile = DEFAULT_TRIM_PEAK_QUANTILE;
+		peakWindowCountCutoff = DEFAULT_PEAK_WINDOW_COUNT_CUTOFF;
+		peakWindowScanPvalCutoff = DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF;
+		firstReadTranscriptionStrand = DEFAULT_FIRST_READ_TRANSCRIPTION_STRAND;
+		peakCutoffMaxReplicatePct = DEFAULT_PEAK_MAX_PCT_DUPLICATES;
+		filterByStrand = DEFAULT_FILTER_BY_STRAND;
+		
+		
+	}
+	
+	protected void initializeFilterRejectWriters(String commonSuffix, String outDir) throws IOException {
+		File dir = new File(outDir);
+		@SuppressWarnings("unused")
+		boolean madeDir = dir.mkdir();
+		logger.info("");
+		logger.info("Writing regions rejected by filters to files in directory " + outDir);
+		expressionFilterRejectWriters = new HashMap<SampleData, FileWriter>();
+		windowCountRejectFileWriters = new HashMap<SampleData, FileWriter>();
+		windowScanPvalAllFragmentsRejectFileWriters = new HashMap<SampleData, FileWriter>();
+		windowScanPvalWithFragmentLengthFilterRejectFileWriters = new HashMap<SampleData, FileWriter>();
+		peakScanPvalRejectWriters = new HashMap<SampleData, FileWriter>();
+		duplicateRejectWriters = new HashMap<SampleData, FileWriter>();
+		strandRejectWriters = new HashMap<SampleData, FileWriter>();
+		allRejectFileWriters = new ArrayList<FileWriter>();
+
+		for(SampleData sample : allSamples) {
+			expressionFilterRejectWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_EXPRESSION_FILTER + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+			windowCountRejectFileWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_WINDOW_COUNT + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+			windowScanPvalAllFragmentsRejectFileWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_WINDOW_SCAN_PVAL_ALL_FRAGMENTS + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+			windowScanPvalWithFragmentLengthFilterRejectFileWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_WINDOW_SCAN_PVAL_WITH_FRAGMENT_LENGTH + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+			peakScanPvalRejectWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_PEAK_SCAN_PVAL + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+			duplicateRejectWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_DUPLICATE + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+			strandRejectWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_STRAND + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+			allRejectFileWriters.add(expressionFilterRejectWriters.get(sample));
+			allRejectFileWriters.add(windowCountRejectFileWriters.get(sample));
+			allRejectFileWriters.add(windowScanPvalAllFragmentsRejectFileWriters.get(sample));
+			allRejectFileWriters.add(windowScanPvalWithFragmentLengthFilterRejectFileWriters.get(sample));
+			allRejectFileWriters.add(peakScanPvalRejectWriters.get(sample));
+			allRejectFileWriters.add(duplicateRejectWriters.get(sample));
+			allRejectFileWriters.add(strandRejectWriters.get(sample));
+		}
+	}
+	
+	protected void closeFilterRejectWriters() throws IOException {
+		for(FileWriter w : allRejectFileWriters) {
+			w.close();
+		}
+	}
+	
+	private void copyParameters(MultiSampleScanPeakCaller other) {
+		setPeakTrimQuantile(other.trimQuantile);
+		setPeakWindowCountCutoff(other.peakWindowCountCutoff);
+		setPeakWindowScanPvalCutoff(other.peakWindowScanPvalCutoff);
+		setPeakCutoffMostCommonReplicate(other.peakCutoffMaxReplicatePct);
+		setFirstReadTranscriptionStrand(other.firstReadTranscriptionStrand);
+		setExpressionScanPvalueCutoff(other.expressionData.getExpressionScanPvalueCutoff());
+		setFilterByStrand(other.filterByStrand);
+	}
+	
+	/**
+	 * Set whether to use strand information in reads to filter peaks
+	 * @param useStrandFilter Whether to apply strand filter
+	 */
+	public void setFilterByStrand(boolean useStrandFilter) {
+		filterByStrand = useStrandFilter;
+	}
+	
+	/**
+	 * Set cutoff for the percentage of fragments overlapping a peak that come from the most common replicate fragment
+	 * @param maxPct The max percentage
+	 */
+	public void setPeakCutoffMostCommonReplicate(double maxPct) {
+		peakCutoffMaxReplicatePct = maxPct;
+	}
+	
+	/**
+	 * Set quantile for trim max contiguous algorithm for peak calling
+	 * @param trimPeakQuantile The quantile of data values
+	 */
+	public void setPeakTrimQuantile(double trimPeakQuantile) {
+		trimQuantile = trimPeakQuantile;
+	}
+	
+	/**
+	 * Set minimum number of fragments overlapping a window to be considered for possible peak
+	 * @param peakCountCutoff Minimum fragment count for each window
+	 */
+	public void setPeakWindowCountCutoff(double peakCountCutoff) {
+		peakWindowCountCutoff = peakCountCutoff;
+	}
+	
+	/**
+	 * Set scan P value cutoff for window within transcript to be considered for possible peak
+	 * @param peakScanPvalCutoff Max scan P value
+	 */
+	public void setPeakWindowScanPvalCutoff(double peakScanPvalCutoff) {
+		peakWindowScanPvalCutoff = peakScanPvalCutoff;
+	}
+	
+	/**
+	 * Set whether read 1 is transcription strand
+	 * @param firstReadIsTranscriptionStrand True if read 1 is transcription strand
+	 */
+	public void setFirstReadTranscriptionStrand(boolean firstReadIsTranscriptionStrand) {
+		firstReadTranscriptionStrand = firstReadIsTranscriptionStrand;
+	}
+	
+	/**
+	 * Set genome wide scan P value cutoff for expression of transcript
+	 * @param expressionScanPvalCutoff P value cutoff for transcript expression against genomic background
+	 */
+	public void setExpressionScanPvalueCutoff(double expressionScanPvalCutoff) {
+		for(SampleData sample : allSamples) {
+			sample.setExpressionScanPvalueCutoff(expressionScanPvalCutoff);
+		}
 	}
 	
 	/**
@@ -148,7 +279,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @throws IOException
 	 */
 	public MultiSampleScanPeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile) throws IOException {
-		this(expressionBamFile, signalBamFile, bedFile, chrSizeFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF, DEFAULT_PEAK_WINDOW_COUNT_CUTOFF, DEFAULT_TRIM_PEAK_QUANTILE, DEFAULT_FIRST_READ_TRANSCRIPTION_STRAND);
+		this(expressionBamFile, signalBamFile, bedFile, chrSizeFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE);
 	}
 	
 	/**
@@ -159,35 +290,30 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @param chrSizeFile Chromosome size file
 	 * @param window Window size
 	 * @param step Step size
-	 * @param expressionScanPvalCutoff P value cutoff for scan statistic to measure expression in expression sample
-	 * @param peakScanPvalCutoff P value cutoff for scan statistic to measure peak height within transcript
-	 * @param peakCountCutoff Minimum number of reads to keep a window for a possible peak
-	 * @param trimPeakQuantile Quantile for trim max contiguous algorithm
-	 * @param firstReadTranscriptionStrand Whether read 1 is with direction of transcription
 	 * @throws IOException
 	 */
-	public MultiSampleScanPeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile, int window, int step, double expressionScanPvalCutoff, double peakScanPvalCutoff, double peakCountCutoff, double trimPeakQuantile, boolean firstReadTranscriptionStrand) throws IOException {
-		this(null, bedFile, chrSizeFile, window, step, peakScanPvalCutoff, peakCountCutoff, trimPeakQuantile);
-		initializeWithSingleSample(expressionBamFile, signalBamFile, expressionScanPvalCutoff, chrSizeFile, firstReadTranscriptionStrand);
+	public MultiSampleScanPeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile, int window, int step) throws IOException {
+		this(null, bedFile, chrSizeFile, window, step);
+		initializeWithSingleSample(expressionBamFile, signalBamFile, chrSizeFile);
 		initializeScoreMaps();
 	}
 	
-	private void initializeWithSingleSample(String expressionBamFile, String signalBamFile, double expressionScanPvalCutoff, String chrSizeFile, boolean firstReadTranscriptionStrand) throws IOException {
+	private void initializeWithSingleSample(String expressionBamFile, String signalBamFile, String chrSizeFile) throws IOException {
 		controlSamples = new ArrayList<SampleData>();
 		numControls = controlSamples.size();
 		signalSamples = new ArrayList<SampleData>();
-		SampleData signalSample = new SampleData(signalBamFile, firstReadTranscriptionStrand, genes, windowSize, stepSize, expressionScanPvalCutoff, true);
+		SampleData signalSample = new SampleData(signalBamFile, firstReadTranscriptionStrand, genes, windowSize, stepSize, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, true);
 		signalSamples.add(signalSample);
 		numSignals = signalSamples.size();
-		expressionData = new GenomeSpaceSampleData(expressionBamFile, chrSizeFile, genes, windowSize, stepSize, expressionScanPvalCutoff);
+		expressionData = new GenomeSpaceSampleData(expressionBamFile, chrSizeFile, genes, windowSize, stepSize, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF);
 		allSamples = new ArrayList<SampleData>();
 		allSamples.addAll(controlSamples);
 		allSamples.addAll(signalSamples);
 		numSamples = allSamples.size();
 	}
 	
-	private void initializeSamplesFromSampleListFile(String chrSizeFile) throws IOException {
-		SampleFileParser p = new SampleFileParser(sampleFile, chrSizeFile);
+	private void initializeSamplesFromSampleListFile() throws IOException {
+		SampleFileParser p = new SampleFileParser(sampleFile);
 		controlSamples = p.getControlDatasets();
 		numControls = controlSamples.size();
 		signalSamples = p.getSignalDatasets();
@@ -255,6 +381,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	
 	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, String chrListFile, int memRequestGb) throws IOException, InterruptedException {
 		
+		logger.info("");
 		logger.info("\nBatching out peak calling by sample and chromosome...\n");
 		
 		int xmx = (int)Math.floor(0.9 * memRequestGb);
@@ -314,6 +441,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 
 		boolean allJobsReservedHeapSpace = false;
 		while(!allJobsReservedHeapSpace) {
+			logger.info("");
 			logger.info("Waiting for all jobs to start...");
 			PipelineUtils.waitForAllJobsToStart(jobIDs, Runtime.getRuntime());
 			logger.info("All jobs have started.");
@@ -345,6 +473,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			}
 		}
 		
+		logger.info("");
 		logger.info("Waiting for jobs to finish...");
 		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
 		
@@ -377,6 +506,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @throws IOException
 	 */
 	private void writeSingleSampleScanPeaksAllSamples(String outDir) throws IOException {
+		logger.info("");
 		logger.info("Writing single sample scan peaks for each sample...");
 		File o = new File(outDir);
 		@SuppressWarnings("unused")
@@ -470,7 +600,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		if(singleSampleScanPeaks.get(sample).containsKey(gene)) {
 			return singleSampleScanPeaks.get(sample).get(gene);
 		}
-		identifySingleSampleScanPeaks(sample, gene);
+		identifySingleSampleScanPeaks(sample, gene, expressionFilterRejectWriters.get(sample));
 		return singleSampleScanPeaks.get(sample).get(gene);
 	}
 	
@@ -480,28 +610,98 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @param gene The gene
 	 * @throws IOException
 	 */
-	private void identifySingleSampleScanPeaks(SampleData sample, Gene gene) throws IOException {
+	private void identifySingleSampleScanPeaks(SampleData sample, Gene gene, FileWriter rejectFileWriterExpression) throws IOException {
 		
 		TreeSet<Annotation> finalPeaks = new TreeSet<Annotation>();
-		
 		TranscriptomeSpaceAlignmentModel data = sample.getData();
 		
 		// If gene is not expressed, skip
 		if(!isExpressed(gene)) {
 			logger.info("Gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ") not expressed in expression dataset.");
 			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
+			rejectFileWriterExpression.write(gene.toBED() + "\n");
 			return;
 		}
 				
 		logger.info("Finding scan peaks for sample " + sample.getSampleName() + " and gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ")");
 		
 		// Get fixed size windows with sufficient count and significant scan statistic
-		TreeSet<Annotation> scanSignificantWindows = new TreeSet<Annotation>();
+		TreeSet<Annotation> scanSignificantWindows = findScanSignificantWindows(sample, gene, windowCountRejectFileWriters.get(sample), windowScanPvalAllFragmentsRejectFileWriters.get(sample), windowScanPvalWithFragmentLengthFilterRejectFileWriters.get(sample));
+		
+		// If no significant windows return
+		if(scanSignificantWindows.isEmpty()) {
+			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
+			return;
+		}
+		
+		// Merge overlapping windows
+		Collection<Annotation> mergedWindows = mergePeaks(scanSignificantWindows);
+		
+		// Trim each window
+		TreeSet<Annotation> mergedTree = new TreeSet<Annotation>();
+		mergedTree.addAll(mergedWindows);
+		TreeSet<Annotation> trimmedMergedWindows = trimWindows(mergedTree, data);
+		
+		// Filter by scan statistic again
+		TreeSet<Annotation> scanSigWindows = filterByScanStatistic(trimmedMergedWindows, sample, gene, peakScanPvalRejectWriters.get(sample));
+		
+		// Filter on strand information
+		TreeSet<Annotation> correctStrandWindows = new TreeSet<Annotation>();
+		if(filterByStrand) {
+			correctStrandWindows.addAll(filterByStrandInformation(scanSigWindows, sample, gene, strandRejectWriters.get(sample)));
+		} else {
+			correctStrandWindows.addAll(scanSigWindows);
+		}
+		
+		// Filter on percent duplicates
+		TreeSet<Annotation> dupsOk = filterByDuplicates(correctStrandWindows, sample, peakCutoffMaxReplicatePct, duplicateRejectWriters.get(sample));
+		
+		// Final peaks
+		finalPeaks.addAll(dupsOk);
+		
+		double geneAvgCoverage = sample.getGeneAverageCoverage(gene);
+		double geneCount = sample.getGeneCount(gene);
+		int geneSize = coord.getSize(gene);
+		
+		// Add finishing touches to peaks
+		for(Annotation window : finalPeaks) {
+			
+			// Name peaks
+			window.setName(gene.getName() + ":" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
+			
+			// Set peak score to enrichment
+			double enrichment = sample.getEnrichmentOverGene(gene, window);
+			double windowCount = sample.scoreWindow(gene, window).getCount();
+			double windowAvgCoverage = sample.scoreWindow(gene, window).getAverageCoverage(data);
+			
+			logger.debug("FINAL_PEAK\t" + gene.getName());
+			logger.debug("FINAL_PEAK\t" + window.toBED());
+			logger.debug("FINAL_PEAK\tname=" + window.getName());
+			logger.debug("FINAL_PEAK\twindow_count=" + windowCount);
+			logger.debug("FINAL_PEAK\twindow_size=" + coord.getSize(window));
+			logger.debug("FINAL_PEAK\twindow_avg_coverage=" + windowAvgCoverage);
+			logger.debug("FINAL_PEAK\tgene_count=" + geneCount);
+			logger.debug("FINAL_PEAK\tgene_size=" + geneSize);
+			logger.debug("FINAL_PEAK\tgene_avg_coverage=" + geneAvgCoverage);
+			logger.debug("FINAL_PEAK\tenrichment_over_transcript=" + enrichment);
+			logger.debug("FINAL_PEAK\tscore=" + window.getScore());
+			logger.debug("FINAL_PEAK\torientation=" + window.getOrientation().toString());
+			
+			window.setScore(enrichment);
+
+		}
+		
+		singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
+	}
+	
+	private TreeSet<Annotation> findScanSignificantWindows(SampleData sample, Gene gene, FileWriter windowCountRejectFileWriter, FileWriter rejectFileWriterAllFragments, FileWriter rejectFileWriterFragmentLengthFilter) throws IOException {
+		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
 		Map<Annotation, ScanStatisticScore> windowScores = sample.getWindowScores(gene);
 		for(Annotation window : windowScores.keySet()) {
 			ScanStatisticScore score = windowScores.get(window);
 			double count = score.getCount();
 			if(count < peakWindowCountCutoff) {
+				windowCountRejectFileWriter.write(window.toBED() + "\n");
 				continue;
 			}
 			double pval = score.getScanPvalue();
@@ -523,7 +723,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_size=" + fragmentLengthFilterScore.getCoordinateSpace().getSize(window));
 					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_count=" + fragmentLengthFilterScore.getCount());
 					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tpval=" + fragmentLengthFilterScore.getScanPvalue());				
-					scanSignificantWindows.add(window);
+					rtrn.add(window);
 				} else {
 					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_length=" + fragmentLengthFilterScore.getGlobalLength());
 					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_count=" + fragmentLengthFilterScore.getTotal());
@@ -531,34 +731,29 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_size=" + fragmentLengthFilterScore.getCoordinateSpace().getSize(window));
 					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_count=" + fragmentLengthFilterScore.getCount());
 					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tpval=" + fragmentLengthFilterScore.getScanPvalue());				
+					rejectFileWriterFragmentLengthFilter.write(window.toBED() + "\n");
 				}
+			} else {
+				rejectFileWriterAllFragments.write(window.toBED() + "\n");
 			}
 		}
-		
-		// If no significant windows return
-		if(scanSignificantWindows.isEmpty()) {
-			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
-			return;
-		}
-		
-		// Merge overlapping windows
-		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(scanSignificantWindows);
-		for(Annotation window : mergedWindows) {
-			logger.debug("MERGED_WINDOW\t" + window.toBED());
-		}
-		
-		
-		// Trim each window
-		TreeSet<Annotation> trimmedMergedWindows = new TreeSet<Annotation>();
-		for(Annotation window : mergedWindows) {
+		return rtrn;
+	}
+	
+	private TreeSet<Annotation> trimWindows(TreeSet<Annotation> untrimmed, TranscriptomeSpaceAlignmentModel data) throws IOException {
+		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
+		for(Annotation window : untrimmed) {
 			List<Double> coverageData = data.getPositionCountList(new Gene(window));
 			Annotation trimmed = SampleData.trimMaxContiguous(window, coverageData, trimQuantile);
-			trimmedMergedWindows.add(trimmed);
+			rtrn.add(trimmed);
 			logger.debug("MERGED_TRIMMED_WINDOW\t" + window.toBED());
 		}
-		
-		// Filter by scan statistic again
-		for(Annotation window : trimmedMergedWindows) {
+		return rtrn;
+	}
+	
+	private TreeSet<Annotation> filterByScanStatistic(TreeSet<Annotation> preFilter, SampleData sample, Gene gene, FileWriter rejectFileWriter) throws IOException {
+		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
+		for(Annotation window : preFilter) {
 			ScanStatisticScore score = sample.scoreWindow(gene, window);
 			double p = score.getScanPvalue();
 			if(p < peakWindowScanPvalCutoff) {
@@ -570,47 +765,62 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_size=" + score.getCoordinateSpace().getSize(window));
 				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_count=" + score.getCount());
 				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tpval=" + score.getScanPvalue());
-				finalPeaks.add(window);
+				rtrn.add(window);
+			} else {
+				rejectFileWriter.write(window.toBED() + "\n");
 			}
 		}
-		
-		double geneAvgCoverage = sample.getGeneAverageCoverage(gene);
-		double geneCount = sample.getGeneCount(gene);
-		int geneSize = coord.getSize(gene);
-		
-		// Add finishing touches to peaks
-		for(Annotation window : finalPeaks) {
-			
-			// Name peaks
-			window.setName(gene.getName() + ":" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
-			
-			// Set peak score to enrichment
-			ScanStatisticScore windowScore = sample.scoreWindow(gene, window);
-			double windowAvgCoverage = windowScore.getAverageCoverage(data);
-			double enrichment = windowAvgCoverage / geneAvgCoverage;
-			window.setScore(enrichment);
-			double windowCount = windowScore.getCount();
-			int windowSize1 = coord.getSize(window);
-			
-			// Assign orientation to peaks
-			window.setOrientation(AlignmentUtils.assignOrientationToWindow(sample.getOriginalBamFile(), window, sample.firstReadTranscriptionStrand(), 0.9));
-			
-			logger.debug("FINAL_PEAK\t" + gene.getName());
-			logger.debug("FINAL_PEAK\t" + window.toBED());
-			logger.debug("FINAL_PEAK\tname=" + window.getName());
-			logger.debug("FINAL_PEAK\twindow_count=" + windowCount);
-			logger.debug("FINAL_PEAK\twindow_size=" + windowSize1);
-			logger.debug("FINAL_PEAK\twindow_avg_coverage=" + windowAvgCoverage);
-			logger.debug("FINAL_PEAK\tgene_count=" + geneCount);
-			logger.debug("FINAL_PEAK\tgene_size=" + geneSize);
-			logger.debug("FINAL_PEAK\tgene_avg_coverage=" + geneAvgCoverage);
-			logger.debug("FINAL_PEAK\tenrichment_over_transcript=" + enrichment);
-			logger.debug("FINAL_PEAK\tscore=" + window.getScore());
-			logger.debug("FINAL_PEAK\torientation=" + window.getOrientation().toString());
-			
+		return rtrn;
+	}
+	
+	private static TreeSet<Annotation> filterByDuplicates(TreeSet<Annotation> preFilter, SampleData sample, double maxPctMostCommonRead, FileWriter rejectFileWriter) throws IOException {
+		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
+		AlignmentModel data = sample.getData();
+		for(Annotation window : preFilter) {
+			Map<Alignment, Integer> replicateCounts = data.getOverlappingReadReplicateCounts(window, false);
+			int total = 0;
+			int largestReplicate = 0;
+			String mostCommon = "";
+			for(Alignment read : replicateCounts.keySet()) {
+				int count = replicateCounts.get(read).intValue();
+				total += count;
+				if(count > largestReplicate) {
+					largestReplicate = count;
+					mostCommon = read.getChr() + ":" + read.getStart() + "-" + read.getEnd();
+				}
+			}
+			double mostCommonPct = (double) largestReplicate / (double) total;
+			if(mostCommonPct > maxPctMostCommonRead) {
+				logger.debug("TOO_MANY_DUPLICATE_READS\t" + mostCommon + "\t" + mostCommonPct + " duplicates");
+				rejectFileWriter.write(window.toBED() + "\n");
+				continue;
+			}
+			logger.debug("NUMBER_OF_DUPLICATE_READS_OK\t" + mostCommon + "\t" +  mostCommonPct + " duplicates");
+			rtrn.add(window);
 		}
-		
-		singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
+		return rtrn;
+	}
+	
+	private static TreeSet<Annotation> filterByStrandInformation(TreeSet<Annotation> preFilter, SampleData sample, Gene gene, FileWriter rejectFileWriter) throws IOException {
+		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
+		for(Annotation window : preFilter) {
+			Strand orientation = AlignmentUtils.assignOrientationToWindow(sample.getOriginalBamFile(), window, sample.firstReadTranscriptionStrand(), 0.9);
+			window.setOrientation(orientation);
+			if(orientation.equals(gene.getOrientation())) {
+				logger.debug("STRAND_OK\t" + gene.toBED());
+				logger.debug("STRAND_OK\t" + window.toBED());
+				rtrn.add(window);
+			} else if(orientation.equals(Strand.UNKNOWN)) {
+				logger.debug("STRAND_UNKNOWN_SKIPPING\t" + gene.toBED());
+				logger.debug("STRAND_UNKNOWN_SKIPPING\t" + window.toBED());				
+				rejectFileWriter.write(window.toBED() + "\n");
+			} else {
+				logger.debug("WRONG_STRAND_SKIPPING\t" + gene.toBED());
+				logger.debug("WRONG_STRAND_SKIPPING\t" + window.toBED());				
+				rejectFileWriter.write(window.toBED() + "\n");
+			}
+		}
+		return rtrn;
 	}
 	
 	private void computeSingleSampleWindowEnrichmentsOverGenes() {
@@ -812,7 +1022,13 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 */
 	@Override
 	public Collection<Annotation> mergePeaks(Collection<Annotation> peaks) {
-		throw new UnsupportedOperationException("TODO");
+		TreeSet<Annotation> peakTree = new TreeSet<Annotation>();
+		peakTree.addAll(peaks);
+		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(peakTree);
+		for(Annotation window : mergedWindows) {
+			logger.debug("MERGED_WINDOW\t" + window.toBED());
+		}
+		return mergedWindows;
 	}
 	
 	/* (non-Javadoc)
@@ -955,6 +1171,10 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		p.addDoubleArg("-q", "Quantile for peak trimming by trim max contiguous algorithm", false, DEFAULT_TRIM_PEAK_QUANTILE);
 		p.addStringArg("-c", "Chromosome size file", true);
 		p.addBooleanArg("-d", "Debug logging", false, false);
+		p.addDoubleArg("-ep", "Scan P value cutoff for gene expression", false, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF);
+		p.addBooleanArg("-ft", "First read is transcription strand", false, DEFAULT_FIRST_READ_TRANSCRIPTION_STRAND);
+		p.addDoubleArg("-r", "Cutoff for percentage of reads in peak coming from the most common replicate fragment", false, DEFAULT_PEAK_MAX_PCT_DUPLICATES);
+		p.addBooleanArg("-sf", "Apply strand filter using read strand info", false, DEFAULT_FILTER_BY_STRAND);
 		p.parse(commandArgs);
 		return p;
 	}
@@ -969,8 +1189,23 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		double trimQuantile = p.getDoubleArg("-q");
 		String chrSizeFile = p.getStringArg("-c");
 		double windowCountCutoff = p.getDoubleArg("-cp");
+		double expressionScanPvalCutoff = p.getDoubleArg("-ep");
+		boolean firstReadIsTranscriptionStrand = p.getBooleanArg("-ft");
+		double maxPctMostCommonReplicatePerPeak = p.getDoubleArg("-r");
+		boolean useStrandFilter = p.getBooleanArg("-sf");
 		
-		return new MultiSampleScanPeakCaller(sampleListFile, bedFile, chrSizeFile, windowSize, stepSize, scanPvalCutoff, windowCountCutoff, trimQuantile);
+		
+		MultiSampleScanPeakCaller m = new MultiSampleScanPeakCaller(sampleListFile, bedFile, chrSizeFile, windowSize, stepSize);
+		m.setExpressionScanPvalueCutoff(expressionScanPvalCutoff);
+		m.setFirstReadTranscriptionStrand(firstReadIsTranscriptionStrand);
+		m.setPeakCutoffMostCommonReplicate(maxPctMostCommonReplicatePerPeak);
+		m.setPeakTrimQuantile(trimQuantile);
+		m.setPeakWindowCountCutoff(windowCountCutoff);
+		m.setPeakWindowScanPvalCutoff(scanPvalCutoff);
+		m.setFilterByStrand(useStrandFilter);
+		
+		return m;
+		 
 	}
 	
 	private static String commandLineBatchChrList(String[] commandArgs) {
@@ -1023,8 +1258,11 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		if(commandLineHasBatchFlag(args)) {
 			m.batchWriteSingleSampleScanPeaksAllSamples(args, commandLineBatchChrList(args), commandLineBatchMemRequest(args));
 		} else {
+			m.initializeFilterRejectWriters("all_chr", FILTER_REJECT_DIR);
 			m.writeSingleSampleScanPeaksAllSamples(commandLineOutDir(args));
+			m.closeFilterRejectWriters();
 		}
+		
 		
 		logger.info("");
 		logger.info("All done.");
@@ -1049,14 +1287,12 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		private GenomeSpaceSampleData expressionSampleData;
 		private ArrayList<SampleData> controlData;
 		private ArrayList<SampleData> signalData;
-		private String chrSizes;
 
 		
-		public SampleFileParser(String sampleFileName, String chrSizeFile) throws IOException {
+		public SampleFileParser(String sampleFileName) throws IOException {
 			controlData = new ArrayList<SampleData>();
 			signalData = new ArrayList<SampleData>();
 			expressionSampleData = null;
-			chrSizes = chrSizeFile;
 			parseFile(sampleFileName);
 		}
 		
@@ -1128,12 +1364,21 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				String bamFile = s.asString(1);
 
 				if(label.equals(EXPRESSION_LABEL)) {
-					if(s.getFieldCount() > 2) crashWithHelpMessage();
+					if(s.getFieldCount() != 3) crashWithHelpMessage();
 					if(foundExpressionData) {
 						crashWithHelpMessage();
 					}
+					@SuppressWarnings("unused")
+					boolean firstReadIsTranscriptionStrand = false;
+					if(s.asString(2).equals(FIRST_READ_TRANSCRIPTION_STRAND_LABEL)) {
+						firstReadIsTranscriptionStrand = true;
+					} else {
+						if(!s.asString(2).equals(SECOND_READ_TRANSCRIPTION_STRAND_LABEL)) {
+							crashWithHelpMessage();
+						}
+					}
 					logger.info("Creating sample data object for gene expression from bam file " + bamFile);
-					GenomeSpaceSampleData sample = new GenomeSpaceSampleData(bamFile, chrSizes, genes, windowSize, stepSize, cutoff);
+					GenomeSpaceSampleData sample = new GenomeSpaceSampleData(bamFile, sizeFile, genes, windowSize, stepSize, cutoff);
 					expressionSampleData = sample;
 					foundExpressionData = true;
 					continue;
@@ -1142,15 +1387,15 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				if(label.equals(CONTROL_LABEL)) {
 					if(s.getFieldCount() != 3) crashWithHelpMessage();
 					logger.info("Creating sample data object for bam file " + bamFile);
-					boolean firstReadTranscriptionStrand = false;
+					boolean firstReadIsTranscriptionStrand = false;
 					if(s.asString(2).equals(FIRST_READ_TRANSCRIPTION_STRAND_LABEL)) {
-						firstReadTranscriptionStrand = true;
+						firstReadIsTranscriptionStrand = true;
 					} else {
 						if(!s.asString(2).equals(SECOND_READ_TRANSCRIPTION_STRAND_LABEL)) {
 							crashWithHelpMessage();
 						}
 					}
-					SampleData sample = new SampleData(bamFile, firstReadTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval);
+					SampleData sample = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval);
 					controlData.add(sample);
 					continue;
 				}
@@ -1158,15 +1403,15 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				if(label.equals(SIGNAL_LABEL)) {
 					if(s.getFieldCount() != 3) crashWithHelpMessage();
 					logger.info("Creating sample data object for bam file " + bamFile);
-					boolean firstReadTranscriptionStrand = false;
+					boolean firstReadIsTranscriptionStrand = false;
 					if(s.asString(2).equals(FIRST_READ_TRANSCRIPTION_STRAND_LABEL)) {
-						firstReadTranscriptionStrand = true;
+						firstReadIsTranscriptionStrand = true;
 					} else {
 						if(!s.asString(2).equals(SECOND_READ_TRANSCRIPTION_STRAND_LABEL)) {
 							crashWithHelpMessage();
 						}
 					}
-					SampleData sample = new SampleData(bamFile, firstReadTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval);
+					SampleData sample = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval);
 					signalData.add(sample);
 					continue;
 				}
@@ -1199,7 +1444,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			logger.error(EXPRESSION_AVG_COVERAGE_CUTOFF_LABEL + "\t<avg_depth_cutoff>");
 			logger.error("");
 			logger.error("Exactly one line must be of the form:");
-			logger.error(EXPRESSION_LABEL + "\t<bam_file_name>");
+			logger.error(EXPRESSION_LABEL + "\t<bam_file_name>\t" + FIRST_READ_TRANSCRIPTION_STRAND_LABEL + " OR " + SECOND_READ_TRANSCRIPTION_STRAND_LABEL);
 			logger.error("");
 			logger.error("Each additional line must be of the form:");
 			logger.error(CONTROL_LABEL + "\t<bam_file_name>\t" + FIRST_READ_TRANSCRIPTION_STRAND_LABEL + " OR " + SECOND_READ_TRANSCRIPTION_STRAND_LABEL);

@@ -12,7 +12,6 @@ import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.GenomicSpace;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
-import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.MappingQualityFilter;
 import nextgen.core.readFilters.NumHitsFilter;
 

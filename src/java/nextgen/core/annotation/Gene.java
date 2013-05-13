@@ -1,12 +1,9 @@
 package nextgen.core.annotation;
 
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,11 +12,9 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import net.sf.samtools.SAMRecord;
-import nextgen.core.alignment.Alignment;
+import nextgen.core.feature.GeneWindow;
 
 import org.apache.log4j.Logger;
-import org.broad.igv.sam.AlignmentBlock;
 
 import broad.core.annotation.BasicGenomicAnnotation;
 import broad.core.annotation.BasicLightweightAnnotation;
@@ -28,13 +23,8 @@ import broad.core.annotation.LightweightGenomicAnnotation;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.sequence.Sequence;
-import broad.core.util.CollapseByIntersection;
 import broad.pda.datastructures.Alignments;
 import broad.pda.rnai.ExtractSequence;
-import broad.pda.seq.segmentation.GenomeWithGaps2;
-
-import nextgen.core.feature.GeneWindow;
-import nextgen.core.feature.Window;
 
 public class Gene extends BasicAnnotation {
 	static Logger logger = Logger.getLogger(Gene.class.getName());
@@ -43,7 +33,7 @@ public class Gene extends BasicAnnotation {
 	int cdsStart; // beginning of CDS
 	int cdsEnd; // end of CDS
 	double[] exonScores;
-	protected String sequence;
+	private String sequence;
 	private String samRecord;
 	private double countScore=0; //Moran -added this as init value 
 	double bedScore; //the transcript score as it appears in a bed file
@@ -209,6 +199,11 @@ public class Gene extends BasicAnnotation {
 	public Gene(Gene gene) {
 		this(gene.getChr(), gene.getName(), gene.getOrientation(), gene.getExonSet(), gene.getCDSStart(), gene.getCDSEnd());
 				
+		initFromGene(gene);
+			
+	}
+
+	protected void initFromGene(Gene gene) {
 		if (gene.extraFields != null)
 			setExtraFields(gene.getExtraFields());
 		if (gene.scores !=null)
@@ -222,7 +217,6 @@ public class Gene extends BasicAnnotation {
 		if(gene.sequence!=null)
 			setSequence(gene.sequence);
 		this.setBedScore(gene.getBedScore());
-			
 	}
 	
 	
@@ -571,7 +565,17 @@ public class Gene extends BasicAnnotation {
 	public Gene get3UTRGene() {
 		if(!hasCDS()){return new Gene(this);}
 		Annotation UTRRegion=get3UTR();
-		Gene rtrn=this.trimAbsolute(UTRRegion.getStart(), UTRRegion.getEnd());		
+		Gene rtrn=this.trimAbsolute(UTRRegion.getStart(), UTRRegion.getEnd());	
+		if(rtrn == null) {
+			return rtrn;
+		}
+		String geneName = "";
+		if(getName() == null) {
+			geneName += getChr() + "_" + getStart() + "_" + getEnd();
+		} else {
+			geneName += getName();
+		}
+		rtrn.setName(geneName + "_3UTR");
 		return rtrn;
 	}
 
@@ -580,6 +584,16 @@ public class Gene extends BasicAnnotation {
 		if(!hasCDS()){return new Gene(this);}
 		Annotation UTRRegion=get5UTR();
 		Gene rtrn=this.trimAbsolute(UTRRegion.getStart(), UTRRegion.getEnd());		
+		if(rtrn == null) {
+			return rtrn;
+		}
+		String geneName = "";
+		if(getName() == null) {
+			geneName += getChr() + "_" + getStart() + "_" + getEnd();
+		} else {
+			geneName += getName();
+		}
+		rtrn.setName(geneName + "_3UTR");
 		return rtrn;
 	}
 	
@@ -2256,7 +2270,7 @@ public class Gene extends BasicAnnotation {
 						assert(g.getCDSStart() == cdsStart && g.getEnd() == cdsEnd);
   						
 						g.setBedScore(bedScore);
-						
+						g.setScore(bedScore);
 						
 						if(tokens.length > 12) {
 							extraColumns = new String[tokens.length - 12];
@@ -2271,12 +2285,14 @@ public class Gene extends BasicAnnotation {
 					else{
 						Gene g=new Gene(chr, start, end, name, orientation);
 						g.setBedScore(bedScore);
+						g.setScore(bedScore);
 						return g;
 					}
 				}
 				else{
 					Gene g=new Gene(chr, start, end, name);
 					g.setBedScore(bedScore);
+					g.setScore(bedScore);
 					return g;
 				}
 			}

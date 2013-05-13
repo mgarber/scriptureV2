@@ -97,6 +97,11 @@ public class ConfigFileParser {
 	public static String OPTION_WIG_TO_BIGWIG_PATH = "wig_to_bigwig_path";
 	
 	/**
+	 * WigWriter jar file
+	 */
+	public static String OPTION_WIG_WRITER_JAR = "wig_writer_jar";
+	
+	/**
 	 * Chromosome size file
 	 */
 	public static String OPTION_CHR_SIZE_FILE = "chr_size_file";
@@ -1219,6 +1224,17 @@ public class ConfigFileParser {
 			}
 		}
 		
+		/**
+		 * Get WigWriter jar file
+		 * @return The jar file
+		 */
+		public String getWigWriterJar() {
+			try {
+				return this.optionMap.get(OPTION_WIG_WRITER_JAR);
+			} catch(NullPointerException e) {
+				throw new NullPointerException("WigWriter jar file must be specified with option " + OPTION_WIG_WRITER_JAR);
+			}
+		}
 		
 		
 		/**
