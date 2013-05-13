@@ -488,7 +488,7 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	@Override
 	public int getFirstFragmentPositionStranded() {
 		Strand strand = getFragmentStrand();
-		if(strand.equals(Strand.NEGATIVE)) return getFragmentEnd();
+		if(strand.equals(Strand.NEGATIVE)) return getFragmentEnd()-1;
 		return getFragmentStart();
 	}
 
@@ -500,7 +500,7 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	public int getLastFragmentPositionStranded() {
 		Strand strand = getFragmentStrand();
 		if(strand.equals(Strand.NEGATIVE)) return getFragmentStart();
-		return getFragmentEnd();
+		return getFragmentEnd()-1;
 	}
 	
 	/**

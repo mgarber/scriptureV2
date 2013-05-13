@@ -878,7 +878,9 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			
 			while(iterReadsOverlappingRegion.hasNext()){
 				Alignment record=iterReadsOverlappingRegion.next().getRead();
-				tree.put(record.getAlignmentStart(), record.getAlignmentEnd(), record);
+				if (isValid(record)) {
+					tree.put(record.getAlignmentStart(), record.getAlignmentEnd(), record);
+				}
 				
 				/*Node<Alignment> node=tree.find(record.getAlignmentStart(), record.getAlignmentEnd());
 							
