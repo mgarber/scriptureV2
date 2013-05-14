@@ -159,12 +159,12 @@ public class CRISPRDesigner {
 
 	public static String USAGE = "Usage: CRISPRDesigner TASK=<task> <task_args>\n" +
 			"\tTasks:\n" +
-			"\n\tDesign. Get putative CRISPR matches to sequence: \n\t\t-in <Annotation file in BED format> \n\t\t-num <Number of desired targets per sequence> "+
+			"\n\tDesign. Get putative CRISPR matches to sequence: \n\t\t-genes <Annotation file in BED format> \n\t\t-num <Number of desired targets per sequence> "+
 			"\n\t\t-sequenceDir <Directory of the genomic sequence. Assumes each chromosome in its own directory <sequenceDIr>/N/chrN.fa> " +
 			"\n\t\t-promoterStart <In bases before the TSS> \n\t\t-promoterEnd <In bases past the TSS>" +
-			"\n\tDesign2. Get putative CRISPR matches to sequence: \n\t\t-in <FASTA Sequence> \n\t\t-num <Number of desired targets>" +
 			"\n\t\tIf  you wish to invoke Bowtie to test for other possible matches by adding the following paramters: " +
 			"\n\t\t-bowtieBuild <e.g. full path to the bowtie build> -bowtieExcutable <path to the Bowtie executable > " +
+			"\n\tDesign2. Get putative CRISPR matches to sequence: \n\t\t-in <FASTA Sequence> \n\t\t-num <Number of desired targets>" +
 			"\n";
 
 	/**
@@ -175,9 +175,9 @@ public class CRISPRDesigner {
 	 * @throws InterruptedException 
 	 */
 	public static void main(String[] args) throws NumberFormatException, SearchException, IOException, InterruptedException {
-		ArgumentMap argMap = CLUtil.getParameters(args, USAGE, "Design2");
+		ArgumentMap argMap = CLUtil.getParameters(args, USAGE, "Design");
 		CRISPRDesigner designer = new CRISPRDesigner();
-		if ("Design".equals(argMap.getTask())) {
+		if ("Design2".equals(argMap.getTask())) {
 			FastaSequenceIO fsio = new FastaSequenceIO(argMap.getInput());
 			int numToDesign = argMap.getInteger("num");
 			List<Sequence> all = fsio.loadAll();
@@ -190,7 +190,7 @@ public class CRISPRDesigner {
 
 			writeDesign(argMap, result);
 
-		} else if ("Design2".equalsIgnoreCase(argMap.getTask()) ) {
+		} else if ("Design".equalsIgnoreCase(argMap.getTask()) ) {
 			String annotationFile = argMap.getMandatory("genes");
 			File sequenceDir = new File(argMap.getMandatory("sequenceDir"));
 			Map<String, Collection<Gene>> genes = BEDFileParser.loadDataByChr(new File(annotationFile));
