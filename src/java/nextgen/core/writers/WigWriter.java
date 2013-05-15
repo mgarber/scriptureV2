@@ -396,11 +396,11 @@ public class WigWriter {
 	}
 	
 	/**
-	 * Write all counts to a wig file and convert to bigwig
-	 * @param outFilePrefix Output file prefix for wig and bigwig
+	 * Write all counts to a wig file
+	 * @param outFilePrefix Output file prefix for wig
 	 * @throws IOException
 	 */
-	public void writeFullWigAndBigwig(String outFilePrefix) throws IOException {
+	public void writeFullWig(String outFilePrefix) throws IOException {
 		String wigFile = outFilePrefix + ".wig";
 		FileWriter w = new FileWriter(wigFile);
 		for(String chrName : chrNames) {
@@ -500,7 +500,7 @@ public class WigWriter {
 		p.addStringArg("-b", "Bam file", true);
 		p.addStringArg("-g", "Gene bed file", false, null);
 		p.addStringArg("-c", "Chromosome size file", false, null);
-		p.addStringArg("-o", "Output file ending in .wig", true);
+		p.addStringArg("-o", "Output file prefix", true);
 		p.addStringArg("-chr", "Single chromosome to write", false, null);
 
 		p.addIntArg("-mf", "Max fragment length for paired reads", false, DEFAULT_MAX_FRAGMENT_LENGTH);
@@ -549,7 +549,7 @@ public class WigWriter {
 	public static void main(String[] args) throws IOException {
 
 		WigWriter ww = buildFromCommandLine(args);
-		ww.writeFullWigAndBigwig(getOutFileFromCommandArgs(args));
+		ww.writeFullWig(getOutFileFromCommandArgs(args));
 		
 	}
 

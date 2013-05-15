@@ -45,10 +45,14 @@ public class CrossSampleTranscriptAverageNormalization implements NormalizedCoun
 		return normalizedCounts.get(region).doubleValue();
 	}
 	
+	private static double getScore(double count1, double count2) {
+		return Math.log10(count1 / count2);
+	}
+	
 	private void computeNormalizedCount(Annotation region) {
 		double count1 = withinTranscriptNormalizedData.getNormalizedCount(region);
 		double count2 = otherWithinTranscriptNormalizedData.getNormalizedCount(region);
-		normalizedCounts.put(region, Double.valueOf(count1 / count2));
+		normalizedCounts.put(region, Double.valueOf(getScore(count1, count2)));
 	}
 
 	/* (non-Javadoc)
@@ -65,7 +69,7 @@ public class CrossSampleTranscriptAverageNormalization implements NormalizedCoun
 			if(count1 == 0) continue;
 			double count2 = counts2.get(i).doubleValue();
 			if(count2 == 0) continue;
-			double count = Math.log10(count1 / count2);
+			double count = getScore(count1, count2);
 			rtrn.put(i, Double.valueOf(count));
 		}
 		return rtrn;

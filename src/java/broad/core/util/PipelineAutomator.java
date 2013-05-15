@@ -1944,7 +1944,8 @@ public class PipelineAutomator {
 				WigWriter read1ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, true, false, false);
 				read1ww.addReadFilter(new FirstOfPairFilter());
 				read1ww.addReadFilter(new ProperPairFilter());
-				read1ww.writeFullWigAndBigwig(wig1);
+				String prefix1 = wig1.replaceAll(".wig", "");
+				read1ww.writeFullWig(prefix1);
 				logger.info("Done writing file " + wig1 + ".");
 			}
 			// Write bigwig file for read1
@@ -1974,7 +1975,8 @@ public class PipelineAutomator {
 					WigWriter read2ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, true, false, false);
 					read2ww.addReadFilter(new SecondOfPairFilter());
 					read2ww.addReadFilter(new ProperPairFilter());
-					read2ww.writeFullWigAndBigwig(wig2);
+					String prefix2 = wig2.replaceAll(".wig", "");
+					read2ww.writeFullWig(prefix2);
 					logger.info("Done writing file " + wig2 + ".");
 				}
 				// Write bigwig file for read2
@@ -2061,7 +2063,7 @@ public class PipelineAutomator {
 				WigWriter ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, false, true, false);
 				ww.addReadFilter(new GenomicSpanFilter(configP.fragmentSizeOptions.getMaxGenomicSpan()));
 				ww.addReadFilter(new ProperPairFilter());
-				ww.writeFullWigAndBigwig(wig1);
+				ww.writeFullWig(wig1);
 				logger.info("Done writing file " + wig1 + ".");
 			}
 			// Write bigwig file for read1
