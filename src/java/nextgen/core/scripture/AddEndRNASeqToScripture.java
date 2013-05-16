@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +52,7 @@ public class AddEndRNASeqToScripture {
 	private TranscriptionRead strand;
 	private static int DEFAULT_EXTENSION = 0;
 	private static int DEFAULT_WINDOW_SIZE = 2;
+	IsoformMap isoformMap;
 	
 	static final String usage = "Usage: AddEndRNASeqToScripture -task <task name> "+
 			"\n**************************************************************"+
@@ -90,8 +92,22 @@ public class AddEndRNASeqToScripture {
 		windowSize = windowS;
 		extension = ext;
 		
-		numberOfIsoformsPerGene(outputName);
+		isoformMap = buildIsoformMap(annotations);
+				
+//		numberOfIsoformsPerGene(outputName);
 		findCompleteTranscripts(outputName);
+	}
+	
+	public static IsoformMap buildIsoformMap(Map<String,Collection<Gene>> ann){
+	
+		IsoformMap map = new IsoformMap();
+		for(String chr:ann.keySet()){
+			logger.info("Processing : "+chr);
+			map.addChrMap(chr, BuildScriptureCoordinateSpace.getIsoformMap(ann.get(chr)));
+			logger.info("Built isoform map for "+ chr);
+		}
+		
+		return map;
 	}
 	
 	public void numberOfIsoformsPerGene(String outputName) throws IOException{
@@ -109,50 +125,46 @@ public class AddEndRNASeqToScripture {
 		for(String chr:annotations.keySet()){
 			// Obtain an iterator over the interval tree values built from the annotations (genes) on that particular chromosome.
 			//Iterator<GeneWithIsoforms> annotation_iter = annotationParser.getChrTree(chr).valueIterator();
-			
-			logger.info("Processing : "+chr);
-			Map<Gene,Set<Gene>> isoformMap = BuildScriptureCoordinateSpace.getIsoformMap(annotations.get(chr));
-			logger.info("Built isoform map");
-			for(Gene gene:isoformMap.keySet()){
-				
+			for(Gene gene:isoformMap.getGenesForChromosome(chr)){
+				gene.overlapsStranded(other)
 				if(gene.getBlocks().size()==1){
 					//Get number of isoforms
 					int cnt = 0;
-					if(singleIsoforms.containsKey(isoformMap.get(gene).size())){
-						cnt = singleIsoforms.get(isoformMap.get(gene).size());
+					if(singleIsoforms.containsKey(isoformMap.getNumOfIsoformsForGene(gene))){
+						cnt = singleIsoforms.get(isoformMap.getNumOfIsoformsForGene(gene));
 					}	
 					cnt++;
-					singleIsoforms.put(isoformMap.get(gene).size(), cnt);
+					singleIsoforms.put(isoformMap.getNumOfIsoformsForGene(gene), cnt);
 				}
 				else{
 					 multiExonGenes++;
 					 int cnt = 0;
-					 if(multiIsoforms.containsKey(isoformMap.get(gene).size())){
-							cnt = multiIsoforms.get(isoformMap.get(gene).size());
+					 if(multiIsoforms.containsKey(isoformMap.getNumOfIsoformsForGene(gene))){
+							cnt = multiIsoforms.get(isoformMap.getNumOfIsoformsForGene(gene));
 					}	
 					cnt++;
-					multiIsoforms.put(isoformMap.get(gene).size(), cnt);
+					multiIsoforms.put(isoformMap.getNumOfIsoformsForGene(gene), cnt);
 				}
 				//For each isoform calculate coverage
 				double avg=0.0;
-				for(Gene isoform:isoformMap.get(gene)){
-					avg+=new ScanStatisticScore(model,isoform).getAverageCoverage();
+				for(Gene isoform:isoformMap.getIsoformsForGene(gene)){
+					avg+=new ScanStatisticScore(model,isoform).getAverageCoverage(model);
 				}
-				avg = avg/(double)isoformMap.get(gene).size();
-				bwCov.write(isoformMap.get(gene).size()+"\t"+avg+"\n");
-				logger.info(isoformMap.get(gene).size()+"\t"+avg+"\n");
+				avg = avg/(double)isoformMap.getNumOfIsoformsForGene(gene);
+				bwCov.write(isoformMap.getNumOfIsoformsForGene(gene)+"\t"+avg+"\n");
+				//logger.info(isoformMap.getNumOfIsoformsForGene(gene)+"\t"+avg);
 			}
 			
 			logger.info("For chromosome "+chr);
-			logger.info("Single Exon genes: "+singleExonGenes+"\n");
-			logger.info("Multiple Exon genes: "+multiExonGenes+"\n");
+			logger.info("Single Exon genes: "+singleExonGenes);
+			logger.info("Multiple Exon genes: "+multiExonGenes);
 			logger.info("\nSingle Exon genes: \n");
 			for(int num:singleIsoforms.keySet()){
-				logger.info(num+"\t"+singleIsoforms.get(num)+"\n");
+				logger.info(num+"\t"+singleIsoforms.get(num));
 			}
 			logger.info("\nMultiple Exon genes: \n");
 			for(int num:multiIsoforms.keySet()){
-				logger.info(num+"\t"+multiIsoforms.get(num)+"\n");
+				logger.info(num+"\t"+multiIsoforms.get(num));
 			}
 		}
 		
@@ -203,6 +215,8 @@ public class AddEndRNASeqToScripture {
 		BufferedWriter bw3p = new BufferedWriter(new FileWriter(outputName+".peaks.3p"));
 		BufferedWriter bw3pBed = new BufferedWriter(new FileWriter(outputName+".peaks.3p.bed"));
 		
+		Map<Gene,Collection<Annotation>> geneTo5pPeakMap = new HashMap<Gene,Collection<Annotation>>();
+		Map<Gene,Collection<Annotation>> geneTo3pPeakMap = new HashMap<Gene,Collection<Annotation>>();
 		int count = 0;
 		//For each chromosome in the annotation set
 		for(String chr:annotations.keySet()){
@@ -263,6 +277,7 @@ public class AddEndRNASeqToScripture {
 						 */
 						int start = 0;
 						int end =0;
+						//logger.info("Gene "+gene.toUCSC());
 						if(gene.isNegativeStrand()){
 							end = extension;
 							//logger.info("Start: "+start+" End: "+end);
@@ -273,7 +288,15 @@ public class AddEndRNASeqToScripture {
 						Gene ge = gene.copy();
 						//EXPAND IS A STRAND-INDEPENDENT FUNCTION
 						ge.expand(start, end);
-
+						//logger.info("After expansion Gene "+ge.toBED());
+						/*
+						 * RE-DEFINE COORDINATE SPACE
+						 */
+						chrToGenesMap = new HashMap<String,Collection<Gene>>();
+						g = new ArrayList<Gene>();
+						g.add(ge);
+						chrToGenesMap.put(gene.getChr(), g);
+						space = new TranscriptomeSpace(chrToGenesMap);
 						Iterator<? extends Window> giter = space.getWindowIterator(ge, windowSize, 0);
 						
 						boolean flag5p = false;
@@ -322,7 +345,7 @@ public class AddEndRNASeqToScripture {
 									if(window.getEnd()>peak5p.getEnd())
 										peak5p.setEnd(window.getEnd());
 								}
-								peaks.add(window);
+								//this5pPeaks.add(window);
 							}
 							//Either end of window or no peak found yet
 							else{
@@ -365,8 +388,12 @@ public class AddEndRNASeqToScripture {
 						}
 						Gene gs = gene.copy();
 						//EXPAND IS A STRAND-INDEPENDENT FUNCTION
-						ge.expand(start, end);
-
+						gs.expand(start, end);
+						g = new ArrayList<Gene>();
+						g.add(gs);
+						chrToGenesMap.put(gene.getChr(), g);
+						space = new TranscriptomeSpace(chrToGenesMap);
+						
 						Iterator<? extends Window> iter = space.getWindowIterator(gs, windowSize, 0);
 						boolean flag3p = false;
 						Annotation prev3p = null;
@@ -412,7 +439,7 @@ public class AddEndRNASeqToScripture {
 									if(window.getEnd()>peak3p.getEnd())
 										peak3p.setEnd(window.getEnd());
 								}
-								peaks.add(window);
+								this3pPeaks.add(window);
 							}
 							//Either end of window or no peak found yet
 							else{
@@ -477,13 +504,48 @@ public class AddEndRNASeqToScripture {
  							logger.info("Multiple: Number of Full= "+numFullMult+" Incomplete= "+numPartialMult+
  									" 5p No 3p= "+num5pPartialMult+" 3p No 5p= "+num3pPartialMult);
  						}
+ 						
+ 						geneTo5pPeakMap.put(gene, this5pPeaks);
+ 						geneTo3pPeakMap.put(gene, this3pPeaks);
 					}					
 				}
-			}
+		}
 		bw5p.close();
 		bw3p.close();
 		bw5pBed.close();
 		bw3pBed.close();
+		
+		//trimAndExtendIsoforms(geneTo5pPeakMap,geneTo3pPeakMap);
+	}
+	
+	private void trimAndExtendIsoforms(Map<Gene,Collection<Annotation>> geneTo5pPeakMap,Map<Gene,Collection<Annotation>> geneTo3pPeakMap){
+		
+		//For each chromosome in the annotation set
+		for(String chr:annotations.keySet()){
+			//For each gene
+			for(Gene gene:annotations.get(chr)){
+				//if there is a 5' peak for this gene
+				if(geneTo5pPeakMap.containsKey(gene)){
+					//Get the max z-score peak
+					Annotation maxPeak = getMaxZScorePeak(geneTo5pPeakMap.get(gene));
+				}
+			}
+		}
+	}
+	
+	private Annotation getMaxZScorePeak(List<Annotation> peaks){
+		
+		if(peaks.size()==1){
+			return peaks.get(0);
+		}
+		double max = Double.MIN_VALUE;
+		Annotation max;
+		for(Annotation p:peaks){
+			if(p.getScore()>max){
+				max = p.getScore();
+				
+			}
+		}
 	}
 	
 	private double get5pWindowCount(Annotation window,Strand orientation){
@@ -509,7 +571,7 @@ public class AddEndRNASeqToScripture {
 		//for all reads in the window
 		while(readiter.hasNext()){
 			AlignmentCount read = readiter.next();
-			if(passesChecks(read.getRead(),window,orientation)){
+			if(passesOppositeChecks(read.getRead(),window,orientation)){
 				windowCount += read.getCount();
 			}
 		}
@@ -649,45 +711,7 @@ public class AddEndRNASeqToScripture {
 		}
 		return false;
 	}
-	
-	/**
-	 * Returns true is the specified alignment starts in window and 
-	 * if Single ended, matches the mate of transcription
-	 * if paired ended, the mate in the direction of transcription starts in the window
-	 * @param read
-	 * @param window
-	 * @return
-	 */
-	private boolean passesChecks(Alignment read,Window window,Strand orientation){
 		
-		if(SingleEndAlignment.class.isInstance(read)){
-			SingleEndAlignment align = (SingleEndAlignment) read;
-			//Check if read is the correct read
-			//if read starts in window
-			if(((strand==TranscriptionRead.FIRST_OF_PAIR && align.getIsFirstMate()) || 
-					(strand==TranscriptionRead.SECOND_OF_PAIR && !align.getIsFirstMate())) 
-						&& (readStartFallsInWindow(read,window))
-							&& (read.getOrientation().equals(orientation))){
-				return true;
-			}
-		}
-		//ELSE PAIRED
-		else{
-			PairedReadAlignment align = (PairedReadAlignment) read;
-			Annotation mate;
-			if(strand==TranscriptionRead.FIRST_OF_PAIR){
-				mate = align.getFirstMate();
-			}
-			else{
-				mate = align.getSecondMate();
-			}
-			if(readStartFallsInWindow(mate,window)){
-				return true;
-			}
-		}
-		return false;
-	}
-	
 	/**
 	 * Returns true is the specified alignment starts in window and 
 	 * if Single ended, matches the opposite mate of transcription
@@ -719,7 +743,7 @@ public class AddEndRNASeqToScripture {
 			else{
 				mate = align.getFirstMate();
 			}
-			if(readStartFallsInWindow(mate,window)){
+			if(readStartFallsInWindow(mate,window) && (read.getOrientation().equals(orientation))){
 				return true;
 			}
 		}
@@ -794,6 +818,50 @@ public class AddEndRNASeqToScripture {
 
 		new AddEndRNASeqToScripture(new File(argMap.getMandatory("5p")),new File(argMap.getMandatory("3p")),strand,argMap.getMandatory("annotations"),argMap.getOutput(),argMap.getInteger("window", DEFAULT_WINDOW_SIZE),new File(argMap.getMandatory("full")),argMap.getInteger("extension", DEFAULT_EXTENSION));
 		
+	}
+	
+	public static class IsoformMap{
+		
+		//Map of chromosome to genes
+		Map<String,Collection<Gene>> chrToGeneMap;
+		//Map of gene to isoforms
+		Map<Gene,Set<Gene>> geneToIsoformMap;
+		
+		public IsoformMap(){
+			chrToGeneMap = new HashMap<String,Collection<Gene>>();
+			geneToIsoformMap = new HashMap<Gene,Set<Gene>>();
+		}
+		
+		/**
+		 * ADDS MAPS FOR A CHROMOSOME
+		 * If maps already exist, they will be replaced
+		 * @param chr
+		 * @param map
+		 */
+		public void addChrMap(String chr,Map<Gene,Set<Gene>> map){
+			chrToGeneMap.put(chr, map.keySet());
+			geneToIsoformMap.putAll(map);
+		}
+		
+		public Collection<String> getChromosomes(){
+			return chrToGeneMap.keySet();
+		}
+
+		public Collection<Gene> getAllGenes(){
+			return geneToIsoformMap.keySet();
+		}
+		
+		public Collection<Gene> getGenesForChromosome(String chr){
+			return chrToGeneMap.get(chr);
+		}
+		
+		public Collection<Gene> getIsoformsForGene(Gene gene){
+			return geneToIsoformMap.get(gene);
+		}
+		
+		public int getNumOfIsoformsForGene(Gene gene){
+			return geneToIsoformMap.get(gene).size();
+		}
 	}
 	
 	/*static String usage=" args[0]=bam file \n\t args[1]=annotation file \n\t args[2]: Output name"

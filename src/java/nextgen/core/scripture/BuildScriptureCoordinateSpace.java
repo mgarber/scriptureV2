@@ -362,16 +362,19 @@ public class BuildScriptureCoordinateSpace {
 		for(String chr: space.getReferenceNames()){
 			
 			//Get all proper paired reads 
-			CloseableIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new PairedAndProperFilter());
+			CloseableFilterIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new PairedAndProperFilter());
 			while(iter.hasNext()){
-				Alignment read = iter.next();
-				//For each mate, find the least weight
+				iter.next();
+	  			//For each mate, find the least weight
 				/*	double leastWeight = Double.MAX_VALUE;
 				//TODO: Incorporate weight
 				for(Annotation mate:read.getReadAlignments(space)){
 					if(mate.)
 				}*/
 				globalFragments += 1.0;
+				if(globalFragments % 1000000 ==0){
+					logger.info("Processed "+globalFragments+" paired reads.");
+				}
 			}
 			iter.close();
 		}
