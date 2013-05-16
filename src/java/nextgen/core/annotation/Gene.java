@@ -1668,7 +1668,6 @@ public class Gene extends BasicAnnotation {
 		}
 		return compatible;
 	}
-	
 	/**
 	 * Whether this gene overlaps any gene in the collection at the exon level
 	 * @param others The genes to check for overlap
