@@ -126,7 +126,7 @@ public class AddEndRNASeqToScripture {
 			// Obtain an iterator over the interval tree values built from the annotations (genes) on that particular chromosome.
 			//Iterator<GeneWithIsoforms> annotation_iter = annotationParser.getChrTree(chr).valueIterator();
 			for(Gene gene:isoformMap.getGenesForChromosome(chr)){
-				gene.overlapsStranded(other)
+				//gene.overlapsStranded(other);
 				if(gene.getBlocks().size()==1){
 					//Get number of isoforms
 					int cnt = 0;
@@ -518,7 +518,7 @@ public class AddEndRNASeqToScripture {
 		//trimAndExtendIsoforms(geneTo5pPeakMap,geneTo3pPeakMap);
 	}
 	
-	private void trimAndExtendIsoforms(Map<Gene,Collection<Annotation>> geneTo5pPeakMap,Map<Gene,Collection<Annotation>> geneTo3pPeakMap){
+	private void trimAndExtendIsoforms(Map<Gene,List<Annotation>> geneTo5pPeakMap,Map<Gene,Collection<Annotation>> geneTo3pPeakMap){
 		
 		//For each chromosome in the annotation set
 		for(String chr:annotations.keySet()){
@@ -539,13 +539,14 @@ public class AddEndRNASeqToScripture {
 			return peaks.get(0);
 		}
 		double max = Double.MIN_VALUE;
-		Annotation max;
+		Annotation maxA=null;
 		for(Annotation p:peaks){
 			if(p.getScore()>max){
 				max = p.getScore();
-				
+				maxA = p;
 			}
 		}
+		return maxA;
 	}
 	
 	private double get5pWindowCount(Annotation window,Strand orientation){
