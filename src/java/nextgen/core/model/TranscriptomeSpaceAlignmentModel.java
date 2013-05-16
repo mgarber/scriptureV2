@@ -82,24 +82,6 @@ public class TranscriptomeSpaceAlignmentModel extends ScanStatisticDataAlignment
 	}
 	
 	/**
-	 * Get map of position to of position level counts in mature transcript
-	 * @param gene The region
-	 * @return Map of position to count
-	 * @throws IOException 
-	 */
-	public TreeMap<Integer,Double> getPositionCountMap(Gene gene) throws IOException {
-		TreeMap<Integer,Double> rtrn = new TreeMap<Integer,Double>();
-		WindowProcessor<CountScore> processor = new CountScore.Processor(this);
-		WindowScoreIterator<CountScore> scoreIter = scan(gene, 1, 0, processor);
-		int processed = 0;
-		while(scoreIter.hasNext()) {
-			rtrn.put(Integer.valueOf(processed), Double.valueOf(scoreIter.next().getCount()));
-			processed++;
-		}
-		return rtrn;
-	}
-	
-	/**
 	 * Scan windows over a gene and score
 	 * Only scan exons of this gene
 	 * @param gene The gene 

@@ -239,7 +239,7 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 	public int getLastFragmentPositionStranded() {
 		Strand strand = getFragmentStrand();
 		if(strand.equals(Strand.NEGATIVE)) return getFragmentStart();
-		return getFragmentEnd();
+		return getFragmentEnd()-1;
 	}
 
 	/**
@@ -249,7 +249,7 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 	@Override
 	public int getFirstFragmentPositionStranded() {
 		Strand strand = getFragmentStrand();
-		if(strand.equals(Strand.NEGATIVE)) return getFragmentEnd();
+		if(strand.equals(Strand.NEGATIVE)) return getFragmentEnd()-1;
 		return getFragmentStart();
 	}
 
@@ -387,6 +387,11 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 	@Override
 	public boolean hasIndel() {
 		return this.hasIndel;
+	}
+
+	@Override
+	public int[] getIntervalBetweenReads() {
+		return null;
 	}
 
 }

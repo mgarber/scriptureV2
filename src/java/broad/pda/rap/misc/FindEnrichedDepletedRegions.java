@@ -34,7 +34,7 @@ public class FindEnrichedDepletedRegions {
 		
 		//Idea 1: Look for enriched windows based on local lambda of chromosome (how to deal with depletion?)
 		Iterator<ScanStatisticScore> scores=scanWindows(model, chr);
-		write(save, scores);
+		write(save, scores, model);
 		
 		//for each point consider the left X bases and right X bases and determine the average difference
 		//Collection<Annotation> changePoints=changePoints(model);
@@ -42,7 +42,7 @@ public class FindEnrichedDepletedRegions {
 		
 	}
 	
-	private void write(String save, Iterator<ScanStatisticScore> scores) throws IOException {
+	private void write(String save, Iterator<ScanStatisticScore> scores, ScanStatisticDataAlignmentModel model) throws IOException {
 		FileWriter writer=new FileWriter(save);
 		
 		while(scores.hasNext()){
@@ -50,7 +50,7 @@ public class FindEnrichedDepletedRegions {
 			//TODO Use local lambda by chromosome
 			ScanStatisticScore score=scores.next();
 			Annotation feature=score.getAnnotation();
-			feature.setName("e="+score.getEnrichment());
+			feature.setName("e="+score.getEnrichment(model));
 			logger.info(score.getAnnotation().getChr()+"\t"+score.getAnnotation().getStart()+"\t"+score.getAnnotation().getEnd()+"\t"+score.getScanPvalue());
 			if(score.getScanPvalue()<0.05){writer.write(feature.toBED()+"\n");}
 		}

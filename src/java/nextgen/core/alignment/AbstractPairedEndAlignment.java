@@ -161,6 +161,20 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		return this.firstMate.getMappingQuality()+this.secondMate.getMappingQuality();
 	}
 
+	@Override
+	public int[] getIntervalBetweenReads() {
+		if(firstMate.overlaps(secondMate)) return null;
+		int[] rtrn = new int[2];
+		if(firstMate.getEnd() < secondMate.getStart()) {
+			rtrn[0] = firstMate.getEnd();
+			rtrn[1] = secondMate.getStart();
+			return rtrn;
+		}
+		rtrn[0] = secondMate.getEnd();
+		rtrn[1] = firstMate.getStart();
+		return rtrn;
+	}
+	
 	/**
 	 * Always returns true for objects of this class.
 	 */
@@ -488,7 +502,7 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	@Override
 	public int getFirstFragmentPositionStranded() {
 		Strand strand = getFragmentStrand();
-		if(strand.equals(Strand.NEGATIVE)) return getFragmentEnd();
+		if(strand.equals(Strand.NEGATIVE)) return getFragmentEnd()-1;
 		return getFragmentStart();
 	}
 
@@ -500,7 +514,7 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	public int getLastFragmentPositionStranded() {
 		Strand strand = getFragmentStrand();
 		if(strand.equals(Strand.NEGATIVE)) return getFragmentStart();
-		return getFragmentEnd();
+		return getFragmentEnd()-1;
 	}
 	
 	/**

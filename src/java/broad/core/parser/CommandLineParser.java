@@ -4,8 +4,10 @@
 package broad.core.parser;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.TreeSet;
 
 
@@ -19,20 +21,20 @@ public final class CommandLineParser {
 	private boolean isParsed;
 	private ArrayList<String> programDescription;
 
-	private HashMap<String,String> stringArgDescriptions;
-	private HashMap<String,String> intArgDescriptions;
-	private HashMap<String,String> floatArgDescriptions;
-	private HashMap<String,String> doubleArgDescriptions;
-	private HashMap<String,String> boolArgDescriptions;	
+	private Map<String,String> stringArgDescriptions;
+	private Map<String,String> intArgDescriptions;
+	private Map<String,String> floatArgDescriptions;
+	private Map<String,String> doubleArgDescriptions;
+	private Map<String,String> boolArgDescriptions;	
 	
-	private HashMap<String,String> stringArgDefaults;
-	private HashMap<String,Integer> intArgDefaults;
-	private HashMap<String,Float> floatArgDefaults;
-	private HashMap<String,Double> doubleArgDefaults;
-	private HashMap<String,Boolean> boolArgDefaults;	
+	private Map<String,String> stringArgDefaults;
+	private Map<String,Integer> intArgDefaults;
+	private Map<String,Float> floatArgDefaults;
+	private Map<String,Double> doubleArgDefaults;
+	private Map<String,Boolean> boolArgDefaults;	
 	
 	private HashSet<String> requiredArgs;
-	private HashMap<String,String> commandLineValues;
+	private Map<String,String> commandLineValues;
 
 	
 	/**
@@ -291,6 +293,49 @@ public final class CommandLineParser {
 	}
 	
 	/**
+	 * Get the flags and values that were specified on the command line
+	 * @return Map of flag to value
+	 */
+	public Map<String, String> getFlagsAndValues() {
+		if(!isParsed) {
+			throw new IllegalStateException("Must parse first.");
+		}
+		return commandLineValues;
+	}
+	
+	
+	/**
+	 * Get the argument string from the command line
+	 * @return The argument string
+	 */
+	public String getArgString() {
+		return getArgString(null);
+	}
+	
+	/**
+	 * Get the argument string from the command line, possibly leaving out some arguments
+	 * @param flagsToRemove Flags to leave out
+	 * @return The argument string
+	 */
+	public String getArgString(Collection<String> flagsToRemove) {
+		if(!isParsed) {
+			throw new IllegalStateException("Must parse first.");
+		}		
+		Map<String, String> args = new HashMap<String, String>();
+		args.putAll(getFlagsAndValues());
+		if(flagsToRemove != null) {
+			for(String flag : flagsToRemove) {
+				args.remove(flag);
+			}
+		}
+		String rtrn = "";
+		for(String flag : args.keySet()) {
+			rtrn += flag + " " + args.get(flag) + " ";
+		}
+		return rtrn;
+	}
+	
+	/**
 	 * Get value of String parameter specified by flag
 	 * @param flag The command line flag for the argument
 	 * @return String specified on command line or null if parameter was not specified
@@ -531,8 +576,7 @@ public final class CommandLineParser {
 	 */
 	private void enforceUniqueFlag(String flag) {
 		if(hasFlag(flag)) {
-			System.err.println("Flag " + flag + " has already been used."); 
-			System.exit(-1);
+			throw new IllegalStateException("Flag " + flag + " has already been used."); 
 		}
 	}
 	
@@ -542,8 +586,7 @@ public final class CommandLineParser {
 	 */
 	private void enforceUniqueDescription(String description) {
 		if(hasDescription(description)) {
-			System.err.println("Description " + description + " has already been used."); 
-			System.exit(-1);
+			throw new IllegalStateException("Description " + description + " has already been used."); 
 		}
 	}
 	
