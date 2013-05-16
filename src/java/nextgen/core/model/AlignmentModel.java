@@ -337,6 +337,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			return result;
 		}
 	}
+
 	
 	/**
 	 * Use the coordinate space to decide what is an overlapping read
@@ -987,6 +988,17 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	}
 	
 	
+	/**
+	 * Return the score for annotation based on the scoring function passed in by WindowProcessor
+	 * @param window Region to score
+	 * @param processor How to score the region
+	 * @return
+	 */
+	public <T extends WindowScore> T getScore(Annotation window, WindowProcessor<T> processor){
+		T score=processor.processWindow(window);
+		return score;
+	}
+	
 	
 	
 	public WindowScoreIterator<CountScore> scan(Annotation region, int windowSize, int overlap) {
@@ -1220,5 +1232,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 		return rtrn;
 	}
+	
+	
 	
 }
