@@ -13,6 +13,7 @@ import org.apache.log4j.Logger;
 import broad.pda.annotation.BEDFileParser;
 
 
+import nextgen.core.annotation.AbstractAnnotation;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.Gene;
@@ -126,12 +127,12 @@ public class AnnotationUtils {
 	 * @param parents Parent annotations by chromosome
 	 * @return Map of child to largest parent. Does not include children with no parents.
 	 */
-	public static Map<Annotation, Annotation> mapChildToLargestParent(Map<String, Collection<Annotation>> children, Map<String, Collection<Annotation>> parents) {
-		Map<Annotation, Annotation> rtrn = new TreeMap<Annotation, Annotation>();
-		Map<Annotation, Collection<Annotation>> allRelationships = mapChildToParents(children, parents);
-		for(Annotation child : allRelationships.keySet()) {
+	public static <T extends Annotation> Map<T, T> mapChildToLargestParent(Map<String, Collection<T>> children, Map<String, Collection<T>> parents) {
+		Map<T, T> rtrn = new TreeMap<T, T>();
+		Map<T, Collection<T>> allRelationships = mapChildToParents(children, parents);
+		for(T child : allRelationships.keySet()) {
 			int largestParentSize = 0;
-			for(Annotation parent : allRelationships.get(child)) {
+			for(T parent : allRelationships.get(child)) {
 				if(parent.getSize() > largestParentSize) {
 					rtrn.put(child, parent);
 					largestParentSize = parent.getSize();
@@ -144,21 +145,22 @@ public class AnnotationUtils {
 	
 	/**
 	 * Map each child annotation to its set of parents defined as annotations overlapping and containing child
+	 * @param <T>
 	 * @param children Child annotations by chromosome
 	 * @param parents Parent annotations by chromosome
 	 * @return Map of child to set of parents. Does not include children with no parents.
 	 */
-	public static Map<Annotation, Collection<Annotation>> mapChildToParents(Map<String, Collection<Annotation>> children, Map<String, Collection<Annotation>> parents) {
+	public static <T extends Annotation> Map<T, Collection<T>> mapChildToParents(Map<String, Collection<T>> children, Map<String, Collection<T>> parents) {
 		logger.info("Mapping child annotations to parent annotations...");
-		Map<Annotation, Collection<Annotation>> rtrn = new TreeMap<Annotation, Collection<Annotation>>();
+		Map<T, Collection<T>> rtrn = new TreeMap<T, Collection<T>>();
 		for(String chr : children.keySet()) {
 			logger.info(chr);
 			if(!parents.containsKey(chr)) {
 				continue;
 			}
-			for(Annotation child : children.get(chr)) {
-				Collection<Annotation> parentSet = new TreeSet<Annotation>();
-				for(Annotation other : parents.get(chr)) {
+			for(T child : children.get(chr)) {
+				Collection<T> parentSet = new TreeSet<T>();
+				for(T other : parents.get(chr)) {
 					if(other.getEnd() < child.getStart() || other.getStart() > child.getEnd()) {
 						continue;
 					}
