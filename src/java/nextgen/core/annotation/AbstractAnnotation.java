@@ -108,12 +108,18 @@ public abstract class AbstractAnnotation implements Annotation {
 	}
 	
 	
+	/**
+	 * Extends the annotation by delta on the unOriented Start and end.
+	 */
 	public void expand(int deltaStart, int deltaEnd) {
 		setStart(getStart() - deltaStart);
-		setEnd(getEnd() - deltaEnd);
+		setEnd(getEnd() + deltaEnd);
 	}
 	
-	
+	/**
+	 * Trims the annotation in a strand-specific manner,
+	 * that is start will end the genomic end on a negative annotation
+	 */
 	public void trim(int deltaStart, int deltaEnd) {
 		
 		if(getStrand().equals(Strand.NEGATIVE)) {
@@ -122,6 +128,7 @@ public abstract class AbstractAnnotation implements Annotation {
 			deltaEnd = tmpStart;
 		}
 		
+		//Ignore orientation because we already considered it above
 		setStart(getReferenceCoordinateAtPosition(deltaStart,true));
 		/*
 		 * PR added the -1 and +1 on 4/20/13

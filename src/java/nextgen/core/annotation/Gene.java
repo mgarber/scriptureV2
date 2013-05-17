@@ -1659,7 +1659,22 @@ public class Gene extends BasicAnnotation {
 		return compatible;
 	}
 	
-	
+	/**
+	 * Returns true if this and the other gene overlap but at least minPctOverlap
+	 * @param other The other gene with which overlap is checked
+	 * @param minPctOverlap minimum percent of overlap
+	 * @return
+	 */
+	public boolean overlapsStranded(Gene other, double minPctOverlap) {
+
+		boolean compatible = (overlaps(other) && this.getOrientation().equals(other.getOrientation()));
+		
+		if(compatible) {
+			double pctOverlap = Math.min(percentOverlapping(other), other.percentOverlapping(this));
+			compatible = pctOverlap >= minPctOverlap;
+		}
+		return compatible;
+	}
 	/**
 	 * Whether this gene overlaps any gene in the collection at the exon level
 	 * @param others The genes to check for overlap
