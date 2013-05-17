@@ -29,6 +29,9 @@ import broad.pda.seq.segmentation.AlignmentDataModelStats;
 
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
+import nextgen.core.alignment.FragmentAlignment;
+import nextgen.core.alignment.PairedReadAlignment;
+import nextgen.core.alignment.SingleEndAlignment;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.BasicAnnotation;
@@ -154,7 +157,7 @@ public class BuildScriptureCoordinateSpace {
 		this.graphs=new TreeMap<String, ChromosomeTranscriptGraph>();
 		genomeSeq = genomeDir;
 		forceStrandSpecificity = forceStrandedness;
-		this.model=new AlignmentModel(bamFile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand);
+		this.model=new AlignmentModel(bamFile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		model.addFilter(new ProperPairFilter());
 		model.addFilter(new IndelFilter());
 		model.addFilter(new GenomicSpanFilter(20000000));
@@ -308,6 +311,7 @@ public class BuildScriptureCoordinateSpace {
 
 	private double calculateGlobalFragments(){
 		
+		logger.info("Calculating global fragments");
 		for(String chr: space.getReferenceNames()){
 			
 			//Get all proper paired reads 
@@ -329,7 +333,7 @@ public class BuildScriptureCoordinateSpace {
 				
 		return globalFragments;
 	}
-
+	
 	static void write(String save, Map<String, Collection<Gene>> rtrn) throws IOException {
 		FileWriter writer=new FileWriter(save);
 		
@@ -602,7 +606,7 @@ public class BuildScriptureCoordinateSpace {
 			}
 			//For the assembly, we need to treat each read separately	
 			if(countRead){
-				scores[0]++;
+				scores[0] += read.getWeight();
 			}
 		}
 		iter.close();
@@ -1003,14 +1007,14 @@ public class BuildScriptureCoordinateSpace {
 			Assembly assembly=iter.next();
 			
 			//If the assembly does not pass the confidence test, remove it
-			if(!assembly.isConfidentIsSet()){
+/*			if(!assembly.isConfidentIsSet()){
 				logger.info("Confidence is set in the splice filter");
 				setConfidence(assembly);
 			}
 			if(!assembly.isConfident()){
 				logger.error(assembly.getName()+" removed because does not pass the confidence test.");
 			} else{
-				Map<Annotation,Double> intronToSplicedCountMap = new HashMap<Annotation,Double>();
+*/				Map<Annotation,Double> intronToSplicedCountMap = new HashMap<Annotation,Double>();
 				double avgCount = 0.0;
 				boolean toRemove = false;
 				//IF THE GENE HAS ONE INTRON, NOTHING
@@ -1059,7 +1063,7 @@ public class BuildScriptureCoordinateSpace {
 					else
 						logger.info(assembly.getName()+" : Confidence and filter agree.");
 				}*/
-			}
+//			}
 		}
 		return currentAssemblies;
 	}
@@ -1124,7 +1128,7 @@ public class BuildScriptureCoordinateSpace {
 	 */
 	private IntervalTree<Assembly> assembleDirectly(CloseableIterator<Alignment> iter, IntervalTree<Assembly> workingAssemblies,TranscriptionRead strand) {
 		
-		String linc="linc_";
+		String linc="gene_v1.1_";
 		
 		boolean flagPremature=!workingAssemblies.isEmpty();
 		while(iter.hasNext()){
