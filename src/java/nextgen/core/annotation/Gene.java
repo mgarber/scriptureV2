@@ -593,7 +593,7 @@ public class Gene extends BasicAnnotation {
 		} else {
 			geneName += getName();
 		}
-		rtrn.setName(geneName + "_3UTR");
+		rtrn.setName(geneName + "_5UTR");
 		return rtrn;
 	}
 	
@@ -895,6 +895,13 @@ public class Gene extends BasicAnnotation {
 	public Gene getCDS(){
 		Alignments cds=getCDSRegion();
 		Gene rtrn=this.trimAbsolute(cds.getStart(), cds.getEnd());		
+		String geneName = "";
+		if(getName() == null) {
+			geneName += getChr() + "_" + getStart() + "_" + getEnd();
+		} else {
+			geneName += getName();
+		}
+		rtrn.setName(geneName + "_CDS");
 		return rtrn;
 	}
 	
