@@ -249,35 +249,15 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	}
 	
 	/**
-	 * Sets the strand for the fragment, depending on the transcription read
-	 * For FIRST, "first"
-	 * For SECOND, "second"
-	 * For unstranded "none"
-	 * @param strand 
-	 */
-	public void setFragmentStrand(String strand) {
-		if(strand.equalsIgnoreCase("first"))
-			orientation = firstMate.getFragmentStrand();
-		else if(strand.equalsIgnoreCase("second"))
-			orientation = secondMate.getFragmentStrand();
-		else if(strand.equalsIgnoreCase("none"))
-			orientation = Strand.UNKNOWN;
-		else{
-			logger.error("Fragment strand set to unknown");
-		}
-			
-	}
-	
-	/**
-	 * Sets the strand for the fragment to the strand passed as argument
-	 * @param strand
+	 * Sets the strand for the fragment to the strand of the transcription read
+	 * @param transcriptionRead
 	 */
 	@Override
-	public void setFragmentStrand(TranscriptionRead strand) {
-		if(strand.equals(TranscriptionRead.FIRST_OF_PAIR)){
+	public void setFragmentStrand(TranscriptionRead transcriptionRead) {
+		if(transcriptionRead.equals(TranscriptionRead.FIRST_OF_PAIR)){
 			orientation = firstMate.getFragmentStrand();
 		}
-		else if(strand.equals(TranscriptionRead.SECOND_OF_PAIR)){
+		else if(transcriptionRead.equals(TranscriptionRead.SECOND_OF_PAIR)){
 			orientation = secondMate.getFragmentStrand();
 		}
 		else

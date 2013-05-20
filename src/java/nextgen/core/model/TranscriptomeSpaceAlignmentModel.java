@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
@@ -63,6 +64,46 @@ public class TranscriptomeSpaceAlignmentModel extends ScanStatisticDataAlignment
 	 */
 	public TranscriptomeSpaceAlignmentModel(String bamAlignmentFile, TranscriptomeSpace transcriptomeSpace) {
 		super(bamAlignmentFile, transcriptomeSpace);
+	}
+	
+	/**
+	 * @param bamAlignmentFile
+	 * @param transcriptomeSpace
+	 * @param readFilterSet
+	 * @param readOrCreatePairedEndBam
+	 * @param transcriptionRead
+	 */
+	public TranscriptomeSpaceAlignmentModel(String bamAlignmentFile, TranscriptomeSpace transcriptomeSpace, Collection<Predicate<Alignment>> readFilterSet, boolean readOrCreatePairedEndBam, TranscriptionRead transcriptionRead) {
+		super(bamAlignmentFile, transcriptomeSpace, readFilterSet, readOrCreatePairedEndBam, transcriptionRead);
+	}
+
+	/**
+	 * @param bamAlignmentFile
+	 * @param transcriptomeSpace
+	 * @param readFilterSet
+	 * @param transcriptionRead
+	 */
+	public TranscriptomeSpaceAlignmentModel(String bamAlignmentFile, TranscriptomeSpace transcriptomeSpace, Collection<Predicate<Alignment>> readFilterSet, TranscriptionRead transcriptionRead) {
+		super(bamAlignmentFile, transcriptomeSpace, readFilterSet, transcriptionRead);
+	}
+
+	/**
+	 * @param bamAlignmentFile
+	 * @param transcriptomeSpace
+	 * @param readOrCreatePairedEndBam
+	 * @param transcriptionRead
+	 */
+	public TranscriptomeSpaceAlignmentModel(String bamAlignmentFile, TranscriptomeSpace transcriptomeSpace, boolean readOrCreatePairedEndBam, TranscriptionRead transcriptionRead) {
+		super(bamAlignmentFile, transcriptomeSpace, readOrCreatePairedEndBam, transcriptionRead);
+	}
+
+	/**
+	 * @param bamAlignmentFile
+	 * @param transcriptomeSpace
+	 * @param transcriptionRead
+	 */
+	public TranscriptomeSpaceAlignmentModel(String bamAlignmentFile, TranscriptomeSpace transcriptomeSpace, TranscriptionRead transcriptionRead) {
+		super(bamAlignmentFile, transcriptomeSpace, transcriptionRead);
 	}
 	
 	/**
