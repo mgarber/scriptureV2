@@ -190,7 +190,7 @@ public class PairedEndReader {
 	 * @return Alignment
 	 * @throws ChromosomeInconsistencyException 
 	 */
-	private Alignment samRecordToAlignment(SAMRecord record,TranscriptionRead strand,boolean fragment) {
+	private Alignment samRecordToAlignment(SAMRecord record,TranscriptionRead transcriptionRead,boolean fragment) {
 		Alignment rtrn;
 		
 		try {
@@ -231,7 +231,7 @@ public class PairedEndReader {
 					SingleEndAlignment firstMate=new SingleEndAlignment(record);
 					SingleEndAlignment secondMate=new SingleEndAlignment(record2);
 
-					rtrn=new PairedEndAlignmentFactory().getAlignment(fragment, firstMate, secondMate, strand);
+					rtrn=new PairedEndAlignmentFactory().getAlignment(fragment, firstMate, secondMate, transcriptionRead);
 					rtrn.setProperPairFlag(record.getProperPairFlag());
 				
 				} else {

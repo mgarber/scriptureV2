@@ -13,7 +13,6 @@ import org.apache.log4j.Logger;
 import broad.pda.annotation.BEDFileParser;
 
 
-import nextgen.core.annotation.AbstractAnnotation;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.Gene;
@@ -130,7 +129,13 @@ public class AnnotationUtils {
 	public static <T extends Annotation> Map<T, T> mapChildToLargestParent(Map<String, Collection<T>> children, Map<String, Collection<T>> parents) {
 		Map<T, T> rtrn = new TreeMap<T, T>();
 		Map<T, Collection<T>> allRelationships = mapChildToParents(children, parents);
+		logger.info("Finding largest parent for each child annotation...");
+		int numDone = 0;
 		for(T child : allRelationships.keySet()) {
+			numDone++;
+			if(numDone % 1000 == 0) {
+				logger.info("Finished " + numDone + " regions.");
+			}
 			int largestParentSize = 0;
 			for(T parent : allRelationships.get(child)) {
 				if(parent.getSize() > largestParentSize) {
@@ -139,6 +144,7 @@ public class AnnotationUtils {
 				}
 			}
 		}
+		logger.info("Done finding largest parent for each annotation.");
 		return rtrn;
 	}
 	
@@ -164,7 +170,7 @@ public class AnnotationUtils {
 					if(other.getEnd() < child.getStart() || other.getStart() > child.getEnd()) {
 						continue;
 					}
-					if(other.contains(child) && other.overlaps(child)) {
+					if(other.contains(child) && other.overlaps(child) && child.getOrientation().equals(other.getOrientation())) {
 						parentSet.add(other);
 					}
 				}
@@ -173,6 +179,7 @@ public class AnnotationUtils {
 				}
 			}
 		}
+		logger.info("Done mapping child annotations to parent annotations.");
 		return rtrn;
 	}
 	

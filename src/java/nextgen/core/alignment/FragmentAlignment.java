@@ -28,14 +28,14 @@ public class FragmentAlignment extends AbstractPairedEndAlignment {
      * Constructs a paired end alignment object from two alignments and provides the read that is in the direction of transcription
      * @param read1
      * @param read2
-     * @param strand
+     * @param transcriptionRead
      */
-    public FragmentAlignment(SingleEndAlignment read1, SingleEndAlignment read2,TranscriptionRead strand) {
+    public FragmentAlignment(SingleEndAlignment read1, SingleEndAlignment read2,TranscriptionRead transcriptionRead) {
     	super(asAnnotation(read1, read2, true));   //TODO How to deal with pairs that have different chromosomes?
 
     	this.firstMate = read1;
         this.secondMate = read2;
-        setFragmentStrand(strand);
+        setFragmentStrand(transcriptionRead);
         refreshAttributeMap();
     }
     
