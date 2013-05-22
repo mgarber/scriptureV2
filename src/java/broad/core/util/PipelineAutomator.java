@@ -1201,7 +1201,7 @@ public class PipelineAutomator {
 		if(configP.basicOptions.getWigWriterJar() != null && configP.basicOptions.getBedFileForWig() != null) {
 			logger.info("");
 			logger.info("Making wig files of position counts normalized to transcript average coverage.");
-			writeWigPositionCountNormalizedToTranscriptAverage(currentBamFiles, currentBamDir, configP.basicOptions.getBedFileForWig(), configP.basicOptions.getGenomeFasta());
+			writeWigPositionCount(currentBamFiles, currentBamDir, configP.basicOptions.getBedFileForWig(), configP.basicOptions.getGenomeFasta());
 			logger.info("");
 			logger.info("Done writing wig files.\n");
 		}
@@ -1792,63 +1792,95 @@ public class PipelineAutomator {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	private void writeWigPositionCountNormalizedToTranscriptAverage(Map<String, String> bamFiles, String bamDir, String geneBedFile, String refFasta) throws IOException, InterruptedException {
+	private void writeWigPositionCount(Map<String, String> bamFiles, String bamDir, String geneBedFile, String refFasta) throws IOException, InterruptedException {
 		String wigToBigWig = configP.basicOptions.getWigToBigWigExecutable();
 		Map<String, Collection<Gene>> genes = BEDFileParser.loadDataByChr(new File(geneBedFile));
 		Collection<String> chrNames = genes.keySet();
-		Map<String, Map<String, String>> wigFiles = new TreeMap<String, Map<String, String>>();
-		Map<String, String> fullWigFiles = new TreeMap<String, String>();
-		Map<String, String> fullBigwigFiles = new TreeMap<String, String>();
+		Map<String, Map<String, String>> normalizedWigFiles = new TreeMap<String, Map<String, String>>();
+		Map<String, String> fullNormalizedWigFiles = new TreeMap<String, String>();
+		Map<String, String> fullNormalizedBigwigFiles = new TreeMap<String, String>();
+		Map<String, Map<String, String>> unnormalizedWigFiles = new TreeMap<String, Map<String, String>>();
+		Map<String, String> fullUnnormalizedWigFiles = new TreeMap<String, String>();
+		Map<String, String> fullUnnormalizedBigwigFiles = new TreeMap<String, String>();
 		ArrayList<String> wigJobIDs = new ArrayList<String>();
 		String wigWriter = configP.basicOptions.getWigWriterJar();
 		for(String sample : sampleNames) {
-			String wigFile = bamDir + "/" + sample + ".wig";
-			String bigwigFile = bamDir + "/" + sample + ".bw";
-			fullWigFiles.put(sample, wigFile);
-			fullBigwigFiles.put(sample, bigwigFile);
-			File bw = new File(fullBigwigFiles.get(sample));
-			if(bw.exists()) {
-				logger.warn("Bigwig file " + bw + " already exists. Not remaking wig or bigwig.");
+			String normalizedWigFile = bamDir + "/" + sample + ".normalized.wig";
+			String normalizedBigwigFile = bamDir + "/" + sample + ".normalized.bw";
+			fullNormalizedWigFiles.put(sample, normalizedWigFile);
+			fullNormalizedBigwigFiles.put(sample, normalizedBigwigFile);
+			File normalizedBw = new File(fullNormalizedBigwigFiles.get(sample));
+			String unnormalizedWigFile = bamDir + "/" + sample + ".wig";
+			String unnormalizedBigwigFile = bamDir + "/" + sample + ".bw";
+			fullUnnormalizedWigFiles.put(sample, unnormalizedWigFile);
+			fullUnnormalizedBigwigFiles.put(sample, unnormalizedBigwigFile);
+			File unnormalizedBw = new File(fullUnnormalizedBigwigFiles.get(sample));
+			if(normalizedBw.exists() && unnormalizedBw.exists()) {
+				logger.warn("Bigwig files " + normalizedBw + " and " + unnormalizedBw + " already exist. Not remaking wigs or bigwigs.");
 				continue;
 			}
-			File wf = new File(fullWigFiles.get(sample));
-			if(wf.exists()) {
-				logger.warn("Wig file " + wf + " already exists. Not remaking file.");
+			File wfn = new File(fullNormalizedWigFiles.get(sample));
+			File wfu = new File(fullUnnormalizedWigFiles.get(sample));
+			if(wfn.exists() && wfu.exists()) {
+				logger.warn("Wig files " + wfn + " and " + wfu + " already exist. Not remaking files.");
 				continue;
 			}
 			String bamFile = bamFiles.get(sample);
-			Map<String, String> wigFilesByChr = new TreeMap<String, String>();
+			
+			// Create normalized wig files
+			Map<String, String> normalizedWigFilesByChr = new TreeMap<String, String>();
+			for(String chr : chrNames) {
+				String prefix = bamDir + "/" + sample + "_" + chr + ".normalized";
+				String normalizedFile = prefix + ".wig";
+				normalizedWigFilesByChr.put(chr, normalizedFile);
+				File nf = new File(normalizedFile);
+				if(nf.exists()) {
+					logger.warn("Wig file " + normalizedFile + " already exists. Not remaking file.");
+				} else {
+					logger.info("Writing wig file " + normalizedFile + "...");
+					String cmmd = "java -jar -Xmx15g -Xms10g -Xmn5g " + wigWriter + " -b " + bamFile + " -g " + geneBedFile + " -n true -o " + prefix + " -chr " + chr;
+					logger.info("Running command: " + cmmd);
+					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+					wigJobIDs.add(jobID);
+					logger.info("LSF job ID is " + jobID + ".");
+					// Submit job
+					PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/write_wig_normalized_" + sample + "_" + chr + "_" + jobID + ".bsub", "week", 16);
+				}
+			}
+			normalizedWigFiles.put(sample, normalizedWigFilesByChr);
+			
+			// Create unnormalized wig files
+			Map<String, String> unnormalizedWigFilesByChr = new TreeMap<String, String>();
 			for(String chr : chrNames) {
 				String prefix = bamDir + "/" + sample + "_" + chr;
-				String file = prefix + ".wig";
-				wigFilesByChr.put(chr, file);
-				File f = new File(file);
-				if(f.exists()) {
-					logger.warn("Wig file " + file + " already exists. Not remaking file.");
-					continue;
+				String unnormalizedFile = prefix + ".wig";
+				unnormalizedWigFilesByChr.put(chr, unnormalizedFile);
+				File uf = new File(unnormalizedFile);
+				if(uf.exists()) {
+					logger.warn("Wig file " + unnormalizedFile + " already exists. Not remaking file.");
+				} else {
+					logger.info("Writing wig file " + unnormalizedFile + "...");
+					String cmmd = "java -jar -Xmx15g -Xms10g -Xmn5g " + wigWriter + " -b " + bamFile + " -g " + geneBedFile + " -n false -o " + prefix + " -chr " + chr;
+					logger.info("Running command: " + cmmd);
+					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+					wigJobIDs.add(jobID);
+					logger.info("LSF job ID is " + jobID + ".");
+					// Submit job
+					PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/write_wig_unnormalized_" + sample + "_" + chr + "_" + jobID + ".bsub", "week", 16);
 				}
-				logger.info("Writing wig file " + file + "...");
-				String cmmd = "java -jar -Xmx15g -Xms10g -Xmn5g " + wigWriter + " -b " + bamFile + " -g " + geneBedFile + " -n true -o " + prefix + " -chr " + chr;
-				
-				logger.info("Running command: " + cmmd);
-				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-				wigJobIDs.add(jobID);
-				logger.info("LSF job ID is " + jobID + ".");
-				// Submit job
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/write_wig_" + sample + "_" + chr + "_" + jobID + ".bsub", "week", 16);
 			}
-			wigFiles.put(sample, wigFilesByChr);
+			unnormalizedWigFiles.put(sample, unnormalizedWigFilesByChr);
 		}
 		logger.info("");
 		logger.info("Waiting for wig writer jobs to finish...");
 		PipelineUtils.waitForAllJobs(wigJobIDs, Runtime.getRuntime());
 		logger.info("");
-		logger.info("Combining chromosome wig files...");
-		for(String sample : wigFiles.keySet()) {
+		logger.info("Combining normalized chromosome wig files...");
+		for(String sample : normalizedWigFiles.keySet()) {
 			logger.info(sample);
-			String wigFile = fullWigFiles.get(sample);
+			String wigFile = fullNormalizedWigFiles.get(sample);
 			FileWriter w = new FileWriter(wigFile);
-			for(String chrFile : wigFiles.get(sample).values()) {
+			for(String chrFile : normalizedWigFiles.get(sample).values()) {
 				FileReader r = new FileReader(chrFile);
 				BufferedReader b = new BufferedReader(r);
 				while(b.ready()) {
@@ -1859,14 +1891,39 @@ public class PipelineAutomator {
 			}
 			w.close();
 		}
-		logger.info("Done combining chromosome wig files. Delete individual chromosome files to save storage.");
+		logger.info("Done combining normalized chromosome wig files. Delete individual chromosome files to save storage.");
 		logger.info("");
-		logger.info("Making bigwig files...");
+		logger.info("Combining unnormalized chromosome wig files...");
+		for(String sample : unnormalizedWigFiles.keySet()) {
+			logger.info(sample);
+			String wigFile = fullUnnormalizedWigFiles.get(sample);
+			FileWriter w = new FileWriter(wigFile);
+			for(String chrFile : unnormalizedWigFiles.get(sample).values()) {
+				FileReader r = new FileReader(chrFile);
+				BufferedReader b = new BufferedReader(r);
+				while(b.ready()) {
+					w.write(b.readLine() + "\n");
+				}
+				r.close();
+				b.close();
+			}
+			w.close();
+		}
+		logger.info("Done combining unnormalized chromosome wig files. Delete individual chromosome files to save storage.");
+		
+		logger.info("");
+		logger.info("Making normalized and unnormalized bigwig files...");
 		String chrSizeFile = writeChrSizeFile(refFasta);
 		ArrayList<String> bigwigJobIDs = new ArrayList<String>();
-		for(String sample : fullBigwigFiles.keySet()) {
-			String wig = fullWigFiles.get(sample);
-			String bigwig = fullBigwigFiles.get(sample);
+		// Submit jobs for normalized files
+		for(String sample : fullNormalizedBigwigFiles.keySet()) {
+			String wig = fullNormalizedWigFiles.get(sample);
+			String bigwig = fullNormalizedBigwigFiles.get(sample);
+			File b = new File(bigwig);
+			if(b.exists()) {
+				logger.warn("Bigwig file " +  bigwig + " already exists. Not remaking file.");
+				continue;
+			}
 			String cmmd = wigToBigWig + " " + wig + " " + chrSizeFile + " " + bigwig;
 			logger.info("");
 			logger.info("Making bigwig file for wig file " + wig + ".");
@@ -1874,7 +1931,25 @@ public class PipelineAutomator {
 			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 			bigwigJobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
+			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_normalized_" + jobID + ".bsub", "hour", 4);
+		}
+		// Submit jobs for unnormalized files
+		for(String sample : fullUnnormalizedBigwigFiles.keySet()) {
+			String wig = fullUnnormalizedWigFiles.get(sample);
+			String bigwig = fullUnnormalizedBigwigFiles.get(sample);
+			File b = new File(bigwig);
+			if(b.exists()) {
+				logger.warn("Bigwig file " +  bigwig + " already exists. Not remaking file.");
+				continue;
+			}
+			String cmmd = wigToBigWig + " " + wig + " " + chrSizeFile + " " + bigwig;
+			logger.info("");
+			logger.info("Making bigwig file for wig file " + wig + ".");
+			logger.info("Running UCSC command " + cmmd);
+			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+			bigwigJobIDs.add(jobID);
+			logger.info("LSF job ID is " + jobID + ".");
+			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_unnormalized_" + jobID + ".bsub", "hour", 4);
 		}
 		logger.info("Waiting for wigToBigWig jobs to finish...");
 		PipelineUtils.waitForAllJobs(bigwigJobIDs, Runtime.getRuntime());
@@ -1937,8 +2012,10 @@ public class PipelineAutomator {
 			// Write wig file for read1
 			String wig1 = read1wig.get(sampleName);
 			File read1wigFile = new File(wig1);
-			if(read1wigFile.exists()) {
-				logger.warn("Wig file " + wig1 + " already exists. Not remaking file.");
+			String bigwig1 = read1bigwig.get(sampleName);
+			File read1bigwigFile = new File(bigwig1);
+			if(read1wigFile.exists() || read1bigwigFile.exists()) {
+				logger.warn("Read 1 wig file or bigwig file for sample " + sampleName + " already exists. Not remaking wig file.");
 			} else {
 				logger.info("Writing fragment ends of read 1 from bam file " + bamFile + " to wig file " + wig1 + ".");
 				WigWriter read1ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, true, false, false);
@@ -1949,8 +2026,6 @@ public class PipelineAutomator {
 				logger.info("Done writing file " + wig1 + ".");
 			}
 			// Write bigwig file for read1
-			String bigwig1 = read1bigwig.get(sampleName);
-			File read1bigwigFile = new File(bigwig1);
 			if(read1bigwigFile.exists()) {
 				logger.warn("Bigwig file " + bigwig1 + " already exists. Not remaking file.");
 			} else {
@@ -1968,8 +2043,10 @@ public class PipelineAutomator {
 				// Write wig file for read2
 				String wig2 = read2wig.get(sampleName);
 				File read2wigFile = new File(wig2);
-				if(read2wigFile.exists()) {
-					logger.warn("Wig file " + wig2 + " already exists. Not remaking file.");
+				String bigwig2 = read2bigwig.get(sampleName);
+				File read2bigwigFile = new File(bigwig2);
+				if(read2wigFile.exists() || read2bigwigFile.exists()) {
+					logger.warn("Read 2 wig file or bigwig file for sample " + sampleName + " already exists. Not remaking wig file.");
 				} else {
 					logger.info("Writing fragment ends of read 2 from bam file " + bamFile + " to wig file " + wig2 + ".");
 					WigWriter read2ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, true, false, false);
@@ -1980,8 +2057,6 @@ public class PipelineAutomator {
 					logger.info("Done writing file " + wig2 + ".");
 				}
 				// Write bigwig file for read2
-				String bigwig2 = read2bigwig.get(sampleName);
-				File read2bigwigFile = new File(bigwig2);
 				if(read2bigwigFile.exists()) {
 					logger.warn("Bigwig file " + bigwig2 + " already exists. Not remaking file.");
 				} else {
