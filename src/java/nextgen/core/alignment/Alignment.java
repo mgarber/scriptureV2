@@ -97,6 +97,12 @@ public interface Alignment extends Annotation {
 	 */
 	public int getFirstFragmentPositionStranded();
 
+	/**
+	 * Get midpoint of fragment with respect to coordinate space
+	 * @param annot Parent annotation
+	 * @return Fragment midpoint in coordinate space
+	 */
+	public int getFragmentMidpoint(Annotation annot);
 	
     /**
      * This method returns the fragment formed by the alignment in the coordinate space C, specified.

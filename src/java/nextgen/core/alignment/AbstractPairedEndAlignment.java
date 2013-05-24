@@ -17,6 +17,7 @@ import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
 import nextgen.core.annotation.*;
+import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.writers.PairedEndWriter;
 
 /**
@@ -225,6 +226,11 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	 */
 	public Alignment getSecondMate() {
 		return this.secondMate;
+	}
+	
+	@Override
+	public int getFragmentMidpoint(Annotation annot) {
+		return AnnotationUtils.getSubAnnotationMidpointWithinAnnotation(annot, this);
 	}
 	
 	/**
