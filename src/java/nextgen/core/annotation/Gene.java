@@ -895,6 +895,9 @@ public class Gene extends BasicAnnotation {
 	public Gene getCDS(){
 		Alignments cds=getCDSRegion();
 		Gene rtrn=this.trimAbsolute(cds.getStart(), cds.getEnd());		
+		if(rtrn == null) {
+			return null;
+		}
 		String geneName = "";
 		if(getName() == null) {
 			geneName += getChr() + "_" + getStart() + "_" + getEnd();

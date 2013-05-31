@@ -26,7 +26,11 @@ public class ScanStatisticScore extends CountScore {
 		super(model, annotation);
 		coordSpace = model.getCoordinateSpace();
 		setGlobalLength(model.getGlobalLength());
-		setScanPvalue(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(annotation), getGlobalLength()));
+		try {
+			setScanPvalue(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(annotation), getGlobalLength()));
+		} catch(Exception e) {
+			logger.info("Could not set scan P value for annotation " + annotation.getName());
+		}
 		getAnnotation().setScore(getScanPvalue());
 		
 		// by default, set the "region" stats to the "global" stats
@@ -40,9 +44,12 @@ public class ScanStatisticScore extends CountScore {
 		coordSpace = model.getCoordinateSpace();
 		setRegionLength(previousScore.getRegionLength());
 		setRegionTotal(previousScore.getRegionTotal());
-		
 		setGlobalLength(model.getGlobalLength());
-		setScanPvalue(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(annotation), model.getGlobalLength()));
+		try {
+			setScanPvalue(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(annotation), model.getGlobalLength()));
+		} catch(Exception e) {
+			logger.info("Could not set scan P value for annotation " + annotation.getName());
+		}
 		getAnnotation().setScore(getScanPvalue());
 	}
 	
