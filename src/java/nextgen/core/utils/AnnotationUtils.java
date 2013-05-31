@@ -119,6 +119,25 @@ public class AnnotationUtils {
 
 	}
 	
+	/**
+	 * Get largest parent
+	 * @param child Child annotation
+	 * @param parents Possible parent annotations by chromosome
+	 * @return Largest parent (annotation containing child on same strand) or null if none exists
+	 */
+	public static <T extends Annotation> T getLargestParent(T child, Map<String, Collection<T>> parents) {
+		Collection<T> allParents = getParents(child, parents);
+		T rtrn = null;
+		int largestParentSize = 0;
+		for(T parent : allParents) {
+			if(parent.getSize() > largestParentSize) {
+				rtrn = parent;
+				largestParentSize = parent.getSize();
+			}
+		}		
+		logger.info("Largest parent is " + rtrn.getName());
+		return rtrn;
+	}
 	
 	/**
 	 * Map each child annotation to its largest parent defined as annotations overlapping and containing child
@@ -128,19 +147,18 @@ public class AnnotationUtils {
 	 */
 	public static <T extends Annotation> Map<T, T> mapChildToLargestParent(Map<String, Collection<T>> children, Map<String, Collection<T>> parents) {
 		Map<T, T> rtrn = new TreeMap<T, T>();
-		Map<T, Collection<T>> allRelationships = mapChildToParents(children, parents);
 		logger.info("Finding largest parent for each child annotation...");
 		int numDone = 0;
-		for(T child : allRelationships.keySet()) {
-			numDone++;
-			if(numDone % 1000 == 0) {
-				logger.info("Finished " + numDone + " regions.");
-			}
-			int largestParentSize = 0;
-			for(T parent : allRelationships.get(child)) {
-				if(parent.getSize() > largestParentSize) {
-					rtrn.put(child, parent);
-					largestParentSize = parent.getSize();
+		for(String chr : children.keySet()) {
+			logger.info(chr);
+			for(T child : children.get(chr)) {
+				numDone++;
+				if(numDone % 1000 == 0) {
+					logger.info("Finished " + numDone + " regions.");
+				}
+				T largestParent = getLargestParent(child, parents);
+				if(largestParent != null) {
+					rtrn.put(child, largestParent);
 				}
 			}
 		}
@@ -148,6 +166,29 @@ public class AnnotationUtils {
 		return rtrn;
 	}
 	
+	/**
+	 * Get parents of child annotation
+	 * @param child Child
+	 * @param parents Parents by chromosome
+	 * @return Set of parents containing child or empty set if none
+	 */
+	public static <T extends Annotation> Collection<T> getParents(T child, Map<String, Collection<T>> parents) {
+		Collection<T> rtrn = new TreeSet<T>();
+		String chr = child.getChr();
+		if(!parents.containsKey(chr)) {
+			return rtrn;
+		}
+		for(T other : parents.get(chr)) {
+			if(other.getEnd() < child.getStart() || other.getStart() > child.getEnd()) {
+				continue;
+			}
+			if(other.contains(child) && other.overlaps(child) && child.getOrientation().equals(other.getOrientation())) {
+				rtrn.add(other);
+			}
+		}
+		logger.info(rtrn.size() + " parents.");
+		return rtrn;
+	}
 	
 	/**
 	 * Map each child annotation to its set of parents defined as annotations overlapping and containing child
@@ -165,15 +206,7 @@ public class AnnotationUtils {
 				continue;
 			}
 			for(T child : children.get(chr)) {
-				Collection<T> parentSet = new TreeSet<T>();
-				for(T other : parents.get(chr)) {
-					if(other.getEnd() < child.getStart() || other.getStart() > child.getEnd()) {
-						continue;
-					}
-					if(other.contains(child) && other.overlaps(child) && child.getOrientation().equals(other.getOrientation())) {
-						parentSet.add(other);
-					}
-				}
+				Collection<T> parentSet = getParents(child, parents);
 				if(!parentSet.isEmpty()) {
 					rtrn.put(child, parentSet);
 				}
@@ -200,6 +233,26 @@ public class AnnotationUtils {
 		return rtrn;
 	}
 
+	/**
+	 * Get midpoint of a sub annotation with respect to a possibly spliced parent annotation
+	 * Ignores blocks of sub annotation and only considers blocks of parent annotation
+	 * @param annot Parent annotation
+	 * @param subAnnot Sub annotation contained in parent annotation
+	 * @return Midpoint of sub annotation span considering blocks of parent annotation
+	 */
+	public static int getSubAnnotationMidpointWithinAnnotation(Annotation annot, Annotation subAnnot) {
+		int start = subAnnot.getStart();
+		int end = subAnnot.getEnd();
+		if(start < annot.getStart() || end > annot.getEnd()) {
+			throw new IllegalArgumentException("Sub-annotation must fall within annotation.");
+		}
+		Gene trimmed = new Gene(annot);
+		trimmed.setStart(start);
+		trimmed.setEnd(end);
+		int trimmedSize = trimmed.size();
+		int midpoint = trimmedSize / 2;
+		return trimmed.transcriptToGenomicPosition(midpoint);
+	}
 
 
 }
