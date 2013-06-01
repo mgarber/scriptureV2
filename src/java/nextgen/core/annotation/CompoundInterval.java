@@ -392,7 +392,7 @@ public class CompoundInterval implements Comparable<CompoundInterval> {
 	public CompoundInterval intersect(CompoundInterval other) {
 		CompoundInterval result = new CompoundInterval();
 		for (SingleInterval block : other.getBlocks()) {
-			List<SingleInterval> intersections = this.intersect(block);
+			List<SingleInterval> intersections = intersect(block);
 			for (SingleInterval intersection : intersections) {
 				result.addInterval(intersection);
 			}

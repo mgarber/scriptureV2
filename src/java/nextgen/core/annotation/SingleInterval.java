@@ -47,7 +47,7 @@ public final class SingleInterval extends Interval.Impl implements Comparable<Si
 	 * @return New interval of intersection; if they don't intersect, then returns null
 	 */
 	public SingleInterval intersect(SingleInterval other) {
-		if (!this.overlaps(other))
+		if (!overlaps(other))
 			return null;
 		else
 			return new SingleInterval(Math.max(this.getStart(), other.getStart()), Math.min(this.getEnd(), other.getEnd()));

@@ -27,7 +27,7 @@ public class BasicLightweightAnnotation extends BasicAnnotation implements Light
 
 		
 	public BasicLightweightAnnotation(){
-		super("", 0, 0);
+		super("", 0, Integer.MAX_VALUE);
 		extraScores = new ArrayList<Double>();
 	}
 	
