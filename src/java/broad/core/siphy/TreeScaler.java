@@ -5,18 +5,15 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.RandomAccessFile;
-import java.io.Reader;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -26,6 +23,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Stack;
 import java.util.TreeMap;
+import org.apache.log4j.Logger;
 
 import nextgen.core.annotation.Annotation;
 
@@ -33,10 +31,7 @@ import org.apache.commons.math3.distribution.NormalDistribution;
 import org.forester.phylogeny.Phylogeny;
 import org.forester.phylogeny.PhylogenyNode;
 
-
 import Jama.Matrix;
-import broad.core.annotation.AnnotationReader;
-import broad.core.annotation.AnnotationReaderFactory;
 import broad.core.annotation.BED;
 import broad.core.annotation.BEDReader;
 import broad.core.annotation.BasicGenomicAnnotation;
@@ -46,15 +41,14 @@ import broad.core.error.ParseException;
 import broad.core.math.ComputeFDR;
 import broad.core.math.EmpiricalDistribution;
 import broad.core.math.Statistics;
-import broad.core.motif.PWMUtils;
 import broad.core.motif.PositionWeightMatrix;
 import broad.core.motif.PositionWeightMatrixIO;
 import broad.core.multiplealignment.MAFAlignment;
 import broad.core.multiplealignment.MAFIO;
 import broad.core.multiplealignment.MultipleAlignment;
+import broad.core.multiplealignment.MultipleAlignment.AlignedSequence;
 import broad.core.multiplealignment.MultipleAlignmentFactory;
 import broad.core.multiplealignment.MultipleAlignmentIOFactory;
-import broad.core.multiplealignment.MultipleAlignment.AlignedSequence;
 import broad.core.sequence.Sequence;
 import broad.core.siphy.EvolutionaryModel.NodeLikelihoodParameters;
 import broad.core.siphy.EvolutionaryModel.OmegaFit;
@@ -63,6 +57,8 @@ import broad.core.util.CLUtil;
 import broad.core.util.CLUtil.ArgumentMap;
 
 public class TreeScaler {
+	
+	private static final Logger logger = Logger.getLogger(TreeScaler.class.getName());
 	public static final String USAGE = "Usage: TreeScaler TASK=<task_num> <task_args>\n" +
 	"\tTasks:\n" +
 	"\t\t1. Compute scaling of tree for each site in a multiple alignment. \n\t\tParameters:\n\t\t  -in <multiple alignment file> "+
@@ -185,6 +181,7 @@ public class TreeScaler {
 	}
 	
 	public static void main(String[] args) throws Exception {
+		logger.debug("Logger level set to DEBUG or less");
 		
 		ArgumentMap argMap = CLUtil.getParameters(args, USAGE);
 		
