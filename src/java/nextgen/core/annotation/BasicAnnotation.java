@@ -181,6 +181,10 @@ public class BasicAnnotation extends AbstractAnnotation {
 		return !Strand.NEGATIVE.equals(getOrientation()) && !Strand.POSITIVE.equals(getOrientation()) ;
 	}
 	
+	/**
+	 * Returns unoriented blocks for this gene
+	 * 
+	 */
 	public List<? extends Annotation> getBlocks() {
 		return getBlocks(false);
 	}
