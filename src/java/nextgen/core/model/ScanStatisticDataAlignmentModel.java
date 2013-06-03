@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import org.apache.log4j.Logger;
 
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.coordinatesystem.CoordinateSpace;
@@ -26,32 +27,14 @@ public class ScanStatisticDataAlignmentModel extends AlignmentModel {
 	//TODO Should have a permute function
 	static Logger logger = Logger.getLogger(ScanStatisticDataAlignmentModel.class.getName());
 
-	/**
-	 * Build with a BAM file
-	 * Populate the alignment collection
-	 * @param bamFile
-	 * @param coordinateSpace 
-	 * @param readFilters 
-	 * @throws IOException 
-	 */
 	public ScanStatisticDataAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters) {
 		super(bamFile, coordinateSpace, readFilters);
 	}
 	
-	/**
-	 * Build with a BAM file
-	 * Populate the alignment collection
-	 * @param bamFile
-	 * @param coordinateSpace 
-	 * @param readFilters 
-	 * @param readOrCreatePairedEndBam 
-	 * @throws IOException 
-	 */
 	public ScanStatisticDataAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam) {
 		super(bamFile, coordinateSpace, readFilters, readOrCreatePairedEndBam);
 	}
 
-	
 	public ScanStatisticDataAlignmentModel(String bamFile, CoordinateSpace coordinateSpace) {
 		this(bamFile, coordinateSpace, new ArrayList<Predicate<Alignment>>());
 	}
@@ -60,6 +43,21 @@ public class ScanStatisticDataAlignmentModel extends AlignmentModel {
 		this(bamFile, coordinateSpace, new ArrayList<Predicate<Alignment>>(), readOrCreatePairedEndBam);
 	}
 
+	public ScanStatisticDataAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, TranscriptionRead transcriptionRead) {
+		super(bamFile, coordinateSpace, readFilters, transcriptionRead);
+	}
+	
+	public ScanStatisticDataAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam, TranscriptionRead transcriptionRead) {
+		super(bamFile, coordinateSpace, readFilters, readOrCreatePairedEndBam, transcriptionRead);
+	}
+
+	public ScanStatisticDataAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, TranscriptionRead transcriptionRead) {
+		this(bamFile, coordinateSpace, new ArrayList<Predicate<Alignment>>(), transcriptionRead);
+	}
+
+	public ScanStatisticDataAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, boolean readOrCreatePairedEndBam, TranscriptionRead transcriptionRead) {
+		this(bamFile, coordinateSpace, new ArrayList<Predicate<Alignment>>(), readOrCreatePairedEndBam, transcriptionRead);
+	}
 	
 	
 	/**

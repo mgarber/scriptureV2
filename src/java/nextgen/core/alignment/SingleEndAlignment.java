@@ -19,6 +19,7 @@ import net.sf.samtools.SAMRecord.SAMTagAndValue;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
+import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.*;
 
@@ -392,6 +393,11 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 	@Override
 	public int[] getIntervalBetweenReads() {
 		return null;
+	}
+
+	@Override
+	public int getFragmentMidpoint(Annotation annot) {
+		return AnnotationUtils.getSubAnnotationMidpointWithinAnnotation(annot, this);
 	}
 
 }

@@ -9,6 +9,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
 import org.forester.phylogeny.Phylogeny;
 
 
@@ -20,8 +21,10 @@ import broad.core.multiplealignment.MultipleAlignment;
 import broad.core.multiplealignment.MultipleAlignmentFactory;
 import broad.core.multiplealignment.MultipleAlignment.AlignedSequence;
 import broad.core.util.CLUtil.ArgumentMap;
+import broad.pda.feature.genome.Chromosome;
 
 public class ConservationUtils {
+	static Logger logger = Logger.getLogger(ConservationUtils.class.getName());
 	
 	public static void setUninformativeNodes(Map<String, Matrix> column, List<String> sequences) {
 		setUninformativeNodes(column, sequences, 0);
@@ -50,11 +53,11 @@ public class ConservationUtils {
 		while(nodeNameIt.hasNext()) {
 			String nodeName = nodeNameIt.next();
 			//System.out.println("ToPrune: " + nodeName);
-			Collection nodesForName = prunned.getNodes(nodeName);
+			Collection<String> nodesForName = prunned.getNodes(nodeName);
 			if(!nodesForName.isEmpty()) {
 				prunned.removeExtNode(prunned.getNode(nodeName));
 			} else {
-				System.err.println("Node " + nodeName + " was not in tree");
+				logger.debug("Node " + nodeName + " was not in tree");
 			}
 		}
 		//System.out.println("prunned external sequences " + prunned.toNewHampshire(false));
@@ -111,9 +114,8 @@ public class ConservationUtils {
 		} else {
 			int start = argMap.getInteger("start");
 			int end   = argMap.getInteger("end");
-			
-			alignment = setUpMAF(alnFile, ignoreList, model,start,
-					end);
+			logger.debug("Getting alignment from " + start + " to " + end);
+			alignment = setUpMAF(alnFile, ignoreList, model,start,end);
 		}
 		alignment.remove(ignoreList);
 		
@@ -132,9 +134,9 @@ public class ConservationUtils {
 		String [] seqs = model.getTree().getAllExternalSeqNames();
 		List<String> seqsToLoad = new ArrayList<String>();
 		for(int i = 0; i < seqs.length; i++) {
-			if(!ignoreList.contains(seqs[i])) {
+			//if(!ignoreList.contains(seqs[i])) { //TODO: Reinstate this condition only commented out to test
 				seqsToLoad.add(seqs[i]);
-			}
+			//}
 		}
 		RandomAccessFile alnRaf = new RandomAccessFile(alnFile , "r");		
 		mafAln.load(alnRaf, start, end, seqsToLoad);
@@ -168,9 +170,9 @@ public class ConservationUtils {
 		String [] seqs = guideTree.getAllExternalSeqNames();
 		List<String> seqsToLoad = new ArrayList<String>();
 		for(int i = 0; i < seqs.length; i++) {
-			if(!ignoreList.contains(seqs[i])) {
+			//if(!ignoreList.contains(seqs[i])) {
 				seqsToLoad.add(seqs[i]);
-			}
+			//}
 		}
 		MAFAlignment mafAln = mafio.load(seqsToLoad, start, end);
 		mafAln.compress();

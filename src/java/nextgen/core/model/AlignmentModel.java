@@ -97,17 +97,17 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @param readFilters 
 	 * @throws IOException 
 	 */
-	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead strand) {
+	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead) {
 
 		this.bamFile=bamFile;
 		
 		if (readOrCreatePairedEndBam) {
-			this.bamFile = PairedEndReader.getOrCreatePairedEndFile(bamFile,strand);
+			this.bamFile = PairedEndReader.getOrCreatePairedEndFile(bamFile,transcriptionRead);
 			String file = PairedEndReader.getPairedEndFile(bamFile);
 			if (file == null) {
 				file = PairedEndWriter.getDefaultFile(bamFile);
 				PairedEndWriter writer = new PairedEndWriter(new File(this.bamFile), file);
-				writer.convertInputToPairedEnd(strand);
+				writer.convertInputToPairedEnd(transcriptionRead);
 			}
 			this.bamFile = file;
 		} else {
@@ -115,7 +115,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 				
 		// Establish the data alignment model like previously
-		this.reader = new PairedEndReader(new File(this.bamFile),strand);
+		this.reader = new PairedEndReader(new File(this.bamFile),transcriptionRead);
 		
 		//If the passed coordinate space is null then make a Genomic Space
 		if(coordinateSpace==null){
@@ -140,17 +140,17 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @param readFilters 
 	 * @throws IOException 
 	 */
-	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead strand,boolean fragment) {
+	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead,boolean fragment) {
 
 		this.bamFile=bamFile;
 		
 		if (readOrCreatePairedEndBam) {
-			this.bamFile = PairedEndReader.getOrCreatePairedEndFile(bamFile,strand);
+			this.bamFile = PairedEndReader.getOrCreatePairedEndFile(bamFile,transcriptionRead);
 			String file = PairedEndReader.getPairedEndFile(bamFile);
 			if (file == null) {
 				file = PairedEndWriter.getDefaultFile(bamFile);
 				PairedEndWriter writer = new PairedEndWriter(new File(this.bamFile), file);
-				writer.convertInputToPairedEnd(strand);
+				writer.convertInputToPairedEnd(transcriptionRead);
 			}
 			this.bamFile = file;
 		} else {
@@ -158,7 +158,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 				
 		// Establish the data alignment model like previously
-		this.reader = new PairedEndReader(new File(this.bamFile),strand,fragment);
+		this.reader = new PairedEndReader(new File(this.bamFile),transcriptionRead,fragment);
 		
 		//If the passed coordinate space is null then make a Genomic Space
 		if(coordinateSpace==null){
@@ -180,14 +180,24 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		this(bamFile, coordinateSpace, readFilters, true);
 	}
 	
+	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, TranscriptionRead transcriptionRead) {
+		this(bamFile, coordinateSpace, readFilters, true, transcriptionRead);
+	}
 	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, boolean readOrCreatePairedEndBam) {
 		this(bamFile, coordinateSpace, new ArrayList<Predicate<Alignment>>(), readOrCreatePairedEndBam);
+	}
+	
+	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, boolean readOrCreatePairedEndBam, TranscriptionRead transcriptionRead) {
+		this(bamFile, coordinateSpace, new ArrayList<Predicate<Alignment>>(), readOrCreatePairedEndBam, transcriptionRead);
 	}
 	
 	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace) {
 		this(bamFile, coordinateSpace, true);
 	}
 
+	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, TranscriptionRead transcriptionRead) {
+		this(bamFile, coordinateSpace, true, transcriptionRead);
+	}
 	/**
 	 * Check whether the global stats file is valid
 	 * Compare the names of the reference sequences

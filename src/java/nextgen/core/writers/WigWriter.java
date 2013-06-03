@@ -46,7 +46,7 @@ public class WigWriter {
 	private AlignmentModel normData;
 	private NormalizedCount normalization;
 	protected Collection<String> chrNames;
-	private boolean readBeginningPositionOnly;
+	private boolean readSinglePositionOnly;
 	private boolean isTranscriptomeSpace;
 	private boolean normalize;
 	private boolean bothFiles = false;
@@ -54,29 +54,30 @@ public class WigWriter {
 	protected static int DEFAULT_MAX_FRAGMENT_LENGTH = 2000;
 	protected static int DEFAULT_MAX_GENOMIC_SPAN = 300000;
 	static Logger logger = Logger.getLogger(WigWriter.class.getName());
+	private PositionWithinAlignment positionWithinAlignment;
 
 	/**
 	 * Construct with a transcriptome space
 	 * @param bamFile Bam alignments
 	 * @param genesByChrName Genes by reference sequence name
-	 * @param firstPositionOnly Only count the first position of each read
+	 * @param singlePositionOnly Certain position of each read to count
 	 * @param useFragments Whether to convert reads to fragments
 	 * @param nor Normalize by global amounts
 	 */
-	public WigWriter(String bamFile, Map<String, Collection<Gene>> genesByChrName, boolean firstPositionOnly, boolean useFragments, boolean nor) {
-		this(bamFile, genesByChrName, firstPositionOnly, useFragments, nor, null);
+	public WigWriter(String bamFile, Map<String, Collection<Gene>> genesByChrName, String singlePositionOnly, boolean useFragments, boolean nor) {
+		this(bamFile, genesByChrName, singlePositionOnly, useFragments, nor, null);
 	}
 	
 	/**
 	 * Construct with a transcriptome space and only write one chromosome
 	 * @param bamFile Bam alignments
 	 * @param genesByChrName Genes by reference sequence name
-	 * @param firstPositionOnly Only count the first position of each read
+	 * @param singlePositionOnly Certain position of each read to count
 	 * @param useFragments Whether to convert reads to fragments
 	 * @param nor Normalize by global amounts
 	 * @param chrToWrite Only write this chromosome
 	 */
-	public WigWriter(String bamFile, Map<String, Collection<Gene>> genesByChrName, boolean firstPositionOnly, boolean useFragments, boolean nor, String chrToWrite) {
+	public WigWriter(String bamFile, Map<String, Collection<Gene>> genesByChrName, String singlePositionOnly, boolean useFragments, boolean nor, String chrToWrite) {
 		genesByChr = genesByChrName;
 		chrNames = new TreeSet<String>();
 		if(chrToWrite == null) {
@@ -86,7 +87,7 @@ public class WigWriter {
 		}
 		transcriptomeSpace = new TranscriptomeSpace(genesByChr);
 		data = new AlignmentModel(bamFile, transcriptomeSpace, useFragments);
-		initParams(firstPositionOnly, nor, data);
+		initParams(singlePositionOnly, nor, data);
 		isTranscriptomeSpace = true;
 	}
 	
@@ -94,24 +95,24 @@ public class WigWriter {
 	 * Construct with a genome space
 	 * @param bamFile Bam alignments
 	 * @param chrSizeFile Chromosome size file
-	 * @param firstPositionOnly Only count the first position of each read
+	 * @param singlePositionOnly Certain position of each read to count
 	 * @param useFragments Whether to convert reads to fragments
 	 * @param nor Normalize by global amounts
 	 */
-	public WigWriter(String bamFile, String chrSizeFile, boolean firstPositionOnly, boolean useFragments, boolean nor) {
-		this(bamFile, chrSizeFile, firstPositionOnly, useFragments, nor, null);
+	public WigWriter(String bamFile, String chrSizeFile, String singlePositionOnly, boolean useFragments, boolean nor) {
+		this(bamFile, chrSizeFile, singlePositionOnly, useFragments, nor, null);
 	}
 	
 	/**
 	 * Construct with a genome space and only write one chromosome
 	 * @param bamFile Bam alignments
 	 * @param chrSizeFile Chromosome size file
-	 * @param firstPositionOnly Only count the first position of each read
+	 * @param singlePositionOnly Certain position of each read to count
 	 * @param useFragments Whether to convert reads to fragments
 	 * @param nor Normalize by global amounts
 	 * @param chrToWrite Only write this chromosome
 	 */
-	public WigWriter(String bamFile, String chrSizeFile, boolean firstPositionOnly, boolean useFragments, boolean nor, String chrToWrite) {
+	public WigWriter(String bamFile, String chrSizeFile, String singlePositionOnly, boolean useFragments, boolean nor, String chrToWrite) {
 		genomeSpace = new GenomicSpace(chrSizeFile);
 		chrNames = new TreeSet<String>();
 		if(chrToWrite == null) {
@@ -121,7 +122,7 @@ public class WigWriter {
 		}
 
 		data = new AlignmentModel(bamFile, genomeSpace, useFragments);
-		initParams(firstPositionOnly, nor, data);
+		initParams(singlePositionOnly, nor, data);
 		isTranscriptomeSpace = false;
 	}
 	
@@ -130,13 +131,13 @@ public class WigWriter {
 	 * @param bamFile Bam alignments
 	 * @param geneBedFile Bed file of annotations for transcriptome space
 	 * @param chrSizeFile File of chromosome sizes for genomic space
-	 * @param firstPositionOnly Only count the first position of each read
+	 * @param singlePositionOnly Certain position of each read to count
 	 * @param useFragments Whether to convert reads to fragments
 	 * @param nor Normalize by global amounts
 	 * @throws IOException
 	 */
-	public WigWriter(String bamFile, String geneBedFile, String chrSizeFile, boolean firstPositionOnly, boolean useFragments, boolean nor) throws IOException {
-		this(bamFile, geneBedFile, chrSizeFile, firstPositionOnly, useFragments, nor, null);
+	public WigWriter(String bamFile, String geneBedFile, String chrSizeFile, String singlePositionOnly, boolean useFragments, boolean nor) throws IOException {
+		this(bamFile, geneBedFile, chrSizeFile, singlePositionOnly, useFragments, nor, null);
 	}
 	
 	/**
@@ -144,13 +145,13 @@ public class WigWriter {
 	 * @param bamFile Bam alignments
 	 * @param geneBedFile Bed file of annotations for transcriptome space
 	 * @param chrSizeFile File of chromosome sizes for genomic space
-	 * @param firstPositionOnly Only count the first position of each read
+	 * @param singlePositionOnly Certain position of each read to count
 	 * @param useFragments Whether to convert reads to fragments
 	 * @param nor Normalize by global amounts
 	 * @param chrToWrite Only write this chromosome
 	 * @throws IOException
 	 */
-	public WigWriter(String bamFile, String geneBedFile, String chrSizeFile, boolean firstPositionOnly, boolean useFragments, boolean nor, String chrToWrite) throws IOException {
+	public WigWriter(String bamFile, String geneBedFile, String chrSizeFile, String singlePositionOnly, boolean useFragments, boolean nor, String chrToWrite) throws IOException {
 		if (geneBedFile == null && chrSizeFile == null) {
 			throw new IllegalArgumentException("Choose one or both: gene bed file or chromosome size file");
 		}
@@ -169,7 +170,7 @@ public class WigWriter {
 			isTranscriptomeSpace = false;
 			bothFiles = true;
 			data = new AlignmentModel(bamFile, genomeSpace, useFragments);
-			initParams(firstPositionOnly, nor, data);
+			initParams(singlePositionOnly, nor, data);
 			return;
 			
 		}
@@ -183,7 +184,7 @@ public class WigWriter {
 			} else {
 				chrNames.add(chrToWrite);
 			}
-			if (!firstPositionOnly) {
+			if (singlePositionOnly == null) {
 				TreeMap<String,Collection<Gene>> collGenesByChr = new TreeMap<String,Collection<Gene>>();
 				Collection<Gene> collGenes;
 				for (String chrom : chrNames) {
@@ -195,7 +196,7 @@ public class WigWriter {
 			}
 			transcriptomeSpace = new TranscriptomeSpace(genesByChr);
 			data = new AlignmentModel(bamFile, transcriptomeSpace, useFragments);
-			initParams(firstPositionOnly, nor, data);
+			initParams(singlePositionOnly, nor, data);
 			isTranscriptomeSpace = true;
 			return;
 		}
@@ -209,14 +210,37 @@ public class WigWriter {
 				chrNames.add(chrToWrite);
 			}
 			data = new AlignmentModel(bamFile, genomeSpace, useFragments);
-			initParams(firstPositionOnly, nor, data);
+			initParams(singlePositionOnly, nor, data);
 			isTranscriptomeSpace = false;
 			return;
 		}
 	}
 	
-	private void initParams(boolean firstPositionOnly, boolean nor, AlignmentModel alignmentData) {
-		readBeginningPositionOnly = firstPositionOnly;
+	/**
+	 * Description of fragment beginning position calculation
+	 */
+	public static String BEGINNING_POSITION_DESCRIPTION = "beginning";
+	
+	/**
+	 * Description of fragment midpoint position calculation
+	 */
+	public static String MIDPOINT_POSITION_DESCRIPTION = "midpoint";
+	
+	private PositionWithinAlignment getPositionWithinAlignment(String description) {
+		if(description.equals(BEGINNING_POSITION_DESCRIPTION)) {
+			return new BeginningPosition();
+		}
+		if(description.equals(MIDPOINT_POSITION_DESCRIPTION)) {
+			return new MidpointPosition();
+		}
+		throw new IllegalArgumentException("Valid position descriptions: " + BEGINNING_POSITION_DESCRIPTION + ", " + MIDPOINT_POSITION_DESCRIPTION);
+	}
+	
+	private void initParams(String singlePositionOnly, boolean nor, AlignmentModel alignmentData) {
+		readSinglePositionOnly = singlePositionOnly != null;
+		if(readSinglePositionOnly) {
+			positionWithinAlignment = getPositionWithinAlignment(singlePositionOnly);
+		}
 		normalize = nor;
 		if(normalize) normalization = new TranscriptAverageNormalization(alignmentData);
 		else normalization = new RawCounts(alignmentData);
@@ -240,12 +264,12 @@ public class WigWriter {
 	private Map<Integer, Double> getCounts(Annotation region) throws IOException {
 		
 		// Include entire read/fragment in transcriptome space
-		if(!readBeginningPositionOnly && isTranscriptomeSpace) {
+		if(!readSinglePositionOnly && isTranscriptomeSpace) {
 			return normalization.getNormalizedCountsByPosition(region);
 		}
 		
 		// Include entire read/fragment in genomic space
-		if(!readBeginningPositionOnly && !isTranscriptomeSpace) {
+		if(!readSinglePositionOnly && !isTranscriptomeSpace) {
 			
 			if (bothFiles) {
 				//logger.info("Using both files to write counts...");
@@ -299,7 +323,7 @@ public class WigWriter {
 			return normalization.getNormalizedCountsByPosition(region);
 		}
 		
-		// Count first read position only
+		// Count single read position only
 		double norm = 1;
 		if (normalize) {
 			norm = data.getCount(region)/region.length();
@@ -308,9 +332,15 @@ public class WigWriter {
 		TreeMap<Integer, Double> rtrn = new TreeMap<Integer, Double>();
 		while(iter.hasNext()) {
 			Alignment read = iter.next();
-			int firstPos = read.getFirstFragmentPositionStranded();
+			
+			int singlePos;
+			try {
+				singlePos = positionWithinAlignment.getPosition(read, region);
+			} catch (Exception e) {
+				continue;
+			}
 			read = null;
-			Integer i = Integer.valueOf(firstPos);
+			Integer i = Integer.valueOf(singlePos);
 			if(rtrn.containsKey(i)) {
 				double oldVal = rtrn.get(i).doubleValue();
 				double newVal = oldVal + 1;
@@ -498,14 +528,14 @@ public class WigWriter {
 		
 		CommandLineParser p = new CommandLineParser();
 		p.addStringArg("-b", "Bam file", true);
-		p.addStringArg("-g", "Gene bed file", false, null);
-		p.addStringArg("-c", "Chromosome size file", false, null);
+		p.addStringArg("-g", "Gene bed file for transcriptome space", false, null);
+		p.addStringArg("-c", "Chromosome size file for genomic space", false, null);
 		p.addStringArg("-o", "Output file prefix", true);
 		p.addStringArg("-chr", "Single chromosome to write", false, null);
 
 		p.addIntArg("-mf", "Max fragment length for paired reads", false, DEFAULT_MAX_FRAGMENT_LENGTH);
 		p.addIntArg("-mg", "Max genomic span for paired reads", false, DEFAULT_MAX_GENOMIC_SPAN);
-		p.addBooleanArg("-f", "Count beginning position of each read only", false, false);
+		p.addStringArg("-sp", "Single position of each read to count. Valid position descriptions: " + BEGINNING_POSITION_DESCRIPTION + ", " + MIDPOINT_POSITION_DESCRIPTION, false, null);
 		p.addBooleanArg("-pe", "Convert paired ends to fragments", false, DEFAULT_USE_FRAGMENTS);
 		p.addBooleanArg("-n",  "Normalize position counts by average counts over region", false, false);
 		
@@ -527,13 +557,14 @@ public class WigWriter {
 		String chrSizeFile = p.getStringArg("-c");
 		String singleChr = p.getStringArg("-chr");
 
+		@SuppressWarnings("unused")
 		int maxFragmentLength = p.getIntArg("-mf");
 		boolean fragments = p.getBooleanArg("-pe");
 		int maxGenomicSpan = p.getIntArg("-mg");
-		boolean firstPositionOnly = p.getBooleanArg("-f");
+		String singlePos = p.getStringArg("-sp");
 		boolean normalize = p.getBooleanArg("-n");
 		
-		WigWriter ww = new WigWriter(bamFile, bedFile, chrSizeFile, firstPositionOnly, fragments, normalize, singleChr);
+		WigWriter ww = new WigWriter(bamFile, bedFile, chrSizeFile, singlePos, fragments, normalize, singleChr);
 		
 		//ww.addReadFilter(new FragmentLengthFilter(ww.data.getCoordinateSpace(), maxFragmentLength));
 		ww.addReadFilter(new GenomicSpanFilter(maxGenomicSpan));
@@ -552,5 +583,34 @@ public class WigWriter {
 		ww.writeFullWig(getOutFileFromCommandArgs(args));
 		
 	}
+	
+	
+	private interface PositionWithinAlignment {
+		public int getPosition(Alignment align, Annotation annot);
+	}
+	
+	private class BeginningPosition implements PositionWithinAlignment {
+		
+		public BeginningPosition() {}
+		
+		@Override
+		public int getPosition(Alignment align, Annotation annot) {
+			return align.getFirstFragmentPositionStranded();
+		}
 
+		
+	}
+	
+	private class MidpointPosition implements PositionWithinAlignment {
+		
+		public MidpointPosition() {}
+		
+		@Override
+		public int getPosition(Alignment align, Annotation annot) {
+			return align.getFragmentMidpoint(annot);
+		}
+
+		
+	}
+	
 }

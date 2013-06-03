@@ -895,6 +895,9 @@ public class Gene extends BasicAnnotation {
 	public Gene getCDS(){
 		Alignments cds=getCDSRegion();
 		Gene rtrn=this.trimAbsolute(cds.getStart(), cds.getEnd());		
+		if(rtrn == null) {
+			return null;
+		}
 		String geneName = "";
 		if(getName() == null) {
 			geneName += getChr() + "_" + getStart() + "_" + getEnd();
@@ -2181,6 +2184,23 @@ public class Gene extends BasicAnnotation {
 		return position;
 	}
 	
+	/**
+	 * Get the genomic coordinate of the given position plus offset along the transcript
+	 * @param genomicPosition Genomic position
+	 * @param offset Offset (positive gives result in 3' direction; negative gives result in 5' direction)
+	 * @return The genomic position at the given transcript distance from the given position
+	 */
+	public int genomicToGenomicPositionWithOffset(int genomicPosition, int offset) {
+		int transcriptPos = genomicToTranscriptPosition(genomicPosition);
+		if(transcriptPos + offset < 0) {
+			throw new IllegalArgumentException(getName() + " " + genomicPosition + " is already within " + offset + " positions of 5' end of transcript");
+		}
+		if(transcriptPos + offset >= getSize()) {
+			throw new IllegalArgumentException(getName() + " " + genomicPosition + " is already within " + offset + " positions of 3' end of transcript");
+		}		
+		int nextPos = transcriptPos + offset;
+		return transcriptToGenomicPosition(nextPos);
+	}
 	
 	public static int [] findLongestORF(String sequence) {
 		int lastStart = 0;
