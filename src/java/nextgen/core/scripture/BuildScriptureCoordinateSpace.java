@@ -29,9 +29,6 @@ import broad.pda.seq.segmentation.AlignmentDataModelStats;
 
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
-import nextgen.core.alignment.FragmentAlignment;
-import nextgen.core.alignment.PairedReadAlignment;
-import nextgen.core.alignment.SingleEndAlignment;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.BasicAnnotation;
@@ -54,7 +51,7 @@ public class BuildScriptureCoordinateSpace {
 	int windowSize=20000000;
 	private CoordinateSpace space;
 	private Map<String, ChromosomeTranscriptGraph> graphs;
-	private boolean forceStrandSpecificity=true; //TODO This should be passed or at least determined from data
+	private static boolean forceStrandSpecificity=true; //TODO This should be passed or at least determined from data
 	private static double DEFAULT_MIN_COV_THRESHOLD = 0.1;
 	private static double MIN_SPLICE_PERCENT = 0.10;
 	private double coveragePercentThreshold = DEFAULT_MIN_COV_THRESHOLD;
@@ -65,7 +62,7 @@ public class BuildScriptureCoordinateSpace {
 	private double THRESHOLD_SPURIOUS = 0.95;
 	int counter = 1000;
 	int globalCounter = 1000;
-	double globalFragments;
+	//double globalFragments;
 	
 	public BuildScriptureCoordinateSpace(File bamFile){
 		this(bamFile,DEFAULT_MIN_COV_THRESHOLD,null,null,true,DEFAULT_TXN_READ);
@@ -94,7 +91,7 @@ public class BuildScriptureCoordinateSpace {
 		this.graphs=new TreeMap<String, ChromosomeTranscriptGraph>();
 		genomeSeq = genomeDir;
 		forceStrandSpecificity = forceStrandedness;
-		this.model=new AlignmentModel(bamFile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
+		model=new AlignmentModel(bamFile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		model.addFilter(new ProperPairFilter());
 		model.addFilter(new IndelFilter());
 		model.addFilter(new GenomicSpanFilter(20000000));
@@ -102,8 +99,7 @@ public class BuildScriptureCoordinateSpace {
 		//logger.info("Count: "+model.getCount(new BasicAnnotation("chr6",52062677,52064112,Strand.NEGATIVE),true));
 		outName = outputName;
 		coveragePercentThreshold = threshold;
-		
-		globalFragments = calculateGlobalFragments();
+//		globalFragments = calculateGlobalFragments();
 		logger.info("Parameters used: " +
 				"\nSpurious Filter: "+THRESHOLD_SPURIOUS+
 				"\nPremature Assembly Filter: "+coveragePercentThreshold+
@@ -163,8 +159,7 @@ public class BuildScriptureCoordinateSpace {
 		model.addFilter(new GenomicSpanFilter(20000000));
 		this.space=model.getCoordinateSpace();
 		//logger.info("Count: "+model.getCount(new BasicAnnotation("chr6",52062677,52064112,Strand.NEGATIVE),true));
-
-		globalFragments = calculateGlobalFragments();
+//		globalFragments = calculateGlobalFragments();
 		outName = outputName;
 		coveragePercentThreshold = threshold;
 		//assemble(strand);
@@ -309,23 +304,27 @@ public class BuildScriptureCoordinateSpace {
 		return graph;
 	}
 
-	private double calculateGlobalFragments(){
+/*	private double calculateGlobalFragments(){
 		
 		logger.info("Calculating global fragments");
+		int counter = 0;
 		for(String chr: space.getReferenceNames()){
 			
+			logger.info("PROCESSING "+chr);
 			//Get all proper paired reads 
 			CloseableFilterIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new PairedAndProperFilter());
 			while(iter.hasNext()){
 				Alignment read = iter.next();
 	  			//For each mate, find the least weight
-				/*	double leastWeight = Double.MAX_VALUE;
+					double leastWeight = Double.MAX_VALUE;
 				for(Annotation mate:read.getReadAlignments(space)){
 					if(mate.)
-				}*/
+				}
 				globalFragments += read.getWeight();
-				if(globalFragments % 1000000 ==0){
+					counter++;
+				if(counter % 1000000 ==0){
 					logger.info("Processed "+globalFragments+" paired reads.");
+					memoryStats();
 				}
 			}
 			iter.close();
@@ -333,8 +332,8 @@ public class BuildScriptureCoordinateSpace {
 				
 		return globalFragments;
 	}
-	
-	static void write(String save, Map<String, Collection<Gene>> rtrn) throws IOException {
+*/	
+	public static void write(String save, Map<String, Collection<Gene>> rtrn) throws IOException {
 		FileWriter writer=new FileWriter(save);
 		
 		for(String chr: rtrn.keySet()){
@@ -345,6 +344,29 @@ public class BuildScriptureCoordinateSpace {
 		}
 		
 		writer.close();
+	}
+	
+	public static void memoryStats(){
+		int mb = 1024*1024;
+        
+        //Getting the runtime reference from system
+        Runtime runtime = Runtime.getRuntime();
+         
+        logger.info("##### Heap utilization statistics [MB] #####");
+         
+        //Print used memory
+        logger.info("Used Memory:"
+            + (runtime.totalMemory() - runtime.freeMemory()) / mb);
+ 
+        //Print free memory
+        logger.info("Free Memory:"
+            + runtime.freeMemory() / mb);
+         
+        //Print total available memory
+        logger.info("Total Memory:" + runtime.totalMemory() / mb);
+ 
+        //Print Maximum available memory
+        logger.info("Max Memory:" + runtime.maxMemory() / mb);
 	}
 	
 	/**
@@ -570,13 +592,13 @@ public class BuildScriptureCoordinateSpace {
 					}
 				}
 				else{
-					double pval = getScores(gene)[1];
-					if(pval<DEFAULT_ALPHA){
+			/*		double pval = getScores(gene)[1];
+					if(pval<DEFAULT_ALPHA){*/
 						graph.addAnnotationToGraph(gene);
-					}
+			/*		}
 					else{
 						logger.info("Gene "+gene.toUCSC()+" is filtered out because it does not meet the significance threshold : "+pval);
-					}
+					}*/
 				}
 			}
 		}
@@ -1007,14 +1029,14 @@ public class BuildScriptureCoordinateSpace {
 			Assembly assembly=iter.next();
 			
 			//If the assembly does not pass the confidence test, remove it
-/*			if(!assembly.isConfidentIsSet()){
+			if(!assembly.isConfidentIsSet()){
 				logger.info("Confidence is set in the splice filter");
 				setConfidence(assembly);
 			}
 			if(!assembly.isConfident()){
 				logger.error(assembly.getName()+" removed because does not pass the confidence test.");
 			} else{
-*/				Map<Annotation,Double> intronToSplicedCountMap = new HashMap<Annotation,Double>();
+				Map<Annotation,Double> intronToSplicedCountMap = new HashMap<Annotation,Double>();
 				double avgCount = 0.0;
 				boolean toRemove = false;
 				//IF THE GENE HAS ONE INTRON, NOTHING
@@ -1052,18 +1074,18 @@ public class BuildScriptureCoordinateSpace {
 				}
 				if(!toRemove){
 					//Removed by this filter but confidence was set to remove
-					/*if(!assembly.isConfident())
-						logger.info(assembly.getName()+" is NOT confident but RETAINED.");*/
+					if(!assembly.isConfident())
+						logger.info(assembly.getName()+" is NOT confident but RETAINED.");
 					currentAssemblies.put(assembly.getStart(), assembly.getEnd(), assembly);
 				}
-				/*else{
+				else{
 					if(assembly.isConfident()){
 						logger.info(assembly.getName()+" is confident but REMOVED.");
 					}
-					else
-						logger.info(assembly.getName()+" : Confidence and filter agree.");
-				}*/
-//			}
+					/*else
+						logger.info(assembly.getName()+" : Confidence and filter agree.");*/
+				}
+			}
 		}
 		return currentAssemblies;
 	}
@@ -1311,7 +1333,7 @@ public class BuildScriptureCoordinateSpace {
 	
 	
 	//MG: This was working well
-	private boolean compatible(Annotation assembly, Annotation read) {
+	public static boolean compatible(Annotation assembly, Annotation read) {
 		//Two alignments will be defined as compatible if:
 		//(i) the intronic locations are exactly same
 		//if both have introns, ensure that there are no non-overlapping introns
@@ -1342,7 +1364,7 @@ public class BuildScriptureCoordinateSpace {
 	}
 	
 
-	private boolean areIntronsCompatible(Annotation assembly, Annotation read) {
+	private static boolean areIntronsCompatible(Annotation assembly, Annotation read) {
 		Collection<? extends Annotation> assemblyIntrons=assembly.getSpliceConnections();
 		Collection<? extends Annotation> readIntrons=read.getSpliceConnections();
 		
@@ -1458,7 +1480,7 @@ public class BuildScriptureCoordinateSpace {
 		return rtrn;
 	}
 
-	private boolean overlap(Annotation assembly, Annotation read) {
+	private static boolean overlap(Annotation assembly, Annotation read) {
 		return assembly.overlaps(read,forceStrandSpecificity);
 	}
 
@@ -1981,7 +2003,7 @@ public class BuildScriptureCoordinateSpace {
 	private Map<String,Collection<Gene>> setFPKMScores(Map<String,Collection<Gene>> geneMap,FileWriter writer,FileWriter writer2){
 		
 		Map<String,Collection<Gene>> filteredGenes = new HashMap<String,Collection<Gene>>();
-		String name = "gene.v1.1_";
+		String name = "gene.v1.2_";
 		for(String chr:geneMap.keySet()){
 			//logger.info("For chromosome "+chr+" graph gave "+geneMap.get(chr).size()+" genes");
 			Collection<Gene> filtered = new ArrayList<Gene>();
@@ -1999,7 +2021,6 @@ public class BuildScriptureCoordinateSpace {
 					
 					double[] scores = getScores(isoform);
 					double[] fields = new double[4];
-					//CHECK AGAIN
 					if(fields[1]<DEFAULT_ALPHA){
 						//logger.info(count);
 						isoform.setName(name+new Double(counter).toString());
@@ -2011,7 +2032,7 @@ public class BuildScriptureCoordinateSpace {
 						fields[2] = (scores[0]*1000.0)/isoform.getSize();
 						//[3] : FPKM
 						//Calculate FPKM
-						fields[3] = fields[2]*((double)1000000.0)/globalFragments;
+						fields[3] = fields[2]*((double)1000000.0)/model.getGlobalPairedFragments();
 						//logger.info("For isoform : "+isoform.getName()+"\tNum of exons: "+isoform.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
 						isoform.setBedScore(fields[3]);
 						isoform.setExtraFields(fields);
@@ -2029,7 +2050,7 @@ public class BuildScriptureCoordinateSpace {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			//logger.info("After applyPairedEndFilter "+filtered.size()+" genes");
+			logger.info("After applyPairedEndFilter "+filtered.size()+" genes");
 			filteredGenes.put(chr, filtered);
 		}
 		return filteredGenes;

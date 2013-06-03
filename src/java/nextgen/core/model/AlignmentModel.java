@@ -2,6 +2,8 @@ package nextgen.core.model;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -28,9 +30,11 @@ import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
 import nextgen.core.general.CloseableFilterIterator;
 import nextgen.core.model.score.WindowScore;
+import nextgen.core.readFilters.PairedAndProperFilter;
 import nextgen.core.readFilters.SameOrientationFilter;
 import nextgen.core.readFilters.SplicedReadFilter;
 import nextgen.core.readers.PairedEndReader;
+import nextgen.core.scripture.BuildScriptureCoordinateSpace;
 import nextgen.core.writers.PairedEndWriter;
 import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.exception.RuntimeIOException;
@@ -62,9 +66,10 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	private double globalLength = -99;
 	private double globalCount = -99;
 	private double globalLambda = -99;
+	private double globalPairedFragments = -99;
 	//private double globalRpkmConstant = -99;
 	private Cache cache;
-	int cacheSize=1000000;
+	int cacheSize=500000;
 	private boolean hasGlobalStats = false;
 	private SortedMap<String, Double> refSequenceCounts=new TreeMap<String, Double>();
 
@@ -210,7 +215,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			return false;
 		}
 		
-		if (!statsNames.contains("globalLength") || !statsNames.contains("globalCount") || !statsNames.contains("globalLambda")) {
+		if (!statsNames.contains("globalLength") || !statsNames.contains("globalCount") || !statsNames.contains("globalLambda") || !statsNames.contains("globalPairedFragments")) {
 			logger.warn("Stats not validated due to missing global stats");
 			return false;
 		}
@@ -234,6 +239,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			
 			File precomputedFile = new File(precomputedStats);
 			if (precomputedFile.exists()) {
+				// Check if the version is from before global fragments were calculated
 				//logger.info("Reading reference sequence stats from file " + precomputedStats);
 				stats = parseReferenceSequenceStats(precomputedStats);
 				if (!validateGlobalStats(stats)) {
@@ -251,15 +257,18 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 				this.globalLength = (double) coordinateSpace.getLength();
 				this.globalCount = computeGlobalNumReads();
 				this.globalLambda = this.globalCount / this.globalLength;
+				this.globalPairedFragments = computeGlobalPairedFragments();
 				stats.put("globalLength", this.globalLength);
 				stats.put("globalCount", this.globalCount);
 				stats.put("globalLambda", this.globalLambda);
+				stats.put("globalPairedFragments", this.globalPairedFragments);
 				logger.info("Done computing global stats.");
 			}
 
 			this.globalLength = stats.get("globalLength");
 			this.globalCount = stats.get("globalCount");
 			this.globalLambda = stats.get("globalLambda");
+			this.globalPairedFragments = stats.get("globalPairedFragments");
 
 			this.hasGlobalStats = true;
 
@@ -273,7 +282,8 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			stats.remove("globalLength");
 			stats.remove("globalCount");
 			stats.remove("globalLambda");
-			this.refSequenceCounts = stats;
+			stats.remove("globalPairedFragments");
+			refSequenceCounts = stats;
 		} catch (IOException e) {
 			throw new RuntimeIOException(e.getMessage());
 		}
@@ -292,6 +302,28 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		
 	public CloseableIterator<Alignment> getReadIterator(Annotation region) {
 		return new UnpackingIterator(cache.getReads(region, false));
+	}
+
+	/**
+	 * This function calculates the number of proper paired end reads over the entire coordinate space
+	 * @author skadri
+	 * @return
+	 */
+	private double computeGlobalPairedFragments(){
+		
+		logger.info("Calculating global paired end fragments");
+		double globalFragments = 0;
+		for(String chr: coordinateSpace.getReferenceNames()){
+			//Get all proper paired reads 
+			CloseableFilterIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(getOverlappingReads(chr), new PairedAndProperFilter());
+			while(iter.hasNext()){
+				Alignment read = iter.next();
+				globalFragments += read.getWeight();
+			}
+			iter.close();
+		}
+				
+		return globalFragments;
 	}
 
 	/**
@@ -398,6 +430,12 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return this.globalLength;
 	}
 	
+	public double getGlobalPairedFragments() {
+		if (!this.hasGlobalStats) {
+			computeGlobalStats();
+		}
+		return this.globalPairedFragments;
+	}
 	
 	/**
 	 * Get total number of reads
@@ -814,11 +852,19 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		int cacheSize;
 		IntervalTree<Alignment> cachedTree;
 		
+		/*
+		 * FLAG TO INDICATE WHETHER UPDATE CACHE FAILED
+		 */
+		boolean updateCacheFailed;
+		// Collection of trouble regions for which the update cache has failed at least once.
+		Map<String,List<Annotation>> troubleRegions;
+		
 		PairedEndReader reader;
 		
 		Cache(PairedEndReader reader, int cacheSize){
 			this.reader=reader;
 			this.cacheSize=cacheSize;
+			troubleRegions = new HashMap<String,List<Annotation>>();
 		}
 		
 		//TODO Make sure "fullyContained" works
@@ -830,12 +876,23 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		
 		private CloseableIterator<AlignmentCount> query(Annotation window, boolean fullyContained) {
 			//if larger than the cache size then just return the query directly
-			if(window.getSize()>this.cacheSize){
+			if(window.getSize()>this.cacheSize || isTroubleRegion(window)){
+				//logger.info("Get reads for the entire window of size "+window.getSize()+" for "+window.toUCSC());
 				return getReads(window, fullyContained);
 			}
 			//else if doesnt contain the window then update cache and query again
 			else if (!contains(window) || this.fullyContained != fullyContained) {
+				//logger.info("Updating cache for "+window.getSize()+" for "+window.toUCSC());
 				updateCache(window.getReferenceName(), window.getStart(), window.getEnd(), fullyContained);
+				//IF UPDATE CACHE FAILED, GET READS WITHOUT CACHE
+				if(this.updateCacheFailed){
+					logger.info("Tried updating cache. Update cache aborted.");
+					return getReads(window, fullyContained);
+				}
+			}
+			if(this.updateCacheFailed){
+				logger.info("Update cache failed for "+window.toUCSC());
+				return getReads(window, fullyContained);
 			}
 			//pull reads from cache
 			return getReadsFromCache(window);
@@ -845,6 +902,22 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			// TODO:  Can't we just call cachedTree.overlappersValueIterator(window.getStart(), window.getEnd()) and get rid of the NodeIterator?
 			//  it looks like overlappingValueIterator can handle multiple values per node
 			return new NodeIterator(this.cachedTree.overlappers(window.getStart(), window.getEnd()));
+		}
+		
+		/**
+		 * Returns true if this window overlaps a previously identified "trouble region" which updating the cache
+		 * @param window
+		 * @return
+		 */
+		private boolean isTroubleRegion(Annotation window){
+			if(troubleRegions.containsKey(window.getChr())){
+				for(Annotation region:troubleRegions.get(window.getChr())){
+					if(region.overlapsStranded(window)){
+						return true;
+					}
+				}
+			}
+			return false;
 		}
 
 		/**
@@ -858,6 +931,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			int newEnd=end;
 
 			// if window is larger than cache size 
+			//@skadri TODO: Isn't this checked in query() already?
 			// (this will happen in TranscriptomeSpace if a transcript is longer than the cache size)
 			if ((end-start) > this.cacheSize) {
 				newStart=start;
@@ -886,22 +960,45 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			this.cachedTree=getIntervalTree(update, fullyContained);
 		}
 		
+		/**
+		 * Returns an interval tree of reads over the specified window
+		 * @param w
+		 * @param fullyContained
+		 * @return
+		 */
 		private IntervalTree<Alignment> getIntervalTree(Window w, boolean fullyContained) {
+			int counter=0;
+			// 80%
+			double memoryThreshold = Runtime.getRuntime().maxMemory()*0.2;
+			//Assume update cache will not fail
+			updateCacheFailed = false;
+			//Set at 2 million reads
+			double threshold = 500000;
 		 	IntervalTree<Alignment> tree=new IntervalTree<Alignment>();
 			CloseableIterator<AlignmentCount> iterReadsOverlappingRegion=getReads(w, fullyContained);
-			
 			while(iterReadsOverlappingRegion.hasNext()){
 				Alignment record=iterReadsOverlappingRegion.next().getRead();
 				if (isValid(record)) {
 					tree.put(record.getAlignmentStart(), record.getAlignmentEnd(), record);
+				}	
+				counter++;
+				if(counter>threshold){
+					if(Runtime.getRuntime().freeMemory()<memoryThreshold){
+						logger.info("Update cache aborted because "+w.toUCSC()+" has "+counter+" reads which is more than "+threshold+" and memory used is more than 80%");
+						tree = null;
+						updateCacheFailed = true;
+						//Add region to troubleRegions
+						if(!troubleRegions.containsKey(w.getChr())){
+							troubleRegions.put(w.getChr(), new ArrayList<Annotation>());
+						}
+						troubleRegions.get(w.getChr()).add(w);
+						break;
+					}
 				}
-				
-				/*Node<Alignment> node=tree.find(record.getAlignmentStart(), record.getAlignmentEnd());
-							
+				/*Node<Alignment> node=tree.find(record.getAlignmentStart(), record.getAlignmentEnd());			
 				if(node!=null){node.incrementCount();}
 				else{tree.put(record.getAlignmentStart(), record.getAlignmentEnd(), record);}*/
-			}
-			
+			}			
 			iterReadsOverlappingRegion.close();
 			return tree;
 		}
