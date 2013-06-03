@@ -232,6 +232,18 @@ public class AnnotationUtils {
 		}
 		return rtrn;
 	}
+	
+	/**
+	 * Get midpoint along mature transcript of a spliced annotation
+	 * @param annot Annotation
+	 * @return Genome coordinate of mature transcript midpoint
+	 */
+	public static int getMidpoint(Annotation annot) {
+		Gene gene = new Gene(annot);
+		int size = gene.size();
+		int midpoint = size / 2;
+		return gene.transcriptToGenomicPosition(midpoint);
+	}
 
 	/**
 	 * Get midpoint of a sub annotation with respect to a possibly spliced parent annotation
