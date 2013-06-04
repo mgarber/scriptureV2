@@ -1429,7 +1429,7 @@ public class BuildScriptureCoordinateSpace {
 			for(Annotation intron2: readIntrons){
 				//if overlaps but not identical
 				if(intron1.overlaps(intron2)){
-					if(!intron1.equals(intron2, this.forceStrandSpecificity)){
+					if(!intron1.equals(intron2, forceStrandSpecificity)){
 						rtrn1.add(intron1);
 						rtrn2.add(intron2);
 						//intron1 and intron2 are not compatible
