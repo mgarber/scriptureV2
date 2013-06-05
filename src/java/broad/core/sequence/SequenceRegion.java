@@ -523,4 +523,12 @@ public class SequenceRegion extends Sequence implements Annotation{
 	public boolean overlaps(Annotation other, boolean considerOrientation) {
 		throw new UnsupportedOperationException("TODO");
 	}
+
+	@Override
+	public int getMidpoint() {
+		//get midpoint
+		int mid=length()/2;
+		//convert to reference space
+		return getReferenceCoordinateAtPosition(mid);
+	}
 }

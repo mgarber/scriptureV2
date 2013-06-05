@@ -247,14 +247,14 @@ public class Gene extends BasicAnnotation {
 	public void setSequence(String seq){this.sequence=seq;}
 	
 	public void setSequenceFromChromosome(Sequence chrSequence) {
-		Sequence  geneSequence = new Sequence(getName(),getGappedSize());
+		Sequence  geneSequence = new Sequence(getName(),this.length());
 		Set<? extends Annotation> exons = getExonSet();
 		for(Annotation exon : exons) {
 			Sequence exonSeq = chrSequence.getSubSequence(getName(), exon.getStart(), exon.getEnd());
 			geneSequence.appendToSequence(exonSeq.getSequenceBases());
 		}
 		
-		if(Strand.NEGATIVE.equals(getOrientation())) {
+		if(this.isNegativeStrand()) {
 			geneSequence.reverse();
 		}
 		this.sequence = geneSequence.getSequenceBases();
@@ -1856,7 +1856,12 @@ public class Gene extends BasicAnnotation {
 	 */
 	public GeneWindow trimGene(int relativeStart, int relativeEnd){
 		//on first call, cache the relative to absolute coordinates
-		return trimAbsolute(this.getReferenceCoordinateAtPosition(relativeStart, true), this.getReferenceCoordinateAtPosition(relativeEnd, true));
+		int absoluteStart=this.getReferenceCoordinateAtPosition(relativeStart, true);
+		int absoluteEnd=this.getReferenceCoordinateAtPosition(relativeEnd, true);
+		
+		//logger.info(relativeStart+"-"+relativeEnd+" "+absoluteStart+"-"+absoluteEnd);
+		
+		return trimAbsolute(absoluteStart, absoluteEnd);
 		
 		/*GeneWindow window;
 		
