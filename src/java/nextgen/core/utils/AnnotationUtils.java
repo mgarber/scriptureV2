@@ -135,7 +135,6 @@ public class AnnotationUtils {
 				largestParentSize = parent.getSize();
 			}
 		}		
-		logger.info("Largest parent is " + rtrn.getName());
 		return rtrn;
 	}
 	
@@ -186,7 +185,6 @@ public class AnnotationUtils {
 				rtrn.add(other);
 			}
 		}
-		logger.info(rtrn.size() + " parents.");
 		return rtrn;
 	}
 	
