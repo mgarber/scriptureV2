@@ -836,9 +836,8 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 		public Alignment next() {
 			Alignment next = itr.next();
-			Annotation blockedAnnotation = next.getReadAlignmentBlocks(coordinateSpace);
-			coordinateSpace.permuteAnnotation(blockedAnnotation, region);
-			next.moveToCoordinate(blockedAnnotation.getStart());
+			Annotation perm=coordinateSpace.permuteAnnotation(next, region);
+			next.moveToCoordinate(perm.getStart());
 			return next;
 		}
 	}

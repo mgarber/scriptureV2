@@ -52,6 +52,7 @@ import broad.pda.seq.alignment.AlignmentUtils;
 
 // TODO Add sort and index for visualization purposes
 // TODO Make bound regions annotations a bed file so we can see them
+// TODO Add RNase bias
 
 public class ReadSimulator {
 	private static final Logger logger = Logger.getLogger(ReadSimulator.class
