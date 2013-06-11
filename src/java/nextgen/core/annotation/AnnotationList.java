@@ -55,10 +55,10 @@ public class AnnotationList<T extends Annotation> extends AbstractAnnotationColl
 	 */
 	public AnnotationList(CoordinateSpace cs) {
 		//TODO
-		logger.warn("AnnotationList has not been completed tested yet (TODO)");
+		//logger.warn("AnnotationList has not been completed/tested yet (TODO)");
 		coordinateSpace = cs;
 		if (cs != null) {
-			for (String reference : coordinateSpace.getReferenceNames()) {
+			for (String reference : coordinateSpace.getChromosomeNames()) {
 				annotations.put(reference, new IntervalTree<T>());
 			}
 		}
@@ -233,7 +233,8 @@ public class AnnotationList<T extends Annotation> extends AbstractAnnotationColl
 	 * @param annotation
 	 */
 	private boolean validAnnotation(Annotation annotation) {
-		if (coordinateSpace != null && !annotations.containsKey(annotation.getReferenceName())) {
+		return true; // TODO Pam changed so will work with transcriptome space
+		/*if (coordinateSpace != null && !annotations.containsKey(annotation.getReferenceName())) { 
 			if (ENFORCE_REFERENCE) {
 				throw new IllegalArgumentException("Region reference name " + annotation.getReferenceName() + " not found.");
 			} else {
@@ -241,7 +242,7 @@ public class AnnotationList<T extends Annotation> extends AbstractAnnotationColl
 				return false;
 			}
 		}
-		return true;
+		return true;*/
 	}
 	
 	

@@ -476,7 +476,7 @@ public class NeighborAnalysis {
 		
 		//empirical distribution calc
 		EmpiricalDistribution ED=new EmpiricalDistribution(randP);
-		resArr[1]=1-(ED.getCummulativeProbability(corr));
+		resArr[1]=1-(ED.getCumulativeProbability(corr));
 		return resArr;
 	}
 

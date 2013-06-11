@@ -38,6 +38,7 @@ import broad.core.annotation.GFF;
 import broad.core.annotation.LightweightGenomicAnnotation;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
+import broad.core.parser.StringParser;
 import broad.pda.datastructures.Alignments;
 import broad.pda.gene.GeneWithIsoforms;
 
@@ -110,6 +111,32 @@ public class BEDFileParser {
 	// TODO: GFF TO BED, implement mitch's version
 	
 	///////////////////////////////////////////////////////////////////////////////////////////////////
+	
+	/**
+	 * Get gene from bed file by gene name
+	 * @param geneName Gene name
+	 * @param bedFile Bed file
+	 * @return Gene model described by the first line in the bed file with name field equal to gene name
+	 * @throws IOException
+	 */
+	public static Gene getGeneByName(String geneName, String bedFile) throws IOException {
+		FileReader r = new FileReader(bedFile);
+		BufferedReader b = new BufferedReader(r);
+		StringParser s = new StringParser();
+		while(b.ready()) {
+			String line = b.readLine();
+			s.parse(line);
+			if(s.getFieldCount() < 4) {
+				continue;
+			}
+			if(s.asString(3).equals(geneName)) {
+				return new Gene(line, false);
+			}
+		}
+		r.close();
+		b.close();
+		throw new IllegalArgumentException("Gene " + geneName + " not found in file " + bedFile + ".");
+	}
 	
 	public List<Gene> GetGenes(){
 	

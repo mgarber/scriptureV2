@@ -19,7 +19,7 @@ public class MannWhitneyPermutations {
 		EmpiricalDistribution dist=new EmpiricalDistribution(200, minMax[0], minMax[1]);
 		dist.addAll(randomScores);
 		
-		this.p=dist.getCummulativeProbability(score);
+		this.p=dist.getCumulativeProbability(score);
 	}
 
 	private double shuffleProbesBetweenGroups(List<Double> x, List<Double> y){
