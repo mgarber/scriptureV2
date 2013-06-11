@@ -13,6 +13,8 @@ import java.util.Stack;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.log4j.Logger;
+
 import Jama.Matrix;
 import broad.core.annotation.BasicGenomicAnnotation;
 import broad.core.annotation.GenomicAnnotation;
@@ -20,6 +22,8 @@ import broad.core.sequence.Sequence;
 import broad.core.sequence.SequenceRegion;
 
 public class MultipleAlignment  {
+	private static final Logger logger = Logger.getLogger(MultipleAlignment.class.getName());
+	
 	private float score;
 	private LinkedHashMap<String, AlignedSequence> alignments;
 
@@ -34,6 +38,8 @@ public class MultipleAlignment  {
 	
 	private String referenceId;
 	private boolean isRefGapped;
+
+	private boolean ignoreRef = false;
 
 	public MultipleAlignment() {
 		alignments = new LinkedHashMap<String, AlignedSequence>();
@@ -94,7 +100,9 @@ public class MultipleAlignment  {
 		Iterator<String> seqIdIt = getAlignedSequenceIds().iterator();
 		while(seqIdIt.hasNext()) {
 			String seqId = seqIdIt.next();
-			col.put(seqId, alignments.get(seqId).getEncodedSequence()[i - getReferenceStart()]);
+			if(!ignoreRef || !seqId.equals(getReferenceId())) { //Because ignoring reference is a very unique case...
+				col.put(seqId, alignments.get(seqId).getEncodedSequence()[i - getReferenceStart()]);
+			}
 		}
 		return col;
 	}
@@ -120,7 +128,9 @@ public class MultipleAlignment  {
 					}
 				}
 			}
-			cols.put(seqId, seqRegion);
+			if(!ignoreRef || !seqId.equals(getReferenceId())) { //Because ignoring reference is a very unique case...
+				cols.put(seqId, seqRegion);
+			}
 		}
 		return cols;		
 	}
@@ -130,7 +140,9 @@ public class MultipleAlignment  {
 		Iterator<String> seqIdIt = getAlignedSequenceIds().iterator();
 		while(seqIdIt.hasNext()) {
 			String seqId = seqIdIt.next();
-			matrixAlignment.put(seqId, getAlignedSequence(seqId).getVectorEncodedSequence());
+			if(!ignoreRef || !seqId.equals(getReferenceId())) { //Because ignoring reference is a very unique case...
+				matrixAlignment.put(seqId, getAlignedSequence(seqId).getVectorEncodedSequence());
+			}
 		}
 		return matrixAlignment;
 	}
@@ -139,13 +151,15 @@ public class MultipleAlignment  {
 		Iterator<String> it = col.keySet().iterator();
 		while(it.hasNext()) {
 			String seqId = it.next();
-			AlignedSequence seq = getAlignedSequence(seqId);
-			if(seq == null) {
-				seq = new AlignedSequence(seqId);
-				seq.setId(seqId);
-				addSequence(seq);
+			if(!ignoreRef || !seqId.equals(getReferenceId())) { //Because ignoring reference is a very unique case...
+				AlignedSequence seq = getAlignedSequence(seqId);
+				if(seq == null) {
+					seq = new AlignedSequence(seqId);
+					seq.setId(seqId);
+					addSequence(seq);
+				}
+				seq.appendToSequence(decodeShort(col.get(seqId)));
 			}
-			seq.appendToSequence(decodeShort(col.get(seqId)));
 		}
 		
 	}
@@ -153,6 +167,9 @@ public class MultipleAlignment  {
 	public void addShortEncodedColumnMatrix(Map<String, Matrix> col) {
 		Random r = new Random();
 		for(String seqId : col.keySet()) {
+			if(ignoreRef && seqId.equals(getReferenceId())) { //Because ignoring reference is a very unique case...
+				continue;
+			}
 			AlignedSequence seq = getAlignedSequence(seqId);
 			if(seq == null) {
 				seq = new AlignedSequence(seqId);
@@ -182,6 +199,9 @@ public class MultipleAlignment  {
 			Iterator<String> it = region.keySet().iterator();
 			while(it.hasNext()) {
 				String seqId = it.next();
+				if(ignoreRef && seqId.equals(getReferenceId())) { //Because ignoring reference is a very unique case...
+					continue;
+				}
 				AlignedSequence seq = getAlignedSequence(seqId);
 				if(seq == null) {
 					seq = new AlignedSequence(seqId);
@@ -437,9 +457,14 @@ public class MultipleAlignment  {
 		
 		while(it.hasNext()) {
 			String toRemove = it.next();
-			System.out.print("To remove " + toRemove + " ... ");
-			AlignedSequence removedSeq = alignments.remove(toRemove);
-			System.out.println(removedSeq == null ? " not found " : "yes");
+			if(toRemove.equals(getReferenceId())) {
+				logger.warn("Trying to remove reference sequence, take note.");
+				this.ignoreRef  = true;
+			} else {
+				logger.debug("To remove " + toRemove + " ... ");
+				AlignedSequence removedSeq = alignments.remove(toRemove);
+				logger.debug(removedSeq == null ? " not found " : "yes");
+			}
 		}
 	}
 	
@@ -478,12 +503,12 @@ public class MultipleAlignment  {
 		BasicGenomicAnnotation target = new BasicGenomicAnnotation("ReferenceTarget");
 		target.setStart(refStart);
 		target.setEnd(refEnd);
-		
 		AlignedSequence ref = alignments.get(refId) ;
+		target.setChromosome(ref.getChromosome());
 		if(ref == null) {
 			throw new IllegalArgumentException("Bad refId, multiple alignment does not include " + refId);
 		}
-		target.takeIntersection(ref);
+		target = new BasicGenomicAnnotation(target.intersect(ref));
 		//System.out.println("RefStart " + refStart + " ref.getRegionStart() " + ref.getRegionStart() + " refEnd " + refEnd );
 		int stringStartPos = ref.getGapAdjustedCoordinate(target.getStart() - ref.getRegionStart());
 		int stringEndPos   = ref.getGapAdjustedCoordinate(target.getEnd()   - ref.getRegionStart());

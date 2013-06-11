@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
@@ -66,6 +67,46 @@ public class TranscriptomeSpaceAlignmentModel extends ScanStatisticDataAlignment
 	}
 	
 	/**
+	 * @param bamAlignmentFile
+	 * @param transcriptomeSpace
+	 * @param readFilterSet
+	 * @param readOrCreatePairedEndBam
+	 * @param transcriptionRead
+	 */
+	public TranscriptomeSpaceAlignmentModel(String bamAlignmentFile, TranscriptomeSpace transcriptomeSpace, Collection<Predicate<Alignment>> readFilterSet, boolean readOrCreatePairedEndBam, TranscriptionRead transcriptionRead) {
+		super(bamAlignmentFile, transcriptomeSpace, readFilterSet, readOrCreatePairedEndBam, transcriptionRead);
+	}
+
+	/**
+	 * @param bamAlignmentFile
+	 * @param transcriptomeSpace
+	 * @param readFilterSet
+	 * @param transcriptionRead
+	 */
+	public TranscriptomeSpaceAlignmentModel(String bamAlignmentFile, TranscriptomeSpace transcriptomeSpace, Collection<Predicate<Alignment>> readFilterSet, TranscriptionRead transcriptionRead) {
+		super(bamAlignmentFile, transcriptomeSpace, readFilterSet, transcriptionRead);
+	}
+
+	/**
+	 * @param bamAlignmentFile
+	 * @param transcriptomeSpace
+	 * @param readOrCreatePairedEndBam
+	 * @param transcriptionRead
+	 */
+	public TranscriptomeSpaceAlignmentModel(String bamAlignmentFile, TranscriptomeSpace transcriptomeSpace, boolean readOrCreatePairedEndBam, TranscriptionRead transcriptionRead) {
+		super(bamAlignmentFile, transcriptomeSpace, readOrCreatePairedEndBam, transcriptionRead);
+	}
+
+	/**
+	 * @param bamAlignmentFile
+	 * @param transcriptomeSpace
+	 * @param transcriptionRead
+	 */
+	public TranscriptomeSpaceAlignmentModel(String bamAlignmentFile, TranscriptomeSpace transcriptomeSpace, TranscriptionRead transcriptionRead) {
+		super(bamAlignmentFile, transcriptomeSpace, transcriptionRead);
+	}
+	
+	/**
 	 * Get list of position level counts in mature transcript
 	 * @param gene The region
 	 * @return List of position counts
@@ -77,24 +118,6 @@ public class TranscriptomeSpaceAlignmentModel extends ScanStatisticDataAlignment
 		WindowScoreIterator<CountScore> scoreIter = scan(gene, 1, 0, processor);
 		while(scoreIter.hasNext()) {
 			rtrn.add(Double.valueOf(scoreIter.next().getCount()));
-		}
-		return rtrn;
-	}
-	
-	/**
-	 * Get map of position to of position level counts in mature transcript
-	 * @param gene The region
-	 * @return Map of position to count
-	 * @throws IOException 
-	 */
-	public TreeMap<Integer,Double> getPositionCountMap(Gene gene) throws IOException {
-		TreeMap<Integer,Double> rtrn = new TreeMap<Integer,Double>();
-		WindowProcessor<CountScore> processor = new CountScore.Processor(this);
-		WindowScoreIterator<CountScore> scoreIter = scan(gene, 1, 0, processor);
-		int processed = 0;
-		while(scoreIter.hasNext()) {
-			rtrn.put(Integer.valueOf(processed), Double.valueOf(scoreIter.next().getCount()));
-			processed++;
 		}
 		return rtrn;
 	}

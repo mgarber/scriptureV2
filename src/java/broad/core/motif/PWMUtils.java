@@ -13,6 +13,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import nextgen.core.annotation.Annotation;
+
 import org.apache.log4j.Logger;
 
 import broad.core.annotation.AnnotationReader;
@@ -281,7 +283,7 @@ public class PWMUtils {
 	public  static Map<PositionWeightMatrix, LightweightGenomicAnnotation > scanRegion(int shuffles, String prefix,
 			double minScoreToWrite, boolean maxOnly, String outdir,
 			List<PositionWeightMatrix> pwms, String chr,
-			LightweightGenomicAnnotation annot,
+			Annotation annot,
 			double[] bgNucleotideFreqs, short[] encChrSeq) throws IOException {
 
 		//System.err.println("\tScanning region - " + annot.toUCSC() + " memory: " +  (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory())/1000);
@@ -382,7 +384,7 @@ public class PWMUtils {
 		return bestHits;
 	}
 
-	private static short[] getAnnotationSeq(short[] encChrSeq, LightweightGenomicAnnotation annot) {
+	private static short[] getAnnotationSeq(short[] encChrSeq, Annotation annot) {
 		short [] annotSeq = new short[annot.length()];
 		
 		for(int i =  annot.getStart() ; i < annot.getEnd(); i++) {

@@ -2,7 +2,10 @@ package nextgen.core.alignment;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
@@ -14,6 +17,7 @@ import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
 import nextgen.core.annotation.*;
+import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.writers.PairedEndWriter;
 
 /**
@@ -28,8 +32,8 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
     //Second in pair alignment
     SingleEndAlignment secondMate;
     //Whether first of pair or second of pair are in direction of transcription. Unstranded option in case of an unstranded library
-    TranscriptionRead txnRead;
     Map<String,String> attributeMap;
+    private Strand orientation = Strand.UNKNOWN;
     boolean isProperPair;
 	private static Logger logger = Logger.getLogger(FragmentAlignment.class.getName());
 
@@ -40,6 +44,81 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		super(b);
 	}
      
+	/**
+	 * Populate the attribute map with combined attribute values based on the two mates
+	 */
+	public void refreshAttributeMap() {
+		attributeMap = new HashMap<String,String>();
+		List<SAMRecord.SAMTagAndValue> firstMateAttributes = firstMate.toSAMRecord().getAttributes();
+		List<SAMRecord.SAMTagAndValue> secondMateAttributes = secondMate.toSAMRecord().getAttributes();
+		Map<String, String> firstMateAttributeMap = new TreeMap<String, String>();
+		Map<String, String> secondMateAttributeMap = new TreeMap<String, String>();
+		TreeSet<String> allTags = new TreeSet<String>();
+		for(SAMRecord.SAMTagAndValue tv : firstMateAttributes) {
+			String tag = tv.tag;
+			String value = tv.value.toString();
+			firstMateAttributeMap.put(tag, value);
+			allTags.add(tag);
+			//logger.info("First mate tag " + tag + " value " + value);
+		}
+		for(SAMRecord.SAMTagAndValue tv : secondMateAttributes) {
+			String tag = tv.tag;
+			String value = tv.value.toString();
+			secondMateAttributeMap.put(tag, value);
+			allTags.add(tag);
+			//logger.info("Second mate tag " + tag + " value " + value);
+		}
+		for(String tag : allTags) {
+			String combinedAttribute = combineAttributes(tag, firstMateAttributeMap.get(tag), secondMateAttributeMap.get(tag));
+			//logger.info("Combined " + combinedAttribute);
+			if(combinedAttribute != null) attributeMap.put(tag, combinedAttribute);
+		}
+	}
+	
+	/**
+	 * Combine sam tag values for the two mates
+	 * Currently sums integer values and ignores string values
+	 * @param tag The tag (not currently used but maybe support different tags differently in the future)
+	 * @param firstMateValue First mate value for tag
+	 * @param secondMateValue Second mate value for tag
+	 * @return The combined value or null if can't combine
+	 */
+	private static String combineAttributes(String tag, String firstMateValue, String secondMateValue) {
+		
+		//TODO support string values
+		
+		if(firstMateValue == null && secondMateValue == null) {
+			return null;
+		}
+		
+		if(firstMateValue == null) {
+			try {
+				int value2 = Integer.parseInt(secondMateValue);
+				return Integer.valueOf(value2).toString();
+			} catch (NumberFormatException e) {
+				return null;
+			}			
+		}
+		
+		if(secondMateValue == null) {
+			try {
+				int value1 = Integer.parseInt(firstMateValue);
+				return Integer.valueOf(value1).toString();
+			} catch (NumberFormatException e) {
+				return null;
+			}			
+		}
+		
+		try {
+			int value1 = Integer.parseInt(firstMateValue);
+			int value2 = Integer.parseInt(secondMateValue);
+			return Integer.valueOf(value1 + value2).toString();
+		} catch (NumberFormatException e) {}
+		
+		return null;
+		
+	}
+	
    	/**
      * Returns the strand for the first of pair
      * @return
@@ -83,6 +162,20 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		return this.firstMate.getMappingQuality()+this.secondMate.getMappingQuality();
 	}
 
+	@Override
+	public int[] getIntervalBetweenReads() {
+		if(firstMate.overlaps(secondMate)) return null;
+		int[] rtrn = new int[2];
+		if(firstMate.getEnd() < secondMate.getStart()) {
+			rtrn[0] = firstMate.getEnd();
+			rtrn[1] = secondMate.getStart();
+			return rtrn;
+		}
+		rtrn[0] = secondMate.getEnd();
+		rtrn[1] = firstMate.getStart();
+		return rtrn;
+	}
+	
 	/**
 	 * Always returns true for objects of this class.
 	 */
@@ -135,6 +228,11 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		return this.secondMate;
 	}
 	
+	@Override
+	public int getFragmentMidpoint(Annotation annot) {
+		return AnnotationUtils.getSubAnnotationMidpointWithinAnnotation(annot, this);
+	}
+	
 	/**
 	 * Returns an object for the fragment between the read pair in the specified coordinate space
 	 */
@@ -153,41 +251,24 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	 */
 	@Override
 	public Strand getFragmentStrand() {
-		if(this.txnRead==TranscriptionRead.FIRST_OF_PAIR)
-			return this.firstMate.getFragmentStrand();
-		else if(this.txnRead==TranscriptionRead.SECOND_OF_PAIR)
-			return this.secondMate.getFragmentStrand();
-		else
-			return Strand.UNKNOWN;
+		return orientation;
 	}
 	
 	/**
-	 * Sets the strand for the fragment, depending on the transcription read
-	 * For FIRST, "first"
-	 * For SECOND, "second"
-	 * For unstranded "none"
-	 * @param strand 
-	 */
-	public void setFragmentStrand(String strand) {
-		if(strand.equalsIgnoreCase("first"))
-			txnRead=TranscriptionRead.FIRST_OF_PAIR;
-		else if(strand.equalsIgnoreCase("second"))
-			txnRead=TranscriptionRead.SECOND_OF_PAIR;
-		else if(strand.equalsIgnoreCase("none"))
-			txnRead=TranscriptionRead.UNSTRANDED;
-		else{
-			logger.error("Fragment strand set to unknown");
-		}
-			
-	}
-	
-	/**
-	 * Sets the strand for the fragment to the strand passed as argument
-	 * @param strand
+	 * Sets the strand for the fragment to the strand of the transcription read
+	 * @param transcriptionRead
 	 */
 	@Override
-	public void setFragmentStrand(TranscriptionRead strand) {
-		txnRead = strand;
+	public void setFragmentStrand(TranscriptionRead transcriptionRead) {
+		if(transcriptionRead.equals(TranscriptionRead.FIRST_OF_PAIR)){
+			orientation = firstMate.getFragmentStrand();
+		}
+		else if(transcriptionRead.equals(TranscriptionRead.SECOND_OF_PAIR)){
+			orientation = secondMate.getFragmentStrand();
+		}
+		else
+			orientation = Strand.UNKNOWN;
+			
 	}
 	
 	/**
@@ -386,11 +467,11 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	@Override
 	public Collection<Annotation> getReadAlignments(CoordinateSpace space) {
 		Collection<Annotation> rtrn=new ArrayList<Annotation>();
-		rtrn.add(this.firstMate.getReadAlignmentBlocks(space));
-		rtrn.add(this.secondMate.getReadAlignmentBlocks(space));
+		rtrn.add(firstMate.getReadAlignmentBlocks(space));
+		rtrn.add(secondMate.getReadAlignmentBlocks(space));
 		//set orientation to strand orientation
 		for(Annotation m:rtrn){
-			m.setOrientation(this.getFragmentStrand());
+			m.setOrientation(getFragmentStrand());
 		}
 		return rtrn;
 	}
@@ -407,7 +488,7 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	@Override
 	public int getFirstFragmentPositionStranded() {
 		Strand strand = getFragmentStrand();
-		if(strand.equals(Strand.NEGATIVE)) return getFragmentEnd();
+		if(strand.equals(Strand.NEGATIVE)) return getFragmentEnd()-1;
 		return getFragmentStart();
 	}
 
@@ -419,7 +500,7 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	public int getLastFragmentPositionStranded() {
 		Strand strand = getFragmentStrand();
 		if(strand.equals(Strand.NEGATIVE)) return getFragmentStart();
-		return getFragmentEnd();
+		return getFragmentEnd()-1;
 	}
 	
 	/**
@@ -439,7 +520,9 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		if(fullFragment) {
 			int start = Math.min(firstMate.getStart(), secondMate.getStart());
 			int end = Math.max(firstMate.getEnd(), secondMate.getEnd());
-			return new BasicAnnotation(chr, start, end);
+			BasicAnnotation ann = new BasicAnnotation(chr, start, end);
+			ann.setName(firstMate.getName());
+			return ann;
 		}
 		
 		Collection<Annotation> blocks = new ArrayList<Annotation>();

@@ -107,23 +107,23 @@ public class MarkDuplicatesFromNameUMI {
 		if (argMap.containsKey("out2")){ 
 			if (threshold1 < 2){
 				threshold1 = 30;
-				System.out.println("Value of initialThreshold1 must be at least 2, using default value 30.");
+				log.info("Value of initialThreshold1 must be at least 2, using default value 30.");
 			}
 			
 			if (threshold2 < threshold1){
 				threshold2 = threshold1;
-				System.out.println("Value of initialThreshold2 must be at least that of initialThreshold1.");				
-				System.out.println("Increasing initialThreshold2 to " + threshold2 + ".");		
+				log.info("Value of initialThreshold2 must be at least that of initialThreshold1.");				
+				log.info("Increasing initialThreshold2 to " + threshold2 + ".");		
 			}
 			
 					
 			if (allowedFracOfMean <= 0){
-				System.out.println("Value of allowedFracOfMean must be postiive.  Using default value of 0.02.");
+				log.info("Value of allowedFracOfMean must be postiive.  Using default value of 0.02.");
 				allowedFracOfMean = 0.02;
 			}
 			
 			if (numToIncrement < 1){
-				System.out.println("Value of numToIncrement must be > 0, using default value of 5.");
+				log.info("Value of numToIncrement must be > 0, using default value of 5.");
 				numToIncrement = 5;			
 			}
 		}
@@ -142,14 +142,14 @@ public class MarkDuplicatesFromNameUMI {
 				result.setThreshold1AndMeanNumDup(numBCs);
 			} else {
 				result.calcMeanNumDup();
-				System.out.println("threshold1: " + threshold1);
+				log.info("threshold1: " + threshold1);
 			}
 			threshold1 = result.threshold1;
 			if (calcThreshold2){
 				result.setThreshold2(numBCs,numToIncrement);  // put if statement to allow for passing in still
 			} else {
 				result.threshold2 = Math.max(threshold1,threshold2);
-				System.out.println("threshold2: " + threshold2);
+				log.info("threshold2: " + threshold2);
 				
 			}
 			
@@ -191,11 +191,11 @@ public class MarkDuplicatesFromNameUMI {
 		
 		if(!argMap.containsKey("out2")){
 		
-			System.out.println("No out2 file.  Adjustments to initial markings are not performed.");
+			log.info("No out2 file.  Adjustments to initial markings are not performed.");
 		
 		} else if(threshold2 >= Math.pow(4, bcSize)) {
 		
-			System.out.println("Adjustments to initial markings are not performed as threshold2 equals or exceeds the number of possible barcodes.");
+			log.info("Adjustments to initial markings are not performed as threshold2 equals or exceeds the number of possible barcodes.");
 		
 		} else {
 			out2 = argMap.getMandatory("out2");
@@ -244,11 +244,14 @@ public class MarkDuplicatesFromNameUMI {
 			boolean exportCounts, int threshold1, int threshold2, double allowedFracOfMean, int numToIncrement) {
 
 		MarkDuplicatesResults result = new MarkDuplicatesResults(threshold1, threshold2, allowedFracOfMean);
-
+		StringBuilder degenerateBC = new StringBuilder();
+		for (int i = 0; i < bcSize; i++) {
+			degenerateBC.append("N");
+		}
 		int currentStart = 0;
 		IntervalTree<Set<String>> currentBarcodeTree = new IntervalTree<Set<String>>();
 		HashMap<String, Integer>  currentBarcodeDuplicates = new HashMap<String, Integer>(); 
-		int numBCs = (int) Math.pow(4, bcSize);
+		int numBCs = (int) Math.pow(4, bcSize) + 1; //the +1 is for degenerate (containing N barcodes).
 		int curAlnNum = 0;
 		int lastStart = 0;
 		
@@ -266,6 +269,10 @@ public class MarkDuplicatesFromNameUMI {
 			SAMRecord samR = sri.next();
 			String readName = samR.getReadName();
 			String bc = readName.substring(readName.length() - bcSize);
+			if(bc.contains("N")) { //Only one degenerate barcode allowed. May revisit later.
+				bc = degenerateBC.toString();
+				result.addToDegenerateBCs();
+			}
 			
 			start = samR.getAlignmentStart();
 			end   = samR.getAlignmentEnd();
@@ -455,30 +462,31 @@ public class MarkDuplicatesFromNameUMI {
 
 	public static class MarkDuplicatesResults {
 
-		public int numUnmarked = 0;
-		public int numAlignedMarked = 0;
-		public SummaryStatistics duplicationStats = new SummaryStatistics();
-		public int numUnique = 0;
-		public int numDup = 0;
-		public int alnNum = 0;
-		HashMap<String, Integer> bcOccurrences = new HashMap<String, Integer>();
-		List<int[]> positionCounts = new ArrayList<int[]>(); // currentNumUnique, currentNumBCdup, currentNumDup
-		List<int[]> revisedPositionCounts = new ArrayList<int[]>(); // currentNumUnique, currentNumBCdup, currentNumDup
-		public int[] histNumUniqueBC;  // eliminate? tracking but no longer using...add option to export?
-		public int[] histNumDupBC;
-		public SummaryStatistics[] statsByNumBCDup;
-		public SummaryStatistics[] statsByNumDistinctBCSeen;
-		public int maxAdjustedNumBCDup = 0;
-		public SummaryStatistics[] revisedStatsByAdjustedNumBCDup;
-		public double meanNumDup;
-		public int numRemovedMark = 0;
-		public List<int[]> startsToEval = new ArrayList<int[]>(); //1st alignment #, start 
+		private int numUnmarked = 0;
+		private int numAlignedMarked = 0;
+		private SummaryStatistics duplicationStats = new SummaryStatistics();
+		private int numUnique = 0;
+		private int numDup = 0;
+		private int alnNum = 0;
+		private HashMap<String, Integer> bcOccurrences = new HashMap<String, Integer>();
+		private List<int[]> positionCounts = new ArrayList<int[]>(); // currentNumUnique, currentNumBCdup, currentNumDup
+		private List<int[]> revisedPositionCounts = new ArrayList<int[]>(); // currentNumUnique, currentNumBCdup, currentNumDup
+		private int[] histNumUniqueBC;  // eliminate? tracking but no longer using...add option to export?
+		private int[] histNumDupBC;
+		private SummaryStatistics[] statsByNumBCDup;
+		private SummaryStatistics[] statsByNumDistinctBCSeen;
+		private int maxAdjustedNumBCDup = 0;
+		private SummaryStatistics[] revisedStatsByAdjustedNumBCDup;
+		private double meanNumDup;
+		private int numRemovedMark = 0;
+		private List<int[]> startsToEval = new ArrayList<int[]>(); //1st alignment #, start 
+		private int degenerateBCs = 0;
 		
-		SimpleRegression lfit = new SimpleRegression(false);  // better name
+		private SimpleRegression lfit = new SimpleRegression(false);  // better name
 		
-		public int threshold1;
-		public int threshold2;
-		public double allowedFracOfMean;
+		private int threshold1;
+		private int threshold2;
+		private double allowedFracOfMean;
 		
 		public MarkDuplicatesResults(int threshold1, int threshold2, double allowedFracOfMean){
 			
@@ -489,6 +497,14 @@ public class MarkDuplicatesFromNameUMI {
 			
 		}
 		
+
+		public void addToDegenerateBCs() {
+			this.degenerateBCs++;
+		}
+
+		public int getNumDegenerateBCs() {
+			return this.degenerateBCs;
+		}
 
 		public void addBarcode(String bc) {
 			if(!bcOccurrences.containsKey(bc)) {

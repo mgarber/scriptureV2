@@ -1,12 +1,9 @@
 package nextgen.core.annotation;
 
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,11 +12,9 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import net.sf.samtools.SAMRecord;
-import nextgen.core.alignment.Alignment;
+import nextgen.core.feature.GeneWindow;
 
 import org.apache.log4j.Logger;
-import org.broad.igv.sam.AlignmentBlock;
 
 import broad.core.annotation.BasicGenomicAnnotation;
 import broad.core.annotation.BasicLightweightAnnotation;
@@ -28,13 +23,8 @@ import broad.core.annotation.LightweightGenomicAnnotation;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.sequence.Sequence;
-import broad.core.util.CollapseByIntersection;
 import broad.pda.datastructures.Alignments;
 import broad.pda.rnai.ExtractSequence;
-import broad.pda.seq.segmentation.GenomeWithGaps2;
-
-import nextgen.core.feature.GeneWindow;
-import nextgen.core.feature.Window;
 
 public class Gene extends BasicAnnotation {
 	static Logger logger = Logger.getLogger(Gene.class.getName());
@@ -43,7 +33,7 @@ public class Gene extends BasicAnnotation {
 	int cdsStart; // beginning of CDS
 	int cdsEnd; // end of CDS
 	double[] exonScores;
-	String sequence;
+	private String sequence;
 	private String samRecord;
 	private double countScore=0; //Moran -added this as init value 
 	double bedScore; //the transcript score as it appears in a bed file
@@ -209,11 +199,15 @@ public class Gene extends BasicAnnotation {
 	public Gene(Gene gene) {
 		this(gene.getChr(), gene.getName(), gene.getOrientation(), gene.getExonSet(), gene.getCDSStart(), gene.getCDSEnd());
 				
+		initFromGene(gene);
+			
+	}
+
+	protected void initFromGene(Gene gene) {
 		if (gene.extraFields != null)
 			setExtraFields(gene.getExtraFields());
 		if (gene.scores !=null)
-			setScores(gene.getScores());
-		
+			setScores(gene.getScores());		
 		if (gene.attributes !=null)
 			setAttributes(gene.getAttributes());
 		if (gene.samRecord!=null)
@@ -222,6 +216,7 @@ public class Gene extends BasicAnnotation {
 			this.countScore=gene.getCountScore();
 		if(gene.sequence!=null)
 			setSequence(gene.sequence);
+		this.setBedScore(gene.getBedScore());
 	}
 	
 	
@@ -252,14 +247,14 @@ public class Gene extends BasicAnnotation {
 	public void setSequence(String seq){this.sequence=seq;}
 	
 	public void setSequenceFromChromosome(Sequence chrSequence) {
-		Sequence  geneSequence = new Sequence(getName(),getGappedSize());
+		Sequence  geneSequence = new Sequence(getName(),this.length());
 		Set<? extends Annotation> exons = getExonSet();
 		for(Annotation exon : exons) {
 			Sequence exonSeq = chrSequence.getSubSequence(getName(), exon.getStart(), exon.getEnd());
 			geneSequence.appendToSequence(exonSeq.getSequenceBases());
 		}
 		
-		if(Strand.NEGATIVE.equals(getOrientation())) {
+		if(this.isNegativeStrand()) {
 			geneSequence.reverse();
 		}
 		this.sequence = geneSequence.getSequenceBases();
@@ -570,7 +565,17 @@ public class Gene extends BasicAnnotation {
 	public Gene get3UTRGene() {
 		if(!hasCDS()){return new Gene(this);}
 		Annotation UTRRegion=get3UTR();
-		Gene rtrn=this.trimAbsolute(UTRRegion.getStart(), UTRRegion.getEnd());		
+		Gene rtrn=this.trimAbsolute(UTRRegion.getStart(), UTRRegion.getEnd());	
+		if(rtrn == null) {
+			return rtrn;
+		}
+		String geneName = "";
+		if(getName() == null) {
+			geneName += getChr() + "_" + getStart() + "_" + getEnd();
+		} else {
+			geneName += getName();
+		}
+		rtrn.setName(geneName + "_3UTR");
 		return rtrn;
 	}
 
@@ -579,6 +584,16 @@ public class Gene extends BasicAnnotation {
 		if(!hasCDS()){return new Gene(this);}
 		Annotation UTRRegion=get5UTR();
 		Gene rtrn=this.trimAbsolute(UTRRegion.getStart(), UTRRegion.getEnd());		
+		if(rtrn == null) {
+			return rtrn;
+		}
+		String geneName = "";
+		if(getName() == null) {
+			geneName += getChr() + "_" + getStart() + "_" + getEnd();
+		} else {
+			geneName += getName();
+		}
+		rtrn.setName(geneName + "_5UTR");
 		return rtrn;
 	}
 	
@@ -880,6 +895,16 @@ public class Gene extends BasicAnnotation {
 	public Gene getCDS(){
 		Alignments cds=getCDSRegion();
 		Gene rtrn=this.trimAbsolute(cds.getStart(), cds.getEnd());		
+		if(rtrn == null) {
+			return null;
+		}
+		String geneName = "";
+		if(getName() == null) {
+			geneName += getChr() + "_" + getStart() + "_" + getEnd();
+		} else {
+			geneName += getName();
+		}
+		rtrn.setName(geneName + "_CDS");
 		return rtrn;
 	}
 	
@@ -969,7 +994,7 @@ public class Gene extends BasicAnnotation {
 		List<? extends Annotation> thisExons  = new ArrayList<Annotation>(getExonSet());
 		Collection<Annotation> overlappingExons = new TreeSet<Annotation>();
 		for(Annotation exon: otherExons) {
-			Alignments exonClone = new Alignments(exon);
+			Annotation exonClone = new BasicAnnotation(exon);
 			overlappingExons.addAll(exonClone.intersect(thisExons));
 		}
 		
@@ -1061,7 +1086,7 @@ public class Gene extends BasicAnnotation {
 		}
 		String rgb = r + "," + g + "," + b;
 		List<? extends Annotation> exons = getBlocks();
-		String rtrn=getReferenceName()+"\t"+getStart()+"\t"+getEnd()+"\t"+(getName() == null ? toUCSC() : getName())+"\t"+getScore()+"\t"+getOrientation()+"\t"+getCDSStart()+"\t"+getCDSEnd()+"\t"+rgb+"\t"+exons.size();
+		String rtrn=getReferenceName()+"\t"+getStart()+"\t"+getEnd()+"\t"+(getName() == null ? toUCSC() : getName())+"\t"+getBedScore()+"\t"+getOrientation()+"\t"+getCDSStart()+"\t"+getCDSEnd()+"\t"+rgb+"\t"+exons.size();
 		String sizes="";
 		String starts="";
 		for(Annotation exon : exons){
@@ -1637,7 +1662,22 @@ public class Gene extends BasicAnnotation {
 		return compatible;
 	}
 	
-	
+	/**
+	 * Returns true if this and the other gene overlap but at least minPctOverlap
+	 * @param other The other gene with which overlap is checked
+	 * @param minPctOverlap minimum percent of overlap
+	 * @return
+	 */
+	public boolean overlapsStranded(Gene other, double minPctOverlap) {
+
+		boolean compatible = (overlaps(other) && this.getOrientation().equals(other.getOrientation()));
+		
+		if(compatible) {
+			double pctOverlap = Math.min(percentOverlapping(other), other.percentOverlapping(this));
+			compatible = pctOverlap >= minPctOverlap;
+		}
+		return compatible;
+	}
 	/**
 	 * Whether this gene overlaps any gene in the collection at the exon level
 	 * @param others The genes to check for overlap
@@ -1816,7 +1856,12 @@ public class Gene extends BasicAnnotation {
 	 */
 	public GeneWindow trimGene(int relativeStart, int relativeEnd){
 		//on first call, cache the relative to absolute coordinates
-		return trimAbsolute(this.getReferenceCoordinateAtPosition(relativeStart, true), this.getReferenceCoordinateAtPosition(relativeEnd, true));
+		int absoluteStart=this.getReferenceCoordinateAtPosition(relativeStart, true);
+		int absoluteEnd=this.getReferenceCoordinateAtPosition(relativeEnd, true);
+		
+		//logger.info(relativeStart+"-"+relativeEnd+" "+absoluteStart+"-"+absoluteEnd);
+		
+		return trimAbsolute(absoluteStart, absoluteEnd);
 		
 		/*GeneWindow window;
 		
@@ -2124,38 +2169,43 @@ public class Gene extends BasicAnnotation {
 		List<Annotation> exons = new ArrayList<Annotation>(getExonSet());
 				
 		int position = 0;
-		if(getOrientation().equals(Strand.NEGATIVE)) {
-			for(int i = exons.size() -1 ; i >=0; i--) {
-				Annotation e = exons.get(i);
-				if(genomicPosition < e.getStart()) {
-					position += e.length();
-				} else if( e.getStart() <= genomicPosition && genomicPosition < e.getEnd()) {
-					position += e.getEnd() - 1 - genomicPosition; //Recall that ends are open, so the first position (0) in the exon when going backwards is end -1
-					break;
-				} else {
-					return -1;
-				}
-			
-			}
-		} else {
-			for(int i = 0; i < exons.size() ; i++) {
-				Annotation e = exons.get(i);
-				
-				if(genomicPosition > e.getEnd()) {
-					position += e.length();
-				} else if (e.getStart() <= genomicPosition && genomicPosition < e.getEnd()) {
-					position +=  genomicPosition - e.getStart();
-					break;
-				} else {
-					return -1;
-				}
+
+		for(int i = 0; i < exons.size() ; i++) {
+			Annotation e = exons.get(i);
+
+			if(genomicPosition > e.getEnd()) {
+				position += e.length();
+			} else if (e.getStart() <= genomicPosition && genomicPosition < e.getEnd()) {
+				position +=  genomicPosition - e.getStart();
+				break;
+			} else {
+				return -1;
 			}
 		}
 	
-		
+		if(getOrientation().equals(Strand.NEGATIVE)) {
+			position = position > -1 ? length() - 1 - position : position;
+		}
 		return position;
 	}
 	
+	/**
+	 * Get the genomic coordinate of the given position plus offset along the transcript
+	 * @param genomicPosition Genomic position
+	 * @param offset Offset (positive gives result in 3' direction; negative gives result in 5' direction)
+	 * @return The genomic position at the given transcript distance from the given position
+	 */
+	public int genomicToGenomicPositionWithOffset(int genomicPosition, int offset) {
+		int transcriptPos = genomicToTranscriptPosition(genomicPosition);
+		if(transcriptPos + offset < 0) {
+			throw new IllegalArgumentException(getName() + " " + genomicPosition + " is already within " + offset + " positions of 5' end of transcript");
+		}
+		if(transcriptPos + offset >= getSize()) {
+			throw new IllegalArgumentException(getName() + " " + genomicPosition + " is already within " + offset + " positions of 3' end of transcript");
+		}		
+		int nextPos = transcriptPos + offset;
+		return transcriptToGenomicPosition(nextPos);
+	}
 	
 	public static int [] findLongestORF(String sequence) {
 		int lastStart = 0;
@@ -2232,9 +2282,10 @@ public class Gene extends BasicAnnotation {
 		}
 	}
 	
+	public static String whitespaceDelimiter = "\\s++";
+	
 	private static Gene makeFromBED(String rawData) {
-		//System.err.println(rawData);
-       	String[] tokens=rawData.split("\t");
+       	String[] tokens=rawData.split(whitespaceDelimiter);
 		String chr=(tokens[0]);
 		int start=new Integer(tokens[1]);
 		int end=new Integer(tokens[2]);
@@ -2267,6 +2318,7 @@ public class Gene extends BasicAnnotation {
 						assert(g.getCDSStart() == cdsStart && g.getEnd() == cdsEnd);
   						
 						g.setBedScore(bedScore);
+						g.setScore(bedScore);
 						
 						if(tokens.length > 12) {
 							extraColumns = new String[tokens.length - 12];
@@ -2275,28 +2327,31 @@ public class Gene extends BasicAnnotation {
 							}
 							g.setExtraFields(extraColumns);
 						}
-						
 						return g;
 						
 					}
 					else{
 						Gene g=new Gene(chr, start, end, name, orientation);
 						g.setBedScore(bedScore);
+						g.setScore(bedScore);
 						return g;
 					}
 				}
 				else{
 					Gene g=new Gene(chr, start, end, name);
 					g.setBedScore(bedScore);
+					g.setScore(bedScore);
 					return g;
 				}
 			}
 			else{
-				return new Gene(chr, start, end, name);
+				Gene g = new Gene(chr, start, end, name);
+				return g;
 			}
 		}
 		else{
-			return new Gene(chr, start, end);
+			Gene g = new Gene(chr, start, end);
+			return g;
 		}
 		
 	}

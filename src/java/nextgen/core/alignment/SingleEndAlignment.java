@@ -19,6 +19,7 @@ import net.sf.samtools.SAMRecord.SAMTagAndValue;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
+import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.*;
 
@@ -32,6 +33,11 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 	private SAMRecord record;
 	Collection<Annotation> splicedEdges;
 	boolean hasIndel;
+    /**
+     * 	true: this unpaired mate was the first mate
+	 *	false: this unpaired mate was second mate
+	 */
+	boolean isFirstMate;
 	
     public SingleEndAlignment(SAMRecord read) {
     	super(read.getReferenceName(), read.getAlignmentStart()-1, read.getAlignmentStart()); //This is a dummy setup
@@ -43,11 +49,16 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
     	else
     		setOrientation(Strand.POSITIVE);
     	
-    	record = read;
+    	try {
+    		record = (SAMRecord) read.clone();
+    	} catch (CloneNotSupportedException e) {
+    		logger.warn("Caught exception on record " + read.getReadName());
+    		e.printStackTrace();
+    	}
     	assert(read.getAlignmentEnd() == getEnd()); // sanity check
     }
-        
-    /**
+    
+     /**
      * This is to populate our Alignment from the old legacy IGV alignments
      * @param read
      */
@@ -62,6 +73,10 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
     		setOrientation(Strand.POSITIVE);
     }
     
+    public SingleEndAlignment(SAMRecord read,boolean isFirstMateFlag){
+    	this(read);
+    	setIsFirstMate(isFirstMateFlag);
+    }
 
     //Cigar string is used to populate the alignment blocks and read length fields
     private void parseCigar(String cigarString, String chr, int start) {
@@ -108,6 +123,19 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 		return this.getReadAlignmentBlocks(null).toBED();
 	}
   
+    /**
+     * Will set the value of the isFirstMate flag 
+     * @param value true: this unpaired mate was the first mate
+     * 				false: this unpaired mate was second mate
+     */
+    public void setIsFirstMate(boolean value){
+    	isFirstMate = value;
+    }
+    
+    public boolean getIsFirstMate(){
+    	return isFirstMate;
+    }
+
 	/**
      * Returns the length of the read
      * @return
@@ -212,7 +240,7 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 	public int getLastFragmentPositionStranded() {
 		Strand strand = getFragmentStrand();
 		if(strand.equals(Strand.NEGATIVE)) return getFragmentStart();
-		return getFragmentEnd();
+		return getFragmentEnd()-1;
 	}
 
 	/**
@@ -222,7 +250,7 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 	@Override
 	public int getFirstFragmentPositionStranded() {
 		Strand strand = getFragmentStrand();
-		if(strand.equals(Strand.NEGATIVE)) return getFragmentEnd();
+		if(strand.equals(Strand.NEGATIVE)) return getFragmentEnd()-1;
 		return getFragmentStart();
 	}
 
@@ -360,6 +388,16 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 	@Override
 	public boolean hasIndel() {
 		return this.hasIndel;
+	}
+
+	@Override
+	public int[] getIntervalBetweenReads() {
+		return null;
+	}
+
+	@Override
+	public int getFragmentMidpoint(Annotation annot) {
+		return AnnotationUtils.getSubAnnotationMidpointWithinAnnotation(annot, this);
 	}
 
 }

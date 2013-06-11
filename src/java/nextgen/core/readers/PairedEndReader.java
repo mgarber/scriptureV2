@@ -21,6 +21,8 @@ import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.ChromosomeInconsistencyException;
 import nextgen.core.alignment.FragmentAlignment;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
+import nextgen.core.alignment.PairedEndAlignmentFactory;
+import nextgen.core.alignment.PairedReadAlignment;
 import nextgen.core.alignment.SingleEndAlignment;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.writers.PairedEndWriter;
@@ -39,18 +41,36 @@ public class PairedEndReader {
 	private SAMFileHeader header;
 	
 	private AlignmentType alignmentType;
+	private TranscriptionRead strand;
+	private boolean fragment=true;
 	
 	public PairedEndReader(File bam){
+		//We are going to read the .pebam files with special attribute flags and create a new "Alignment" object
+		this(bam,TranscriptionRead.UNSTRANDED);
+	}
+
+	public PairedEndReader(File bam,TranscriptionRead read){
+		//We are going to read the .pebam files with special attribute flags and create a new "Alignment" object
+		this(bam,read,true);
+	}
+
+	public PairedEndReader(File bam,TranscriptionRead read,boolean fra){
 		//We are going to read the .pebam files with special attribute flags and create a new "Alignment" object
 		this.reader=new SAMFileReader(bam);
 		this.header=reader.getFileHeader();
 		alignmentType = getAlignmentType(this.header);
+		strand = read;
+		setFragmentFlag(fra);
 	}
-
+	
 	private static AlignmentType getAlignmentType(SAMFileHeader header) {
 		//check if it is paired end with our modified record
 		Object isPairedEndFormat=header.getAttribute(PairedEndWriter.mateLineFlag);
 		return (isPairedEndFormat != null) ? AlignmentType.PAIRED_END : AlignmentType.SINGLE_END;
+	}
+	
+	public void setFragmentFlag(boolean fra){
+		fragment = fra;
 	}
 	
 	public void close() throws IOException {
@@ -150,7 +170,7 @@ public class PairedEndReader {
 		private void advance() {
 			if (!itr.hasNext()) mNextRecord = null;  // VERY IMPORTANT.  Otherwise infinite loop
 			while (itr.hasNext()) {
-				mNextRecord = samRecordToAlignment(itr.next());
+				mNextRecord = samRecordToAlignment(itr.next(),strand,fragment);
 				if (mNextRecord != null) break;
 			}
         }
@@ -170,7 +190,7 @@ public class PairedEndReader {
 	 * @return Alignment
 	 * @throws ChromosomeInconsistencyException 
 	 */
-	private Alignment samRecordToAlignment(SAMRecord record) {
+	private Alignment samRecordToAlignment(SAMRecord record,TranscriptionRead transcriptionRead,boolean fragment) {
 		Alignment rtrn;
 		
 		try {
@@ -211,11 +231,11 @@ public class PairedEndReader {
 					SingleEndAlignment firstMate=new SingleEndAlignment(record);
 					SingleEndAlignment secondMate=new SingleEndAlignment(record2);
 
-					rtrn=new FragmentAlignment(firstMate, secondMate);
+					rtrn=new PairedEndAlignmentFactory().getAlignment(fragment, firstMate, secondMate, transcriptionRead);
 					rtrn.setProperPairFlag(record.getProperPairFlag());
 				
 				} else {
-					rtrn = new SingleEndAlignment(record);
+					rtrn = new SingleEndAlignment(record,record.getFirstOfPairFlag());
 				}
 			} else {
 				//check if paired end without our modified record --> throw warning
@@ -233,6 +253,7 @@ public class PairedEndReader {
 		return rtrn;
 	}
 	
+
 	/**
 	 * Get the lengths of the reference sequences
 	 * @param chr the chromsoome to query size
@@ -302,22 +323,6 @@ public class PairedEndReader {
 		}
 		
 		return null;
-	}
-	
-	
-	/**
-	 * Finds a paired end file or creates one if it doesn't exist
-	 * @param fileToCheck
-	 * @return
-	 */
-	public static String getOrCreatePairedEndFile(String fileToCheck) {
-		String result = PairedEndReader.getPairedEndFile(fileToCheck);
-		if (result == null) {
-			result = PairedEndWriter.getDefaultFile(fileToCheck);
-			PairedEndWriter writer = new PairedEndWriter(new File(fileToCheck), result);
-			writer.convertInputToPairedEnd();
-		}
-		return result;
 	}
 	
 	/**

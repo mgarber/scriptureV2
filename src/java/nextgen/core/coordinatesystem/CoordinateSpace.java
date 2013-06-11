@@ -111,9 +111,10 @@ public interface CoordinateSpace {
 	 * length of the annotation and maintaining a consistent block structure.  Does not check whether the given annotation 
 	 * was valid in the coordinate space in the first place.
 	 * @param a Annotation to permute.  Will be modified.
+	 * @return The permuted Annotation
 	 * @throws PermutationNotFoundException if an annotation cannot be found
 	 */
-	public void permuteAnnotation(Annotation a);
+	public Annotation permuteAnnotation(Annotation a);
 	
 	/**
 	 * Permutes an annotation to a new location within the given bounds, preserving the 
@@ -121,9 +122,10 @@ public interface CoordinateSpace {
 	 * check whether the given annotation was valid in the coordinate space in the first place.
 	 * @param a Annotation to permute.  Will be modified.
 	 * @param bounds Boundaries within which the annotation will be permuted
+	 * @return The permuted Annotation
 	 * @throws PermutationNotFoundException if a permuted location cannot be found
 	 */
-	public void permuteAnnotation(Annotation a, Annotation bounds);
+	public Annotation permuteAnnotation(Annotation a, Annotation bounds);
 	
 	
 	/**
@@ -142,5 +144,6 @@ public interface CoordinateSpace {
 	 * @return The named reference as an annotation
 	 */
 	public Annotation getReferenceAnnotation(String name);
+	
 	
 }

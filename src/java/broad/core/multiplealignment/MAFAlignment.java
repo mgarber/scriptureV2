@@ -19,6 +19,7 @@ import java.util.Stack;
 
 import nextgen.core.annotation.Gene;
 
+import org.apache.log4j.Logger;
 import org.forester.phylogeny.Phylogeny;
 import org.forester.phylogeny.parsers.nhx.NHXParser;
 
@@ -32,6 +33,7 @@ import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.error.ParseException;
 import broad.core.sequence.SequenceRegion;
+import broad.core.siphy.ConservationUtils;
 import broad.core.util.CLUtil;
 import broad.core.util.CLUtil.ArgumentMap;
 import broad.pda.annotation.BEDFileParser;
@@ -39,6 +41,7 @@ import broad.pda.datastructures.Alignments;
 import broad.pda.gene.GeneWithIsoforms;
 
 public class MAFAlignment extends MultipleAlignment {
+	static Logger logger = Logger.getLogger(MultipleAlignment.class.getName());
 	private IntervalTree<MAFMultipleAlignmentBlock> alignmentBlockTree;
 	private List<String> sequenceIds;
 
@@ -362,7 +365,7 @@ public class MAFAlignment extends MultipleAlignment {
 	
 	public void load(RandomAccessFile handle, int referenceStart, int referenceEnd, List<String> sequencesToLoad) throws IOException, ParseException {
 		long offset = getClosestOffset(referenceStart);
-		//System.err.println("Starting to read file from " + offset + " from refstart " + referenceStart + " to refend " + referenceEnd);
+		logger.debug("Starting to read file from " + offset + " from refstart " + referenceStart + " to refend " + referenceEnd);
 		alignmentBlockTree = new IntervalTree<MAFMultipleAlignmentBlock>();
 		handle.seek(offset);
 		boolean okToAdd = true;

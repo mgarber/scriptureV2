@@ -95,20 +95,37 @@ public class PeakFactory<F extends ScoreMachine> implements Iterator<Peak> {
 	private String prefix="Peak";
 	
 	
+	private boolean[] ignoreBlocksDetails; // if true, then count start and end , instead of blocks starts and ends
+	
+	
 	private int counter;
 	/**
 	 * Initialize
 	 * @param iters
 	 * @param GS
 	 */
-	public PeakFactory(Iterator<? extends Annotation>[] iters, GenomicSpace GS, F _scoreMachine)
-	{
-		this(iters,GS,_scoreMachine,0);
-	}
 	
-	public PeakFactory(Iterator<? extends Annotation>[] iters, GenomicSpace GS, F _scoreMachine, int _windowSize) 
+	public PeakFactory(Iterator<? extends Annotation>[] iters, GenomicSpace GS, F _scoreMachine)
+	{  
+		this(iters,GS,_scoreMachine,new boolean[iters.length]);
+		for (int i = 0; i < ignoreBlocksDetails.length; i++) {
+			ignoreBlocksDetails[i]=false;
+		}
+	}
+	public PeakFactory(Iterator<? extends Annotation>[] iters, GenomicSpace GS, F _scoreMachine , boolean[] ignoreBlocksDetails)
 	{
-	 logger.setLevel(Level.DEBUG);
+		this(iters,GS,_scoreMachine,0, ignoreBlocksDetails);
+	}
+	public PeakFactory(Iterator<? extends Annotation>[] iters, GenomicSpace GS, F _scoreMachine , int _windowSize)
+	{
+		this(iters,GS,_scoreMachine,_windowSize, new boolean[iters.length]);
+		for (int i = 0; i < ignoreBlocksDetails.length; i++) {
+			ignoreBlocksDetails[i]=false;
+		}
+	}
+	public PeakFactory(Iterator<? extends Annotation>[] iters, GenomicSpace GS, F _scoreMachine, int _windowSize, boolean[] ignoreBlocksDetails) 
+	{
+	// logger.setLevel(Level.DEBUG);
 	 annotationIters=iters;
 	 sampleNumber=annotationIters.length;
 	 GENOMESPACE=GS;	 
@@ -118,10 +135,10 @@ public class PeakFactory<F extends ScoreMachine> implements Iterator<Peak> {
 	 //logger.debug("set windowsize " + windowSize);
 	 //logger.debug("get windowsize " + codes.getWindowSize());
 	 globalLambdas= new double[iters.length];
+	 this.ignoreBlocksDetails=ignoreBlocksDetails;
 	 initIters();
 	 reader = new LocalEnvReader( new BedGraphMultiScoreReader(codes));
 	 scoreMachine = _scoreMachine ;
-	 
 	 bufferPeak=null;
 	 counter=0;
 	 advance();
@@ -132,12 +149,13 @@ public class PeakFactory<F extends ScoreMachine> implements Iterator<Peak> {
 	private void initIters()
 	{
 		int i=0;
-		logger.debug(globalLambdas);
+		//logger.debug(globalLambdas);
 		codes.setWindowSize(windowSize); // default is 0, if windowSize is 0, it is coverage we count.
 		for(Iterator<? extends Annotation> iter :  annotationIters)
 		{
 		//To Do: Report the file names?	
-		codes.add(iter,i);
+		//logger.debug("add ignore?"+ ignoreBlocksDetails[i]);
+		codes.add(iter,i,ignoreBlocksDetails[i]); 
 		globalLambdas[i]=(double)codes.getCoverage(i)/GENOMESPACE.getLength();
 		i++;
 		}

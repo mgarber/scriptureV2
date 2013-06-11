@@ -1,6 +1,8 @@
 package nextgen.core.model.score;
 
 import broad.pda.seq.segmentation.AlignmentDataModelStats;
+import net.sf.samtools.util.CloseableIterator;
+import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.model.AlignmentModel;
@@ -24,7 +26,11 @@ public class ScanStatisticScore extends CountScore {
 		super(model, annotation);
 		coordSpace = model.getCoordinateSpace();
 		setGlobalLength(model.getGlobalLength());
-		setScanPvalue(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(annotation), getGlobalLength()));
+		try {
+			setScanPvalue(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(annotation), getGlobalLength()));
+		} catch(Exception e) {
+			logger.info("Could not set scan P value for annotation " + annotation.getName());
+		}
 		getAnnotation().setScore(getScanPvalue());
 		
 		// by default, set the "region" stats to the "global" stats
@@ -38,9 +44,12 @@ public class ScanStatisticScore extends CountScore {
 		coordSpace = model.getCoordinateSpace();
 		setRegionLength(previousScore.getRegionLength());
 		setRegionTotal(previousScore.getRegionTotal());
-		
 		setGlobalLength(model.getGlobalLength());
-		setScanPvalue(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(annotation), model.getGlobalLength()));
+		try {
+			setScanPvalue(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(annotation), model.getGlobalLength()));
+		} catch(Exception e) {
+			logger.info("Could not set scan P value for annotation " + annotation.getName());
+		}
 		getAnnotation().setScore(getScanPvalue());
 	}
 	
@@ -78,12 +87,20 @@ public class ScanStatisticScore extends CountScore {
 		setScanPvalue(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), getTotal() / globalLength, model.getCoordinateSpace().getSize(annotation), globalLength));
 	}
 	
-	public double getAverageCoverage() { 
-		return getCount() / coordSpace.getSize(getAnnotation()); 
+	public double getAverageCoverage(AlignmentModel data) { 
+		int regionSize = coordSpace.getSize(annotation);
+		CloseableIterator<Alignment> readsIter = data.getOverlappingReads(getAnnotation(), false);
+		int basesInReads = 0;
+		while(readsIter.hasNext()) {
+			Alignment read = readsIter.next();
+			basesInReads += read.getOverlap(annotation);
+		}
+		double avgCoverage = (double) basesInReads / (double)regionSize;
+		return avgCoverage;
 	}
 
-	public double getEnrichment() {
-		return getAverageCoverage() / getLocalLambda();
+	public double getEnrichment(AlignmentModel data) {
+		return getAverageCoverage(data) / getLocalLambda();
 	}
 
 	public double getLocalLambda() {

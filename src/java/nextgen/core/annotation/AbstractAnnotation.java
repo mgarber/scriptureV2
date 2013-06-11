@@ -108,12 +108,18 @@ public abstract class AbstractAnnotation implements Annotation {
 	}
 	
 	
+	/**
+	 * Extends the annotation by delta on the unOriented Start and end.
+	 */
 	public void expand(int deltaStart, int deltaEnd) {
 		setStart(getStart() - deltaStart);
-		setEnd(getEnd() - deltaEnd);
+		setEnd(getEnd() + deltaEnd);
 	}
 	
-	
+	/**
+	 * Trims the annotation in a strand-specific manner,
+	 * that is start will end the genomic end on a negative annotation
+	 */
 	public void trim(int deltaStart, int deltaEnd) {
 		
 		if(getStrand().equals(Strand.NEGATIVE)) {
@@ -122,8 +128,15 @@ public abstract class AbstractAnnotation implements Annotation {
 			deltaEnd = tmpStart;
 		}
 		
+		//Ignore orientation because we already considered it above
 		setStart(getReferenceCoordinateAtPosition(deltaStart,true));
-		setEnd(getReferenceCoordinateAtPosition(length()-deltaEnd, true));
+		/*
+		 * PR added the -1 and +1 on 4/20/13
+		 * This deals with the situation where we are removing an entire exon
+		 * Need to get the reference coordinate of the end of the previous exon (instead of the beginning of the exon to remove) so the intron is not included,
+		 * then add +1 to include the final position of the previous exon
+		 */
+		setEnd(getReferenceCoordinateAtPosition(length() - deltaEnd - 1, true) + 1);
 		
 	}
 	
@@ -148,12 +161,12 @@ public abstract class AbstractAnnotation implements Annotation {
 		return overlaps(other, 0, considerOrientation);
 	}
 	
-	public boolean overlaps(Annotation other, int buffer, boolean considerOrientation) {
+	/*public boolean overlaps(Annotation other, int buffer, boolean considerOrientation) {
 		// Note: this function is overridden in BasicAnnotation to directly use the CompoundInterval already stored
 		if (considerOrientation && (getOrientation() != other.getOrientation())) return false;
 		if (!getReferenceName().equalsIgnoreCase(other.getReferenceName())) return false;
 		return intervalFromAnnotation(this).overlaps(intervalFromAnnotation(other));
-	}
+	}*/
 	
 	private CompoundInterval intervalFromAnnotation(Annotation a) {
 		CompoundInterval interval = new CompoundInterval();
@@ -249,10 +262,13 @@ public abstract class AbstractAnnotation implements Annotation {
 	}
 	
 	
+	@Override
 	public List<Annotation> intersect(List<? extends Annotation> others) {
 		List<Annotation> result = new ArrayList<Annotation>();
-		for (Annotation other : others) 
-			result.add(intersect(other));
+		for (Annotation other : others) {
+			Annotation intersect = intersect(other);
+			if(intersect != null) result.add(intersect);
+		}
 		return result;
 	}
 	

@@ -97,6 +97,12 @@ public interface Alignment extends Annotation {
 	 */
 	public int getFirstFragmentPositionStranded();
 
+	/**
+	 * Get midpoint of fragment with respect to coordinate space
+	 * @param annot Parent annotation
+	 * @return Fragment midpoint in coordinate space
+	 */
+	public int getFragmentMidpoint(Annotation annot);
 	
     /**
      * This method returns the fragment formed by the alignment in the coordinate space C, specified.
@@ -198,4 +204,13 @@ public interface Alignment extends Annotation {
 	public boolean hasIndel();
 	
 	public void setFragmentStrand(TranscriptionRead strand);
+	
+	/**
+	 * Get the coordinates of the first and last position of the interval between the reads
+	 * @return The coordinates of the space between the reads or null if single read or reads overlap
+	 */
+	public int[] getIntervalBetweenReads();
+	
+	
+	
 }

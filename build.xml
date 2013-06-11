@@ -2,9 +2,9 @@
 
 <project name="lincRNA" default="CreateExecutableJarFileWithExternalLibrary">
 	<target name="CreateExecutableJarFileWithExternalLibrary">
-		<jar destfile="X:/scripts/PairedEndModules/WigWriter.jar" basedir="bin/">
+		<jar destfile="c:/scripts/ReadSimulator2.jar" basedir="bin/">
 			<zipfileset dir="" prefix="" />
-			<zipfileset src="${basedir}/lib/a_sam-1.48.jar" />
+			<zipfileset src="${basedir}/lib/sam-1.89.jar" />
 			<zipfileset src="${basedir}/lib/ATV-3.1.jar" />
 			<zipfileset src="${basedir}/lib/collections-generic-4.01.jar" />
 			<zipfileset src="${basedir}/lib/commons-io-2.1.jar" />
@@ -26,11 +26,10 @@
 			<zipfileset src="${basedir}/lib/tribble-0.1.jar" />
 			<zipfileset src="${basedir}/lib/vcf.jar" />
 			<zipfileset src="${basedir}/lib/picard-1.71.jar" />
-			<zipfileset src="${basedir}/lib/sam-1.71.jar" />
 			<zipfileset src="${basedir}/lib/commons-lang3-3.1.jar" />
 			<zipfileset src="${basedir}/lib/jgrapht-jdk1.6.jar" />
 			<manifest>
-				<attribute name="Main-Class" value="nextgen/core/utils/WigWriter" />
+				<attribute name="Main-Class" value="broad/pda/seq/protection/ReadSimulator2" />
 			</manifest>
 		</jar>
 	</target>

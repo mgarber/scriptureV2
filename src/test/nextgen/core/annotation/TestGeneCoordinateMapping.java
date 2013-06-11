@@ -1,8 +1,9 @@
-package broad.pda.gene;
+package nextgen.core.annotation;
+
 
 import nextgen.core.annotation.Gene;
 
-public class TestRefSeqPositionMapping  extends junit.framework.TestCase{
+public class TestGeneCoordinateMapping  extends junit.framework.TestCase{
 	public void testPlusMapping() throws Exception {
 		int [] exonStarts = {1000000, 1001250,1002000, 1005000};
 		int [] exonEnds = {1000100, 1001350,1002200, 1005200};
@@ -59,15 +60,18 @@ public class TestRefSeqPositionMapping  extends junit.framework.TestCase{
 		int [] exonStarts = {1000000, 1001250,1002000, 1005000};
 		int [] exonEnds = {1000100, 1001350,1002200, 1005200};
 		Gene g = new Gene("chr1", 1000000, 1005200, "test_gene", 0, "-", exonStarts, exonEnds);
-		
+		int transcriptLength = 0;
+		for (int i = 0 ; i < exonStarts.length; i++) {
+			transcriptLength += exonEnds[i] - exonStarts[i];
+		}
 		int testPositionShort = 900000;
 		assertEquals(-1, g.genomicToTranscriptPosition(testPositionShort));
 		
 		testPositionShort = 1000001;
-		assertEquals(200+200+100+98, g.genomicToTranscriptPosition(testPositionShort));
+		assertEquals(transcriptLength - 2, g.genomicToTranscriptPosition(testPositionShort));
 		
 		testPositionShort = 1000050;
-		assertEquals(200+200+100+50-1, g.genomicToTranscriptPosition(testPositionShort));
+		assertEquals(transcriptLength - 1 - 50, g.genomicToTranscriptPosition(testPositionShort));
 		
 		testPositionShort = 1001250;
 		assertEquals(200+200+100-1, g.genomicToTranscriptPosition(testPositionShort));

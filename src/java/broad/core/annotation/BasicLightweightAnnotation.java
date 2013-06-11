@@ -27,11 +27,13 @@ public class BasicLightweightAnnotation extends BasicAnnotation implements Light
 
 		
 	public BasicLightweightAnnotation(){
-		super("", 0, 0);
+		super("", 0, Integer.MAX_VALUE);
+		extraScores = new ArrayList<Double>();
 	}
 	
 	public BasicLightweightAnnotation(String chr, int start, int end) {
 		super(chr, start, end);
+		extraScores = new ArrayList<Double>();
 	}
 	
 	public BasicLightweightAnnotation(String chr, int start, int end, String orientation) {
@@ -51,6 +53,7 @@ public class BasicLightweightAnnotation extends BasicAnnotation implements Light
 	public BasicLightweightAnnotation(String chr, int start, int end, String orientation, double Scr) {
 		super(chr,start,end,orientation);
 		score=Scr;
+		extraScores = new ArrayList<Double>();
 		
 	}
 	public BasicLightweightAnnotation(String chr, String start, String end) {
@@ -69,6 +72,7 @@ public class BasicLightweightAnnotation extends BasicAnnotation implements Light
 	
 	public BasicLightweightAnnotation(Annotation annotation) {
 		super(annotation.getChr(), annotation.getStart(), annotation.getEnd(), annotation.getOrientation(), annotation.getName());
+		extraScores = new ArrayList<Double>();
 	}
 
 	public String getChromosomeString() {
@@ -158,7 +162,7 @@ public class BasicLightweightAnnotation extends BasicAnnotation implements Light
 	
 
 	public boolean inReversedOrientation() {
-		return "-".equals(getOrientation());
+		return getOrientation().equals(Strand.NEGATIVE);
 	}
 
 	/**
@@ -412,12 +416,13 @@ public class BasicLightweightAnnotation extends BasicAnnotation implements Light
 
 		
 	}
-
-	@Override
+	
 	public void setOrientation(String orientation) {
-		// TODO Auto-generated method stub
+		setOrientation(orientation.charAt(0));
 		
 	}
+
+
 
 	@Override
 	public String getChromosome() {

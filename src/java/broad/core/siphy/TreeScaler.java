@@ -5,18 +5,15 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.RandomAccessFile;
-import java.io.Reader;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -26,6 +23,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Stack;
 import java.util.TreeMap;
+import org.apache.log4j.Logger;
 
 import nextgen.core.annotation.Annotation;
 
@@ -33,10 +31,7 @@ import org.apache.commons.math3.distribution.NormalDistribution;
 import org.forester.phylogeny.Phylogeny;
 import org.forester.phylogeny.PhylogenyNode;
 
-
 import Jama.Matrix;
-import broad.core.annotation.AnnotationReader;
-import broad.core.annotation.AnnotationReaderFactory;
 import broad.core.annotation.BED;
 import broad.core.annotation.BEDReader;
 import broad.core.annotation.BasicGenomicAnnotation;
@@ -46,15 +41,14 @@ import broad.core.error.ParseException;
 import broad.core.math.ComputeFDR;
 import broad.core.math.EmpiricalDistribution;
 import broad.core.math.Statistics;
-import broad.core.motif.PWMUtils;
 import broad.core.motif.PositionWeightMatrix;
 import broad.core.motif.PositionWeightMatrixIO;
 import broad.core.multiplealignment.MAFAlignment;
 import broad.core.multiplealignment.MAFIO;
 import broad.core.multiplealignment.MultipleAlignment;
+import broad.core.multiplealignment.MultipleAlignment.AlignedSequence;
 import broad.core.multiplealignment.MultipleAlignmentFactory;
 import broad.core.multiplealignment.MultipleAlignmentIOFactory;
-import broad.core.multiplealignment.MultipleAlignment.AlignedSequence;
 import broad.core.sequence.Sequence;
 import broad.core.siphy.EvolutionaryModel.NodeLikelihoodParameters;
 import broad.core.siphy.EvolutionaryModel.OmegaFit;
@@ -63,6 +57,8 @@ import broad.core.util.CLUtil;
 import broad.core.util.CLUtil.ArgumentMap;
 
 public class TreeScaler {
+	
+	private static final Logger logger = Logger.getLogger(TreeScaler.class.getName());
 	public static final String USAGE = "Usage: TreeScaler TASK=<task_num> <task_args>\n" +
 	"\tTasks:\n" +
 	"\t\t1. Compute scaling of tree for each site in a multiple alignment. \n\t\tParameters:\n\t\t  -in <multiple alignment file> "+
@@ -89,9 +85,6 @@ public class TreeScaler {
 		"\n\t\t  TREE: ((((mm8:0.085233,rn4:0.098462):0.262242,hg18:0.128359):0.025266,canFam2:0.171487):0.308235,monDom4:0.308235);" +
 		"\n\t\t  [-withSampling <Sample missing data from neutral model> -numSamplings <Number of times to run estimation to use in averaging omega. More than 10 iterations are redundant>" +
 		"\n\t\t  [-start <If MAF file, you may specify the reference start coordinate> -end <If MAF file, you may specify the reference end coordinate>]" +
-	"\n\t\t2. Similar to task 1 but input file is in MAF format rather than one full multiple alignment. You may filter for a region by specifying:" +
-		"\n\t\t  -start <Reference start position>" +
-		"\n\t\t  -end <reference end position>" +
 	"\n\t\t3. Estimate omega distribution in neutral sequence -in <Alignment file> " +
 		"\n\t\t  -format <default is FASTA, MAF is also supported> " +
 		"\n\t\t  -mod <Neutral Evolutionary model consisting of aminoacid background distribution, mutation matrix and neutral phylogenetic tree>" +
@@ -188,6 +181,7 @@ public class TreeScaler {
 	}
 	
 	public static void main(String[] args) throws Exception {
+		logger.debug("Logger level set to DEBUG or less");
 		
 		ArgumentMap argMap = CLUtil.getParameters(args, USAGE);
 		
@@ -250,63 +244,6 @@ public class TreeScaler {
 			scaler.alignment.write(bw);
 			bw.close();
 			*/
-		} else if  ("2".equals(argMap.getTask())) { 
-			File modelFile = new File(argMap.getMandatory("mod"));
-			String annotationFile = argMap.getMandatory("annotations");
-			String annotationFormat = argMap.containsKey("annotationFormat") ? argMap.getMandatory("annotationFormat") : "BED";
-			AnnotationReader<? extends GenomicAnnotation> ar = AnnotationReaderFactory.create(annotationFile, annotationFormat);
-			String chr = argMap.getMandatory("chr");
-			if(chr.startsWith("chr")) {
-				chr = chr.substring(3);
-			}
-			String alnFile = argMap.getInput();
-			MAFIO mafio = new MAFIO(alnFile, true);
-			String ignoreListStr = argMap.get("ignore");
-			//double minTreeLength = argMap.containsKey("minTreeLength") ? argMap.getDouble("minTreeLength") : MIN_TREE_LENGTH;
-			List<String> ignoreList = processIgnoreListString(ignoreListStr);			
-			scaler.setNeutralModel(modelFile);
-			scaler.setMinimumTreeLength(0.001);	
-			
-			
-			List<? extends GenomicAnnotation> chrAnnotations = ar.getAnnotationsForSequence(chr);
-			if(chrAnnotations == null || chrAnnotations.size() == 0) {
-				return;
-			}
-			Iterator<? extends GenomicAnnotation>  annotIt = chrAnnotations.iterator();
-			BufferedWriter bw = argMap.getOutputWriter();
-			while(annotIt.hasNext()) {
-				GenomicAnnotation a = annotIt.next();
-				//System.err.println("Region: " + a.toString());
-				MultipleAlignment annotationAln = ConservationUtils.setUpMAF(mafio, ignoreList, scaler.getModel(), a.getStart(), a.getEnd());
-				annotationAln.encodeAsMatrix();
-				scaler.setAlignment(annotationAln);
-				OmegaFit fit = scaler.scaleRegion(ignoreList, a);
-				if( fit == null) { continue;}
-				if(argMap.containsKey("scorePVAL")) {
-					a.setScore(fit.getPVal());
-				} else if (argMap.containsKey("scoreBranchLength")) {
-					a.setScore(fit.getTreeLength());
-				} else {
-					a.setScore(fit.getLogOddsScore());
-				}
-				if(!argMap.containsKey("scoreFull")) {
-					bw.write(a.toString());
-				} else {
-					StringBuilder sb = new StringBuilder(a.getChromosomeString());
-					sb.append("\t").append(a.getStart())
-						.append("\t").append(a.getEnd())
-						.append("\t").append(a.getName())
-						.append("\t").append(fit.getLogOddsScore())
-						.append("\t").append(a.getOrientation())
-						.append("\t").append(fit.getOmega())
-						.append("\t").append(fit.getTreeLength())
-						.append("\t").append(fit.getPVal());
-					bw.write(sb.toString());	
-				}
-				bw.newLine();
-			}
-			bw.close();
-			mafio.destroyFileHandle();
 		} else if("3".equals(argMap.getTask())) {
 			File modelFile = new File(argMap.getMandatory("mod"));
 			String alnFile = argMap.getInput();
@@ -591,7 +528,9 @@ public class TreeScaler {
 			} else {
 				scaler.alignment = ConservationUtils.setUpAlignment(argMap, alnFile, alnFileFormat, ignoreList, scaler.model);
 				scaler.alignment.encodeAsMatrix();
+				scaler.alignment.remove(ignoreList); //TODO: It is not elegant/clear to remove sequences here for non MAF alignmets while doing so later for MAFs
 			}
+
 			BufferedReader ir = argMap.getInputReader();
 			BEDReader reader = new BEDReader(ir);
 			ir.close();
@@ -625,10 +564,11 @@ public class TreeScaler {
 				}
 				if("MAF".equalsIgnoreCase(alnFileFormat)) {
 					scaler.alignment = ConservationUtils.setUpMAF(chrMafIO,ignoreList, scaler.getModel(), region.getStart(), region.getEnd()); // could improve so that index file gets loaded only once.
+					scaler.alignment.remove(ignoreList); 
 					scaler.alignment.encodeAsMatrix();
 				} else if(! (refSequence.getStart() <= region.getStart() && refSequence.getEnd() > region.getEnd())) {
 					//System.err.print( " was not within alignment boundaries.");
-					region.takeIntersection(refSequence);
+					region = new BED(region.intersect(refSequence)); //Changed by Manuel to account for new Annotation logic
 					//System.err.print(" -- Interesected it with reference: chr" + region.getChromosome() + ":" + region.getStart() + "-" + region.getEnd() );
 					if(region.getLength() == 0) {
 						//System.err.print(" but got empty intersection => Skipped");
@@ -1281,9 +1221,7 @@ public class TreeScaler {
 		return argMap.getRegionMapFromParameters();
 	}
 
-	private void setUpAlignment(ArgumentMap argMap, String alnFile, 
-			String alnFileFormat, List<String> ignoreList) 
-	throws IOException, ParseException,	FileNotFoundException {
+	private void setUpAlignment(ArgumentMap argMap, String alnFile, String alnFileFormat, List<String> ignoreList)  throws IOException, ParseException,	FileNotFoundException {
 		alignment = ConservationUtils.setUpAlignment(argMap, alnFile, alnFileFormat, ignoreList, model);
 		ignoreSequences = ignoreList;
 	}
@@ -1853,7 +1791,7 @@ public class TreeScaler {
 		double alnTreeLength = getTotalDistanceFromNode(alnTree.getRoot());
 		Map<String, Matrix> encodedAlignment = null;
 		try {
-		   encodedAlignment  = alignment.getColumnsAsVector(region.getStart(), region.getLength());
+		   encodedAlignment  = alignment.getColumnsAsVector(region.getStart(), region.length());
 		} catch (ArrayIndexOutOfBoundsException aiobe) {
 		    System.err.println("Region "+ region.toString() + " is not in array");
 		    return null;
@@ -1875,14 +1813,14 @@ public class TreeScaler {
 			throw new RuntimeException(e);
 		}
 		*/
-		for(int j = 0; j < region.getLength(); j++) {
+		for(int j = 0; j < region.length(); j++) {
 			List<String> gappedSeqs = ConservationUtils.getGappedSeqsInWindowMatrix(1, encodedAlignment, j);
 			//System.out.println("gapped seqs " + gappedSeqs);
 			ConservationUtils.setUninformativeNodes(encodedAlignment, gappedSeqs, j);
 			Phylogeny columnTree = ConservationUtils.pruneTree(gappedSeqs, alnTree);
 			minTreeLength = Math.min(alnTreeLength, getTotalDistanceFromNode(columnTree.getRoot()));
 		}
-		OmegaFit fit =  model.fitOmega(encodedAlignment, alnTree, region.getLength()  );
+		OmegaFit fit =  model.fitOmega(encodedAlignment, alnTree, region.length()  );
 		//System.err.print("Aln tree dist " + alnTreeLength);
 		//System.err.println(" ... min tree dist " + minTreeLength );
 		fit.setTreeLength(minTreeLength);
@@ -1946,6 +1884,7 @@ public class TreeScaler {
 					//System.out.println("\tref start  " + refPosition );
 					//System.out.println("\tColumn " + i + " ");
 					Map<String, Matrix> column = alignment.getColumnsAsVector(refPosition, window);
+
 					double minTreeLength = alignmentTreeLength;
 					for(int j = 0; j < window; j++) {
 						List<String> gappedSeqs = ConservationUtils.getGappedSeqsInWindowMatrix(1, column, j);						

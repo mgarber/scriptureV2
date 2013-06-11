@@ -278,10 +278,7 @@ public class BasicGenomicAnnotation extends BasicLightweightAnnotation implement
 		setOrientation(orientation ? "+" : "-");
 	}
 	
-	public void setOrientation(Strand strand) {
-		setOrientation(strand.toString());
-	}
-	
+
 	public void setThreePrimeBuffer(int bufferSize) {
 		setEnd(getEnd() + bufferSize);
 		this.threePrimerBuffer = bufferSize;

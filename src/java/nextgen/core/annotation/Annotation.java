@@ -219,8 +219,8 @@ public interface Annotation extends Comparable<Annotation> {
 	
 	/**
 	 * Trim annotation by a set number of bases, taking into account blocks. 
-	 * @param deltaStart  positive trims the gene.  e.g. deltaStart=1 removes one base from the front
-	 * @param deltaEnd  positive trims the gene.   e.g. deltaStart=1 removes one base fromt he end
+	 * @param deltaStart  (Positive) The number of bases to remove from the beginning of gene.  e.g. deltaStart=1 removes one base from the front
+	 * @param deltaEnd  (Positive) The number of bases to remove from the end of gene.   e.g. deltaStart=1 removes one base fromt he end
 	 */
 	public void trim(int deltaStart, int deltaEnd);
 	
@@ -370,7 +370,7 @@ public interface Annotation extends Comparable<Annotation> {
 	 * Returns the result of intersecting this instance with a list of annotations,
 	 * with one (possibly blocked) intersection Annotation for each provided annotation
 	 * @param other annotations
-	 * @return
+	 * @return List of intersections or empty list if none
 	 */
 	public List<Annotation> intersect(List<? extends Annotation> annotations);
 
@@ -414,5 +414,11 @@ public interface Annotation extends Comparable<Annotation> {
 	 * @return A collection of splice junctions
 	 */
 	public Collection<? extends Annotation> getSpliceConnections();
+
+	/**
+	 * This will return the position in the center of this annotation taking into account the blocked structure
+	 * @return
+	 */
+	public int getMidpoint();
 
 }

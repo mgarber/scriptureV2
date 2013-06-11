@@ -778,6 +778,14 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 			// TODO Auto-generated method stub
 			return false;
 		}
+
+		@Override
+		public int getMidpoint() {
+			//get midpoint
+			int mid=length()/2;
+			//convert to reference space
+			return getReferenceCoordinateAtPosition(mid);
+		}
 		
 	}
 }

@@ -1,6 +1,8 @@
 package broad.pda.seq.rap;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.io.File;
 import java.util.List;
 
@@ -70,6 +72,26 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		return regions;
 	}
 	
+	public Map<String,Annotation> getRegionsMap() {
+		Map<String,Annotation> regions = new HashMap<String,Annotation>();
+
+		if (REGION != null) {
+			if (coordinateSpace.hasChromosome(REGION)) {
+				regions.put(REGION,coordinateSpace.getReferenceAnnotation(REGION));
+			} else {
+				try {
+					regions.put(REGION,new BasicAnnotation(REGION));
+				} catch (RuntimeException e) {
+					throw new IllegalArgumentException("REGION is improperly formatted");
+				}
+			}
+		} else {
+			for(String chr:coordinateSpace.getReferenceNames()){
+				regions.put(chr,coordinateSpace.getReferenceAnnotation(chr));
+			}
+		}
+		return regions;
+	}
 	
 	public AnnotationList<Annotation> getRegionSet() {
 		AnnotationList<Annotation> annotations = new AnnotationList<Annotation>(coordinateSpace, getRegions());
