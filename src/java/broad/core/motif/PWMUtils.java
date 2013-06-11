@@ -354,7 +354,7 @@ public class PWMUtils {
 					if(hit.getScore()  > minScoreToWrite && !maxOnly ) {
 						if(shuffles > 0) {
 							//hit.setScore(Statistics.pvalue(maxPermutationVals, hit.getScore()));
-							double pval = 1 -shuffledScoreDist.getCummulativeProbability(hit.getScore());
+							double pval = 1 -shuffledScoreDist.getCumulativeProbability(hit.getScore());
 							double fwer = Statistics.pvalue(maxPermutationVals, hit.getScore(), false);
 							double fdr  = ComputeFDR.FDR(shuffledScoreDistArray[0], shuffledScoreDistArray, hit.getScore());
 							if(significanceBW != null) {

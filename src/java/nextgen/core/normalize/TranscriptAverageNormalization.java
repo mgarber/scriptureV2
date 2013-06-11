@@ -64,6 +64,12 @@ public class TranscriptAverageNormalization implements NormalizedCount {
 		if(childToParent == null) {
 			throw new IllegalStateException("Must instantiate with a map of child to parent annotation.");
 		}
+		if(!childToParent.containsKey(region)) {
+			throw new IllegalArgumentException("Child " + region.getName() + " does not have parent.");
+		}
+		if(childToParent.get(region) == null) {
+			throw new IllegalArgumentException("Parent of child " + region.getName() + " is null.");
+		}		
 		return getNormalizedRegionAverage(region, childToParent.get(region));
 	}
 

@@ -459,6 +459,11 @@ public class MaskedGenomicSpace implements CoordinateSpace{
 		throw new UnsupportedOperationException("TODO");
 	}
 
+	@Override
+	public Collection<String> getChromosomeNames() {
+		throw new UnsupportedOperationException("TODO");
+	}
+
 
 	
 	

@@ -145,8 +145,8 @@ public class DifferentialExpression {
 			int counter=0;
 			for(String row: data.getRowNames()){
 				double val=data.get(row, column);
-				double pvalue=dist.getCummulativeProbability(val); 
-				if(val>0){pvalue=1-dist.getCummulativeProbability(val);}
+				double pvalue=dist.getCumulativeProbability(val); 
+				if(val>0){pvalue=1-dist.getCumulativeProbability(val);}
 				rtrn.set(row, column, pvalue);
 				counter++;
 			}

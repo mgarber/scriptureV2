@@ -34,10 +34,10 @@ public class FWERDistribution {
 	public double getFWER(double d) {
 		double fwer = 0;
 		if(d<0){
-			fwer =  minDist.getCummulativeProbability(d);
+			fwer =  minDist.getCumulativeProbability(d);
 		}
 		else{
-			fwer =  1-maxDist.getCummulativeProbability(d);
+			fwer =  1-maxDist.getCumulativeProbability(d);
 		}
 		
 		return fwer;

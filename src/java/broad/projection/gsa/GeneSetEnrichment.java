@@ -400,7 +400,7 @@ public class GeneSetEnrichment {
 	
 	private double pvalue(double kS, double[] permutationsKS) {
 		EmpiricalDistribution dist=new EmpiricalDistribution(permutationsKS, 200);
-		return dist.getCummulativeProbability(kS);
+		return dist.getCumulativeProbability(kS);
 	}
 
 	private double normalizeMaxMean(MatrixWithHeaders rankedList,Collection<String> geneSet, double maxMean, int numPermutations) {
