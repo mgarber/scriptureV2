@@ -6,11 +6,14 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
+
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;
@@ -73,13 +76,12 @@ public class ConnectDisconnectedTranscripts {
 	
 	public void doWork(String outputName) throws IOException{
 	
-		BufferedWriter bwConn = new BufferedWriter(new FileWriter(outputName+".connected.bed"));
-		BufferedWriter bwDisconn = new BufferedWriter(new FileWriter(outputName+".disconnected.bed"));
-		
+		Map<String,Collection<Gene>> conn = new HashMap<String,Collection<Gene>>();
 		for(String chr:annotations.keySet()){
-			Set<Gene> considered = new HashSet<Gene>();
+			//Set<Gene> considered = new HashSet<Gene>();
 			//For all genes on this chromosome
 			logger.info("Processing "+chr);
+			Collection<Gene> newGenes = new TreeSet<Gene>();
 			//MAKE AN INTERVAL TREE OF THE GENES on this chr
 			IntervalTree<Gene> tree = new IntervalTree<Gene>();
 			for(Gene g:annotations.get(chr)){
@@ -92,22 +94,28 @@ public class ConnectDisconnectedTranscripts {
 				Gene gene=iter.next();
 				//For all assemblies downstream of this assembly in 10kB regions
 				Iterator<Gene> overlappers=tree.overlappingValueIterator(gene.getEnd(), gene.getEnd()+constant);
+				
+				newGenes.add(gene);
 				while(overlappers.hasNext()){
 					Gene other = overlappers.next();
 					if(isCandidate(gene,other)){
 						if(pairedEndReadSpansTranscripts(gene, other)){ 
-							if(!considered.contains(gene)){
-								bwDisconn.write(gene.toBED()+"\n");
-								considered.add(gene);
+							if(secondTranscriptIsSingleExon(gene,other)){
+								/*if(!considered.contains(gene)){
+									considered.add(gene);
+								}
+								if(!considered.contains(other)){
+									considered.add(other);
+								}*/
+								logger.info("The genes "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC()+" must be connected.");
+								
+								//Connect the genes
+								Annotation connected = getConnectedTranscript(gene,other);
+								if(connected!=null){
+									newGenes.remove(gene);
+									newGenes.add(new Gene(connected));
+								}
 							}
-							if(!considered.contains(other)){
-								bwDisconn.write(other.toBED()+"\n");
-								considered.add(other);
-							}
-							logger.info("The genes "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC()+" must be connected.");
-							
-							//Connect the genes
-							getConnectedTranscript(gene,other,bwConn);							
 						}
 						else{
 							//logger.info("The genes "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC()+" do not have paired reads");
@@ -116,8 +124,7 @@ public class ConnectDisconnectedTranscripts {
 				}				
 			}
 		}
-		bwConn.close();
-		bwDisconn.close();
+		BuildScriptureCoordinateSpace.write(outputName+".connected.bed",annotations);
 	}
 	
 	/**
@@ -149,13 +156,35 @@ public class ConnectDisconnectedTranscripts {
 	}
 	
 	/**
+	 * Returns true if the transcript at the oriented 3' end is a single exon transcript.
+	 * @param gene
+	 * @param other
+	 * @return
+	 */
+	private boolean secondTranscriptIsSingleExon(Gene gene,Gene other){
+		
+		Pair<Gene> orderedGenes = this.getOrderedAssembly(gene, other);
+		if(gene.isNegativeStrand()){
+			if(orderedGenes.getValue1().getBlocks().size()==1){
+				return true;
+			}
+		}
+		else{
+			if(orderedGenes.getValue2().getBlocks().size()==1){
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	/**
 	 * Connect the two genes by fusing the last exon of the first and the first exon of the last gene
 	 * @param gene
 	 * @param other
 	 * @return
 	 * @throws IOException 
 	 */
-	private void getConnectedTranscript(Gene gene,Gene other,BufferedWriter bw) throws IOException{
+	private Annotation getConnectedTranscript(Gene gene,Gene other) throws IOException{
 		
 		Pair<Gene> orderedGenes = this.getOrderedAssembly(gene, other);
 		Annotation connected = null;
@@ -164,9 +193,9 @@ public class ConnectDisconnectedTranscripts {
 		 * paste through
 		 */
 		if(orderedGenes.getValue2().getStart()-orderedGenes.getValue1().getEnd() < medianInsertSize){
-			List<Annotation> blocks = new ArrayList<Annotation>();
+//			List<Annotation> blocks = new ArrayList<Annotation>();
 			
-			Annotation tojoin = null;
+//			Annotation tojoin = null;
 			// getBlocks for first gene
 /*			for(Annotation b:orderedGenes.getValue1().getBlocks()){
 				//LAST EXON
@@ -216,11 +245,7 @@ public class ConnectDisconnectedTranscripts {
 			 * Else NO CONNECTION
 			 */
 		}
-		if(connected!=null){
-			bw.write(connected.toBED()+"\n");
-		}
-		
-		
+		return connected;		
 	}
 	
 	private Pair<Gene> getOrderedAssembly(Gene gene1,Gene gene2) {

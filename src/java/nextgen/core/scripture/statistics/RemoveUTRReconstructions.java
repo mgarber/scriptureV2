@@ -1,3 +1,4 @@
+
 package nextgen.core.scripture.statistics;
 
 import java.io.BufferedReader;
@@ -19,17 +20,18 @@ import nextgen.core.scripture.BuildScriptureCoordinateSpace;
 import broad.core.datastructures.IntervalTree;
 import broad.pda.annotation.BEDFileParser;
 
-public class ClassifyReconstructions {
+public class RemoveUTRReconstructions {
 
 	private Map<String, String> classFiles;
 	private Map<String, Boolean> stranded;
 	private Map<String, Boolean> overlap;
 	Map<String,Collection<Gene>> reconstructions;
 	private String outputName;
+	private int DEFAULT_EXT=5000;
 	
 	static Logger logger = Logger.getLogger(ClassifyReconstructions.class.getName());
 	
-	public ClassifyReconstructions(String reconstructFile,String fileName,String outName) throws IOException{
+	public RemoveUTRReconstructions(String reconstructFile,String fileName,String outName) throws IOException{
 		
 		reconstructions = BEDFileParser.loadDataByChr(reconstructFile);
 		
@@ -79,45 +81,36 @@ public class ClassifyReconstructions {
 					tree.put(g.getStart(), g.getEnd(), g);
 				}
 			
+				//FOR EACH RECONSTRUCTIONS
 				for(Gene gene:reconstructions.get(chr)){
 					
 					boolean overlaps = false;
-					Iterator<Gene> overlappers=tree.overlappingValueIterator(gene.getStart(), gene.getEnd());
+					//IF THE RECONSTRUCTION IS SINGLE EXON
+					//Extend the reconstruction
+					Gene geneCopy = gene.copy();
+					
+					geneCopy.expand(DEFAULT_EXT, DEFAULT_EXT);
+					
+					Iterator<Gene> overlappers=tree.overlappingValueIterator(geneCopy.getStart(), geneCopy.getEnd());
 					
 					//Collection<Assembly> toRemove=new TreeSet<Assembly>();
 					while(overlappers.hasNext()){
+						//For each overlapping gene
 						Gene other=overlappers.next();
-						
-						if(overlap.get(annClass)){
-							if(stranded.get(annClass)){
-								if(gene.overlapsStranded(other)){//, minPctOverlap)){
-									overlaps = true;
-								}
-							}
-							else{
-								if(gene.overlaps(other)){//, minPctOverlap)){
-									overlaps = true;
-								}
-							}
-						}
-						//If check for contains
-						else{
-							if(other.contains(gene)){
-								overlaps = true;
-							}
+						if(geneCopy.overlapsStranded(other)){//, minPctOverlap)){
+							overlaps = true;
 						}
 					}
+					
 					if(overlaps){
 						overlappingGenes.get(chr).add(gene);
 						counter++;
 					}
 				}
-				
 				// Get the remaining reconstructions
-				for(Gene gene:overlappingGenes.get(chr)){
-					reconstructions.get(chr).remove(gene);
+				for(Gene g:overlappingGenes.get(chr)){
+					reconstructions.get(chr).remove(g);
 				}
-				
 			}
 			//Count remainging reconstructions
 			int recon = 0;
@@ -194,10 +187,11 @@ public class ClassifyReconstructions {
 		if(args.length<3)
 			System.err.println(usage);
 		else
-			new ClassifyReconstructions(args[0],args[1],args[2]);
+			new RemoveUTRReconstructions(args[0],args[1],args[2]);
 	}
 	
 	static String usage=" args[0]=reconstructions bed file \n\t args[1]=list of bed files to filter \n\t args[2]: output file name";
 
 	public static String whitespaceDelimiter = "\\s++";
 }
+
