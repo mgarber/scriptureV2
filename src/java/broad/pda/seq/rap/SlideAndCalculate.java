@@ -56,21 +56,16 @@ public class SlideAndCalculate extends GenomeScoringProgramFromBed {
 			WindowProcessor<? extends WindowScore> processor = getWindowProcessor();
 					
 			for (Annotation region : regions) {
-				/*		log.info("Starting: " + region.toUCSC());
+				log.info("Starting: " + region.toUCSC());
 				Iterator<? extends Annotation> windowIterator = getCoordinateSpace().getWindowIterator(region, WINDOW, OVERLAP);
 				WindowScoreIterator<? extends WindowScore> itr = new WindowScoreIterator(windowIterator, processor, region);
-				WindowScore curr = processor.processWindow(region);
-				bw.write(curr.toString());
-				bw.newLine();
 				while (itr.hasNext()) {
-				
 					WindowScore curr = itr.next();
-					
+					bw.write(curr.toString());
+					bw.newLine();
 				}
-				itr.close();*/
-				WindowScore curr = processor.processWindow(region);
-				bw.write(curr.toString());
-				bw.newLine();
+				itr.close();
+				
 			}
 			
 			bw.close();
