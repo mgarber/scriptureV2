@@ -133,6 +133,10 @@ public interface CoordinateSpace {
 	 */
 	public Collection<String> getReferenceNames();
 	
+	/**
+	 * @return A list of chromosome names contained in the coordinate space
+	 */
+	public Collection<String> getChromosomeNames();
 	
 	/**
 	 * @return The reference annotations contained in this coordinate space.

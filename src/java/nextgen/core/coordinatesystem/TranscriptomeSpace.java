@@ -23,6 +23,7 @@ import nextgen.core.model.score.WindowScoreIterator;
 import nextgen.core.scripture.BuildScriptureCoordinateSpace;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
+import broad.pda.annotation.BEDFileParser;
 import broad.pda.datastructures.Alignments;
 
 
@@ -33,6 +34,7 @@ public class TranscriptomeSpace implements CoordinateSpace{
 	static Logger logger = Logger.getLogger(TranscriptomeSpace.class.getName());
 	static final public int PERMUTATION_ATTEMPTS = 10;
 	static private Random generator = new Random();
+	private Collection<String> chrNames;
 
 	public TranscriptomeSpace(Map<String,Collection<Gene>> chrToGenesMap){
 		this(null, chrToGenesMap,null);
@@ -60,6 +62,15 @@ public class TranscriptomeSpace implements CoordinateSpace{
 		}
 		
 		this.geneTree=new GeneTree(chrToGenesMap);
+		chrNames = new TreeSet<String>();
+		for(Gene gene : geneTree.getGenesByName().values()) {
+			chrNames.add(gene.getChr());
+		}
+
+	}
+	
+	public static TranscriptomeSpace getTranscriptomeSpace(String bedFile) throws IOException {
+		return new TranscriptomeSpace(BEDFileParser.loadDataByChr(new File(bedFile)));
 	}
 	
 	/**
@@ -562,6 +573,11 @@ protected class GeneTree {
 			return w;
 		}
 		return null;
+	}
+
+	@Override
+	public Collection<String> getChromosomeNames() {
+		return chrNames;
 	}
 	
 }

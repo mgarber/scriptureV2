@@ -165,6 +165,13 @@ public class BasicAnnotation extends AbstractAnnotation {
 		return blocks.getEnd();
 	}
 
+	public int getMidpoint(){
+		//get midpoint
+		int mid=length()/2;
+		//convert to reference space
+		return getReferenceCoordinateAtPosition(mid);
+	}
+	
 	public String getReferenceName() {
 		return referenceName;
 	}

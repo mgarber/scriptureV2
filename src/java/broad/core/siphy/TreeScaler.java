@@ -644,7 +644,7 @@ public class TreeScaler {
 				
 				String [] lineInfo = line.split(separator);
 				double value = Double.parseDouble(lineInfo[col]);
-				double pVal = rightTail ? 1 - dist.getCummulativeProbability(value) : dist.getCummulativeProbability(value);
+				double pVal = rightTail ? 1 - dist.getCumulativeProbability(value) : dist.getCumulativeProbability(value);
 				bw.write(line.trim());
 				bw.write(separator);
 				bw.write(tinnyNumberFormat.format(pVal));
@@ -924,7 +924,7 @@ public class TreeScaler {
 										if(!filterScores || hit.getScore() > minScoreToReport) {
 											if(shuffles > 0) {
 												//hit.setScore(Statistics.pvalue(maxPermutationVals, hit.getScore()));
-												double pval = 1 -shuffledScoreDist.getCummulativeProbability(hit.getScore());
+												double pval = 1 -shuffledScoreDist.getCumulativeProbability(hit.getScore());
 												double fwer = Statistics.pvalue(maxPermutationVals, hit.getScore(), false);
 												double fdr  = ComputeFDR.FDR(shuffledScoreDistArray[0], shuffledScoreDistArray, hit.getScore());
 												significanceBW.write(hit.toUCSC() +"\t" +hit.getScore() + "\t" + (pval) + "\t" + fwer + "\t" + fdr);
@@ -1252,7 +1252,7 @@ public class TreeScaler {
 						score += member.getLogLikelihoodRatio();
 					}
 					if(neutralDist != null) {
-						score = - Math.log(1 - neutralDist.getCummulativeProbability(score));
+						score = - Math.log(1 - neutralDist.getCumulativeProbability(score));
 					}
 					window.setScore(score);
 
@@ -1299,7 +1299,7 @@ public class TreeScaler {
 						score += member.getLogLikelihoodRatio();
 					}
 					if(neutralDist != null) {
-						score = - Math.log(1 - neutralDist.getCummulativeProbability(score));
+						score = - Math.log(1 - neutralDist.getCumulativeProbability(score));
 					}
 					window.setScore(score);
 					

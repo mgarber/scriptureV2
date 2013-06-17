@@ -418,7 +418,7 @@ public class Path implements Comparable<Path>,GraphPath<Annotation,BubbleEdge>{
 			if(insert==null){distance=-1;}
 			else{
 				distance=insert.getSize();
-				double likelihood=pairedInsertDistribution.getCummulativeProbability(distance);
+				double likelihood=pairedInsertDistribution.getCumulativeProbability(distance);
 				System.err.println(distance+" "+likelihood);
 				if(likelihood>.05 && likelihood<.95){count++;}
 				total++;

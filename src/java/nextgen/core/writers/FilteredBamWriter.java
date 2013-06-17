@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import org.apache.commons.collections15.Predicate;
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 
@@ -26,8 +27,10 @@ import net.sf.samtools.SAMFileHeader.SortOrder;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.FragmentAlignment;
 import nextgen.core.alignment.SingleEndAlignment;
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
+import nextgen.core.readFilters.FirstNucleotideFilter;
 import nextgen.core.readFilters.FragmentLengthFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.ProperPairFilter;
@@ -41,17 +44,16 @@ public class FilteredBamWriter {
 	static Logger logger = Logger.getLogger(FilteredBamWriter.class.getName());	
 	private Collection<Predicate<Alignment>> readFilters;
 	private File bamFile;
-	private boolean skipFirstReads;
-	private boolean skipSecondReads;
+	private TranscriptionRead transcriptionRead;
 		
 	/**
 	 * @param inputBam Input bam file to filter
+	 * @param txnRead Read in direction of transcription
 	 */
-	public FilteredBamWriter(String inputBam){
-		this.readFilters = new ArrayList<Predicate<Alignment>>();
-		this.bamFile = new File(inputBam);
-		this.skipFirstReads = false;
-		this.skipSecondReads = false;
+	public FilteredBamWriter(String inputBam, TranscriptionRead txnRead){
+		readFilters = new ArrayList<Predicate<Alignment>>();
+		bamFile = new File(inputBam);
+		transcriptionRead = txnRead;
 	}
 
 	/**
@@ -59,7 +61,7 @@ public class FilteredBamWriter {
 	 * @param filter Read filter
 	 */
 	public void addReadFilter(Predicate<Alignment> filter) {
-		this.readFilters.add(filter);
+		readFilters.add(filter);
 	}
 	
 	/**
@@ -70,20 +72,6 @@ public class FilteredBamWriter {
 	 */
 	public void addFragmentLengthFilter(String bedAnnotation, int maxLen) throws IOException {
 		addFragmentLengthFilter(bedAnnotation, 0, maxLen);
-	}
-	
-	/**
-	 * Don't write any second reads
-	 */
-	public void skipSecondReads() {
-		this.skipSecondReads = true;
-	}
-	
-	/**
-	 * Don't write any first reads
-	 */
-	public void skipFirstReads() {
-		this.skipFirstReads = true;
 	}
 	
 	/**
@@ -98,6 +86,21 @@ public class FilteredBamWriter {
 		Map<String, Collection<Gene>> genes = BEDFileParser.loadDataByChr(new File(bedAnnotation));
 		TranscriptomeSpace coord = new TranscriptomeSpace(genes);
 		addReadFilter(new FragmentLengthFilter(coord, minLen, maxLen));
+	}
+	
+	
+	/**
+	 * Add a filter for first nucleotide of fragment
+	 * @param geneBedFile Bed file of genes
+	 * @param genomeFasta Genome fasta file
+	 * @param txnRead Transcription read
+	 * @param firstNucleotide Nucleotide to require at first fragment position
+	 * @param offsetAlongParent Offset along the parent transcript from the beginning position
+	 * @throws IOException
+	 */
+	public void addFirstNucleotideFilter(String geneBedFile, String genomeFasta, TranscriptionRead txnRead, char firstNucleotide, int offsetAlongParent) throws IOException {
+		logger.info("Adding first nucleotide filter for nucleotide " + firstNucleotide + "...");
+		addReadFilter(new FirstNucleotideFilter(bamFile.getName(), geneBedFile, genomeFasta, txnRead, firstNucleotide, offsetAlongParent));
 	}
 	
 	/**
@@ -123,7 +126,7 @@ public class FilteredBamWriter {
 	 */
 	public void writeFilteredFile(String output) {
 		logger.info("Writing to file " + output + "...");
-		SAMFileReader reader = new SAMFileReader(this.bamFile);
+		SAMFileReader reader = new SAMFileReader(bamFile);
 		SAMFileHeader header = reader.getFileHeader();
 		SAMRecordIterator iter = reader.iterator();
 		
@@ -134,33 +137,32 @@ public class FilteredBamWriter {
 		Map<String, Pair<Collection<SAMRecord>>> tempCollection=new TreeMap<String, Pair<Collection<SAMRecord>>>();
 		Map<String, Pair<Integer>> numHitsMap=new TreeMap<String, Pair<Integer>>();
 		int numRecords = 0;
+		int numWritten = 0;
 		
 		while(iter.hasNext()) {
 			SAMRecord record=iter.next();
+			logger.debug("RECORD\t" + record.getReadName());
 			if(record.getReadUnmappedFlag()) {
+				logger.debug("RECORD_UNMAPPED\t" + record.getReadName());
 				continue;
 			}
 			numRecords++;
 			if(numRecords % 100000 == 0) {
-				logger.info("Got " + numRecords + " records.");
+				logger.info("Got " + numRecords + " records. Wrote " + numWritten + ".");
 			}
 			String name=record.getReadName();
+
 			
-			if(!record.getReadPairedFlag()){
+			if(!record.getReadPairedFlag() || record.getMateUnmappedFlag()){
 				Alignment align = new SingleEndAlignment(record);
+				logger.debug("NOT_PAIRED_OR_MATE_UNMAPPED\t" + align.getReadName());
 				// APPLY FILTERS
 				if(!isValid(align)) continue;
+				logger.debug("WRITING_ALIGNMENT\t" + record.getReadName());
 				writer.addAlignment(record);
-			} else if (record.getMateUnmappedFlag()) {
-				if(this.skipFirstReads && record.getFirstOfPairFlag()) continue;
-				if(this.skipSecondReads && record.getSecondOfPairFlag()) continue;
-				Alignment align = new SingleEndAlignment(record);
-				// APPLY FILTERS
-				if(!isValid(align)) continue;
-				writer.addAlignment(record);
-			}
-							
-			else{
+				numWritten++;
+			} 	else {
+				logger.debug("BOTH_MATES_MAPPED\t" + name);
 				Pair<Integer> numHits=new Pair<Integer>(); //get from NH flag
 				if(numHitsMap.containsKey(name)){
 					numHits=numHitsMap.get(name);
@@ -176,6 +178,7 @@ public class FilteredBamWriter {
 					
 				//add to pair
 				add(record, pair);
+				logger.debug("Added to pair\t" + record.getReadName());
 					
 				//add to Collection
 				tempCollection.put(name, pair);
@@ -185,13 +188,21 @@ public class FilteredBamWriter {
 					
 				//If so
 				if(isComplete){
+					logger.debug("PAIR_IS_COMPLETE\t" + record.getReadName());
 					//Remove from collection
 					tempCollection.remove(name);
 					//Make paired line for each combo
 					// APPLIES FILTERS
+					logger.debug("MAKING_PAIRS\t" + record.getReadName());
 					Collection<Pair<SAMRecord>> fragmentRecords=makePairs(pair);
 					//write to output
-					if(!fragmentRecords.isEmpty()) writeAll(fragmentRecords, writer, this.skipFirstReads, this.skipSecondReads);
+					if(!fragmentRecords.isEmpty()) {
+						logger.debug("FRAGMENT_HAS_RECORDS\t" + fragmentRecords.size() + " records\t" + record.getReadName());
+						numWritten += fragmentRecords.size();
+						writeAll(fragmentRecords, writer);
+					}
+				} else {
+					logger.debug("NOT_COMPLETE_PAIR\t" + record.getReadName());
 				}
 				numHitsMap.put(name, numHits);
 			}		
@@ -229,10 +240,8 @@ public class FilteredBamWriter {
 			}
 			
 			if(pair.hasValue1()){
-				if(this.skipFirstReads) continue;
 				records=pair.getValue1();}
 			else{
-				if(this.skipSecondReads) continue;
 				records=pair.getValue2();}
 			
 			for(SAMRecord record: records){
@@ -247,14 +256,12 @@ public class FilteredBamWriter {
 
 
 	private static void writeAll(Collection<Pair<SAMRecord>> fragmentRecords, BAMFileWriter writer) {
-		writeAll(fragmentRecords, writer, false, false);
-	}
-	
-	private static void writeAll(Collection<Pair<SAMRecord>> fragmentRecords, BAMFileWriter writer, boolean skipFirstReads, boolean skipSecondReads) {
 		
 		for(Pair<SAMRecord> fragment: fragmentRecords){
-			if(!skipFirstReads) writer.addAlignment(fragment.getValue1());
-			if(!skipSecondReads) writer.addAlignment(fragment.getValue2());
+			logger.debug("WRITING_ALIGNMENT\t" + fragment.getValue1().getReadName());
+			writer.addAlignment(fragment.getValue1());
+			logger.debug("WRITING_ALIGNMENT\t" + fragment.getValue2().getReadName());
+			writer.addAlignment(fragment.getValue2());
 		}
 		
 	}
@@ -268,16 +275,19 @@ public class FilteredBamWriter {
 			int num=new Integer(nh.toString()).intValue();
 			if(record.getFirstOfPairFlag()){
 				numHits.setValue1(Integer.valueOf(num));
+				logger.debug("FIRST_OF_PAIR\tNUM_HITS\t" + numHits.getValue1());
 			}
 			else{
 				numHits.setValue2(Integer.valueOf(num));
+				logger.debug("SECOND_OF_PAIR\tNUM_HITS\t" + numHits.getValue2());
 			}
 		}
 		else{
 			//The NH flag is not set so we will default to 1,1
+			logger.debug("NH_FLAG_NOT_SET");
 			return new Pair<Integer>(Integer.valueOf(1),Integer.valueOf(1));
 		}
-		
+				
 		return numHits;
 	}
 
@@ -285,6 +295,7 @@ public class FilteredBamWriter {
 	private static boolean isCompletePair(Pair<Collection<SAMRecord>> pair, Pair<Integer> numHits) {
 		//First check that we have both ends
 		if(pair.hasValue1() && pair.hasValue2()){
+			logger.debug("PAIR_HAS_BOTH_VALUES");
 			//if so, check that the size matches the expected numHits
 			int size1=pair.getValue1().size();
 			int size2=pair.getValue2().size();
@@ -293,23 +304,31 @@ public class FilteredBamWriter {
 			int expectedSize2=numHits.getValue2().intValue();
 			
 			if(size1==expectedSize1 && size2==expectedSize2){
+				logger.debug("SIZES_OK_PAIR_IS_COMPLETE");
 				return true;
 			}
+			logger.debug("SIZES_UNEXPECTED");
+		} else {
+			logger.debug("PAIR_MISSING_ONE_VALUE");
 		}
-		
+	
 		return false;
 	}
 	
 	private boolean isValid(Alignment read){
-		for(Predicate<Alignment> filter: this.readFilters){
+		for(Predicate<Alignment> filter: readFilters){
 			try {
 				boolean passes=filter.evaluate(read);
-				if(!passes){return false;}
+				if(!passes){
+					logger.debug("FAILS_FILTER\t" + read.getReadName() + "\t" + filter.getClass().getName());
+					return false;
+				}
 			} catch (NullPointerException e) {
+				logger.debug("CAUGHT_EXCEPTION\t" + read.getReadName() + "\t" + filter.getClass().getName());
 				return false;
 			}
 		}
-		
+		logger.debug("IS_VALID\t" + read.getReadName());
 		return true;
 	}
 
@@ -324,12 +343,18 @@ public class FilteredBamWriter {
 		for(SAMRecord r1: pair1){
 			for(SAMRecord r2: pair2){
 				if(isCompatiblePair(r1, r2)){
+					logger.debug("PAIR_COMPATIBLE\t" + r1.getReadName() + "\t" + r2.getReadName());
 					Pair<SAMRecord> p=new Pair<SAMRecord>(r1, r2);
-					Alignment align = new FragmentAlignment(new SingleEndAlignment(r1), new SingleEndAlignment(r2));
+					Alignment align = new FragmentAlignment(new SingleEndAlignment(r1), new SingleEndAlignment(r2), transcriptionRead);
+					logger.debug("FRAGMENT_ALIGNMENT\t" + align.getReadName());
 					if(isValid(align)) {
+						logger.debug("ADDING\t" + align.getReadName());
 						rtrn.add(p);
+					} else {
+						logger.debug("NOT_VALID\t" + align.getReadName());
 					}
 				}
+				logger.debug("PAIR_NOT_COMPATIBLE\t" + r1.getReadName() + "\t" + r2.getReadName());
 			}
 		}
 		
@@ -376,40 +401,68 @@ public class FilteredBamWriter {
 		
 		CommandLineParser p = new CommandLineParser();
 		p.addStringArg("-b", "Input bam file", true);
-		p.addIntArg("-maxg", "Max genomic span", false, Integer.valueOf(-1));
-		p.addIntArg("-minf", "Min fragment size", false, Integer.valueOf(-1));
-		p.addIntArg("-maxf", "Max fragment size", false, Integer.valueOf(-1));
-		p.addBooleanArg("-sf", "Skip first reads", false, Boolean.valueOf(false));
-		p.addBooleanArg("-ss", "Skip second reads", false, Boolean.valueOf(false));
-		p.addStringArg("-a", "Bed annotation for fragment lengths", false);
+		p.addIntArg("-maxg", "Max genomic span", false, -1);
+		p.addIntArg("-minf", "Min fragment size", false, -1);
+		p.addIntArg("-maxf", "Max fragment size", false, -1);
+		p.addStringArg("-fn", "Nucleotide for first fragment position (A, C, G or T)", false, null);
+		p.addStringArg("-a", "Bed gene annotation", false);
+		p.addStringArg("-g", "Genome fasta file required for -fn", false, null);
+		p.addIntArg("-of", "Offset for -fn", false, 0);
 		p.addStringArg("-o", "Output bam file", true);
+		p.addBooleanArg("-ft", "First read is transcription strand", false, false);
+		p.addBooleanArg("-d","Debug logging", false, false);
 		p.parse(args);
 		String inputBam = p.getStringArg("-b");
-		Integer maxGenomicSpan = p.getIntArg("-maxg");
-		Integer minFragmentSize = p.getIntArg("-minf");
-		Integer maxFragmentSize = p.getIntArg("-maxf");
+		int maxGenomicSpan = p.getIntArg("-maxg");
+		int minFragmentSize = p.getIntArg("-minf");
+		int maxFragmentSize = p.getIntArg("-maxf");
 		String bedFile = p.getStringArg("-a");
 		String outFile = p.getStringArg("-o");
-		boolean skipFirstReads = p.getBooleanArg("-sf");
-		boolean skipSecondReads = p.getBooleanArg("-ss");
+		String firstNuc = p.getStringArg("-fn");
+		String genomeFasta = p.getStringArg("-g");
+		boolean firstReadTranscriptionStrand = p.getBooleanArg("-ft");
+		int offset = p.getIntArg("-of");
+		boolean debug = p.getBooleanArg("-d");
 		
-		FilteredBamWriter fbw = new FilteredBamWriter(inputBam);
-		if(skipFirstReads) fbw.skipFirstReads();
-		if(skipSecondReads) fbw.skipSecondReads();
-		
-		if(maxGenomicSpan.intValue() >= 0) {
-			fbw.addGenomicSpanFilter(maxGenomicSpan.intValue());
+		if(debug) {
+			logger.setLevel(Level.DEBUG);
 		}
 		
-		if(maxFragmentSize.intValue() >= 0) {
+		FilteredBamWriter fbw = new FilteredBamWriter(inputBam, firstReadTranscriptionStrand ? TranscriptionRead.FIRST_OF_PAIR : TranscriptionRead.SECOND_OF_PAIR);
+		
+		if(maxGenomicSpan >= 0) {
+			fbw.addGenomicSpanFilter(maxGenomicSpan);
+		}
+		
+		if(maxFragmentSize >= 0) {
 			if(bedFile == null) {
 				throw new IllegalArgumentException("For fragment size filter must provide bed annotation with option -a.");
 			}
-			int minSize = minFragmentSize.intValue() < 0 ? 0 : minFragmentSize.intValue();
-			fbw.addFragmentLengthFilter(bedFile, minSize, maxFragmentSize.intValue());
+			int minSize = minFragmentSize < 0 ? 0 : minFragmentSize;
+			fbw.addFragmentLengthFilter(bedFile, minSize, maxFragmentSize);
+		}
+		
+		if(firstNuc != null) {
+			if(!firstNuc.equals("A") && !firstNuc.equals("C") && !firstNuc.equals("G") && !firstNuc.equals("T")) {
+				throw new IllegalArgumentException(firstNuc + " is not a valid first nucleotide. Must be A, C, G or T.");
+			}
+			if(bedFile == null) {
+				throw new IllegalArgumentException("For first nucleotide filter must provide bed annotation with option -a.");
+			}
+			if(genomeFasta == null) {
+				throw new IllegalArgumentException("For first nucleotide filter must provide genome fasta file with option -g.");
+			}
+			
+			
+			fbw.addFirstNucleotideFilter(bedFile, genomeFasta, fbw.transcriptionRead, firstNuc.charAt(0), offset); 
+			
+			
 		}
 		
 		fbw.writeFilteredFile(outFile);
+		
+		logger.info("");
+		logger.info("All done.");
 		
 	}
 	

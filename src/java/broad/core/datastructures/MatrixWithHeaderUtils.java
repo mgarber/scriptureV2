@@ -95,7 +95,7 @@ public class MatrixWithHeaderUtils {
 			 br.close();
 			 
 			 if(log) {
-				 in.log();
+				 in.log2();
 			 }
 			 in.zRowNormalize();
 			 BufferedWriter bw = argMap.getOutputWriter();
@@ -108,7 +108,7 @@ public class MatrixWithHeaderUtils {
 			 br.close();
 			 
 			 if(log) {
-				 in.log();
+				 in.log2();
 			 }
 			 in.zColumnNormalize();
 			 BufferedWriter bw = argMap.getOutputWriter();

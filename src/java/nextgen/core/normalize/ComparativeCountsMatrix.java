@@ -212,31 +212,21 @@ public class ComparativeCountsMatrix {
 	}
 	
 	/**
-	 * Write table of ratios to file
-	 * @param outFile Output file
-	 * @param regionBedFile Bed file of regions to write
-	 * @throws IOException
-	 */
-	public void writeTable(String outFile, String regionBedFile) throws IOException {
-		writeTable(outFile, regionBedFile, null);
-	}
-	
-	/**
 	 * Write table of ratios to file for one or all chromosomes
+	 * @param matrix Matrix
 	 * @param outFile Output file
-	 * @param regionBedFile Bed file of regions to write
-	 * @param chr Single chromosome to use or null if all chromosomes
 	 * @throws IOException
 	 */
-	public void writeTable(String outFile, String regionBedFile, String chr) throws IOException {
+	public static void writeTable(MatrixWithHeaders matrix, String outFile) throws IOException {
 		logger.info("");
 		logger.info("Writing table to file " + outFile + "...");
 		
-		MatrixWithHeaders m = getMatrix(regionBedFile, chr);
-		m.write(outFile);
+		matrix.write(outFile);
 		
 		logger.info("Done writing table.");
 	}
+	
+	
 	
 	/**
 	 * @param args
@@ -252,6 +242,8 @@ public class ComparativeCountsMatrix {
 		p.addStringArg("-o", "Output table", true);
 		p.addStringArg("-c", "Single chromosome to use", false, null);
 		p.addStringArg("-cs", "Chromosome size file", true);
+		p.addBooleanArg("-nm", "Normalize matrix by column median", false, true);
+		p.addBooleanArg("-l10", "Take log10 of each matrix entry", false, true);
 		p.parse(args);
 		String controlBam = p.getStringArg("-cb");
 		String bamListFile = p.getStringArg("-lb");
@@ -260,9 +252,18 @@ public class ComparativeCountsMatrix {
 		String outTable = p.getStringArg("-o");
 		String chr = p.getStringArg("-c");
 		String chrSizeFile = p.getStringArg("-cs");
+		boolean normalizeByMedian = p.getBooleanArg("-nm");
+		boolean takeLog10 = p.getBooleanArg("-l10");
 		
 		ComparativeCountsMatrix c = new ComparativeCountsMatrix(controlBam, bamListFile, chrSizeFile, transcriptomeBed);		
-		c.writeTable(outTable, regionBed, chr);
+		MatrixWithHeaders matrix = c.getMatrix(regionBed, chr);
+		if(normalizeByMedian) {
+			matrix.normalizeColumnsByMedian();
+		}
+		if(takeLog10) {
+			matrix.log10();
+		}
+		writeTable(matrix, outTable);
 
 		logger.info("");
 		logger.info("All done.");

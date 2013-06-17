@@ -42,7 +42,7 @@ public class FixedControlDifferentialExpression {
 		boolean doLog = argMap.containsKey("log");
 		
 		if(doLog) {
-			data.log();
+			data.log2();
 		}
 		
 		List<String> groups = null;

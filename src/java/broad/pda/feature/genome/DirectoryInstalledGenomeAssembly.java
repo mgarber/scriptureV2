@@ -10,9 +10,12 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.log4j.Logger;
+
 import broad.core.annotation.BasicGenomicAnnotation;
 import broad.core.annotation.GenomicAnnotation;
 import broad.core.sequence.SequenceRegion;
+import broad.pda.seq.protection.ReadSimulator2;
 
 /**
  * Represents a Genome Assembly were each directory is in its own directory which includes the AGP file
@@ -21,6 +24,7 @@ import broad.core.sequence.SequenceRegion;
  *
  */
 public  class DirectoryInstalledGenomeAssembly {
+	private static final Logger logger = Logger.getLogger(DirectoryInstalledGenomeAssembly.class.getName());
 	protected File sequenceDirectory;
 	private Chromosome X;
 	private Chromosome Y;

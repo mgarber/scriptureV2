@@ -615,7 +615,7 @@ public class EmpiricalDistribution {
 		
 	}
 	
-	public double getCummulativeProbability(double value) {
+	public double getCumulativeProbability(double value) {
 		int total = getTotalObservations();
 		if(total == 0) {
 			return 0;
@@ -910,7 +910,7 @@ public class EmpiricalDistribution {
 		double lower=Math.min(size, flipSize);
 		double upper=Math.max(size, flipSize);
 		
-		double prob=this.getCummulativeProbability(upper)-this.getCummulativeProbability(lower);
+		double prob=this.getCumulativeProbability(upper)-this.getCumulativeProbability(lower);
 		
 		//System.err.println(avg+" "+size+" "+flipSize+" "+prob);
 		
@@ -918,7 +918,7 @@ public class EmpiricalDistribution {
 	}
 
 	public double getPValue(double score, double min) {
-		double prob=this.getCummulativeProbability(score);
+		double prob=this.getCumulativeProbability(score);
 		double p=Math.min(prob, 1-prob);
 		if(p==0){return min;}
 		return p;

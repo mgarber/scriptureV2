@@ -161,12 +161,12 @@ public abstract class AbstractAnnotation implements Annotation {
 		return overlaps(other, 0, considerOrientation);
 	}
 	
-	public boolean overlaps(Annotation other, int buffer, boolean considerOrientation) {
+	/*public boolean overlaps(Annotation other, int buffer, boolean considerOrientation) {
 		// Note: this function is overridden in BasicAnnotation to directly use the CompoundInterval already stored
 		if (considerOrientation && (getOrientation() != other.getOrientation())) return false;
 		if (!getReferenceName().equalsIgnoreCase(other.getReferenceName())) return false;
 		return intervalFromAnnotation(this).overlaps(intervalFromAnnotation(other));
-	}
+	}*/
 	
 	private CompoundInterval intervalFromAnnotation(Annotation a) {
 		CompoundInterval interval = new CompoundInterval();

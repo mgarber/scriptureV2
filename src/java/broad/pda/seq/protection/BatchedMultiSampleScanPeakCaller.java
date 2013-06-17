@@ -3,6 +3,7 @@
  */
 package broad.pda.seq.protection;
 
+import java.io.File;
 import java.io.IOException;
 
 import org.apache.log4j.Level;
@@ -75,12 +76,21 @@ public class BatchedMultiSampleScanPeakCaller extends MultiSampleScanPeakCaller 
 	 */
 	public static void main(String[] args) throws IOException {
 		
+		
 		String[] superArgs = getSuperCommandArgs(args);
+		
 		String sampleName = getSampleName(args);
 		String chrName = getChrName(args);
 		MultiSampleScanPeakCaller m = createFromCommandArgs(superArgs);
 		BatchedMultiSampleScanPeakCaller b = new BatchedMultiSampleScanPeakCaller(m, sampleName, chrName);
 		String outDir = commandLineOutDir(superArgs);
+		File o = new File(outDir);
+		@SuppressWarnings("unused")
+		boolean madeDir = o.mkdir();
+		if(!o.exists()) {
+			throw new IOException("Could not create directory " + outDir);
+		}
+		
 		b.initializeFilterRejectWriters(chrName, outDir + "/" + FILTER_REJECT_DIR);
 		if(commandLineHasDebugFlag(superArgs)) {
 			b.setLoggerLevel(Level.DEBUG);

@@ -135,7 +135,6 @@ public class AnnotationUtils {
 				largestParentSize = parent.getSize();
 			}
 		}		
-		logger.info("Largest parent is " + rtrn.getName());
 		return rtrn;
 	}
 	
@@ -186,7 +185,6 @@ public class AnnotationUtils {
 				rtrn.add(other);
 			}
 		}
-		logger.info(rtrn.size() + " parents.");
 		return rtrn;
 	}
 	
@@ -231,6 +229,18 @@ public class AnnotationUtils {
 			rtrn.put(chr, a);
 		}
 		return rtrn;
+	}
+	
+	/**
+	 * Get midpoint along mature transcript of a spliced annotation
+	 * @param annot Annotation
+	 * @return Genome coordinate of mature transcript midpoint
+	 */
+	public static int getMidpoint(Annotation annot) {
+		Gene gene = new Gene(annot);
+		int size = gene.size();
+		int midpoint = size / 2;
+		return gene.transcriptToGenomicPosition(midpoint);
 	}
 
 	/**

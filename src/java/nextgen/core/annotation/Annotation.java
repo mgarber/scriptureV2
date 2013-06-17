@@ -415,4 +415,10 @@ public interface Annotation extends Comparable<Annotation> {
 	 */
 	public Collection<? extends Annotation> getSpliceConnections();
 
+	/**
+	 * This will return the position in the center of this annotation taking into account the blocked structure
+	 * @return
+	 */
+	public int getMidpoint();
+
 }

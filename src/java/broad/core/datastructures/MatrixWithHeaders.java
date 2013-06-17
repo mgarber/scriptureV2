@@ -637,6 +637,17 @@ public class MatrixWithHeaders {
 		}
 	}
 	
+	public void normalizeColumnsByMedian() {
+		for(int j = 0; j < columnDimension(); j++) {
+			double [] colVals = getColumn(j);
+			double median = Statistics.median(colVals);
+			for(int i = 0; i < rowDimension(); i++) {
+				data.set(i, j, data.get(i,j)/median);
+			}
+		}
+	}
+	
+	
 	public MatrixWithHeaders submatrixByRowDescriptions(Collection<String> rowDescriptions, List<String> newRowNames) {
 		List<String> filteredMatrixRowDescriptions;
 		List<String> rowNames;
@@ -915,14 +926,26 @@ public class MatrixWithHeaders {
 		data.plusEquals(m2.data);
 	}
 	
-	public void log() {
-		log(0);
+	public void log2() {
+		log2(0);
 	}
 	
-	public void log(double fudge) {
+	public void log2(double fudge) {
 		for(int i = 0; i < data.getRowDimension(); i++) {
 			for(int j = 0; j < data.getColumnDimension(); j++) {
 				data.set(i, j, MathUtil.log2(data.get(i,j) + fudge));
+			}
+		}
+	}
+	
+	public void log10() {
+		log10(0);
+	}
+	
+	public void log10(double fudge) {
+		for(int i = 0; i < data.getRowDimension(); i++) {
+			for(int j = 0; j < data.getColumnDimension(); j++) {
+				data.set(i, j, Math.log10(data.get(i,j) + fudge));
 			}
 		}
 	}

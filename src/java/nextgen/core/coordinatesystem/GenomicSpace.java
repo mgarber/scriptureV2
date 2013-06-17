@@ -418,5 +418,10 @@ public class GenomicSpace implements CoordinateSpace{
 		return size;
 	}
 
+	@Override
+	public Collection<String> getChromosomeNames() {
+		return getReferenceNames();
+	}
+
 }
 
