@@ -42,7 +42,8 @@ public class CanonicalSpliceFilter implements Predicate<Alignment>{
 		//TODO: CHECK
 		if(genomeSequenceFile==null){
 			//System.out.println("Genome sequence file is not provided");
-			return true;
+			if(!read.getSpliceConnections().isEmpty()){return true;}
+			//return true;
 		}
 		if(read.getSpliceConnections().isEmpty()){return false;}
 		Sequence chrSeq;
