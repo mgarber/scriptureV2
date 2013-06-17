@@ -640,9 +640,9 @@ public class MatrixWithHeaders {
 	public void normalizeColumnsByMedian() {
 		for(int j = 0; j < columnDimension(); j++) {
 			double [] colVals = getColumn(j);
-			Double mean = Statistics.median(colVals);
+			double median = Statistics.median(colVals);
 			for(int i = 0; i < rowDimension(); i++) {
-				data.set(i, j, data.get(i,j)/mean);
+				data.set(i, j, data.get(i,j)/median);
 			}
 		}
 	}

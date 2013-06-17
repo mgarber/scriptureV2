@@ -2282,10 +2282,9 @@ public class Gene extends BasicAnnotation {
 		}
 	}
 	
-	public static String whitespaceDelimiter = "\\s++";
 	
 	private static Gene makeFromBED(String rawData) {
-       	String[] tokens=rawData.split(whitespaceDelimiter);
+       	String[] tokens=rawData.split("\t");
 		String chr=(tokens[0]);
 		int start=new Integer(tokens[1]);
 		int end=new Integer(tokens[2]);

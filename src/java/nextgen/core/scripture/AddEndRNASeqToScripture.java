@@ -93,10 +93,33 @@ public class AddEndRNASeqToScripture {
 		
 		isoformMap = buildIsoformMap(annotations);
 				
-		//numberOfIsoformsPerGene(outputName,fullBam);
-		findCompleteTranscripts(outputName);
+		numberOfIsoformsPerGene(outputName,fullBam);
+		//findCompleteTranscripts(outputName);
 	}
 	
+	
+	public AddEndRNASeqToScripture(TranscriptionRead str,String annotationFile,String outputName,int windowS,File fullBam,int ext) throws IOException{
+				
+		TranscriptionRead oppStrand = TranscriptionRead.UNSTRANDED;
+		if(str == (TranscriptionRead.FIRST_OF_PAIR))
+			oppStrand = TranscriptionRead.SECOND_OF_PAIR;
+		else 
+			if(str == (TranscriptionRead.SECOND_OF_PAIR))
+				oppStrand = TranscriptionRead.FIRST_OF_PAIR;
+		strand = str;
+		//Read annotation file
+		//annotationParser = new BEDFileParser(annotationFile);	
+				
+		annotations= BEDFileParser.loadDataByChr(new File(annotationFile));
+		windowSize = windowS;
+		extension = ext;
+		
+		isoformMap = buildIsoformMap(annotations);
+				
+		numberOfIsoformsPerGene(outputName,fullBam);
+		//findCompleteTranscripts(outputName);
+	}
+
 	public static IsoformMap buildIsoformMap(Map<String,Collection<Gene>> ann){
 	
 		IsoformMap map = new IsoformMap();
@@ -955,8 +978,9 @@ public class AddEndRNASeqToScripture {
 		
 		logger.info("Checking strand equality:");
 
-		new AddEndRNASeqToScripture(new File(argMap.getMandatory("5p")),new File(argMap.getMandatory("3p")),strand,argMap.getMandatory("annotations"),argMap.getOutput(),argMap.getInteger("window", DEFAULT_WINDOW_SIZE),new File(argMap.getMandatory("full")),argMap.getInteger("extension", DEFAULT_EXTENSION));
-		
+		//new AddEndRNASeqToScripture(new File(argMap.getMandatory("5p")),new File(argMap.getMandatory("3p")),strand,argMap.getMandatory("annotations"),argMap.getOutput(),argMap.getInteger("window", DEFAULT_WINDOW_SIZE),new File(argMap.getMandatory("full")),argMap.getInteger("extension", DEFAULT_EXTENSION));
+		new AddEndRNASeqToScripture(strand,argMap.getMandatory("annotations"),argMap.getOutput(),argMap.getInteger("window", DEFAULT_WINDOW_SIZE),new File(argMap.getMandatory("full")),argMap.getInteger("extension", DEFAULT_EXTENSION));
+
 	}
 	
 	public static class IsoformMap{
