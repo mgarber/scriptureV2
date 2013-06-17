@@ -26,6 +26,7 @@ import broad.core.util.CollapseByIntersection;
 import broad.pda.datastructures.Alignments;
 import broad.pda.seq.graph.Path;
 import broad.pda.seq.segmentation.AlignmentDataModelStats;
+import broad.pda.seq.segmentation.ReadFilter;
 
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
@@ -39,6 +40,7 @@ import nextgen.core.model.AlignmentModel;
 import nextgen.core.readFilters.CanonicalSpliceFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.IndelFilter;
+import nextgen.core.readFilters.NoSpliceFilter;
 import nextgen.core.readFilters.PairedAndProperFilter;
 import nextgen.core.readFilters.ProperPairFilter;
 import nextgen.core.scripture.OrientedChromosomeTranscriptGraph.TranscriptGraphEdge;
@@ -62,6 +64,7 @@ public class BuildScriptureCoordinateSpace {
 	private double THRESHOLD_SPURIOUS = 0.95;
 	int counter = 1000;
 	int globalCounter = 1000;
+	File bamFileName;
 	//double globalFragments;
 	
 	public BuildScriptureCoordinateSpace(File bamFile){
@@ -90,6 +93,7 @@ public class BuildScriptureCoordinateSpace {
 			
 		this.graphs=new TreeMap<String, ChromosomeTranscriptGraph>();
 		genomeSeq = genomeDir;
+		bamFileName = bamFile;
 		forceStrandSpecificity = forceStrandedness;
 		model=new AlignmentModel(bamFile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		model.addFilter(new ProperPairFilter());
@@ -152,6 +156,7 @@ public class BuildScriptureCoordinateSpace {
 			
 		this.graphs=new TreeMap<String, ChromosomeTranscriptGraph>();
 		genomeSeq = genomeDir;
+		bamFileName = bamFile;
 		forceStrandSpecificity = forceStrandedness;
 		this.model=new AlignmentModel(bamFile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		model.addFilter(new ProperPairFilter());
@@ -381,25 +386,39 @@ public class BuildScriptureCoordinateSpace {
 		logger.info("Assembling spliced reads");
 		long start = System.currentTimeMillis();		
 
-		CloseableFilterIterator<Alignment> splicedIter=new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new CanonicalSpliceFilter(genomeSeq));
+		//SPLICED READS
+/*		CloseableFilterIterator<Alignment> splicedIter=new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new CanonicalSpliceFilter(genomeSeq));
 		IntervalTree<Assembly> splicedAssemblies=assembleDirectly(splicedIter,strand);
 		long end = System.currentTimeMillis();
 		logger.info("TIME: ASSEMBLE SPLICED: "+(end-start));
 		try{
 			write(splicedAssemblies, outName+"."+chr+"."+"01splicedAssemblies.bed");
 			}catch(IOException ex){}		
-		logger.info("Size of spliced assemblies: "+splicedAssemblies.size());
-
-		CloseableIterator<Alignment> iter=model.getOverlappingReads(chr);
+		logger.info("Size of spliced assemblies: "+splicedAssemblies.size());*/
+		
+		//NON_SPLICED READS
+/*		CloseableIterator<Alignment> iter=new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new NoSpliceFilter());
 		IntervalTree<Assembly> workingAssemblies=assembleDirectly(iter, splicedAssemblies,strand);
-
-		end = System.currentTimeMillis();
+		end = System.currentTimeMillis();*/
+		
+		// ALL READS
+/*		CloseableIterator<Alignment> iter=model.getOverlappingReads(chr);
+		IntervalTree<Assembly> workingAssemblies=assembleDirectly(iter, splicedAssemblies,strand);
+		end = System.currentTimeMillis();*/
+		
+		/*
+		 * ONLY ALL READS
+		 */
+		CloseableIterator<Alignment> iter=model.getOverlappingReads(chr);
+		IntervalTree<Assembly> workingAssemblies=assembleDirectly(iter, strand);
+		long end = System.currentTimeMillis();
 		logger.info("TIME: ASSEMBLE NON SPLICED: "+(end-start));
 		logger.info("Size of direct assemblies: "+workingAssemblies.size());		
 		try{
 		write(workingAssemblies, outName+"."+chr+"."+"02directAssemblies.bed");
 		}catch(IOException ex){}
 				
+		model=new AlignmentModel(bamFileName.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		logger.info("Intron retention filter");
 		//REMOVE SPURIOUS
 		start = System.currentTimeMillis();
@@ -1150,23 +1169,28 @@ public class BuildScriptureCoordinateSpace {
 	 */
 	private IntervalTree<Assembly> assembleDirectly(CloseableIterator<Alignment> iter, IntervalTree<Assembly> workingAssemblies,TranscriptionRead strand) {
 		
-		String linc="gene_v1.1_";
+		String linc="gene_v2_";
 		
 		boolean flagPremature=!workingAssemblies.isEmpty();
 		while(iter.hasNext()){
 			
 			Alignment reads=iter.next();
+			
 			//reads.setFragmentStrand(strand);	
 			
 			//For the assembly, we need to treat each read separately
 			for(Annotation read: reads.getReadAlignments(space)){
 				
+				//Find all compatible assemblies
+				Collection<Assembly> compatibleAssemblies = new TreeSet<Assembly>();
+				
+				logger.info("New read : "+read.toUCSC()+" "+!read.getSpliceConnections().isEmpty());
+				for(Assembly as:workingAssemblies.toCollection()){
+					logger.info(as.toUCSC()+"\t"+as.toBED());
+				}
 				//EACH READ HAS THE FRAGMENT STRAND
 				//for each read, get overlapping assemblies
 				Iterator<Node<Assembly>> overlappers=workingAssemblies.overlappers(read.getStart(), read.getEnd());
-
-				/*if(read.getSpliceConnections().isEmpty())
-					isfragmentspliced=true;*/
 				//if no overlappers add read as assembly
 				if(!overlappers.hasNext()){
 					//add the read as an annotation
@@ -1181,6 +1205,107 @@ public class BuildScriptureCoordinateSpace {
 					//logger.info("READ HAS NO OVERLAPS. NEW ASSEMBLY");
 				}
 				else{
+					boolean hasCompatible=false;
+					Collection<Assembly> overlapNotCompatible = new TreeSet<Assembly>();
+					while(overlappers.hasNext()){
+						Collection<Assembly> assemblies=new TreeSet<Assembly>(overlappers.next().getContainedValues());
+						//Find all compatible assemblies
+						for(Assembly assembly: assemblies){
+							boolean isCompatible=compatible(assembly, read);
+							if(isCompatible){
+								compatibleAssemblies.add(assembly);
+								hasCompatible=true;
+							}
+							else{
+								overlapNotCompatible.add(assembly);	
+							}
+						}
+						
+					}
+					//If some compatible assembly
+					if(hasCompatible & compatibleAssemblies.size()>0){
+						if(compatibleAssemblies.size()>1){
+							Collection<Assembly> alreadyMerged = new HashSet<Assembly>();
+							Collection<String> names = new HashSet<String>();
+							//Compare all compatible assemblies to each other 
+							for(Assembly assembly1:compatibleAssemblies){
+								for(Assembly assembly2:compatibleAssemblies){
+									if(!(assembly1.equals(assembly2))){
+										if(!assembly1.overlaps(assembly2) && assembly1.getOrientation().equals(assembly2.getOrientation())){
+											alreadyMerged.add(assembly1);
+											alreadyMerged.add(assembly2);
+											//Merge assembly1 and assembly2 and read
+											Assembly merged=merge(assembly1, read);
+											merged=merge(merged,assembly2);
+											String name =assembly1.getName()+"_"+assembly2.getName();
+											merged.setName(name);
+											if(!names.contains(assembly2.getName()+"_"+assembly1.getName())){
+												workingAssemblies.put(merged.getStart(), merged.getEnd(), merged);
+												names.add(name);
+											}
+										}
+									}
+								}
+							}
+							for(Assembly assembly:alreadyMerged){
+								workingAssemblies.remove(assembly.getStart(), assembly.getEnd(), assembly);
+							}
+						}
+						else{
+							//Only 1 compatible assembly
+							Iterator<Assembly> compIter=compatibleAssemblies.iterator();
+							while(compIter.hasNext()){
+								Assembly comp = compIter.next();
+								//if compatible --> merge
+								Assembly merged=merge(comp, read);
+								merged.setName(comp.getName());
+								//remove assembly
+								workingAssemblies.remove(comp.getStart(), comp.getEnd(), comp);
+								//add merged
+								workingAssemblies.put(merged.getStart(), merged.getEnd(), merged);
+							}
+						}
+					}
+					if(!hasCompatible){
+						if(overlapNotCompatible.isEmpty()){
+							Assembly readAssembly=new Assembly(read, false);
+							readAssembly.setName(linc+globalCounter);
+							globalCounter++;
+							if(flagPremature){
+								readAssembly.setPossiblePremature(true);
+							}
+							workingAssemblies.put(readAssembly.getStart(), readAssembly.getEnd(), readAssembly);
+						}
+						else{
+							for(Assembly assembly:overlapNotCompatible){
+								//OLD SPLIT
+/*								Collection<Assembly> branches=oldSplitBranch(assembly, read);
+								if(branches!=null && !branches.isEmpty()){
+									for(Assembly branch: branches){
+										branch.setName(linc+globalCounter);
+										globalCounter++;
+										//add merged assemblies to the tree
+										workingAssemblies.put(branch.getStart(), branch.getEnd(), branch);
+									}
+								}*/
+								//NEW SPLIT
+								Collection<Assembly> branches=newSplitBranch(assembly, read);
+								if(branches!=null && !branches.isEmpty()){
+									//remove assembly
+									//workingAssemblies.remove(assembly.getStart(), assembly.getEnd(), assembly);
+									for(Assembly branch: branches){
+										//add merged assemblies to the tree
+										branch.setName(linc+globalCounter);
+										globalCounter++;
+										workingAssemblies.put(branch.getStart(), branch.getEnd(), branch);
+									}
+								}	
+							}
+						}
+					}
+				}
+				
+/*				else{
 					boolean hasCompatible=false;
 					//store the overlappers
 					//else, test compatability between read and overlapping assembly
@@ -1199,6 +1324,41 @@ public class BuildScriptureCoordinateSpace {
 								//set has compatable to true
 								hasCompatible=true;
 							}
+							else{
+								//Split only if read is spliced
+			//					if(!read.getSpliceConnections().isEmpty()){
+									//Split and branch partially compatible (partiallyCompatible(assembly, read))
+									//NEW SPLIT
+									Collection<Assembly> branches=newSplitBranch(assembly, read);
+									if(branches!=null && !branches.isEmpty()){
+										//remove assembly
+										//workingAssemblies.remove(assembly.getStart(), assembly.getEnd(), assembly);
+										for(Assembly branch: branches){
+											//add merged assemblies to the tree
+											branch.setName(linc+globalCounter);
+											globalCounter++;
+											workingAssemblies.put(branch.getStart(), branch.getEnd(), branch);
+										}
+										//set hasCompatible to true
+										hasCompatible=true;
+									}	
+									
+									//OLD SPLIT
+									Collection<Assembly> branches=oldSplitBranch(assembly, read);
+									if(branches!=null && !branches.isEmpty()){
+										for(Assembly branch: branches){
+											//add merged assemblies to the tree
+											branch.setName(linc+globalCounter);
+											globalCounter++;
+											workingAssemblies.put(branch.getStart(), branch.getEnd(), branch);
+										}
+										//remove assembly
+										workingAssemblies.remove(assembly.getStart(), assembly.getEnd(), assembly);
+										//set hasCompatible to true
+										hasCompatible=true;
+									}	
+			//					}
+							}	
 						}
 					}
 					if(!hasCompatible){
@@ -1212,7 +1372,8 @@ public class BuildScriptureCoordinateSpace {
 							workingAssemblies.put(readAssembly.getStart(), readAssembly.getEnd(), readAssembly);
 							//logger.info("READ IS ADDED AS A NEW ASSEMBLY");
 					}
-				}
+				}*/
+
 			}
 		}		
 		iter.close(); //close the iterator
@@ -1227,23 +1388,62 @@ public class BuildScriptureCoordinateSpace {
 	 * @param read
 	 * @return all branches
 	 */
-	private Collection<Assembly> splitBranch(Assembly assembly, Annotation read) {
-		Collection<? extends Annotation> assemblyIntrons=assembly.getSpliceConnections();
-		Collection<? extends Annotation> readIntrons=read.getSpliceConnections();
-		
-		
+	private Collection<Assembly> newSplitBranch(Assembly assembly, Annotation read) {
+
+		Collection<Assembly> rtrn=new TreeSet<Assembly>();
+		if(read.overlaps(assembly)){
+			Assembly truncated=findMaxCompatibilityNew(assembly, read);
+			if(truncated!=null){
+				Assembly merged=merge(truncated, read);
+				rtrn.add(merged);
+				//Why add the assembly again? Just don't remove it above
+				//rtrn.add(assembly);
+			}
+		}
+		return rtrn;
+	}
+
+	/**
+	 * See if the read is partially compatible with the assembly
+	 * If so, branch and merge
+	 * @param assembly
+	 * @param read
+	 * @return all branches
+	 */
+	private Collection<Assembly> oldSplitBranch(Assembly assembly, Annotation read) {
+
 		Collection<Assembly> rtrn=new TreeSet<Assembly>();
 		if(read.overlaps(assembly)){
 			Assembly truncated=findMaxCompatibility(assembly, read);
 			if(truncated!=null){
 				Assembly merged=merge(truncated, read);
 				rtrn.add(merged);
+				//Why add the assembly again? Just don't remove it above
 				rtrn.add(assembly);
 			}
 		}
 		return rtrn;
 	}
-
+	
+	private Assembly findMaxCompatibilityNew(Assembly assembly, Annotation read) {
+		/*Iterator<Assembly> iter=assembly.trimNodes(read);
+		while(iter.hasNext()){
+			Assembly truncated=iter.next();
+			if(compatible(truncated, read)){
+				return truncated;
+			}
+		}
+		*/
+		Assembly trimmedAssembly = assembly.trim(read);
+		if(trimmedAssembly!=null){
+			//TODO: doesnt the logic dictate this?
+			if(compatible(trimmedAssembly.getLastBlock(), read)){
+				return trimmedAssembly;
+			}
+		}
+		return null;
+	}
+	
 	private Assembly findMaxCompatibility(Assembly assembly, Annotation read) {
 		Iterator<Assembly> iter=assembly.trimNodes();
 		while(iter.hasNext()){
@@ -2021,9 +2221,9 @@ public class BuildScriptureCoordinateSpace {
 					
 					double[] scores = getScores(isoform);
 					double[] fields = new double[4];
-					if(fields[1]<DEFAULT_ALPHA){
+					if(scores[1]<DEFAULT_ALPHA){
 						//logger.info(count);
-						isoform.setName(name+new Double(counter).toString());
+						isoform.setName(name+new Double(counter).toString()+"_"+isoform.getChr());
 						//[0] : sum
 						fields[0] = scores[0];
 						//[1] : p-value
@@ -2043,7 +2243,7 @@ public class BuildScriptureCoordinateSpace {
 						filtered.add(isoform);
 					}
 					else{
-						logger.info("Gene "+gene.toUCSC()+" is filtered out because it does not meet the significance threshold : "+fields[1]);
+						logger.info("Gene "+gene.toUCSC()+" is filtered out because it does not meet the significance threshold : "+scores[1]);
 					}
 				}
 			}
