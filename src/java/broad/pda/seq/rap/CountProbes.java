@@ -3,6 +3,9 @@ package broad.pda.seq.rap;
 import java.io.File;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
+
+import broad.core.datastructures.Pair;
+import broad.pda.samtools.PairedEndReadIterator;
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
 import net.sf.picard.io.IoUtil;
@@ -79,14 +82,23 @@ public class CountProbes extends CommandLineProgram {
         	// Read and filter
         	SAMFileReader reader = new SAMFileReader(INPUT);
         	final SAMFileHeader header = reader.getFileHeader();
-        	//header.setSortOrder(SAMFileHeader.SortOrder.coordinate);
+
+        	// In our current pipeline, unsorted BAM files output by BWA alignment have read pairs next to each other.
+        	if (header.getSortOrder() == SAMFileHeader.SortOrder.unsorted) {
+        		log.warn("Treating unsorted SAM file as queryname-sorted.  Check that this produces correct behavior.");
+        	}
+        	header.setSortOrder(SAMFileHeader.SortOrder.queryname);
+        	
+        	PairedEndReadIterator itr = new PairedEndReadIterator(reader);
+        	
+        	header.setSortOrder(SAMFileHeader.SortOrder.unsorted);
         	SAMFileWriter writer = new SAMFileWriterFactory().makeSAMOrBAMWriter(header, false, OUTPUT);
         	
-        	SAMRecordIterator itr = reader.iterator();
         	while (itr.hasNext()) {
-        		SAMRecord first = itr.next();
-        		SAMRecord second = itr.next();
-        	
+        		Pair<SAMRecord> pair = itr.next();
+        		SAMRecord first = pair.getValue1();
+        		SAMRecord second = pair.getValue2();
+        		
         		if (readMapsToProbe(first, header) || readMapsToProbe(second, header)) {
         			writer.addAlignment(first);
         			writer.addAlignment(second);
