@@ -148,12 +148,35 @@ public class PrimerPair implements Comparable{
 		return data;
 	}
 
+	public static String LEFT_PRIMER_POS_FIELD_NAME = "LeftPrimerPos";
+	public static String LEFT_PRIMER_FIELD_NAME = "LeftPrimer";
+	public static String LEFT_PRIMER_TM_FIELD_NAME = "LeftPrimerTM";
+	public static String LEFT_PRIMER_PENALTY_FIELD_NAME = "LeftPrimerPenalty";
+	public static String RIGHT_PRIMER_POS_FIELD_NAME = "RightPrimerPos";
+	public static String RIGHT_PRIMER_FIELD_NAME = "RightPrimer";
+	public static String RIGHT_PRIMER_TM_FIELD_NAME = "RightPrimerTM";
+	public static String RIGHT_PRIMER_PENALTY_FIELD_NAME = "RightPrimerPenalty";
+	public static String PRODUCT_SIZE_FIELD_NAME = "ProductSize";
+	public static String PRIMER_PAIR_PENALTY_FIELD_NAME = "PrimerPairPenalty";
+	public static String SEQUENCE_FIELD_NAME = "Sequence";
+	public static String NO_PRIMERS_NAME = "NO_PRIMERS";
+	
 	/**
 	 * The names of the fields reported by getPrimerPairInformation()
 	 * @return
 	 */
 	public static String getPrimerPairInformationFieldNames() {
-		return "LeftPrimerPos\tLeftPrimer\tLeftPrimerTM\tLeftPrimerPenalty\tRightPrimerPos\tRightPrimer\tRightPrimerTM\tRightPrimerPenalty\tProductSize\tPrimerPairPenalty";
+		String rtrn = LEFT_PRIMER_POS_FIELD_NAME + "\t";
+		rtrn += LEFT_PRIMER_FIELD_NAME + "\t";
+		rtrn += LEFT_PRIMER_TM_FIELD_NAME + "\t";
+		rtrn += LEFT_PRIMER_PENALTY_FIELD_NAME + "\t";
+		rtrn += RIGHT_PRIMER_POS_FIELD_NAME + "\t";
+		rtrn += RIGHT_PRIMER_FIELD_NAME + "\t";
+		rtrn += RIGHT_PRIMER_TM_FIELD_NAME + "\t";
+		rtrn += RIGHT_PRIMER_PENALTY_FIELD_NAME + "\t";
+		rtrn += PRODUCT_SIZE_FIELD_NAME + "\t";
+		rtrn += PRIMER_PAIR_PENALTY_FIELD_NAME;
+		return rtrn;
 	}
 	
 	public String getComment() {

@@ -251,7 +251,7 @@ public class Gene extends BasicAnnotation {
 		Set<? extends Annotation> exons = getExonSet();
 		for(Annotation exon : exons) {
 			Sequence exonSeq = chrSequence.getSubSequence(getName(), exon.getStart(), exon.getEnd());
-			geneSequence.appendToSequence(exonSeq.getSequenceBases());
+			geneSequence.append(exonSeq.getSequenceBases());
 		}
 		
 		if(this.isNegativeStrand()) {
@@ -457,7 +457,7 @@ public class Gene extends BasicAnnotation {
 		
 		for(Annotation exon: exons){
 			Sequence sequence=chrSequence.getSubSequence("", exon.getStart(), exon.getEnd());
-			seq.appendToSequence(sequence.getSequenceBases());
+			seq.append(sequence.getSequenceBases());
 		}
 		
 		return seq;

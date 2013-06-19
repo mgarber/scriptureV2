@@ -69,7 +69,7 @@ public class PhylipInterleavedMultipleAlignmentIO implements MultipleAlignmentIO
 			String [] seqAlignedBlocks = line.split("\\s+");			
 			AlignedSequence alignedSequence = ma.getAlignedSequence(alignedSeqIds[seqCounter]);
 			for(int i = 0 ; i < seqAlignedBlocks.length; i++) {
-				alignedSequence.appendToSequence(seqAlignedBlocks[i]);
+				alignedSequence.append(seqAlignedBlocks[i]);
 			}
 			
 			//System.out.print("Seqcounter " + seqCounter );

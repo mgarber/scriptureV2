@@ -2,30 +2,24 @@ package broad.core.primer3;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.*;
+
+import org.apache.log4j.Logger;
 
 import nextgen.core.annotation.Gene;
 
 import broad.core.annotation.GenomicAnnotation;
-import broad.core.error.ParseException;
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;
 import broad.core.primer3.Primer3SequenceInputTags.SequenceRegionCoordinates;
-import broad.core.sequence.Extractor;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
-import broad.core.sequence.SequenceRegion;
-import broad.pda.datastructures.Alignments;
 
 
-public class qPCRPrimerDesigner  {
+public class PcrPrimerDesigner  {
 	public static int n=1;
 	public static final int MIN_PRIMER_DES_SPACE = 150; 
 	public static final int MIN_PROD_SIZE = 100;
@@ -45,16 +39,11 @@ public class qPCRPrimerDesigner  {
 	"\n\t\t4. Generate flanking primers -in <Multifasta file default is standard in> -outdir <directory where to write output files> -optimalDistFromEnds <Optimal distance from sequence begining and end" +
 	"\n\t\t\t -maxDistFromEnds <Maximum distance from ends, used when no primer could be found within optimal distance> [-outprefix <a prefix to prepend to output, if not specified no prefix will be prepended to file names>]";
 	
-	private Primer3Configuration [] configurations;
-	private Primer3IO p3io;
 	private ArrayList<SequenceRegionCoordinates> exludedAnnotations = new ArrayList<SequenceRegionCoordinates>();
-	private boolean storeExpectedProd;
-
+	private static Logger logger = Logger.getLogger(PcrPrimerDesigner.class.getName());
 	private int buffer;
 
-	public qPCRPrimerDesigner(Primer3Configuration [] confs, Primer3IO p3io, int buffer) {
-		this.configurations = confs;
-		this.p3io = p3io; 
+	public PcrPrimerDesigner(int buffer) {
 		this.buffer = buffer;
 	}
 	
@@ -80,7 +69,7 @@ public class qPCRPrimerDesigner  {
 		Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(sequence);
 		p3sit.setPrimerSequenceId(targetAnnotation.getName());
 		SequenceRegionCoordinates target = new SequenceRegionCoordinates((int) targetAnnotation.getStart() - buffer,(int) targetAnnotation.getEnd() + buffer);
-		System.out.println("Designing primers for Sequence " + sequence.getId() + " \nBASES:" + sequence.getSequenceBases() +
+		logger.info("Designing primers for Sequence " + sequence.getId() + " \nBASES:" + sequence.getSequenceBases() +
 				" target " + target);
 		p3sit.addTarget(target);		
 		p3sit.addExcludedRegions(exludedAnnotations);
@@ -115,7 +104,7 @@ public class qPCRPrimerDesigner  {
 				while(!pp.hasPrimers()&& conf.maxProductSize < maxSize) {
 					conf.maxProductSize = conf.maxProductSize + (int)(conf.minProductSize/10);
 					pp = p3io.findPrimerPair(p3sit, conf);
-					System.out.println("Primer has more primers? "+pp.hasPrimers() + " # confs " + configurations.length + " doing configuration " + confId + " minProductSize " + conf.minProductSize + " maxProdSize " + conf.maxProductSize);
+					logger.info("Primer has more primers? "+pp.hasPrimers() + " # confs " + configurations.length + " doing configuration " + confId + " minProductSize " + conf.minProductSize + " maxProdSize " + conf.maxProductSize);
 					StringWriter sw = new StringWriter();
 					BufferedWriter bw = new BufferedWriter(sw);
 					p3io.writeRecord(bw,p3sit, conf);
@@ -129,7 +118,7 @@ public class qPCRPrimerDesigner  {
 			if(pp.hasPrimers()) {				
 				pp.setProductSequence(sequence.getSequenceBases().substring(pp.getLeftPrimerPosition() , pp.getRightPrimerPosition()  + 1));
 				p3io.writeRecord(bw, p3sit, pp.getConfigurationUsed());
-				System.out.println(sw);
+				logger.info(sw);
 			}
 
 		}
@@ -137,11 +126,12 @@ public class qPCRPrimerDesigner  {
 	}*/
 	
 
+	@SuppressWarnings("unused")
 	private void addExcludedAnnotations(List<? extends GenomicAnnotation> excludeList) {
 		Iterator<? extends GenomicAnnotation> it = excludeList.iterator();
 		while(it.hasNext()) {
 			GenomicAnnotation annot = it.next();
-			this.exludedAnnotations.add(new SequenceRegionCoordinates((int)annot.getStart(), (int)annot.getEnd()));
+			this.exludedAnnotations.add(new SequenceRegionCoordinates(annot.getStart(), annot.getEnd()));
 		}
 	}
 
@@ -159,7 +149,7 @@ public class qPCRPrimerDesigner  {
 		target.setRegionEnd(align.getEnd());
 		
 		Primer3Configuration best = Primer3ConfigurationFactory.getqRTPCRConfiguration();
-		System.out.println("Max probe size " + best.maxProductSize + " min " + best.minProductSize+" "+target.toString());
+		logger.info("Max probe size " + best.maxProductSize + " min " + best.minProductSize+" "+target.toString());
 		
 		Primer3Configuration [] configurations = { best};				
 		Primer3IO p3io = new Primer3IO();
@@ -186,7 +176,7 @@ public class qPCRPrimerDesigner  {
 		
 			
 		p3io.endPrimer3Communications();
-		//System.err.println(pp.getPrimerSequences().get(0));
+		//logger.info(pp.getPrimerSequences().get(0));
 			
 		
 		
@@ -202,7 +192,7 @@ public class qPCRPrimerDesigner  {
 		target.setRegionEnd(align.getEnd());
 		
 		Primer3Configuration best = Primer3ConfigurationFactory.getqRTPCRConfiguration();
-		System.out.println("Max probe size " + best.maxProductSize + " min " + best.minProductSize+" "+target.toString());
+		logger.info("Max probe size " + best.maxProductSize + " min " + best.minProductSize+" "+target.toString());
 		
 		Primer3Configuration [] configurations = { best};				
 		Primer3IO p3io = new Primer3IO();
@@ -233,7 +223,7 @@ public class qPCRPrimerDesigner  {
 		
 			
 		p3io.endPrimer3Communications();
-		//System.err.println(pp.getPrimerSequences().get(0));
+		//logger.info(pp.getPrimerSequences().get(0));
 			
 		
 		
@@ -263,7 +253,7 @@ public class qPCRPrimerDesigner  {
 		p3sit.setPrimerSequenceId(gene.getName());
 		
 		ArrayList<Integer> splicePositions=gene.getSpliceJunctionCoordinates();
-		//System.err.println(targetList);
+		//logger.info(targetList);
 		ArrayList<SequenceRegionCoordinates> targetList=new ArrayList();
 		for(Integer spliceJunction: splicePositions){
 			SequenceRegionCoordinates region=new SequenceRegionCoordinates(spliceJunction-n, spliceJunction+n);
@@ -297,13 +287,13 @@ public class qPCRPrimerDesigner  {
 			
 		Sequence mRNA=new Sequence(gene.getName());
 		mRNA.setSequenceBases(gene.getSequence(chr, repeatMask, false));
-		System.err.println(mRNA.getSequenceBases());
+		logger.info(mRNA.getSequenceBases());
 		
 		Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(mRNA);	
 		p3sit.setPrimerSequenceId(gene.getName());
 		
 		ArrayList<Integer> splicePositions=gene.getSpliceJunctionCoordinates();
-		//System.err.println(targetList);
+		//logger.info(targetList);
 		ArrayList<SequenceRegionCoordinates> targetList=new ArrayList();
 		for(Integer spliceJunction: splicePositions){
 			SequenceRegionCoordinates region=new SequenceRegionCoordinates(spliceJunction-n, spliceJunction+n);
@@ -319,7 +309,7 @@ public class qPCRPrimerDesigner  {
 				if(pp!=null &&pp.getLeftPrimer()!=null && pp.getRightPrimer()!=null){
 					p3sit.addExcludedRegion(new SequenceRegionCoordinates(pp.getLeftPrimerPosition(), pp.getLeftPrimerPosition()+pp.getLeftPrimer().toCharArray().length));
 					p3sit.addExcludedRegion(new SequenceRegionCoordinates(pp.getRightPrimerPosition()-pp.getRightPrimer().toCharArray().length, pp.getRightPrimerPosition()));
-					System.err.println(gene.getAlignment());
+					logger.info(gene.getAlignment());
 					primers.add(pp);
 				}
 				//return pp;
@@ -332,32 +322,25 @@ public class qPCRPrimerDesigner  {
 	//TODO should add all junctions as sequence regions
 	public static Set<PrimerPair> designJenPrimers(Sequence chr, Gene gene, boolean repeatMask, int numDesigns)throws Exception{
 		
-		
 		Primer3Configuration best = Primer3ConfigurationFactory.getJenRTPCRConfiguration();
 		
-		Primer3Configuration [] configurations = {best};				
 		Primer3IO p3io = new Primer3IO();
 		p3io.startPrimer3Communications();
-			
-		
 				
-		qPCRPrimerDesigner pd = new qPCRPrimerDesigner(configurations, p3io, 0);
-		ArrayList<Sequence> primerSequences = new ArrayList<Sequence>();
-			
 		Sequence mRNA=new Sequence(gene.getName());
 		mRNA.setSequenceBases(gene.getSequence(chr, repeatMask, false));
-		//System.err.println(mRNA.getSequenceBases());
+		//logger.info(mRNA.getSequenceBases());
 		
 		Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(mRNA);	
 		p3sit.setPrimerSequenceId(gene.getName());
 		
 		/**Add exon junction sequence targets**/
 		ArrayList<Integer> splicePositions=gene.getSpliceJunctionCoordinates();
-		System.err.println(gene.getName()+" "+gene.getNumExons());
-		//System.err.println(targetList);
-		ArrayList<SequenceRegionCoordinates> targetList=new ArrayList();
+		logger.info(gene.getName()+" "+gene.getNumExons());
+		//logger.info(targetList);
+		ArrayList<SequenceRegionCoordinates> targetList=new ArrayList<SequenceRegionCoordinates>();
 		for(Integer spliceJunction: splicePositions){
-			SequenceRegionCoordinates region=new SequenceRegionCoordinates(spliceJunction-1, spliceJunction+1);
+			SequenceRegionCoordinates region=new SequenceRegionCoordinates(spliceJunction.intValue()-1, spliceJunction.intValue()+1);
 			targetList.add(region);
 		}
 		p3sit.addTargets(targetList);
@@ -365,7 +348,7 @@ public class qPCRPrimerDesigner  {
 		/***/
 		
 		//try{
-			Set<PrimerPair> primers=new HashSet();
+			Set<PrimerPair> primers=new HashSet<PrimerPair>();
 			
 				Collection<PrimerPair> pp = p3io.findPrimerPair(p3sit, best);
 				
@@ -396,13 +379,13 @@ public class qPCRPrimerDesigner  {
 			
 		Sequence mRNA=new Sequence(gene.getName());
 		mRNA.setSequenceBases(gene.getSequence(chr, repeatMask, false));
-		System.err.println(mRNA.getSequenceBases());
+		logger.info(mRNA.getSequenceBases());
 		
 		Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(mRNA);	
 		p3sit.setPrimerSequenceId(gene.getName());
 		
 		ArrayList<Integer> splicePositions=gene.getSpliceJunctionCoordinates();
-		//System.err.println(targetList);
+		//logger.info(targetList);
 		ArrayList<SequenceRegionCoordinates> targetList=new ArrayList();
 		for(Integer spliceJunction: splicePositions){
 			SequenceRegionCoordinates region=new SequenceRegionCoordinates(spliceJunction-n, spliceJunction+n);
@@ -419,7 +402,7 @@ public class qPCRPrimerDesigner  {
 				if(pp!=null &&pp.getLeftPrimer()!=null && pp.getRightPrimer()!=null){
 					p3sit.addExcludedRegion(new SequenceRegionCoordinates(pp.getLeftPrimerPosition(), pp.getLeftPrimerPosition()+pp.getLeftPrimer().toCharArray().length));
 					p3sit.addExcludedRegion(new SequenceRegionCoordinates(pp.getRightPrimerPosition()-pp.getRightPrimer().toCharArray().length, pp.getRightPrimerPosition()));
-					System.err.println(gene.getAlignment());
+					logger.info(gene.getAlignment());
 					primers.add(pp);
 				}
 				//return pp;
@@ -445,13 +428,13 @@ public class qPCRPrimerDesigner  {
 			
 		Sequence mRNA=new Sequence(gene.getName());
 		mRNA.setSequenceBases(gene.getSequence(chr, repeatMask, false));
-		System.err.println(mRNA.getSequenceBases());
+		logger.info(mRNA.getSequenceBases());
 		
 		Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(mRNA);	
 		p3sit.setPrimerSequenceId(gene.getName());
 		
 		//ArrayList<SequenceRegionCoordinates> targetList=gene.getSpliceJunctionCoordinates(chr, repeatMask, 0);
-		//System.err.println(targetList);
+		//logger.info(targetList);
 		//p3sit.addTargets(targetList);
 		//add targets p3sit.
 		
@@ -462,7 +445,7 @@ public class qPCRPrimerDesigner  {
 				if(pp!=null &&pp.getLeftPrimer()!=null && pp.getRightPrimer()!=null){
 					p3sit.addExcludedRegion(new SequenceRegionCoordinates(pp.getLeftPrimerPosition(), pp.getLeftPrimerPosition()+pp.getLeftPrimer().toCharArray().length));
 					p3sit.addExcludedRegion(new SequenceRegionCoordinates(pp.getRightPrimerPosition()-pp.getRightPrimer().toCharArray().length, pp.getRightPrimerPosition()));
-					System.err.println(gene.getAlignment());
+					logger.info(gene.getAlignment());
 					primers.add(pp);
 				}
 				//return pp;
@@ -488,7 +471,7 @@ public class qPCRPrimerDesigner  {
 			
 		Sequence mRNA=new Sequence(gene.getName());
 		mRNA.setSequenceBases(gene.getSequence(chr, repeatMask));
-		System.err.println(mRNA.getSequenceBases());
+		logger.info(mRNA.getSequenceBases());
 		
 		Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(mRNA);	
 		p3sit.setPrimerSequenceId(gene.getName());
@@ -502,7 +485,7 @@ public class qPCRPrimerDesigner  {
 				if(pp!=null &&pp.getLeftPrimer()!=null && pp.getRightPrimer()!=null){
 					p3sit.addExcludedRegion(new SequenceRegionCoordinates(pp.getLeftPrimerPosition(), pp.getLeftPrimerPosition()+pp.getLeftPrimer().toCharArray().length));
 					p3sit.addExcludedRegion(new SequenceRegionCoordinates(pp.getRightPrimerPosition()-pp.getRightPrimer().toCharArray().length, pp.getRightPrimerPosition()));
-					System.err.println(gene);
+					logger.info(gene);
 					primers.add(pp);
 				}
 				//return pp;
@@ -528,7 +511,7 @@ public class qPCRPrimerDesigner  {
 			
 		Sequence mRNA=new Sequence(gene.getName());
 		mRNA.setSequenceBases(gene.getSequence(chr, repeatMask));
-		System.err.println(mRNA.getSequenceBases());
+		logger.info(mRNA.getSequenceBases());
 		
 		Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(mRNA);	
 		p3sit.setPrimerSequenceId(gene.getName());
@@ -542,7 +525,7 @@ public class qPCRPrimerDesigner  {
 				if(pp!=null &&pp.getLeftPrimer()!=null && pp.getRightPrimer()!=null){
 					p3sit.addExcludedRegion(new SequenceRegionCoordinates(pp.getLeftPrimerPosition(), pp.getLeftPrimerPosition()+pp.getLeftPrimer().toCharArray().length));
 					p3sit.addExcludedRegion(new SequenceRegionCoordinates(pp.getRightPrimerPosition()-pp.getRightPrimer().toCharArray().length, pp.getRightPrimerPosition()));
-					System.err.println(gene);
+					logger.info(gene);
 					primers.add(pp);
 				}
 				//return pp;
@@ -579,7 +562,7 @@ public class qPCRPrimerDesigner  {
 				if(pp!=null &&pp.getLeftPrimer()!=null && pp.getRightPrimer()!=null){
 					p3sit.addExcludedRegion(new SequenceRegionCoordinates(pp.getLeftPrimerPosition(), pp.getLeftPrimerPosition()+pp.getLeftPrimer().toCharArray().length));
 					p3sit.addExcludedRegion(new SequenceRegionCoordinates(pp.getRightPrimerPosition()-pp.getRightPrimer().toCharArray().length, pp.getRightPrimerPosition()));
-					System.err.println(mRNA.getId());
+					logger.info(mRNA.getId());
 					primers.add(pp);
 				}
 				//return pp;
@@ -623,7 +606,7 @@ public class qPCRPrimerDesigner  {
 			PrimerPair pp = null;
 			while(it.hasNext()) {
 				pp = it.next();
-				System.out.println(pp);
+				logger.info(pp);
 				if(pp.hasPrimers()) {
 					goodPrimerWriter.write(pp.toString(printExpectedProduct));
 					goodPrimerWriter.newLine();
@@ -646,15 +629,9 @@ public class qPCRPrimerDesigner  {
 		if(min3>0){best.setPrimerMin3PrimeOverlapOfJunction(min3);}
 		if(min5>0){best.setPrimerMin5PrimeOverlapOfJunction(min5);}
 		
-		Primer3Configuration [] configurations = {best};				
 		Primer3IO p3io = new Primer3IO();
 		p3io.startPrimer3Communications();
-			
-		
 				
-		qPCRPrimerDesigner pd = new qPCRPrimerDesigner(configurations, p3io, 0);
-		ArrayList<Sequence> primerSequences = new ArrayList<Sequence>();
-			
 		Sequence mRNA=new Sequence(gene.getName());
 		mRNA.setSequenceBases(gene.getSequence(chr, repeatMask, false));
 		ArrayList<Integer> splicePositions=gene.getSpliceJunctionCoordinates();
@@ -669,7 +646,7 @@ public class qPCRPrimerDesigner  {
 
 		p3io.endPrimer3Communications();
 		
-		TreeSet<PrimerPair> rtrn=new TreeSet();
+		TreeSet<PrimerPair> rtrn=new TreeSet<PrimerPair>();
 		for(PrimerPair pair: pp){
 			if(pair.getLeftPrimer()!=null && pair.getRightPrimer()!=null){rtrn.add(pair);}
 		}
@@ -678,17 +655,11 @@ public class qPCRPrimerDesigner  {
 	}
 	
 	
-	public static Collection<PrimerPair> designRACEPrimers(Sequence mRNA, String leftPrimer, String rightPrimer, int numDesigns) throws Exception {
+	public static Collection<PrimerPair> designRACEPrimers(Sequence mRNA, String leftPrimer, String rightPrimer) throws Exception {
 		Primer3Configuration best = Primer3ConfigurationFactory.getJenRTPCRConfiguration();
 				
-		Primer3Configuration [] configurations = {best};				
 		Primer3IO p3io = new Primer3IO();
 		p3io.startPrimer3Communications();
-			
-		
-				
-		qPCRPrimerDesigner pd = new qPCRPrimerDesigner(configurations, p3io, 0);
-		ArrayList<Sequence> primerSequences = new ArrayList<Sequence>();
 			
 		//ArrayList<Integer> splicePositions=gene.getSpliceJunctionCoordinates();
 		Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(mRNA);	
@@ -727,7 +698,7 @@ public class qPCRPrimerDesigner  {
 		if(crossJunction){
 			ArrayList<SequenceRegionCoordinates> targetList=new ArrayList<SequenceRegionCoordinates>();
 			for(Integer spliceJunction: splicePositions){
-				SequenceRegionCoordinates region=new SequenceRegionCoordinates(spliceJunction-1, spliceJunction+1);
+				SequenceRegionCoordinates region=new SequenceRegionCoordinates(spliceJunction.intValue()-1, spliceJunction.intValue()+1);
 				targetList.add(region);
 			}
 			p3sit.addTargets(targetList);
@@ -781,11 +752,9 @@ public class qPCRPrimerDesigner  {
 		//if(numDesigns>0){best.setPrimerNumReturn(numDesigns);}
 		
 		
-		Primer3Configuration [] configurations = {best};				
 		Primer3IO p3io = new Primer3IO();
 		p3io.startPrimer3Communications();
 			
-		qPCRPrimerDesigner pd = new qPCRPrimerDesigner(configurations, p3io, 0);
 				
 		Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(geneSequence);	
 		p3sit.setPrimerSequenceId(geneSequence.getId());
@@ -800,7 +769,7 @@ public class qPCRPrimerDesigner  {
 			if(primer!=null && primer.getLeftPrimer()!=null && primer.getRightPrimer()!=null){
 				p3sit.addExcludedRegion(new SequenceRegionCoordinates(primer.getLeftPrimerPosition(), primer.getLeftPrimerPosition()+primer.getLeftPrimer().toCharArray().length));
 				p3sit.addExcludedRegion(new SequenceRegionCoordinates(primer.getRightPrimerPosition()-primer.getRightPrimer().toCharArray().length, primer.getRightPrimerPosition()));
-				//System.err.println(mRNA.getId());
+				//logger.info(mRNA.getId());
 				primers.add(primer);
 			}
 			}
@@ -892,12 +861,9 @@ public class qPCRPrimerDesigner  {
 		
 		if(numDesigns>0){best.setPrimerNumReturn(numDesigns);}
 				
-		Primer3Configuration [] configurations = {best};				
 		Primer3IO p3io = new Primer3IO();
 		p3io.startPrimer3Communications();
 			
-		qPCRPrimerDesigner pd = new qPCRPrimerDesigner(configurations, p3io, 0);
-		
 		Sequence mRNA=new Sequence("Primer");
 		mRNA.setSequenceBases(seq);
 		Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(mRNA);	
@@ -918,7 +884,7 @@ public class qPCRPrimerDesigner  {
 		return rtrn;
 	}
 	
-	private static final String[] CONFIG_NAMES = {"synthetic","qPCR","RAPqPCR"};
+	private static final String[] CONFIG_NAMES = {"synthetic","qPCR","RAPqPCR","plasmid_deletion"};
 	
 	public static void main(String[] args) throws IOException {
 		
@@ -926,6 +892,7 @@ public class qPCRPrimerDesigner  {
 		p.addStringArg("-s","Fasta file of sequences to design primers against",true);
 		p.addStringArg("-r","Optional file of region coordinates to design primers against (format: sequence_name start_pos end_pos)",false,null);
 		p.addStringArg("-c","Primer3 configuration name",true);
+		p.addIntArg("-pd", "For plasmid deletion, max total number of plasmid positions not in PCR product", false, 100);
 		p.addBooleanArg("-rc", "Design primers against antisense strand", true);
 		p.addStringArg("-o", "outfile", true);
 		
@@ -936,6 +903,7 @@ public class qPCRPrimerDesigner  {
 		String config = p.getStringArg("-c");
 		String outfile = p.getStringArg("-o");
 		boolean rc = p.getBooleanArg("-rc");
+		int plasmidMissingPositions = p.getIntArg("-pd");
 		
 		boolean configOk = false;
 		for(int i=0; i<CONFIG_NAMES.length; i++) {
@@ -944,11 +912,11 @@ public class qPCRPrimerDesigner  {
 		
 		// validate configuration name
 		if(!configOk) {
-			System.err.println("\nValid Primer3 configuration names:");
+			logger.info("\nValid Primer3 configuration names:");
 			for(int i=0; i<CONFIG_NAMES.length; i++) {
-				System.err.println(CONFIG_NAMES[i]);
+				logger.info(CONFIG_NAMES[i]);
 			}
-			System.err.println();
+			logger.info("");
 			throw new IllegalArgumentException();
 		}
 		
@@ -1007,21 +975,26 @@ public class qPCRPrimerDesigner  {
 		if(config.equals("synthetic")) primer3config = Primer3ConfigurationFactory.getSyntheticConfiguration();
 		if(config.equals("RAPqPCR")) primer3config = Primer3ConfigurationFactory.getRAPqPCRConfiguration();
 		if(config.equals("qPCR")) primer3config = Primer3ConfigurationFactory.getQpcrConfiguration();
+		// If plasmids, will get separate configuration for each plasmid
+		if(config.equals("plasmid_deletion")) primer3config = null;
 
 		Primer3IO p3io = new Primer3IO();
 		p3io.startPrimer3Communications();
 		
 		// output file
 		FileWriter writer = new FileWriter(outfile);
-		writer.write("Sequence\t" + PrimerPair.getPrimerPairInformationFieldNames() + "\n");
+		writer.write(PrimerPair.SEQUENCE_FIELD_NAME + "\t" + PrimerPair.getPrimerPairInformationFieldNames() + "\n");
 		
 		for(Sequence seq : seqs) {
+			
+			// If plasmid, get primer3 configuration with optimal product size equal to sequence length
+			if(config.equals("plasmid_deletion")) primer3config = Primer3ConfigurationFactory.getPlasmidDeletionConfiguration(seq.getLength(), seq.getLength() - plasmidMissingPositions, seq.getLength());
 			
 			Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(seq);	
 			p3sit.setPrimerSequenceId(seq.getId());
 			Collection<PrimerPair> pp = p3io.findPrimerPair(p3sit, primer3config);
 			if(pp == null || pp.isEmpty()) {
-				writer.write(seq.getId() + "\tNO_PRIMERS\n");
+				writer.write(seq.getId() + "\t" + PrimerPair.NO_PRIMERS_NAME + "\n");
 				continue;
 			}
 			
@@ -1035,6 +1008,9 @@ public class qPCRPrimerDesigner  {
 		
 		p3io.endPrimer3Communications();
 		writer.close();
+		
+		logger.info("");
+		logger.info("All done.");
 		
 	}
 	

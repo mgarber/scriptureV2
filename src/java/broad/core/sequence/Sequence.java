@@ -174,7 +174,7 @@ public class Sequence {
 		this.sequenceBases = new StringBuilder(sequence);
 	}
 	
-	public void appendToSequence(String partialSequence) {
+	public void append(String partialSequence) {
 		sequenceBases.append(partialSequence);
 	}
 	
@@ -187,12 +187,12 @@ public class Sequence {
 		Random r = new Random();
 		while(indeces.size() > 0) {
 			int idx = indeces.remove(r.nextInt(indeces.size()));
-			shuffle.appendToSequence(sequenceBases.charAt(idx));
+			shuffle.append(sequenceBases.charAt(idx));
 		}
 		return shuffle;
 	}
 	
-	public void appendToSequence(char c) {
+	public void append(char c) {
 		sequenceBases.append(c);
 	}
 	
@@ -717,7 +717,7 @@ public class Sequence {
 		Sequence seq = new Sequence(annot.getName());
 		for(Annotation block : blocks) {
 			Sequence blockSequence = getSubSequence("", block.getStart(), block.getEnd());
-			seq.appendToSequence(blockSequence.getSequenceBases());
+			seq.append(blockSequence.getSequenceBases());
 		}
 		if(annot.getOrientation().equals(Strand.NEGATIVE)) {
 			seq.reverse();

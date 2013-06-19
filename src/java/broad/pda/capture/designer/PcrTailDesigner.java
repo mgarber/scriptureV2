@@ -21,7 +21,7 @@ import broad.core.primer3.Primer3IO;
 import broad.core.primer3.Primer3SequenceInputTags;
 import broad.core.primer3.PrimerPair;
 import broad.core.primer3.PrimerUtils;
-import broad.core.primer3.qPCRPrimerDesigner;
+import broad.core.primer3.PcrPrimerDesigner;
 import broad.core.sequence.Sequence;
 import broad.core.util.PipelineUtils;
 
@@ -296,7 +296,7 @@ public final class PcrTailDesigner {
 		while(true) {
 			String seq = Sequence.generateRandomSequence(5000);
 			// Only ask for one primer pair
-			Collection<PrimerPair> primers = qPCRPrimerDesigner.designSyntheticPrimers(seq, 1, primerLength, 5000);
+			Collection<PrimerPair> primers = PcrPrimerDesigner.designSyntheticPrimers(seq, 1, primerLength, 5000);
 			// A primer pair was found
 			if(primers != null && !primers.isEmpty()) {
 				PrimerPair primer = primers.iterator().next();
