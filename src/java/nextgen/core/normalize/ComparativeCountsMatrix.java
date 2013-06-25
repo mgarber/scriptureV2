@@ -99,7 +99,7 @@ public class ComparativeCountsMatrix {
 		AlignmentModel controlData = new AlignmentModel(controlBamFile, coordSpace);
 		
 		// Establish expression object for control data
-		controlExpressionData = new GenomeSpaceSampleData(controlBamFile, chrSizeFile, genes, 1, 1, DEFAULT_EXPRESSION_PVAL_CUTOFF);
+		controlExpressionData = new GenomeSpaceSampleData(controlBamFile, chrSizeFile, genes, 1, 1, DEFAULT_EXPRESSION_PVAL_CUTOFF, fullyContained);
 		
 		// Read alignment data for all samples
 		sampleExpressionData = new TreeMap<String, GenomeSpaceSampleData>();
@@ -109,7 +109,7 @@ public class ComparativeCountsMatrix {
 			String sampleName = sampleBam.replaceAll(".bam", "");
 			sampleNames.add(sampleName);
 			// Expression object
-			sampleExpressionData.put(sampleName, new GenomeSpaceSampleData(sampleBam, chrSizeFile, genes, 1, 1, DEFAULT_EXPRESSION_PVAL_CUTOFF));
+			sampleExpressionData.put(sampleName, new GenomeSpaceSampleData(sampleBam, chrSizeFile, genes, 1, 1, DEFAULT_EXPRESSION_PVAL_CUTOFF, fullyContained));
 			AlignmentModel sampleData = new AlignmentModel(sampleBam, coordSpace);
 			NormalizedCount normalization = null;
 			if(binomialEnrichmentScore) {
@@ -254,7 +254,7 @@ public class ComparativeCountsMatrix {
 		p.addBooleanArg("-nm", "Normalize matrix by column median", false, true);
 		p.addBooleanArg("-l10", "Take log10 of each matrix entry", false, true);
 		p.addBooleanArg("-fc", "Only count fully contained reads", true);
-		p.addBooleanArg("-be", "Entried in matrix are binomial score for enrichment of numerator (-log10(binomial P value)) instead of count ratio", true);
+		p.addBooleanArg("-be", "Entries in matrix are binomial score for enrichment of numerator (-log10(binomial P value)) instead of count ratio", true);
 		p.addBooleanArg("-d", "Debug logging", false, false);
 		p.parse(args);
 		boolean debug = p.getBooleanArg("-d");
