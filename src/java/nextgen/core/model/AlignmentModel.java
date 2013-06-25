@@ -65,6 +65,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	Collection<Predicate<Alignment>> readFilters = new ArrayList<Predicate<Alignment>>();
 	private double globalLength = -99;
 	private double globalCount = -99;
+	private double globalCountReferenceSeqs = -99;
 	private double globalLambda = -99;
 	private double globalPairedFragments = -99;
 	//private double globalRpkmConstant = -99;
@@ -220,6 +221,14 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			return false;
 		}
 		
+		double refSeqTotal = 0;
+		for(String s : stats.keySet()) {
+			if(s.contains("global")) continue;
+			double d = stats.get(s).doubleValue();
+			refSeqTotal += d;
+		}
+		this.globalCountReferenceSeqs = refSeqTotal;
+		
 		// TODO we might also want to read/write/validate information about the read filters used to calculate global stats
 		return true; 
 	}
@@ -269,6 +278,15 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			this.globalCount = stats.get("globalCount");
 			this.globalLambda = stats.get("globalLambda");
 			this.globalPairedFragments = stats.get("globalPairedFragments");
+			
+			double refSeqTotal = 0;
+			for(String s : stats.keySet()) {
+				if(s.contains("global")) continue;
+				double d = stats.get(s).doubleValue();
+				refSeqTotal += d;
+			}
+			this.globalCountReferenceSeqs = refSeqTotal;
+
 
 			this.hasGlobalStats = true;
 
@@ -584,7 +602,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	
 	
 	/**
-	 * Get total number of reads mapping to all reference sequences
+	 * Get total number of reads
 	 * @return Total read count
 	 */
 	public double getGlobalNumReads() {
@@ -592,6 +610,16 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return this.globalCount;
 	}
 
+	/**
+	 * Get total number of reads mapping to the coordinate space
+	 * @return Total read count on coordinate space
+	 */
+	public double getGlobalNumReadsReferenceSeqs() {
+		if(!this.hasGlobalStats) computeGlobalStats();
+		return this.globalCountReferenceSeqs;
+	}
+
+	
 	
 	private boolean isValid(Alignment read) {
 		// TODO replace with Predicates#and
@@ -1043,6 +1071,13 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return this.globalCount;
 	}
 
+	public double getGlobalCountReferenceSeqs() {
+		if (!this.hasGlobalStats) {
+			computeGlobalStats();
+		}
+		return this.globalCountReferenceSeqs;
+	}
+
 	@Override
 	public int size() {
 		// WARNING: slow
@@ -1172,6 +1207,9 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		
 	}
 
+	public String getBamFile() {
+		return bamFile;
+	}
 
 	@Override
 	public int getBasesCovered(Annotation region) {

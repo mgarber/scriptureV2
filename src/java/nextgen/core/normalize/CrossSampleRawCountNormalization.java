@@ -6,6 +6,8 @@ package nextgen.core.normalize;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.apache.log4j.Logger;
+
 import nextgen.core.annotation.Annotation;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.RatioScore;
@@ -20,6 +22,7 @@ public class CrossSampleRawCountNormalization implements NormalizedCount {
 	private RawCounts denominatorRawCounts;
 	private AlignmentModel numeratorData;
 	private AlignmentModel denominatorData;
+	private static Logger logger = Logger.getLogger(CrossSampleRawCountNormalization.class.getName());
 	
 	/**
 	 * @param numeratorAlignmentData Alignment data to normalize
@@ -62,8 +65,9 @@ public class CrossSampleRawCountNormalization implements NormalizedCount {
 	 */
 	public RatioScore getRatioScore(Annotation region) {
 		RatioScore score = new RatioScore(region);
-		score.setNumeratorTotal(numeratorData.getGlobalNumReads());
-		score.setDenominatorTotal(denominatorData.getGlobalNumReads());
+		score.setNumeratorTotal(numeratorData.getGlobalNumReadsReferenceSeqs()); 
+		score.setDenominatorTotal(denominatorData.getGlobalNumReadsReferenceSeqs()); 
+		//logger.info("Numerator " + numeratorData.getBamFile() +  " total = " + score.getNumeratorTotal() + " denominator " + denominatorData.getBamFile() +  " total = " + score.getDenominatorTotal());
 		score.setNumeratorCount(numeratorRawCounts.getNormalizedCount(region));
 		score.setDenominatorCount(denominatorRawCounts.getNormalizedCount(region));
 		score.setNumeratorRegionTotal(numeratorRawCounts.getNormalizedCount(region));
