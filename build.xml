@@ -2,7 +2,7 @@
 
 <project name="lincRNA" default="CreateExecutableJarFileWithExternalLibrary">
 	<target name="CreateExecutableJarFileWithExternalLibrary">
-		<jar destfile="c:/scripts/ReadSimulator2.jar" basedir="bin/">
+		<jar destfile="/Users/grossman/ReadSimulator2.jar" basedir="bin/">
 			<zipfileset dir="" prefix="" />
 			<zipfileset src="${basedir}/lib/sam-1.89.jar" />
 			<zipfileset src="${basedir}/lib/ATV-3.1.jar" />
