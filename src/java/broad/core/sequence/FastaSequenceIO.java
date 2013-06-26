@@ -149,7 +149,7 @@ public class FastaSequenceIO {
 				continue;
 			}
 			
-			seqs.get(seqs.size() - 1).appendToSequence(line);
+			seqs.get(seqs.size() - 1).append(line);
 		}		
 		
 		br.close();		
@@ -184,7 +184,7 @@ public class FastaSequenceIO {
 			
 			Sequence seq = seqNameMap.get(currentSeqId);
 			if(seq != null) {
-				seq.appendToSequence(line);
+				seq.append(line);
 			}
 
 		}		
@@ -217,7 +217,7 @@ public class FastaSequenceIO {
 			}
 			
 			if (inTargetSequence) {
-				seq.appendToSequence(line);
+				seq.append(line);
 			}
 
 		}		
@@ -246,7 +246,7 @@ public class FastaSequenceIO {
 				currentSeqId = line.substring(1);
 				seq = new Sequence(currentSeqId);
 			}else {
-				seq.appendToSequence(line);
+				seq.append(line);
 			}
 
 		}		
@@ -303,7 +303,7 @@ public class FastaSequenceIO {
 			
 			if (inTargetSequence) {
 				Sequence seq = extracted.peek();
-				seq.appendToSequence(line);
+				seq.append(line);
 			}
 
 		}		
@@ -355,7 +355,7 @@ public class FastaSequenceIO {
 			
 			if (inTargetSequence) {
 				Sequence seq = extracted.pop();
-				seq.appendToSequence(line);
+				seq.append(line);
 				extracted.push(seq);
 			}
 
@@ -442,7 +442,7 @@ public class FastaSequenceIO {
 				reg = rIt.next();
 				if (reg.getRegionStart() <= currentEndSeqPos  && reg.getRegionEnd() > currentEndSeqPos - line.length()) {
 					//System.out.println(currentEndSeqPos + " ... appended ");
-					reg.appendToSequence(line.substring((int) Math.max(0,reg.getRegionStart() - (currentEndSeqPos - line.length() + 1)),
+					reg.append(line.substring((int) Math.max(0,reg.getRegionStart() - (currentEndSeqPos - line.length() + 1)),
 							(int) Math.min(line.length() - 1, reg.getRegionEnd() - (currentEndSeqPos - line.length() + 1))+1));
 					//System.out.println(line.substring((int) Math.max(0,reg.getRegionStart() - (currentEndSeqPos - line.length() + 1)),
 					//		(int) Math.min(line.length() - 1, reg.getRegionEnd() - (currentEndSeqPos - line.length() + 1))+1));
@@ -606,7 +606,7 @@ public class FastaSequenceIO {
 			System.out.println("loading " + inDirList[i].getAbsolutePath());
 			FastaSequenceIO chunkIO = new FastaSequenceIO(inDirList[i]);
 			Sequence seq = chunkIO.loadAll().get(0);
-			unchunked.appendToSequence(seq.getSequenceBases());
+			unchunked.append(seq.getSequenceBases());
 			seq.unloadSequence();
 		}
 		

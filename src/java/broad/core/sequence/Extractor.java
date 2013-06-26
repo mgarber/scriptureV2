@@ -154,7 +154,7 @@ public class Extractor {
 			Sequence seq = new Sequence("concatenated seq");
 
 			while(it.hasNext()) {
-				seq.appendToSequence(it.next().getSequenceBases());
+				seq.append(it.next().getSequenceBases());
 			}
 			System.out.println("GC%: " + seq.gcContent());
 		} else if("6".equals(argMap.getTask())) {
@@ -281,7 +281,7 @@ public class Extractor {
             Sequence seq = new Sequence("Concatenated seq");
 
             while(seqItr.hasNext())
-                seq.appendToSequence(seqItr.next().getSequenceBases());
+                seq.append(seqItr.next().getSequenceBases());
 
             BufferedWriter bw = new BufferedWriter(new FileWriter(outFile));
 

@@ -247,10 +247,10 @@ public class MAFAlignment extends MultipleAlignment {
 				//System.out.println("last block " + (lastBlock != null ? lastBlock.getReferenceStart()+"-"+lastBlock.getReferenceEnd():" not yet ") + " new block " + block.getReferenceStart()+"-"+block.getReferenceEnd() + ", appending " + (block.getReferenceStart() - lastBlock.getReferenceEnd()) + " Ns");
 				for(int i = 0; i < block.getReferenceStart() - lastBlock.getReferenceEnd(); i++) {
 					//System.out.println("\t\tappending gaps N");
-					seq.appendToSequence('N');
+					seq.append('N');
 				}
 			}
-			seq.appendToSequence(segment.getSequenceBases());
+			seq.append(segment.getSequenceBases());
 			/*	
 			if(segment != null) {
 				seq.appendToSequence(segment.getSequenceBases());
@@ -340,7 +340,7 @@ public class MAFAlignment extends MultipleAlignment {
 				if(sampledCols.getAlignedSequence(seqId) == null) {
 					AlignedSequence missingSeq = new AlignedSequence(seqId);
 					for(int j = 0; j < numConsecutiveCols; j++) {
-						missingSeq.appendToSequence('-');
+						missingSeq.append('-');
 					}
 					sampledCols.addSequence(missingSeq);
 				}
@@ -718,7 +718,7 @@ public class MAFAlignment extends MultipleAlignment {
 				seq = new AlignedSequence(sequenceId);
 				int length = length();
 				for(int i = 0; i < length; i++) {
-					seq.appendToSequence('-');
+					seq.append('-');
 				}
 			}
 			

@@ -1,3 +1,4 @@
+
 package nextgen.core.scripture.statistics;
 
 import java.io.BufferedReader;
@@ -19,7 +20,7 @@ import nextgen.core.scripture.BuildScriptureCoordinateSpace;
 import broad.core.datastructures.IntervalTree;
 import broad.pda.annotation.BEDFileParser;
 
-public class ClassifyReconstructions {
+public class RemoveIntronicReconstructions {
 
 	private Map<String, String> classFiles;
 	private Map<String, Boolean> stranded;
@@ -29,7 +30,7 @@ public class ClassifyReconstructions {
 	
 	static Logger logger = Logger.getLogger(ClassifyReconstructions.class.getName());
 	
-	public ClassifyReconstructions(String reconstructFile,String fileName,String outName) throws IOException{
+	public RemoveIntronicReconstructions(String reconstructFile,String fileName,String outName) throws IOException{
 		
 		reconstructions = BEDFileParser.loadDataByChr(reconstructFile);
 		
@@ -82,27 +83,18 @@ public class ClassifyReconstructions {
 				for(Gene gene:reconstructions.get(chr)){
 					
 					boolean overlaps = false;
+					
 					Iterator<Gene> overlappers=tree.overlappingValueIterator(gene.getStart(), gene.getEnd());
 					
 					//Collection<Assembly> toRemove=new TreeSet<Assembly>();
 					while(overlappers.hasNext()){
+						//For each overlapping gene
 						Gene other=overlappers.next();
 						
-						if(overlap.get(annClass)){
-							if(stranded.get(annClass)){
-								if(gene.overlapsStranded(other)){//, minPctOverlap)){
-									overlaps = true;
-								}
-							}
-							else{
-								if(gene.overlaps(other)){//, minPctOverlap)){
-									overlaps = true;
-								}
-							}
-						}
-						//If check for contains
-						else{
-							if(other.contains(gene)){
+						Gene intron = other.getIntrons();
+						
+						if(intron!=null){
+							if(intron.contains(gene) && gene.getOrientation().equals(other.getOrientation())){
 								overlaps = true;
 							}
 						}
@@ -194,10 +186,11 @@ public class ClassifyReconstructions {
 		if(args.length<3)
 			System.err.println(usage);
 		else
-			new ClassifyReconstructions(args[0],args[1],args[2]);
+			new RemoveIntronicReconstructions(args[0],args[1],args[2]);
 	}
 	
 	static String usage=" args[0]=reconstructions bed file \n\t args[1]=list of bed files to filter \n\t args[2]: output file name";
 
 	public static String whitespaceDelimiter = "\\s++";
 }
+

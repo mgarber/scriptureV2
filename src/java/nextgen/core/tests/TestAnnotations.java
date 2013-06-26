@@ -19,7 +19,7 @@ public class TestAnnotations extends TestCase {
 		testBasicAnnotation();
 	}
 	
-	// Add a comment: wheee!
+	// Add a comment
 
 	public static void testBasicAnnotation() {
 		System.out.println("testBasicAnnotation");

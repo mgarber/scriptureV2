@@ -19,12 +19,15 @@ import nextgen.core.model.score.WindowScoreIterator;
 public class RawCounts implements NormalizedCount {
 
 	private AlignmentModel data;
+	private boolean fullyContainedOnly;
 
 	/**
 	 * @param alignmentData Alignment data
+	 * @param fullyContained Only count fully contained alignments in annotations
 	 */
-	public RawCounts(AlignmentModel alignmentData) {
+	public RawCounts(AlignmentModel alignmentData, boolean fullyContained) {
 		data = alignmentData;
+		fullyContainedOnly = fullyContained;
 	}
 
 	
@@ -33,7 +36,7 @@ public class RawCounts implements NormalizedCount {
 	 */
 	@Override
 	public double getNormalizedCount(Annotation region) {
-		return data.getCount(region);
+		return data.getCount(region, fullyContainedOnly);
 	}
 
 	/* (non-Javadoc)
@@ -42,7 +45,7 @@ public class RawCounts implements NormalizedCount {
 	@Override
 	public Map<Integer, Double> getNormalizedCountsByPosition(Annotation region) {
 		TreeMap<Integer,Double> rtrn = new TreeMap<Integer,Double>();
-		WindowProcessor<CountScore> processor = new CountScore.Processor(data);
+		WindowProcessor<CountScore> processor = new CountScore.Processor(data, fullyContainedOnly);
 		WindowScoreIterator<CountScore> scoreIter = data.scan(region, 1, 0, processor);
 		while(scoreIter.hasNext()) {
 			CountScore score = scoreIter.next();

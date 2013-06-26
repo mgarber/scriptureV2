@@ -18,7 +18,7 @@ import broad.core.datastructures.Pair;
 import broad.core.motif.SearchException;
 import broad.core.primer3.PrimerPair;
 import broad.core.primer3.PrimerUtils;
-import broad.core.primer3.qPCRPrimerDesigner;
+import broad.core.primer3.PcrPrimerDesigner;
 import broad.core.sequence.Sequence;
 import broad.pda.capture.designer.SmatchLike;
 
@@ -428,7 +428,7 @@ public class DesignPCRTails {
 			String seq=Sequence.generateRandomSequence(500);
 			
 			//have primer3 pick good primers (regardless of length distance)
-			Collection<PrimerPair> primers=qPCRPrimerDesigner.designSyntheticPrimers(seq, numDesigns);
+			Collection<PrimerPair> primers=PcrPrimerDesigner.designSyntheticPrimers(seq, numDesigns);
 			if(primers!=null && !primers.isEmpty()){
 				PrimerPair primer=primers.iterator().next();
 				rtrn.add(primer);
@@ -444,7 +444,7 @@ public class DesignPCRTails {
 		
 		String seq=(leftPrimer)+Sequence.generateRandomSequence(500)+Sequence.reverseSequence(rightPrimer);
 		System.err.println(seq);
-		Collection<PrimerPair> primers=qPCRPrimerDesigner.designSyntheticPrimers(seq, leftPrimer, rightPrimer, 1);
+		Collection<PrimerPair> primers=PcrPrimerDesigner.designSyntheticPrimers(seq, leftPrimer, rightPrimer, 1);
 		if(primers!=null && !primers.isEmpty()){
 			PrimerPair primer=primers.iterator().next();
 			System.err.println(primer.getPrimerPairPenalty()+" "+primer.getLeftPrimerTM()+" "+primer.getRightPrimerTM());

@@ -42,14 +42,24 @@ public class Statistics {
 	}
 	
 	public static double median(double[] list){
-		Arrays.sort(list);
-		if(list.length%2==0){
-			double val1=list[list.length/2];
-			double val2=list[(list.length/2)-1];
+		ArrayList<Double> withoutNaN = new ArrayList<Double>();
+		for(int i=0; i<list.length; i++) {
+			if(!Double.isNaN(list[i])) {
+				withoutNaN.add(Double.valueOf(list[i]));
+			}
+		}
+		double[] listWithoutNaN = new double[withoutNaN.size()];
+		for(int i = 0; i < listWithoutNaN.length; i++) {
+			listWithoutNaN[i] = withoutNaN.get(i).doubleValue();
+		}
+		Arrays.sort(listWithoutNaN);
+		if(listWithoutNaN.length%2==0){
+			double val1=listWithoutNaN[listWithoutNaN.length/2];
+			double val2=listWithoutNaN[(listWithoutNaN.length/2)-1];
 			double median=(val1+val2)/2.0;
 			return median;
 		}
-		else{return list[list.length/2];}
+		return listWithoutNaN[listWithoutNaN.length/2];
 	}
 	
 	public static double median(int[] list){

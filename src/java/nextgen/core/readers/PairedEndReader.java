@@ -242,8 +242,39 @@ public class PairedEndReader {
 				if (!record.getMateUnmappedFlag() && !warned) {
 					log.warn("DEBUG: Paired end reads were found but file is not in our paired end format.  Processing as single-end reads ..."); 
 					warned = true;
+				}				
+				//If first read is in direction of trasncription
+				if(transcriptionRead.equals(TranscriptionRead.FIRST_OF_PAIR)){
+					//This is the first read
+					if(record.getFirstOfPairFlag()){
+						//Orientation of fragment is same as that of read
+					}
+					//This is the other mate
+					//Reverse its orientation
+					else{
+						record.setReadNegativeStrandFlag(!record.getReadNegativeStrandFlag());
+					}
 				}
-				rtrn=new SingleEndAlignment(record);
+				//Second read is the transcription read
+				else if(transcriptionRead.equals(TranscriptionRead.SECOND_OF_PAIR)){
+					//This is the first read
+					//Reverse orientation
+					if(record.getFirstOfPairFlag()){
+						record.setReadNegativeStrandFlag(!record.getReadNegativeStrandFlag());
+					}
+					//This is the other mate
+					else{
+						//NOTHING
+					}
+				}//UNSTRANDED
+				else{
+					//NOTHING
+				}
+				if(record.getFirstOfPairFlag()){
+					
+				}
+				rtrn = new SingleEndAlignment(record,record.getFirstOfPairFlag());
+				//rtrn=new SingleEndAlignment(record);
 			}
 		} catch (RuntimeException e) {
 			log.error("Failed on SAMRecord: " + record.toString());

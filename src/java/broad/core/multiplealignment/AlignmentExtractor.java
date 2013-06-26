@@ -305,9 +305,9 @@ public class AlignmentExtractor {
 			//System.out.print("Ref codon " + refCodon);
 			if(degenerateCodonStarts.contains(refCodon.substring(0, 2))) {
 				//System.out.print(" is 4D ");
-				ref4D.appendToSequence(refCodon.charAt(2));
+				ref4D.append(refCodon.charAt(2));
 				for(int i = 0; i < nonRefSeqs.length; i++) {
-					nonRef4Ds[i].appendToSequence(nonRefSeqs[i].charAt(pos+2));
+					nonRef4Ds[i].append(nonRefSeqs[i].charAt(pos+2));
 				}
 			}
 			//System.out.println("");
@@ -345,9 +345,9 @@ public class AlignmentExtractor {
 				//System.out.print("Ref codon " + refCodon);
 
 					//System.out.print(" is Conserved ");
-				refCons.appendToSequence(refCodon.substring(0,2));
+				refCons.append(refCodon.substring(0,2));
 				for(int i = 0; i < nonRefSeqs.length; i++) {
-					nonRefCons[i].appendToSequence(nonRefSeqs[i].substring(pos, pos+2));
+					nonRefCons[i].append(nonRefSeqs[i].substring(pos, pos+2));
 				}
 				//System.out.println("");
 				codon++;

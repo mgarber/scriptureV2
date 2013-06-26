@@ -98,5 +98,21 @@ public class Assembly extends BasicAnnotation{
 		}
 		return rtrn.iterator();
 	}
-		
+	
+	public Assembly trim(Annotation read) {
+		//Collection<Assembly> rtrn=new ArrayList<Assembly>();
+		int size = getBlocks().size();
+		//walk back one intron at a time from the assembly and test compatibility
+		List<? extends Annotation> blocks=getBlocks();
+		if(read.overlaps(blocks.get(size-1)) && (blocks.get(size-1).getStart())<(read.getBlocks().get(0).getEnd())){
+			blocks.get(size-1).setEnd(read.getBlocks().get(0).getEnd());
+			Assembly current=new Assembly(blocks, false);
+			return current;
+		}
+		return null;
+	}
+	
+	public Annotation getLastBlock(){
+		return getBlocks().get(getBlocks().size()-1);
+	}
 }
