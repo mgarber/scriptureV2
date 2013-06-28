@@ -3,25 +3,21 @@ package nextgen.editing;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import org.apache.log4j.Logger;
-
 import net.sf.samtools.SAMFileReader;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMRecordIterator;
-import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.Gene;
+
+import org.apache.log4j.Logger;
 
 import broad.core.motif.SearchException;
 import broad.core.motif.SequenceMotif;
@@ -78,7 +74,7 @@ public class CRISPRDesigner {
 				.append("\t").append(genomicStart)
 				.append("\t").append(getDistanceToTarget())
 				.append("\t").append(orientation)
-				.append("\t").append(gene.getOrientation())
+				.append("\t").append(gene != null ? gene.getOrientation() : ".")
 				.append("\t").append(matches.size());
 			
 			for(SAMRecord r : matches) {
@@ -95,11 +91,17 @@ public class CRISPRDesigner {
 		
 		void setGenomicLocation(Annotation containingRegion) {
 			orientation = containingRegion.getOrientation();
-			genomicStart = containingRegion.getStart() + start;// ( containingRegion.isNegativeStrand() ?  (containingRegion.length() - start) : start); 
+			//genomicStart = containingRegion.getStart() + start;
+			genomicStart =   containingRegion.getStart() + ( containingRegion.isNegativeStrand() ? (containingRegion.length() -( sequence.length() + start)) : start);
+			logger.debug("Promoter region: " + containingRegion.toShortBED() + "("+containingRegion.getOrientation() + ") match start: " + start + " genomicStart: " + genomicStart);
 		}
 
 		public int getDistanceToTarget() {
-			return gene.isNegativeStrand() ?   genomicStart -  gene.getOrientedStart() : gene.getOrientedStart() - genomicStart;
+			if(gene != null)  {
+				return gene.isNegativeStrand() ?   	genomicStart -  gene.getOrientedStart() : gene.getOrientedStart() - genomicStart;
+			} else {
+				return 0;
+			}
 			
 		}
 
@@ -164,7 +166,9 @@ public class CRISPRDesigner {
 			"\n\t\t-promoterStart <In bases before the TSS> \n\t\t-promoterEnd <In bases past the TSS>" +
 			"\n\t\tIf  you wish to invoke Bowtie to test for other possible matches by adding the following paramters: " +
 			"\n\t\t-bowtieBuild <e.g. full path to the bowtie build> -bowtieExcutable <path to the Bowtie executable > " +
-			"\n\tDesign2. Get putative CRISPR matches to sequence: \n\t\t-in <FASTA Sequence> \n\t\t-num <Number of desired targets>" +
+			"\n\tDesignFromFasta. Get putative CRISPR matches to sequence: \n\t\t-in <FASTA Sequences> \n\t\t-num <Number of desired targets>" +
+			"\n\t\tIf  you wish to invoke Bowtie to test for other possible matches by adding the following paramters: " +
+			"\n\t\t-bowtieBuild <e.g. full path to the bowtie build> -bowtieExcutable <path to the Bowtie executable > " +
 			"\n";
 
 	/**
@@ -177,7 +181,7 @@ public class CRISPRDesigner {
 	public static void main(String[] args) throws NumberFormatException, SearchException, IOException, InterruptedException {
 		ArgumentMap argMap = CLUtil.getParameters(args, USAGE, "Design");
 		CRISPRDesigner designer = new CRISPRDesigner();
-		if ("Design2".equals(argMap.getTask())) {
+		if ("DesignFromFasta".equalsIgnoreCase(argMap.getTask())) {
 			FastaSequenceIO fsio = new FastaSequenceIO(argMap.getInput());
 			int numToDesign = argMap.getInteger("num");
 			List<Sequence> all = fsio.loadAll();
@@ -185,7 +189,19 @@ public class CRISPRDesigner {
 			LinkedHashMap<String, List<CRISPRTarget>> result = new LinkedHashMap<String, List<CRISPRTarget>>();
 			for (Sequence seq : all) {
 				List<CRISPRTarget> targets = designer.design(seq, numToDesign);
+				if (targets.size() < numToDesign ) {
+					seq.reverse();
+					List<CRISPRTarget> reverseTargets = designer.design(seq, numToDesign - targets.size()); 
+					targets.addAll(reverseTargets);
+				}
 				result.put(seq.getId(), targets);
+			}
+
+			if(argMap.isPresent("bowtieBuild")) {
+				String bowtieBuild = argMap.getMandatory("bowtieBuild");
+				String bowtie     =  argMap.getMandatory("bowtieExecutable");
+				checkOfTargets(result, bowtieBuild, bowtie);
+				
 			}
 
 			writeDesign(argMap, result);
@@ -228,11 +244,7 @@ public class CRISPRDesigner {
 			if(argMap.isPresent("bowtieBuild")) {
 				String bowtieBuild = argMap.getMandatory("bowtieBuild");
 				String bowtie     =  argMap.getMandatory("bowtieExecutable");
-				String fastaFile = writeTargetsAsFasta(result );
-				String alignmentFile = runBowtie (bowtie, bowtieBuild, fastaFile);
-				if( alignmentFile != null ) {
-					updateResultsWithAlignment(alignmentFile, result);
-				}
+				checkOfTargets(result, bowtieBuild, bowtie);
 				
 			}
 
@@ -241,6 +253,17 @@ public class CRISPRDesigner {
 			System.err.println(USAGE);
 		}
 
+	}
+
+	protected static void checkOfTargets(
+			LinkedHashMap<String, List<CRISPRTarget>> result,
+			String bowtieBuild, String bowtie) throws IOException,
+			InterruptedException {
+		String fastaFile = writeTargetsAsFasta(result );
+		String alignmentFile = runBowtie (bowtie, bowtieBuild, fastaFile);
+		if( alignmentFile != null ) {
+			updateResultsWithAlignment(alignmentFile, result);
+		}
 	}
 
 	private static void updateResultsWithAlignment(String alignmentFile, LinkedHashMap<String, List<CRISPRTarget>> result) {
@@ -275,7 +298,7 @@ public class CRISPRDesigner {
 
 	private static String runBowtie(String bowtie, String bowtieBuild, String fastaFile) throws IOException, InterruptedException {
 		String samTmpFile = fastaFile+".bowtie2.sam";
-		String bowtieCmd = bowtie + " --local -f -k 5 " +  bowtieBuild + " -U  " + fastaFile + "  " +  samTmpFile ;
+		String bowtieCmd = bowtie + " --local -f -k 8 --very-sensitive -L 9 -N 1 " +  bowtieBuild + " -U  " + fastaFile + "  " +  samTmpFile ;
 		logger.debug("starting bowtie: " + bowtieCmd);
 		Process p = Runtime.getRuntime().exec(bowtieCmd);
 		
@@ -297,7 +320,7 @@ public class CRISPRDesigner {
 				String fastaId = targetGene + "___" + n + "_" + String.valueOf(c.getDistanceToTarget() ).replace("-", "neg");
 				c.setFastaSeqId(fastaId);
 				Sequence cS = new Sequence(c.getFastaSeqId() );
-				cS.setSequenceBases(c.sequence);
+				cS.setSequenceBases(c.sequence.toUpperCase());
 				n++;
 				fsio.append(cS, out);
 			}

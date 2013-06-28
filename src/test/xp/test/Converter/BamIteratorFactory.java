@@ -64,7 +64,7 @@ public class BamIteratorFactory
 		if (a[a.length-1].equalsIgnoreCase("bamlist") || a[a.length-1].equalsIgnoreCase("bams"))
 		{
 			logger.info("database is bamlist format");
-			return new BamlistToAlignmentIterator(bamFile.getAbsolutePath());
+			//return new BamlistToAlignmentIterator(bamFile.getAbsolutePath());
 		}
 		return null;
 	}
