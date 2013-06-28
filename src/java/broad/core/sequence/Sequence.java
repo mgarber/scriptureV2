@@ -3,6 +3,7 @@ package broad.core.sequence;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +13,7 @@ import java.util.regex.Pattern;
 
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Annotation.Strand;
+import nextgen.core.annotation.Gene;
 
 import org.apache.log4j.Logger;
 
@@ -22,6 +24,7 @@ import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.parser.StringParser;
 import broad.pda.datastructures.Alignments;
+import broad.pda.seq.graph.ChromosomeWithBubblesJGraphT.WindowIterator;
 
 public class Sequence {
 	static Logger logger = Logger.getLogger(Sequence.class.getName());
@@ -423,6 +426,32 @@ public class Sequence {
 		}
 		
 		return ((float)gcs)/((float)dnaString.length());
+	}
+	
+	
+	public static float [] computeSequenceComposition(String dnaString) {
+		int gs = 0;
+		int cs = 0;
+		int as = 0;
+		int ts = 0;
+		int ns = 0;
+		for(int i = 0; i < dnaString.length(); i++) {
+			char c = Character.toUpperCase(dnaString.charAt(i));
+			switch (c) {
+			case 'A' : as++;
+				break;
+			case 'C' : cs++;
+				break;
+			case 'G':  gs++;
+				break;
+			case 'T' : cs++;
+				break;
+			default :  ns++;
+			}
+		}
+		int total = gs + cs + as + ts ;
+		float [] composition = {as/(float) total, cs/(float)total, gs/(float)total, ts/(float) total };
+		return composition;
 	}
 	
 	public void reverse() {
@@ -872,6 +901,84 @@ public class Sequence {
 		if(this.id.contains(", ribosomal RNA")) return "rRNA";
 		if(this.id.contains(", ribosomal precursor")) return "rRNAprecursor"; // not a real RefSeq label
 		throw new IllegalArgumentException("RefSeq RNA class is not recognized for sequence ID " + this.id);
+	}
+
+	/**
+	 * Gvien a kmer size, it builds a map of all kmers found
+	 * @param kmer
+	 */
+	public Map<String, KmerInfo> buildKamerMap(int kmer) {
+		Map<String, KmerInfo> kmerData = new HashMap<String, KmerInfo>();
+		String bases = getSequenceBases();
+		logger.debug("Got sequence bases");
+		float [] composition = computeSequenceComposition(bases);
+		int pos = 0;
+		while (pos < getLength() - kmer + 1) {
+			String kmerStr = bases.substring(pos,pos + kmer).toUpperCase();
+			KmerInfo ki = kmerData.get(kmerStr);
+			if(ki == null) {
+				//logger.debug("New kmer " + kmerStr + " at " + pos);
+				ki = new KmerInfo(kmerStr);
+				ki.setSequenceComposition(composition);
+				kmerData.put(kmerStr, ki);
+			} else {
+				//logger.debug("Already seen " + kmerStr + " has " + ki.instances() + " positions " + ki.positions + " adding " + pos);
+			}
+			ki.addPosition(pos);
+			pos++;
+		}
+		//logger.debug("kmerData size " + kmerData.size());
+		return kmerData;
+		
+	}
+	
+	public static class KmerInfo {
+		String kmerString;
+		float []  parentSequenceComposition;
+		List<Integer>  positions = new ArrayList<Integer>();
+		List<Integer>  genomicPositions = new ArrayList<Integer>();
+		public KmerInfo(String kmerStr) {
+			this.kmerString = kmerStr;
+		}
+		public void setSequenceComposition(float[] composition) {
+			this.parentSequenceComposition = composition;
+		}
+		public void addPosition(int pos) {
+			positions.add(pos);
+		}
+		public int instances() {
+			return positions.size();
+		}
+		
+		public String toString() {
+			StringBuilder sb = new StringBuilder(kmerString);
+			sb.append("\t").append(String.valueOf(instances())).append("\t");
+			Iterator<Integer> posIt = positions.iterator();
+			while(posIt.hasNext()) {
+				sb.append(String.valueOf(posIt.next()));
+				if(posIt.hasNext()) {
+					sb.append(",");
+				}
+			}
+			
+			
+			sb.append("\t");
+			posIt = genomicPositions.iterator();
+			while(posIt.hasNext()) {
+				sb.append(String.valueOf(posIt.next()));
+				if(posIt.hasNext()) {
+					sb.append(",");
+				}
+			}
+			return sb.toString();
+		}
+		public void mapPositionsToGenome(Gene g) {
+			genomicPositions = new ArrayList<Integer>();
+			for(int p : positions)  {
+				genomicPositions.add(g.transcriptToGenomicPosition(p));
+			}
+			
+		}
 	}
 	
 }

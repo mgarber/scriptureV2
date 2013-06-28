@@ -1,11 +1,13 @@
 package broad.pda.seq.rap;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
+import net.sf.samtools.util.RuntimeEOFException;
 import nextgen.core.model.score.*;
 import nextgen.core.annotation.*;
 import nextgen.core.coordinatesystem.GenomicSpace;
@@ -41,11 +43,18 @@ public abstract class GenomeScoringProgramFromBed extends CommandLineProgram{
 	}
 	
 	public WindowProcessor<? extends WindowScore> getWindowProcessor() {
-		AnnotationCollection<? extends Annotation> target = AnnotationFileReader.load
+		WindowProcessor wp = null;
+		try {
+			AnnotationCollection<? extends Annotation> target = AnnotationFileReader.load
 				(TARGET, broad.core.annotation.BEDGraph.class, new broad.core.annotation.AnnotationFactoryFactory.BEDGraphFactory(), getCoordinateSpace());
-		AnnotationCollection<? extends Annotation> control = AnnotationFileReader.load
+			AnnotationCollection<? extends Annotation> control = AnnotationFileReader.load
 				(CONTROL, broad.core.annotation.BEDGraph.class, new broad.core.annotation.AnnotationFactoryFactory.BEDGraphFactory(), getCoordinateSpace());
-		return getWindowProcessor(target,control);
+			wp = getWindowProcessor(target,control);
+		} catch (IOException e) { //MG: Had to add this since originally the load method did not throw exceptions. TODO: Handle the exception gracefully.
+			e.printStackTrace();
+			throw new RuntimeEOFException(e.getMessage());
+		}
+		return wp;
 	}
 
 	//TODO: Do we need this?

@@ -14,17 +14,17 @@ import org.apache.commons.collections15.Predicate;
  */
 public class AnnotationFileReader {
 
-	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, AnnotationFactory<? extends T> factory) {
+	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, AnnotationFactory<? extends T> factory) throws IOException {
 		return load(file, clazz, factory, null);
 	}
 	
 	
-	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, AnnotationFactory<? extends T> factory, CoordinateSpace cs) {
+	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, AnnotationFactory<? extends T> factory, CoordinateSpace cs) throws IOException{
 		return load(file, clazz, factory, cs, Predicates.alwaysTrue());	
 	}
 	
 	
-	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, AnnotationFactory<? extends T> factory, CoordinateSpace cs, Collection<Predicate<? super T>> filters) {
+	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, AnnotationFactory<? extends T> factory, CoordinateSpace cs, Collection<Predicate<? super T>> filters) throws IOException{
 		return load(file, clazz, factory, cs, Predicates.and(filters));
 	}
 
@@ -38,12 +38,14 @@ public class AnnotationFileReader {
 	 * @param factory Factory for parsing and creating the annotation type
 	 * @param filter Annotation filters to control the subset of annotations that are stored in the AnnotationList.
 	 * @return AnnotationList containing all annotations from file that pass the filter
+	 * @throws IOException 
 	 */
-	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, AnnotationFactory<? extends T> factory, CoordinateSpace cs, Predicate<? super T> filter) {
+	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, AnnotationFactory<? extends T> factory, CoordinateSpace cs, Predicate<? super T> filter) throws IOException {
 		AnnotationList<T> annotations = new AnnotationList<T>(cs);
 		
+		BufferedReader br = null;
 		try {
-			BufferedReader br = new BufferedReader(new FileReader(file));
+			br = new BufferedReader(new FileReader(file));
 			
 			String line;
 			while((line = br.readLine()) != null) {
@@ -65,10 +67,13 @@ public class AnnotationFileReader {
 					annotations.add(annotation);
 				}
 			}
+			
+			br.close();
 				
-		} catch (Exception e) {
-			e.printStackTrace();
-			throw new RuntimeException(e.getMessage());
+		} finally {
+			if (br != null) {
+				br.close();
+			}
 		}
 		
 		return annotations;
