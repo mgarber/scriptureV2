@@ -15,7 +15,7 @@ import nextgen.core.model.score.RatioScore;
  */
 public class CrossSampleBinomialEnrichmentScore implements NormalizedCount {
 	
-	private CrossSampleRawCountNormalization comparativeCounts;
+	private CrossSampleRatio comparativeCounts;
 		
 	/**
 	 * @param numeratorAlignmentData Alignment data to normalize
@@ -23,7 +23,7 @@ public class CrossSampleBinomialEnrichmentScore implements NormalizedCount {
 	 * @param fullyContained Only count fully contained alignments in annotations
 	 */
 	public CrossSampleBinomialEnrichmentScore(AlignmentModel numeratorAlignmentData, AlignmentModel denominatorAlignmentData, boolean fullyContained) {
-		comparativeCounts = new CrossSampleRawCountNormalization(numeratorAlignmentData, denominatorAlignmentData, fullyContained);
+		comparativeCounts = new CrossSampleRatio(numeratorAlignmentData, denominatorAlignmentData, new RawCounts(numeratorAlignmentData, fullyContained), new RawCounts(denominatorAlignmentData, fullyContained), fullyContained);
 	}
 
 
@@ -42,6 +42,12 @@ public class CrossSampleBinomialEnrichmentScore implements NormalizedCount {
 	@Override
 	public Map<Integer, Double> getNormalizedCountsByPosition(Annotation region) {
 		throw new UnsupportedOperationException("Method not implemented");
+	}
+
+
+	@Override
+	public String getNormalizationName() {
+		return NormalizedCount.CROSS_SAMPLE_BINOMIAL_ENRICHMENT_SCORE_NAME;
 	}
 
 }

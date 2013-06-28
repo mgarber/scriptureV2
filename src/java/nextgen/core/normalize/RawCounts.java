@@ -6,6 +6,8 @@ package nextgen.core.normalize;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.apache.log4j.Logger;
+
 import nextgen.core.annotation.Annotation;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.CountScore;
@@ -20,6 +22,8 @@ public class RawCounts implements NormalizedCount {
 
 	private AlignmentModel data;
 	private boolean fullyContainedOnly;
+	@SuppressWarnings("unused")
+	private static Logger logger = Logger.getLogger(RawCounts.class.getName());
 
 	/**
 	 * @param alignmentData Alignment data
@@ -44,8 +48,9 @@ public class RawCounts implements NormalizedCount {
 	 */
 	@Override
 	public Map<Integer, Double> getNormalizedCountsByPosition(Annotation region) {
+		
 		TreeMap<Integer,Double> rtrn = new TreeMap<Integer,Double>();
-		WindowProcessor<CountScore> processor = new CountScore.Processor(data, fullyContainedOnly);
+		WindowProcessor<CountScore> processor = new CountScore.Processor(data);
 		WindowScoreIterator<CountScore> scoreIter = data.scan(region, 1, 0, processor);
 		while(scoreIter.hasNext()) {
 			CountScore score = scoreIter.next();
@@ -53,6 +58,12 @@ public class RawCounts implements NormalizedCount {
 			rtrn.put(Integer.valueOf(pos), Double.valueOf(score.getCount()));
 		}
 		return rtrn;
+	}
+
+
+	@Override
+	public String getNormalizationName() {
+		return NormalizedCount.RAW_COUNTS_NAME;
 	}
 
 
