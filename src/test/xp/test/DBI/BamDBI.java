@@ -1,5 +1,6 @@
 package xp.test.DBI;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -36,7 +37,7 @@ public class BamDBI implements AlignmentDBI<Alignment> {
     
     public BamDBI(SAMFileReader data, GenomicSpace gs)
     {
-    	
+    	this.data=data;
     	chrs=(ArrayList<String>) gs.getReferenceNames();
     	chrToLength = new HashMap<String,Long>();
     	for(String chr: chrs)
@@ -45,6 +46,8 @@ public class BamDBI implements AlignmentDBI<Alignment> {
     	}
     	
     }
+    
+    
 
 	@Override
 	public Iterator<Alignment> query(String chr, int start, int end) {
@@ -61,8 +64,13 @@ public class BamDBI implements AlignmentDBI<Alignment> {
 	@Override
 	public int getCount(String chr, int start, int stop) {
 		// TODO Auto-generated method stub
-		
-		return 0;
+		int i = 0;
+		Iterator<Alignment> iter=query(chr,start,stop);
+		while(iter.hasNext()) {
+		    i++;
+		    iter.next();
+		}
+		return i;
 	}
 
 	@Override
@@ -85,8 +93,13 @@ public class BamDBI implements AlignmentDBI<Alignment> {
 
 	@Override
 	public double getLocalCount(String chr, int start, int stop) {
-		// TODO Auto-generated method stub
-		return 0;
+		int i = 0;
+		Iterator<Alignment> iter=query(chr,start,stop);
+		while(iter.hasNext()) {
+		    i++;
+		    iter.next();
+		}
+		return i;// TODO Auto-generated method stub
 	}
 
 	@Override

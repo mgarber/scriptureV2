@@ -72,11 +72,11 @@ public class ComparativeCountsMatrix {
 	 * @param chrSizeFile Chromosome size file
 	 * @param transcriptomeSpaceBedFile Gene bed file for transcriptome space
 	 * @param fullyContained Only count fully contained alignments in annotations
-	 * @param binomialEnrichmentScore Report binomial score for enrichment of numerator data
+	 * @param normalizationName Name of normalization to use for numerator and denominator
 	 * @throws IOException
 	 */
-	public ComparativeCountsMatrix(String controlBamFile, String sampleBamListFile, String chrSizeFile, String transcriptomeSpaceBedFile, boolean fullyContained, boolean binomialEnrichmentScore) throws IOException {
-		this(controlBamFile, FileUtil.fileLinesAsList(sampleBamListFile), chrSizeFile, BEDFileParser.loadDataByChr(new File(transcriptomeSpaceBedFile)), fullyContained, binomialEnrichmentScore);
+	public ComparativeCountsMatrix(String controlBamFile, String sampleBamListFile, String chrSizeFile, String transcriptomeSpaceBedFile, boolean fullyContained, String normalizationName) throws IOException {
+		this(controlBamFile, FileUtil.fileLinesAsList(sampleBamListFile), chrSizeFile, BEDFileParser.loadDataByChr(new File(transcriptomeSpaceBedFile)), fullyContained, normalizationName);
 	}
 	
 	/**
@@ -85,10 +85,11 @@ public class ComparativeCountsMatrix {
 	 * @param chrSizeFile Chromosome size file
 	 * @param genes Genes by chromosome
 	 * @param fullyContained Only count fully contained alignments in annotations
-	 * @param binomialEnrichmentScore Report binomial score for enrichment of numerator data
+	 * @param normalizationName Name of normalization to use for numerator and denominator
 	 * @throws IOException
 	 */
-	public ComparativeCountsMatrix(String controlBamFile, ArrayList<String> sampleBamFiles, String chrSizeFile, Map<String, Collection<Gene>> genes, boolean fullyContained, boolean binomialEnrichmentScore) throws IOException {
+	public ComparativeCountsMatrix(String controlBamFile, ArrayList<String> sampleBamFiles, String chrSizeFile, Map<String, Collection<Gene>> genes, boolean fullyContained, String normalizationName) throws IOException {
+		
 		TranscriptomeSpace coordSpace = new TranscriptomeSpace(genes);
 		normalizationBySampleName = new TreeMap<String, NormalizedCount>();
 		ratiosByGeneAndSampleName = new TreeMap<Gene, Map<String, Double>>();
@@ -112,12 +113,25 @@ public class ComparativeCountsMatrix {
 			sampleExpressionData.put(sampleName, new GenomeSpaceSampleData(sampleBam, chrSizeFile, genes, 1, 1, DEFAULT_EXPRESSION_PVAL_CUTOFF, fullyContained));
 			AlignmentModel sampleData = new AlignmentModel(sampleBam, coordSpace);
 			NormalizedCount normalization = null;
-			if(binomialEnrichmentScore) {
+			if(normalizationName.equals(NormalizedCount.CROSS_SAMPLE_BINOMIAL_ENRICHMENT_SCORE_NAME)) {
 				normalization = new CrossSampleBinomialEnrichmentScore(sampleData, controlData, fullyContained);
+			} else if (normalizationName.equals(NormalizedCount.MAX_DEPTH_NAME)) {
+				normalization = new CrossSampleRatio(sampleData, controlData, new MaxDepthNormalization(sampleData, fullyContained), new MaxDepthNormalization(controlData, fullyContained), fullyContained);
+			} else if (normalizationName.equals(NormalizedCount.RAW_COUNTS_NAME)){
+				normalization = new CrossSampleRatio(sampleData, controlData, new RawCounts(sampleData, fullyContained), new RawCounts(controlData, fullyContained), fullyContained);
+			} else if (normalizationName.equals(NormalizedCount.FRAGMENT_SIZE_NORMALIZATION_NAME)) {
+				normalization = new CrossSampleRatio(sampleData, controlData, new FragmentSizeNormalization(sampleData, fullyContained), new FragmentSizeNormalization(controlData, fullyContained), fullyContained);
+			} else {
+				String possibleNormalizations = "";
+				possibleNormalizations += NormalizedCount.RAW_COUNTS_NAME + " ";
+				possibleNormalizations += NormalizedCount.CROSS_SAMPLE_BINOMIAL_ENRICHMENT_SCORE_NAME + " ";
+				possibleNormalizations += NormalizedCount.MAX_DEPTH_NAME + " ";
+				possibleNormalizations += NormalizedCount.FRAGMENT_SIZE_NORMALIZATION_NAME + " ";
+				throw new IllegalArgumentException("Invalid normalization name. Options are: " + possibleNormalizations);
 			}
-			else normalization = new CrossSampleRawCountNormalization(sampleData, controlData, fullyContained);
 			normalizationBySampleName.put(sampleName, normalization);
 		}
+		logger.info("Using normalization: " + normalizationName);
 		logger.info("Done constructing object.");
 	}
 	
@@ -254,7 +268,7 @@ public class ComparativeCountsMatrix {
 		p.addBooleanArg("-nm", "Normalize matrix by column median", false, true);
 		p.addBooleanArg("-l10", "Take log10 of each matrix entry", false, true);
 		p.addBooleanArg("-fc", "Only count fully contained reads", true);
-		p.addBooleanArg("-be", "Entries in matrix are binomial score for enrichment of numerator (-log10(binomial P value)) instead of count ratio", true);
+		p.addStringArg("-n", "Type of normalization", false, NormalizedCount.RAW_COUNTS_NAME);
 		p.addBooleanArg("-d", "Debug logging", false, false);
 		p.parse(args);
 		boolean debug = p.getBooleanArg("-d");
@@ -269,9 +283,9 @@ public class ComparativeCountsMatrix {
 		boolean normalizeByMedian = p.getBooleanArg("-nm");
 		boolean takeLog10 = p.getBooleanArg("-l10");
 		boolean fullyContained = p.getBooleanArg("-fc");
-		boolean binomialScore = p.getBooleanArg("-be");
+		String normalization = p.getStringArg("-n");
 		
-		ComparativeCountsMatrix c = new ComparativeCountsMatrix(controlBam, bamListFile, chrSizeFile, transcriptomeBed, fullyContained, binomialScore);	
+		ComparativeCountsMatrix c = new ComparativeCountsMatrix(controlBam, bamListFile, chrSizeFile, transcriptomeBed, fullyContained, normalization);	
 		MatrixWithHeaders matrix = c.getMatrix(regionBed, chr);
 		if(normalizeByMedian) {
 			matrix.normalizeColumnsByMedian();

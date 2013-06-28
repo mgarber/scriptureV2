@@ -123,5 +123,10 @@ public class TranscriptAverageNormalization implements NormalizedCount {
 		regionAverages.put(region, Double.valueOf(sum / numCounts));
 	}
 
+	@Override
+	public String getNormalizationName() {
+		return NormalizedCount.TRANSCRIPT_AVERAGE_NORMALIZATION_NAME;
+	}
+
 	
 }

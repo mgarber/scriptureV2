@@ -476,7 +476,6 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return calculateReadSizeDistribution(iter, coord, maxSize, numBins);
 	}
 
-
 	/**
 	 * Get the distribution of read (or fragment) sizes in an annotation
 	 * @param region The annotation in which to count read sizes
@@ -484,13 +483,58 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @param maxSize The maximum read size to check for
 	 * @param numBins The number of bins for histogram
 	 * @return Distribution of read sizes with respect to coordinate space
-	 * @throws IOException
 	 */
 	public EmpiricalDistribution getReadSizeDistribution(Annotation region, CoordinateSpace coord, int maxSize, int numBins) {
-		CloseableIterator<Alignment> iter = getOverlappingReads(region, true); //TODO Is this what we want?
-		return calculateReadSizeDistribution(iter, coord, maxSize, numBins);
+		return getReadSizeDistribution(region, coord, maxSize, numBins, true);
 	}
 
+	/**
+	 * Get the median of all read (or fragment) sizes in an annotation
+	 * @param region The annotation in which to count read sizes
+	 * @param coord Coordinate space in which to compute read sizes
+	 * @param maxSize The maximum read size to check for
+	 * @param numBins The number of bins for histogram
+	 * @param fullyContained Count fully contained reads/fragments only
+	 * @return Distribution of read sizes with respect to coordinate space
+	 */
+	public double getMedianReadSize(Annotation region, CoordinateSpace coord, int maxSize, int numBins, boolean fullyContained) {
+		EmpiricalDistribution dist = getReadSizeDistribution(region, coord, maxSize, numBins, fullyContained);
+		if(dist.getAllDataValues().isEmpty()) {
+			throw new IllegalArgumentException("No overlapping reads for region " + region.getName());
+		}
+		return dist.getMedianOfAllDataValues();
+	}
+
+	/**
+	 * Get the median of all read (or fragment) sizes in an annotation
+	 * @param region The annotation in which to count read sizes
+	 * @param coord Coordinate space in which to compute read sizes
+	 * @param maxSize The maximum read size to check for
+	 * @param numBins The number of bins for histogram
+	 * @return Distribution of read sizes with respect to coordinate space
+	 */
+	public double getMedianReadSize(Annotation region, CoordinateSpace coord, int maxSize, int numBins) {
+		EmpiricalDistribution dist = getReadSizeDistribution(region, coord, maxSize, numBins, true);
+		if(dist.getAllDataValues().isEmpty()) {
+			throw new IllegalArgumentException("No overlapping reads for region " + region.getName());
+		}
+		return dist.getMedianOfAllDataValues();
+	}
+
+	/**
+	 * Get the distribution of read (or fragment) sizes in an annotation
+	 * @param region The annotation in which to count read sizes
+	 * @param coord Coordinate space in which to compute read sizes
+	 * @param maxSize The maximum read size to check for
+	 * @param numBins The number of bins for histogram
+	 * @param fullyContained Count fully contained reads/fragments only
+	 * @return Distribution of read sizes with respect to coordinate space
+	 */
+	public EmpiricalDistribution getReadSizeDistribution(Annotation region, CoordinateSpace coord, int maxSize, int numBins, boolean fullyContained) {
+		CloseableIterator<Alignment> iter = getOverlappingReads(region, fullyContained); //TODO Is this what we want?
+		return calculateReadSizeDistribution(iter, coord, maxSize, numBins);
+	}
+	
 	private EmpiricalDistribution calculateReadSizeDistribution(CloseableIterator<Alignment> iter, CoordinateSpace coord, int maxSize, int numBins) {
 		int done = 0;
 		EmpiricalDistribution rtrn = new EmpiricalDistribution(numBins, 1, maxSize);

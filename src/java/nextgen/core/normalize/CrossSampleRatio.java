@@ -16,24 +16,27 @@ import nextgen.core.model.score.RatioScore;
  * @author prussell
  *
  */
-public class CrossSampleRawCountNormalization implements NormalizedCount {
+public class CrossSampleRatio implements NormalizedCount {
 	
-	private RawCounts numeratorRawCounts;
-	private RawCounts denominatorRawCounts;
+	private NormalizedCount numeratorCountData;
+	private NormalizedCount denominatorCountData;
 	private AlignmentModel numeratorData;
 	private AlignmentModel denominatorData;
-	private static Logger logger = Logger.getLogger(CrossSampleRawCountNormalization.class.getName());
+	@SuppressWarnings("unused")
+	private static Logger logger = Logger.getLogger(CrossSampleRatio.class.getName());
 	
 	/**
 	 * @param numeratorAlignmentData Alignment data to normalize
 	 * @param denominatorAlignmentData Alignment data to normalize against
+	 * @param numeratorCounts Normalized counts object for numerator data
+	 * @param denominatorCounts Normalized counts object for denominator data
 	 * @param fullyContained Only count fully contained alignments in annotations
 	 */
-	public CrossSampleRawCountNormalization(AlignmentModel numeratorAlignmentData, AlignmentModel denominatorAlignmentData, boolean fullyContained) {
+	public CrossSampleRatio(AlignmentModel numeratorAlignmentData, AlignmentModel denominatorAlignmentData, NormalizedCount numeratorCounts, NormalizedCount denominatorCounts, boolean fullyContained) {
 		numeratorData = numeratorAlignmentData;
 		denominatorData = denominatorAlignmentData;
-		numeratorRawCounts = new RawCounts(numeratorData, fullyContained);
-		denominatorRawCounts = new RawCounts(denominatorData, fullyContained);
+		numeratorCountData = numeratorCounts;
+		denominatorCountData = denominatorCounts;
 	}
 	
 	/* (non-Javadoc)
@@ -41,7 +44,10 @@ public class CrossSampleRawCountNormalization implements NormalizedCount {
 	 */
 	@Override
 	public double getNormalizedCount(Annotation region) {
-		return numeratorRawCounts.getNormalizedCount(region) / denominatorRawCounts.getNormalizedCount(region);
+		double n = numeratorCountData.getNormalizedCount(region);
+		double d = denominatorCountData.getNormalizedCount(region);
+		//logger.info("Region " + region.getName() + " numerator normalized count " + n + " denominator normalized count " + d + " ratio " + Double.valueOf(n/d).toString());
+		return n / d;
 	}
 
 	/* (non-Javadoc)
@@ -49,8 +55,8 @@ public class CrossSampleRawCountNormalization implements NormalizedCount {
 	 */
 	@Override
 	public Map<Integer, Double> getNormalizedCountsByPosition(Annotation region) {
-		Map<Integer, Double> sampleCountsByPos = numeratorRawCounts.getNormalizedCountsByPosition(region);
-		Map<Integer, Double> otherSampleCountsByPos = denominatorRawCounts.getNormalizedCountsByPosition(region);
+		Map<Integer, Double> sampleCountsByPos = numeratorCountData.getNormalizedCountsByPosition(region);
+		Map<Integer, Double> otherSampleCountsByPos = denominatorCountData.getNormalizedCountsByPosition(region);
 		Map<Integer, Double> rtrn = new TreeMap<Integer, Double>();
 		for(Integer i : sampleCountsByPos.keySet()) {
 			rtrn.put(i, Double.valueOf(sampleCountsByPos.get(i).doubleValue() / otherSampleCountsByPos.get(i).doubleValue()));
@@ -67,12 +73,16 @@ public class CrossSampleRawCountNormalization implements NormalizedCount {
 		RatioScore score = new RatioScore(region);
 		score.setNumeratorTotal(numeratorData.getGlobalNumReadsReferenceSeqs()); 
 		score.setDenominatorTotal(denominatorData.getGlobalNumReadsReferenceSeqs()); 
-		//logger.info("Numerator " + numeratorData.getBamFile() +  " total = " + score.getNumeratorTotal() + " denominator " + denominatorData.getBamFile() +  " total = " + score.getDenominatorTotal());
-		score.setNumeratorCount(numeratorRawCounts.getNormalizedCount(region));
-		score.setDenominatorCount(denominatorRawCounts.getNormalizedCount(region));
-		score.setNumeratorRegionTotal(numeratorRawCounts.getNormalizedCount(region));
-		score.setDenominatorRegionTotal(denominatorRawCounts.getNormalizedCount(region));
+		score.setNumeratorCount(numeratorCountData.getNormalizedCount(region));
+		score.setDenominatorCount(denominatorCountData.getNormalizedCount(region));
+		score.setNumeratorRegionTotal(numeratorCountData.getNormalizedCount(region));
+		score.setDenominatorRegionTotal(denominatorCountData.getNormalizedCount(region));
 		return score;
+	}
+
+	@Override
+	public String getNormalizationName() {
+		return NormalizedCount.CROSS_SAMPLE_RATIO_NAME;
 	}
 	
 }
