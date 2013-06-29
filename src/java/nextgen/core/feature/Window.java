@@ -35,6 +35,6 @@ public interface Window extends Annotation{
 	 * @param stepSize Step size
 	 * @return The collection of windows
 	 */
-	public Collection<Window> getWindows(int windowSize, int stepSize);
+	//public Collection<Window> getWindows(int windowSize, int stepSize);
 	
 }

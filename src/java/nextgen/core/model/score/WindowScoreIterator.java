@@ -10,7 +10,7 @@ public class WindowScoreIterator<T extends WindowScore> implements CloseableIter
 
 	Iterator<? extends Annotation> itr;
 	WindowProcessor<T> processor;
-	T previousScore = null;
+	T previousScore = null; 
 
 	public WindowScoreIterator(Iterator<? extends Annotation> windowIterator, WindowProcessor<T> processor, Annotation region){
 		this.itr = windowIterator;
