@@ -100,13 +100,17 @@ public class TranscriptomeSpace implements CoordinateSpace{
 	 */
 	@Override
 	public Collection<? extends Window> getFragment(String chr, int start, int end) {
-		Collection<? extends Window> regions=this.geneTree.getRegion(new Alignments(chr, start,end));
-		return regions;
+		return getFragment(new BasicAnnotation(chr, start,end));
 	}
 
 	public Collection<? extends Window> getFragment(Annotation annotation) {
-		Collection<? extends Window> regions=this.geneTree.getRegion(annotation);
-		return regions;
+		Window w=new GeneWindow(annotation);
+		Collection<Window> rtrn=new TreeSet<Window>();
+		rtrn.add(w);
+		return rtrn;
+		//TODO Replace
+		//Collection<? extends Window> regions=this.geneTree.getRegion(annotation);
+		//return regions;
 	}
 	
 	/**

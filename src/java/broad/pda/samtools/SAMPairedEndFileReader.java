@@ -32,6 +32,9 @@ import org.broad.igv.ui.util.MessageUtils;
  * 
  * Also it's trying to accommodate iterators of both SAMRecords and Alignments to be compatible
  * with Scripture/IGV.  Annoying.
+ * 
+ * Note: With move to ScriptureV2, this class was replaced with nextgen.core.writers.PairedEndWriter 
+ * and nextgen.core.readers.PairedEndReader
  */
 public class SAMPairedEndFileReader implements AlignmentQueryReader {
 	

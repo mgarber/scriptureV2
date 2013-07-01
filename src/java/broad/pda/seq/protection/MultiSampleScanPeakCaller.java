@@ -302,10 +302,10 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		controlSamples = new ArrayList<SampleData>();
 		numControls = controlSamples.size();
 		signalSamples = new ArrayList<SampleData>();
-		SampleData signalSample = new SampleData(signalBamFile, firstReadTranscriptionStrand, genes, windowSize, stepSize, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, true);
+		SampleData signalSample = new SampleData(signalBamFile, firstReadTranscriptionStrand, genes, windowSize, stepSize, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, true, false);
 		signalSamples.add(signalSample);
 		numSignals = signalSamples.size();
-		expressionData = new GenomeSpaceSampleData(expressionBamFile, chrSizeFile, genes, windowSize, stepSize, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF);
+		expressionData = new GenomeSpaceSampleData(expressionBamFile, chrSizeFile, genes, windowSize, stepSize, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, true);
 		allSamples = new ArrayList<SampleData>();
 		allSamples.addAll(controlSamples);
 		allSamples.addAll(signalSamples);
@@ -1378,7 +1378,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 						}
 					}
 					logger.info("Creating sample data object for gene expression from bam file " + bamFile);
-					GenomeSpaceSampleData sample = new GenomeSpaceSampleData(bamFile, sizeFile, genes, windowSize, stepSize, cutoff);
+					GenomeSpaceSampleData sample = new GenomeSpaceSampleData(bamFile, sizeFile, genes, windowSize, stepSize, cutoff, true);
 					expressionSampleData = sample;
 					foundExpressionData = true;
 					continue;
@@ -1395,7 +1395,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 							crashWithHelpMessage();
 						}
 					}
-					SampleData sample = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval);
+					SampleData sample = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval, false);
 					controlData.add(sample);
 					continue;
 				}
@@ -1411,7 +1411,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 							crashWithHelpMessage();
 						}
 					}
-					SampleData sample = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval);
+					SampleData sample = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval, false);
 					signalData.add(sample);
 					continue;
 				}

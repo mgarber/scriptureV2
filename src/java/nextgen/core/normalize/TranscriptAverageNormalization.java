@@ -52,7 +52,7 @@ public class TranscriptAverageNormalization implements NormalizedCount {
 		logger.info("Instantiating normalization object. Each count will be normalized to the average over the transcript.");
 		regionAverages = new TreeMap<Annotation, Double>();
 		data = alignmentData;
-		rawCounts = new RawCounts(data);
+		rawCounts = new RawCounts(data, false);
 		childToParent = childToParentAnnotation;
 	}
 	
@@ -121,6 +121,11 @@ public class TranscriptAverageNormalization implements NormalizedCount {
 			sum += d.doubleValue();
 		}
 		regionAverages.put(region, Double.valueOf(sum / numCounts));
+	}
+
+	@Override
+	public String getNormalizationName() {
+		return NormalizedCount.TRANSCRIPT_AVERAGE_NORMALIZATION_NAME;
 	}
 
 	

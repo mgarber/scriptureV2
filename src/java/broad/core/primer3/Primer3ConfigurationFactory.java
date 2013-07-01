@@ -136,6 +136,47 @@ public class Primer3ConfigurationFactory {
     }    
     
     /**
+     * Get Primer3 configuration to design primers for deletion of plasmid DNA
+     * @param optimalProductSize Optimal product size, probably the full plasmid length
+     * @param minProductSize Minimum product size
+     * @param maxProductSize Maximum product size
+     * @return The Primer3 configuration
+     */
+    public static Primer3Configuration getPlasmidDeletionConfiguration(int optimalProductSize, int minProductSize, int maxProductSize) {
+        Primer3Configuration config = new Primer3Configuration();
+        config.optimalMeltingTemp = 60.0;
+        config.maxMeltingTemp = 64.0;
+        config.minMeltingTemp = 58.0;
+        config.interpretBasesLiberally = true;
+        config.minQualityScore = 0;
+        config.minGCContent = 40.0;
+        config.maxGCContent = 60.0;
+        config.useGCClamp = true;
+        config.saltConcentration = 50.0;
+        config.DNAConcentration = 50.0;
+        config.numNBasesAccepted = 0;
+        config.selfAnyAlignScore = 5.0;
+        config.selfEndAlignScore = 2.0;
+        config.optimalPrimerSize = 23;
+        config.minPrimerSize = 18;
+        config.maxPrimerSize = 30;
+        config.optimalProductSize = optimalProductSize;
+        config.maxProductSize = maxProductSize;
+        config.minProductSize = Math.max(minProductSize, 2*config.maxPrimerSize);
+        config.underProductSizePenaltyWeight = 0.05;
+        config.maxNumPrimersToReturn = 1;
+        config.canViolateConstraints = true;
+        config.primerWindowSize = 0;
+        config.overLengthPenaltyWeight=0.01;
+        config.underLengthPenaltyWeight=0.01;
+        config.underMeltingTempPenaltyWeight=0.05;
+        config.overMeltingTempPenaltyWeight=0.05;
+
+        return config;
+    }
+
+    
+    /**
      * Returns the primer3 configuration used for
      * short range PCR
      * @return the primer3 configuration used for
@@ -545,6 +586,9 @@ public class Primer3ConfigurationFactory {
 
         return config;
     }
+    
+    
+    
 	public static Primer3Configuration getSyntheticConfiguration() {
 		Primer3Configuration config = new Primer3Configuration();
         config.optimalMeltingTemp = 60.0;

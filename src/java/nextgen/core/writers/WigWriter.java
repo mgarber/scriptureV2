@@ -243,7 +243,7 @@ public class WigWriter {
 		}
 		normalize = nor;
 		if(normalize) normalization = new TranscriptAverageNormalization(alignmentData);
-		else normalization = new RawCounts(alignmentData);
+		else normalization = new RawCounts(alignmentData, false);
 	}
 	
 	/**

@@ -908,10 +908,12 @@ public class PipelineAutomator {
 				data.addFilter(new GenomicSpanFilter(configP.fragmentSizeOptions.getMaxGenomicSpan()));
 				for(String seqName : sequenceSizes.keySet()) {
 					Annotation seq = gs.getReferenceAnnotation(seqName);
-					EmpiricalDistribution seqDistrib = data.getReadSizeDistribution(seq, gs, configP.fragmentSizeOptions.getMaxFragmentSize(), configP.fragmentSizeOptions.getNumBins());
-					if(seqDistrib.getAllDataValues().isEmpty()) continue;
-					double median = seqDistrib.getMedianOfAllDataValues();
-					medianBySequence.put(seqName, Double.valueOf(median));
+					try {
+						double median = data.getMedianReadSize(seq, gs, configP.fragmentSizeOptions.getMaxFragmentSize(), configP.fragmentSizeOptions.getNumBins());
+						medianBySequence.put(seqName, Double.valueOf(median));
+					} catch (IllegalArgumentException e) {
+						continue;
+					}
 				}
 				mediansBySample.put(sample, medianBySequence);
 			}

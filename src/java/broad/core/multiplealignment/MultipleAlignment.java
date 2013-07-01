@@ -158,7 +158,7 @@ public class MultipleAlignment  {
 					seq.setId(seqId);
 					addSequence(seq);
 				}
-				seq.appendToSequence(decodeShort(col.get(seqId)));
+				seq.append(decodeShort(col.get(seqId)));
 			}
 		}
 		
@@ -184,7 +184,7 @@ public class MultipleAlignment  {
 				val++;
 				cummProb +=  seqData.get(val,0);
 			}
-			seq.appendToSequence(decodeShort(val));
+			seq.append(decodeShort(val));
 		}
 		
 	}
@@ -208,7 +208,7 @@ public class MultipleAlignment  {
 					seq.setId(seqId);
 					addSequence(seq);
 				}
-				seq.appendToSequence(decodeShort(region.get(seqId)[i]));
+				seq.append(decodeShort(region.get(seqId)[i]));
 			}
 		}
 		
@@ -300,7 +300,7 @@ public class MultipleAlignment  {
 				AlignedSequence seq = sampled.getAlignedSequence(seqId);
 				List<Character> seqChars = sequenceCharacters.get(seqId);
 				for(int j = 0; j < numConsecutiveCols; j++) {
-					seq.appendToSequence(seqChars.get(col + j));
+					seq.append(seqChars.get(col + j));
 				}
 			}
 		}
@@ -336,7 +336,7 @@ public class MultipleAlignment  {
 				String seqId = seqIdIt.next();
 				AlignedSequence seq = alignments.get(seqId);
 				List<Character> seqChars = sequenceCharacters.get(seqId);
-				seq.appendToSequence(seqChars.remove(pos));
+				seq.append(seqChars.remove(pos));
 			}
 			length--;
 		}		
@@ -559,7 +559,7 @@ public class MultipleAlignment  {
 				if (otherSeq == null) {
 					throw new IllegalStateException("Sequence " + thisSeq.getName() +" has no entry in other alignment, can't append alignment"); 
 				}
-				thisSeq.appendToSequence(otherSeq.getSequenceBases());
+				thisSeq.append(otherSeq.getSequenceBases());
 				thisSeq.setEnd(thisSeq.getEnd() + otherSeq.getUngappedLength());
 			}
 		}
