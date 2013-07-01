@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import org.apache.commons.collections15.Predicate;
 import org.apache.log4j.Logger;
@@ -93,8 +94,8 @@ public class AddEndRNASeqToScripture {
 		
 		isoformMap = buildIsoformMap(annotations);
 				
-		numberOfIsoformsPerGene(outputName,fullBam);
-		//findCompleteTranscripts(outputName);
+		//numberOfIsoformsPerGene(outputName,fullBam);
+		findCompleteTranscripts(outputName);
 	}
 	
 	
@@ -116,8 +117,8 @@ public class AddEndRNASeqToScripture {
 		
 		isoformMap = buildIsoformMap(annotations);
 				
-		numberOfIsoformsPerGene(outputName,fullBam);
-		//findCompleteTranscripts(outputName);
+		//numberOfIsoformsPerGene(outputName,fullBam);
+		findCompleteTranscripts(outputName);
 	}
 
 	public static IsoformMap buildIsoformMap(Map<String,Collection<Gene>> ann){
@@ -253,8 +254,10 @@ public class AddEndRNASeqToScripture {
 			int numPartialMult = 0;
 			int num5pPartialMult = 0;
 			int num3pPartialMult = 0;
+			logger.info("Processing "+chr);
 			//If 5' or 3' end RNA-seq does not have data for it, dont run
-			if(model5p.getRefSequenceLambda(chr)==0.0 || model3p.getRefSequenceLambda(chr)==0.0){
+			if(model5p.getRefSequenceLambda(chr)==0.0 
+					|| model3p.getRefSequenceLambda(chr)==0.0){
 				logger.warn(chr +" is not expressed in end RNA-seq");
 			}
 			else{
@@ -550,6 +553,7 @@ public class AddEndRNASeqToScripture {
 		bw3pBed.close();
 		
 		trimAndExtendBestIsoform(geneTo5pPeakMap,geneTo3pPeakMap,outputName);
+		trimAndExtendAllIsoforms(geneTo5pPeakMap,geneTo3pPeakMap,outputName);
 	}
 	
 	/**
@@ -660,6 +664,147 @@ public class AddEndRNASeqToScripture {
 				}
 				//logger.info(edited.toBED());
 				bwBed.write(edited.toBED()+"\n");
+			}
+		}
+		bw.write("Genes with trimmed 5p ends: "+trim5p+"\n");
+		bw.write("Genes with extended 5p ends: "+extend5p+"\n");
+		bw.write("Genes with trimmed 3p ends: "+trim3p+"\n");
+		bw.write("Genes with extended 3p ends: "+extend3p+"\n");
+		bwBed.close();
+		bw.close();
+	}
+	
+	/**
+	 * Trims or extends transcripts at 5' and/or 3' end to the best peak.
+	 * @param geneTo5pPeakMap
+	 * @param geneTo3pPeakMap
+	 * @param outputName
+	 * @throws IOException
+	 */
+	private void trimAndExtendAllIsoforms(Map<Gene,List<Annotation>> geneTo5pPeakMap,Map<Gene,List<Annotation>> geneTo3pPeakMap,String outputName) throws IOException{
+		
+		BufferedWriter bwBed = new BufferedWriter(new FileWriter(outputName+".trimmed.all.bed"));
+		BufferedWriter bw = new BufferedWriter(new FileWriter(outputName+".trimmed.all.summary.txt"));
+		
+		int trim5p =0;
+		int extend5p = 0;
+		int trim3p = 0;
+		int extend3p=0;
+		//For each chromosome in the annotation set
+		for(String chr:annotations.keySet()){
+			//For each gene
+			for(Gene gene:annotations.get(chr)){
+				
+				boolean geneTrimmed = false;
+				boolean peakTrimmed = false;
+				
+				Collection<Gene> editedGenes = new TreeSet<Gene>();
+				//if there is a 5' peak for this gene
+				if(geneTo5pPeakMap.containsKey(gene)){
+					
+					//For each peak
+					for(Annotation peak5:geneTo5pPeakMap.get(gene)){
+						//A new gene copy
+						Gene edited = gene.copy();
+						if(gene.isNegativeStrand()){ 
+							if(peak5.getEnd()>gene.getEnd()){
+								extend5p++;
+								edited.setEnd(peak5.getEnd());
+								geneTrimmed=true;
+								peakTrimmed=true;
+							}
+							else{
+								if(peak5.getEnd()<gene.getEnd()){
+									if(peak5.getEnd()>gene.getStart()){
+										trim5p++;
+										edited.setEnd(peak5.getEnd());
+										geneTrimmed=true;
+										peakTrimmed=true;
+									}
+									else{
+										logger.info("For "+gene.getName()+" the 5' end is downstream of 3' end.");
+									}
+								}
+							}
+						}
+						else{
+							if(peak5.getStart()<gene.getStart()){
+								extend5p++;
+								edited.setStart(peak5.getStart());
+								geneTrimmed=true;
+								peakTrimmed=true;
+							}
+							else{
+								if(peak5.getStart()>gene.getStart()){
+									if(peak5.getStart()<gene.getEnd()){
+										trim5p++; 
+										edited.setStart(peak5.getStart());
+										geneTrimmed=true;
+										peakTrimmed=true;
+									}
+									else{
+										logger.info("For "+gene.getName()+" the 5' end is downstream of 3' end.");
+									}
+								}
+							}
+						}
+						if(peakTrimmed){
+							editedGenes.add(edited);
+						}
+					}
+					//If none of the peaks were used for trimming
+					if(!geneTrimmed)
+						editedGenes.add(gene.copy());
+
+				}
+				//if there is a 3' peak for this gene
+				if(geneTo3pPeakMap.containsKey(gene)){
+					
+					//For each 3' peak
+					for(Annotation peak3:geneTo3pPeakMap.get(gene)){
+						
+						//For each edited gene
+						for(Gene edited:editedGenes){
+							if(gene.isNegativeStrand()){ 
+								if(peak3.getStart()<edited.getStart()){
+									extend3p++;
+									edited.setStart(peak3.getStart());
+								}
+								else{
+									if(peak3.getStart()>edited.getStart()){
+										if(peak3.getStart()<edited.getEnd()){
+											trim3p++;
+											edited.setStart(peak3.getStart());
+										}
+										else{
+											logger.info("For "+gene.getName()+" the 3' end is upstream of 5' end.");
+										}
+									}
+								}
+							}
+							else{
+								if(peak3.getEnd()>edited.getEnd()){
+									extend3p++;
+									edited.setEnd(peak3.getEnd());
+								}
+								else{
+									if(peak3.getEnd()<edited.getEnd()){
+										if(peak3.getEnd()>edited.getStart()){
+											trim3p++;
+											edited.setEnd(peak3.getEnd());
+										}
+										else{
+											logger.info("For "+gene.getName()+" the 3' end is upstream of 5' end.");
+										}
+									}
+								}
+								
+							}
+							bwBed.write(edited.toBED()+"\n");
+						}
+					}
+				}
+				//logger.info(edited.toBED());
 			}
 		}
 		bw.write("Genes with trimmed 5p ends: "+trim5p+"\n");
@@ -978,8 +1123,8 @@ public class AddEndRNASeqToScripture {
 		
 		logger.info("Checking strand equality:");
 
-		//new AddEndRNASeqToScripture(new File(argMap.getMandatory("5p")),new File(argMap.getMandatory("3p")),strand,argMap.getMandatory("annotations"),argMap.getOutput(),argMap.getInteger("window", DEFAULT_WINDOW_SIZE),new File(argMap.getMandatory("full")),argMap.getInteger("extension", DEFAULT_EXTENSION));
-		new AddEndRNASeqToScripture(strand,argMap.getMandatory("annotations"),argMap.getOutput(),argMap.getInteger("window", DEFAULT_WINDOW_SIZE),new File(argMap.getMandatory("full")),argMap.getInteger("extension", DEFAULT_EXTENSION));
+		new AddEndRNASeqToScripture(new File(argMap.getMandatory("5p")),new File(argMap.getMandatory("3p")),strand,argMap.getMandatory("annotations"),argMap.getOutput(),argMap.getInteger("window", DEFAULT_WINDOW_SIZE),new File(argMap.getMandatory("full")),argMap.getInteger("extension", DEFAULT_EXTENSION));
+		//new AddEndRNASeqToScripture(strand,argMap.getMandatory("annotations"),argMap.getOutput(),argMap.getInteger("window", DEFAULT_WINDOW_SIZE),new File(argMap.getMandatory("full")),argMap.getInteger("extension", DEFAULT_EXTENSION));
 
 	}
 	

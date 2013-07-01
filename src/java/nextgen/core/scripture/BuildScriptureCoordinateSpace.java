@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -19,31 +20,36 @@ import org.apache.commons.collections15.Predicate;
 import org.apache.log4j.Logger;
 import org.jgrapht.GraphPath;
 
+import broad.core.annotation.MaximumContiguousSubsequence;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.datastructures.Pair;
+import broad.core.math.Statistics;
 import broad.core.util.CollapseByIntersection;
 import broad.pda.datastructures.Alignments;
 import broad.pda.seq.graph.Path;
 import broad.pda.seq.segmentation.AlignmentDataModelStats;
-import broad.pda.seq.segmentation.ReadFilter;
 
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.Annotation;
+import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.CoordinateSpace;
+import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.general.CloseableFilterIterator;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.readFilters.CanonicalSpliceFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.IndelFilter;
-import nextgen.core.readFilters.NoSpliceFilter;
 import nextgen.core.readFilters.PairedAndProperFilter;
 import nextgen.core.readFilters.ProperPairFilter;
+import nextgen.core.readFilters.SameOrientationFilter;
+import nextgen.core.readFilters.SplicedReadFilter;
 import nextgen.core.scripture.OrientedChromosomeTranscriptGraph.TranscriptGraphEdge;
+import nextgen.core.scripture.statistics.ConnectDisconnectedTranscripts;
 
 public class BuildScriptureCoordinateSpace {
 
@@ -55,16 +61,19 @@ public class BuildScriptureCoordinateSpace {
 	private Map<String, ChromosomeTranscriptGraph> graphs;
 	private static boolean forceStrandSpecificity=true; //TODO This should be passed or at least determined from data
 	private static double DEFAULT_MIN_COV_THRESHOLD = 0.1;
-	private static double MIN_SPLICE_PERCENT = 0.10;
+	private static double MIN_SPLICE_PERCENT = 0.05;
 	private double coveragePercentThreshold = DEFAULT_MIN_COV_THRESHOLD;
 	private static TranscriptionRead DEFAULT_TXN_READ = TranscriptionRead.UNSTRANDED;
 	String outName = null;
-	private double DEFAULT_ALPHA = 0.001;
+	private double DEFAULT_ALPHA = 0.01;
 	private static double MIN_SPLICE_READS = 3.0;
 	private double THRESHOLD_SPURIOUS = 0.95;
 	int counter = 1000;
 	int globalCounter = 1000;
 	File bamFileName;
+	private int constant = 10000;
+	private double globalPairedLambda=0.0;
+	File bamfile;
 	//double globalFragments;
 	
 	public BuildScriptureCoordinateSpace(File bamFile){
@@ -91,18 +100,13 @@ public class BuildScriptureCoordinateSpace {
 	 */
 	public BuildScriptureCoordinateSpace(File bamFile,double threshold,String genomeDir,String outputName,boolean forceStrandedness,TranscriptionRead strand){
 			
+		bamfile=bamFile;
 		this.graphs=new TreeMap<String, ChromosomeTranscriptGraph>();
 		genomeSeq = genomeDir;
 		bamFileName = bamFile;
 		forceStrandSpecificity = forceStrandedness;
-		model=new AlignmentModel(bamFile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
-		model.addFilter(new ProperPairFilter());
-		model.addFilter(new IndelFilter());
-		model.addFilter(new GenomicSpanFilter(20000000));
-		this.space=model.getCoordinateSpace();
-		//logger.info("Count: "+model.getCount(new BasicAnnotation("chr6",52062677,52064112,Strand.NEGATIVE),true));
 		outName = outputName;
-		coveragePercentThreshold = threshold;
+		coveragePercentThreshold = DEFAULT_MIN_COV_THRESHOLD;//threshold;
 //		globalFragments = calculateGlobalFragments();
 		logger.info("Parameters used: " +
 				"\nSpurious Filter: "+THRESHOLD_SPURIOUS+
@@ -116,7 +120,7 @@ public class BuildScriptureCoordinateSpace {
 		assemble(strand);
 		
 		Map<String, Collection<Gene>> rtrn=getPaths();
-		try {
+/*		try {
 			FileWriter writer=new FileWriter(outName+".08graph.all.paths.bed");
 			for(String chr: rtrn.keySet()){
 				for(Gene g:rtrn.get(chr)){
@@ -126,16 +130,16 @@ public class BuildScriptureCoordinateSpace {
 			writer.close();
 		} catch (IOException e) {
 			e.printStackTrace();
-		}
+		}*/
 		
 		try {
-			FileWriter writer=new FileWriter(outName+".09pairedGenes.bed");
-			FileWriter writer2=new FileWriter(outName+".09pairedCounts.txt");
+			FileWriter writer=new FileWriter(outName+".pairedGenes.bed");
+			FileWriter writer2=new FileWriter(outName+".pairedCounts.txt");
 			Map<String, Collection<Gene>> genes = setFPKMScores(rtrn,writer,writer2);
 			writer.close();
 			writer2.close();
 
-			write(outName+".10final.paths.bed",genes);
+//			write(outName+".10final.paths.bed",genes);
 			
 			postProcess(genes);
 		} catch (IOException e) {
@@ -154,19 +158,14 @@ public class BuildScriptureCoordinateSpace {
 	 */
 	public BuildScriptureCoordinateSpace(File bamFile,double threshold,String genomeDir,String outputName,boolean forceStrandedness,TranscriptionRead strand,String chr){
 			
+		bamfile=bamFile;
 		this.graphs=new TreeMap<String, ChromosomeTranscriptGraph>();
 		genomeSeq = genomeDir;
 		bamFileName = bamFile;
 		forceStrandSpecificity = forceStrandedness;
-		this.model=new AlignmentModel(bamFile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
-		model.addFilter(new ProperPairFilter());
-		model.addFilter(new IndelFilter());
-		model.addFilter(new GenomicSpanFilter(20000000));
-		this.space=model.getCoordinateSpace();
-		//logger.info("Count: "+model.getCount(new BasicAnnotation("chr6",52062677,52064112,Strand.NEGATIVE),true));
-//		globalFragments = calculateGlobalFragments();
+
 		outName = outputName;
-		coveragePercentThreshold = threshold;
+		coveragePercentThreshold = DEFAULT_MIN_COV_THRESHOLD;//threshold;
 		//assemble(strand);
 		logger.info("Parameters used: " +
 				"\nSpurious Filter: "+THRESHOLD_SPURIOUS+
@@ -181,7 +180,7 @@ public class BuildScriptureCoordinateSpace {
 		graphs.put(chr, graph);
 		
 		Map<String, Collection<Gene>> rtrn=getPaths();
-		try {
+/*		try {
 			FileWriter writer=new FileWriter(outName+".08graph.all.paths.bed");
 			for(Gene g:rtrn.get(chr)){
 				writer.write(g.toBED()+"\n");
@@ -190,15 +189,15 @@ public class BuildScriptureCoordinateSpace {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		
+*/		
 		try {
-			FileWriter writer=new FileWriter(outName+".09pairedGenes.bed");
-			FileWriter writer2=new FileWriter(outName+".09pairedCounts.txt");
+			FileWriter writer=new FileWriter(outName+".pairedGenes.bed");
+			FileWriter writer2=new FileWriter(outName+".pairedCounts.txt");
 			Map<String, Collection<Gene>> genes = setFPKMScores(rtrn,writer,writer2);
 			writer.close();
 			writer2.close();
 
-			write(outName+".10final.paths.bed",genes);
+//			write(outName+".10final.paths.bed",genes);
 			
 			postProcess(genes);
 		} catch (IOException e) {
@@ -251,7 +250,7 @@ public class BuildScriptureCoordinateSpace {
 					Gene branch2=overlappers.next();
 					if(!considered.contains(branch2)){
 						if(!branch1.equals(branch2) && compatible(branch1, branch2)){
-							logger.info("Merging: "+ branch1.getName()+ " and "+branch2.getName());
+							logger.debug("Merging: "+ branch1.getName()+ " and "+branch2.getName());
 							Collection<Annotation> rtrn=new TreeSet<Annotation>();
 							rtrn.addAll(branch1.getBlocks());
 							rtrn.addAll(branch2.getBlocks());
@@ -297,7 +296,9 @@ public class BuildScriptureCoordinateSpace {
 			newGenes.put(chr, finalSet);
 		}
 	
-		write(outName+".11postprocessed.paths.bed",newGenes);
+		//write(outName+".11postprocessed.paths.bed",newGenes);
+		write(outName+".scripture.paths.bed",newGenes);
+		connectDisconnectedTranscripts(newGenes);
 	}
 	
 	
@@ -309,35 +310,220 @@ public class BuildScriptureCoordinateSpace {
 		return graph;
 	}
 
-/*	private double calculateGlobalFragments(){
+	/**
+	 * This function connects disconnected reconstructions using paired end reads.
+	 * @param annotations
+	 * @throws IOException 
+	 */
+	private void connectDisconnectedTranscripts(Map<String, Collection<Gene>> annotations) throws IOException{
 		
-		logger.info("Calculating global fragments");
-		int counter = 0;
-		for(String chr: space.getReferenceNames()){
+		model.addFilter(new PairedAndProperFilter());
+		int loop=0;
+		boolean somethingWasConnected = true;
+		double medianInsertSize = model.getReadSizeDistribution(new TranscriptomeSpace(annotations), 800, 100).getMedianOfAllDataValues();
+		//double medianInsertSize = 600;
+		logger.info("Median size = "+medianInsertSize);
+
+		Map<String,Collection<Gene>> conn = null;
+		
+		while(somethingWasConnected || loop<10){
+			somethingWasConnected =false;
+			loop++;
 			
-			logger.info("PROCESSING "+chr);
-			//Get all proper paired reads 
-			CloseableFilterIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new PairedAndProperFilter());
-			while(iter.hasNext()){
-				Alignment read = iter.next();
-	  			//For each mate, find the least weight
-					double leastWeight = Double.MAX_VALUE;
-				for(Annotation mate:read.getReadAlignments(space)){
-					if(mate.)
+			logger.debug("Connected disconnected transcripts: Loop "+loop);
+			conn = new HashMap<String,Collection<Gene>>();
+			for(String chr:annotations.keySet()){
+				conn.put(chr, new TreeSet<Gene>());			
+			}
+			
+			for(String chr:annotations.keySet()){
+				//For all genes on this chromosome
+				logger.debug("Connecting, Processing "+chr);
+				Collection<Gene> newGenes = new TreeSet<Gene>();
+				//MAKE AN INTERVAL TREE OF THE GENES on this chr
+				IntervalTree<Gene> tree = new IntervalTree<Gene>();
+				for(Gene g:annotations.get(chr)){
+					conn.get(chr).add(g);
+					tree.put(g.getStart(), g.getEnd(), g);
 				}
-				globalFragments += read.getWeight();
-					counter++;
-				if(counter % 1000000 ==0){
-					logger.info("Processed "+globalFragments+" paired reads.");
-					memoryStats();
+				//For each transcript
+				//Iterate over all reconstructions
+				Iterator<Gene> iter=tree.toCollection().iterator();
+				while(iter.hasNext()){
+					Gene gene=iter.next();
+					//For all assemblies downstream of this assembly in 10kB regions
+					Iterator<Gene> overlappers=tree.overlappingValueIterator(gene.getEnd(), gene.getEnd()+constant);
+					
+					newGenes.add(gene);
+					while(overlappers.hasNext()){
+						Gene other = overlappers.next();
+						if(isCandidate(gene,other)){
+							if(pairedEndReadSpansTranscripts(gene, other)){ 
+								//if(secondTranscriptIsSingleExon(gene,other)){
+									logger.debug("Attempt to connect "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC());
+									
+									//Connect the genes
+									Annotation connected = getConnectedTranscript(gene,other,medianInsertSize);
+									if(connected!=null){
+										somethingWasConnected = true;
+										newGenes.remove(gene);
+										newGenes.add(new Gene(connected));
+										conn.get(chr).remove(gene);
+										conn.get(chr).remove(other);
+										conn.get(chr).add(new Gene(connected));
+									}
+								//}
+							}
+							else{
+								//logger.info("The genes "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC()+" do not have paired reads");
+							}
+						}
+					}				
 				}
 			}
-			iter.close();
+			annotations = conn;
 		}
-				
-		return globalFragments;
+		
+		//FileWriter bw = new FileWriter(outName+".12connected.bed");
+		FileWriter bw = new FileWriter(outName+".connected.bed");
+		for(String name:conn.keySet()){
+			Iterator<Gene> ter = conn.get(name).iterator();
+			while(ter.hasNext()){
+				Gene isoform = ter.next();
+				Gene iso = new Gene(trimEnds(isoform,0.1));
+				bw.write(iso.toBED()+"\n");
+			}
+		}
+		bw.close();
 	}
-*/	
+	
+	/**
+	 * Connect the two genes by fusing the last exon of the first and the first exon of the last gene
+	 * @param gene
+	 * @param other
+	 * @return
+	 * @throws IOException 
+	 */
+	private Annotation getConnectedTranscript(Gene gene,Gene other,double medianInsertSize) throws IOException{
+		
+		Pair<Gene> orderedGenes = ConnectDisconnectedTranscripts.getOrderedAssembly(gene, other);
+		Annotation connected = null;
+		/*
+		 * If the distance between the transcripts is less than the insert size,
+		 * paste through
+		 */
+		if(orderedGenes.getValue2().getStart()-orderedGenes.getValue1().getEnd() < medianInsertSize){
+			Gene firstGene = orderedGenes.getValue1().copy();
+			firstGene.setEnd(orderedGenes.getValue2().getStart());
+			connected = firstGene.union(orderedGenes.getValue2());
+		}
+		/*
+		 * If the distance between the transcripts is more than the insert size,
+		 * 		if there is at least 1 splice read spanning the junction,
+		 * 			union it
+		 */
+		else{
+			boolean flag= false;
+			Annotation junction = orderedGenes.getValue1().getLastExon().union(orderedGenes.getValue2().getFirstExon());
+			CloseableFilterIterator<Alignment> splicedIter=new CloseableFilterIterator<Alignment>(model.getOverlappingReads(junction,false), new SplicedReadFilter());
+			while(splicedIter.hasNext()){
+				Alignment read = splicedIter.next();
+				//if there is at least 1 splice read spanning the junction,
+				if(BuildScriptureCoordinateSpace.compatible(read,junction)){
+					flag=true;
+					break;
+				}
+			}
+			splicedIter.close();
+			if(flag){
+				connected = gene.union(other);				
+			}
+			/*
+			 * Else NO CONNECTION
+			 */
+		}
+		return connected;		
+	}
+	
+	/**
+	 * This function returns true if
+	 * 		1. gene and other do not overlap
+	 * 	    2. gene and other are in the same orientation
+	 * @param gene
+	 * @param other
+	 * @return
+	 */
+	private boolean isCandidate(Gene gene,Gene other){ 
+		
+		if(gene.overlaps(other)){
+			//logger.info(gene.getName()+" overlaps "+gene.toUCSC());
+			return false;
+		}
+		else{
+			//if transcript is in an intron of the other transcript
+			if(gene.getEnd()>other.getStart() && other.getEnd()>gene.getStart()){
+				//logger.info("One is inside the intron of the other");
+				return false;
+			}
+			if(gene.getOrientation().equals(other.getOrientation())){
+				//logger.debug("The orientation is same");
+				return true;
+			}
+		}
+		//logger.debug("Something else");
+		return false;
+	}
+	
+	/**
+	 * This function will return true if gene and other have at least 1 paired end read in common
+	 * @param gene
+	 * @param other
+	 * @return
+	 */
+	private boolean pairedEndReadSpansTranscripts(Gene gene,Gene other){
+		
+		boolean rtrn = false;
+		//Get all overlapping paired end reads in same orientation as the gene
+		CloseableFilterIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(new BasicAnnotation(gene.getChr(),gene.getStart(),other.getEnd()),false), new SameOrientationFilter(gene));
+		while(iter.hasNext()){
+			Alignment read = iter.next();
+			List<Annotation> mates = (List<Annotation>) read.getReadAlignments(model.getCoordinateSpace());
+			if(mates.get(0).getOrientation().equals(gene.getOrientation()) && mates.get(1).getOrientation().equals(gene.getOrientation())){
+				if((gene.overlaps(mates.get(0)) && other.overlaps(mates.get(1)))
+						||
+						gene.overlaps(mates.get(1)) && other.overlaps(mates.get(0))){
+					rtrn = true;
+					break;
+				}
+			}
+			
+		}
+		iter.close();
+		return rtrn;
+	}
+	
+	/**
+	 * Returns true if the transcript at the oriented 3' end is a single exon transcript.
+	 * @param gene
+	 * @param other
+	 * @return
+	 */
+	private boolean secondTranscriptIsSingleExon(Gene gene,Gene other){
+		
+		Pair<Gene> orderedGenes = ConnectDisconnectedTranscripts.getOrderedAssembly(gene, other);
+		if(gene.isNegativeStrand()){
+			if(orderedGenes.getValue1().getBlocks().size()==1){
+				return true;
+			}
+		}
+		else{
+			if(orderedGenes.getValue2().getBlocks().size()==1){
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	public static void write(String save, Map<String, Collection<Gene>> rtrn) throws IOException {
 		FileWriter writer=new FileWriter(save);
 		
@@ -357,21 +543,21 @@ public class BuildScriptureCoordinateSpace {
         //Getting the runtime reference from system
         Runtime runtime = Runtime.getRuntime();
          
-        logger.info("##### Heap utilization statistics [MB] #####");
+        logger.debug("##### Heap utilization statistics [MB] #####");
          
         //Print used memory
-        logger.info("Used Memory:"
+        logger.debug("Used Memory:"
             + (runtime.totalMemory() - runtime.freeMemory()) / mb);
  
         //Print free memory
-        logger.info("Free Memory:"
+        logger.debug("Free Memory:"
             + runtime.freeMemory() / mb);
          
         //Print total available memory
-        logger.info("Total Memory:" + runtime.totalMemory() / mb);
+        logger.debug("Total Memory:" + runtime.totalMemory() / mb);
  
         //Print Maximum available memory
-        logger.info("Max Memory:" + runtime.maxMemory() / mb);
+        logger.debug("Max Memory:" + runtime.maxMemory() / mb);
 	}
 	
 	/**
@@ -382,19 +568,22 @@ public class BuildScriptureCoordinateSpace {
 	 */
 	private ChromosomeTranscriptGraph assembleDirectly(String chr,TranscriptionRead strand){
 		
+		model=new AlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
+		model.addFilter(new ProperPairFilter());
+		model.addFilter(new IndelFilter());
+		model.addFilter(new GenomicSpanFilter(20000000));
+		this.space=model.getCoordinateSpace();
+
 		long S = System.currentTimeMillis();	
 		logger.info("Assembling spliced reads");
 		long start = System.currentTimeMillis();		
-
 		//SPLICED READS
-/*		CloseableFilterIterator<Alignment> splicedIter=new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new CanonicalSpliceFilter(genomeSeq));
+		CloseableFilterIterator<Alignment> splicedIter=new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new CanonicalSpliceFilter(genomeSeq));
 		IntervalTree<Assembly> splicedAssemblies=assembleDirectly(splicedIter,strand);
 		long end = System.currentTimeMillis();
-		logger.info("TIME: ASSEMBLE SPLICED: "+(end-start));
-		try{
-			write(splicedAssemblies, outName+"."+chr+"."+"01splicedAssemblies.bed");
-			}catch(IOException ex){}		
-		logger.info("Size of spliced assemblies: "+splicedAssemblies.size());*/
+		logger.debug("TIME: ASSEMBLE SPLICED: "+(end-start));
+		//try{write(splicedAssemblies, outName+"."+chr+"."+"01splicedAssemblies.bed");}catch(IOException ex){}		
+		logger.info("Size of spliced assemblies: "+splicedAssemblies.size());
 		
 		//NON_SPLICED READS
 /*		CloseableIterator<Alignment> iter=new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new NoSpliceFilter());
@@ -402,63 +591,63 @@ public class BuildScriptureCoordinateSpace {
 		end = System.currentTimeMillis();*/
 		
 		// ALL READS
-/*		CloseableIterator<Alignment> iter=model.getOverlappingReads(chr);
+		CloseableIterator<Alignment> iter=model.getOverlappingReads(chr);
 		IntervalTree<Assembly> workingAssemblies=assembleDirectly(iter, splicedAssemblies,strand);
-		end = System.currentTimeMillis();*/
+		end = System.currentTimeMillis();
 		
 		/*
 		 * ONLY ALL READS
-		 */
+		 */ 
+/*		long start = System.currentTimeMillis();
+		logger.info("Assembling all reads");
 		CloseableIterator<Alignment> iter=model.getOverlappingReads(chr);
 		IntervalTree<Assembly> workingAssemblies=assembleDirectly(iter, strand);
-		long end = System.currentTimeMillis();
-		logger.info("TIME: ASSEMBLE NON SPLICED: "+(end-start));
+		long end = System.currentTimeMillis();*/
+		logger.debug("TIME: ASSEMBLE NON SPLICED: "+(end-start));
 		logger.info("Size of direct assemblies: "+workingAssemblies.size());		
-		try{
-		write(workingAssemblies, outName+"."+chr+"."+"02directAssemblies.bed");
-		}catch(IOException ex){}
+		//try{write(workingAssemblies, outName+"."+chr+"."+"02directAssemblies.bed");}catch(IOException ex){}
 				
-		model=new AlignmentModel(bamFileName.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
+/*		model=new AlignmentModel(bamFileName.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
+		model.addFilter(new ProperPairFilter());
+		model.addFilter(new IndelFilter());
+		model.addFilter(new GenomicSpanFilter(20000000));*/
+		globalPairedLambda = model.getGlobalPairedFragments()/model.getGlobalLength();
 		logger.info("Intron retention filter");
 		//REMOVE SPURIOUS
 		start = System.currentTimeMillis();
 		IntervalTree<Assembly> unspuriousAssemblies = intronRetentionFilter(workingAssemblies,chr);
 		end = System.currentTimeMillis();
-		logger.info("TIME: REMOVE SPURIOUS: "+(end-start));
-		try{
-			write(unspuriousAssemblies, outName+"."+chr+"."+"03intronRetentionAssemblies.bed");
-			}catch(IOException ex){}
+		logger.debug("TIME: REMOVE SPURIOUS: "+(end-start));
+		//try{write(unspuriousAssemblies, outName+"."+chr+"."+"03intronRetentionAssemblies.bed");}catch(IOException ex){}
 									
 		logger.info("Merge assemblies");
 		start = System.currentTimeMillis();
 		mergeAssembly(unspuriousAssemblies);
 		end = System.currentTimeMillis();
-		logger.info("TIME: MERGE: "+(end-start));
-		try{write(unspuriousAssemblies, outName+"."+chr+"."+"04mergedAssemblies.bed");}catch(IOException ex){}
+		logger.debug("TIME: MERGE: "+(end-start));
+		//try{write(unspuriousAssemblies, outName+"."+chr+"."+"04mergedAssemblies.bed");}catch(IOException ex){}
 
 		logger.info("Extend compatible assemblies");
 		start = System.currentTimeMillis();
 		extendAssembly(unspuriousAssemblies);
 		end = System.currentTimeMillis();
-		logger.info("TIME: BRANCHING: "+(end-start));
-		try{write(unspuriousAssemblies, outName+"."+chr+"."+"05extendedAssemblies.bed");}catch(IOException ex){}
+		logger.debug("TIME: BRANCHING: "+(end-start));
+		//try{write(unspuriousAssemblies, outName+"."+chr+"."+"05extendedAssemblies.bed");}catch(IOException ex){}
 				
 		logger.info("Remove premature assemblies");
 		start = System.currentTimeMillis();
 		// Flag and remove premature
 		IntervalTree<Assembly> filteredAssemblies = removePrematureAssemblies(unspuriousAssemblies);
 		end = System.currentTimeMillis();
-		logger.info("TIME: FILTER PREMATURE: "+(end-start));
+		logger.debug("TIME: FILTER PREMATURE: "+(end-start));
 		//IntervalTree<Assembly> filteredAssemblies = removePrematureAssembliesUsingPairedEnds(unspuriousAssemblies);
-		try{
-			write(filteredAssemblies, outName+"."+chr+"."+"06filteredAssemblies.bed");
-			}catch(IOException ex){}
+		//try{write(filteredAssemblies, outName+"."+chr+"."+"06filteredAssemblies.bed");}catch(IOException ex){}
 
 		start = System.currentTimeMillis();
 		IntervalTree<Assembly> highSplicedAssemblies = removeLowSpliceJunctionAssemblies(filteredAssemblies);
 		end = System.currentTimeMillis();
-		logger.info("TIME: REMOVE LOW SPLICED JUNCTIONS: "+(end-start));
-		try{write(highSplicedAssemblies, outName+"."+chr+"."+"07highSplicedAssemblies.bed");}catch(IOException ex){}
+		logger.debug("TIME: REMOVE LOW SPLICED JUNCTIONS: "+(end-start));
+		//try{write(highSplicedAssemblies, outName+"."+chr+"."+"07highSplicedAssemblies.bed");}catch(IOException ex){}
 		
 		//Lets split potential preprocessed and mature transcripts and test whether to include certain nodes
 		
@@ -466,16 +655,16 @@ public class BuildScriptureCoordinateSpace {
 		//Make graph
 		ChromosomeTranscriptGraph graph=makeGraph(highSplicedAssemblies, chr); //TODO Should use the merged set
 		end = System.currentTimeMillis();
-		logger.info("TIME: MAKE GRAPH: "+(end-start));
+		logger.debug("TIME: MAKE GRAPH: "+(end-start));
 		long E = System.currentTimeMillis();	
-		logger.info("TIME: TOTAL "+(E-S));
+		logger.debug("TIME: TOTAL "+(E-S));
 		return graph;
 	}
 
 	private void extendAssembly(IntervalTree<Assembly> tree) {
 		//We have a set of assemblies that are all incompatible
 		//We want to link up parts
-		logger.info("Enter extend assembly");
+		logger.debug("Enter extend assembly");
 		//iterate through and get overlapping assemblies
 		Iterator<Assembly> iter=tree.toCollection().iterator();
 		Collection<Assembly> considered = new HashSet<Assembly>();
@@ -491,25 +680,24 @@ public class BuildScriptureCoordinateSpace {
 			Iterator<Assembly> overlappers=tree.overlappingValueIterator(assembly1.getStart(), assembly1.getEnd());
 			while(overlappers.hasNext()){
 				Assembly assembly2=overlappers.next();
-				//logger.info("Assembly1: "+assembly1.getName()+" Assembly2: "+assembly2.getName());
-				//logger.info("overlaps "+assembly2.toUCSC());
+				//logger.debug("Assembly1: "+assembly1.getName()+" Assembly2: "+assembly2.getName());
+				//logger.debug("overlaps "+assembly2.toUCSC());
 				if(!considered.contains(assembly2)){
 					//try and merge the non-overlapping portions
 					Collection<Assembly> merged=branchAssemblies(assembly1, assembly2);
 					if(!merged.isEmpty()){
-						logger.info("Branching "+assembly1.getName()+" and "+assembly2.getName());
+						logger.debug("Branching "+assembly1.getName()+" and "+assembly2.getName());
 						
 						//remove assembly1
 						tree.remove(assembly1.getStart(), assembly1.getEnd(), assembly1);
 						//remove assembly2
-						tree.remove(assembly2.getStart(), assembly2.getEnd(), assembly2);
-						
+						tree.remove(assembly2.getStart(), assembly2.getEnd(), assembly2);						
 						considered.remove(assembly1);
 						considered.remove(assembly2);
 						//currentAssemblies.remove(assembly1.getStart(), assembly1.getEnd(), assembly1);
 						//currentAssemblies.remove(assembly2.getStart(), assembly2.getEnd(), assembly2);
 						//add merged
-						//logger.info("No. of assemblies "+ merged.size());
+						//logger.debug("No. of assemblies "+ merged.size());
 						for(Assembly merge: merged){
 							tree.put(merge.getStart(), merge.getEnd(), merge);
 							considered.add(merge);
@@ -530,9 +718,9 @@ public class BuildScriptureCoordinateSpace {
 		
 		//go from first.getFirstExon() to second.getFirstExon
 		Annotation portionToConsiderAdding=orderedAssembly.getValue1().intersect(new Alignments(assembly1.getChr(), orderedAssembly.getValue1().getStart(), orderedAssembly.getValue2().getBlocks().iterator().next().getEnd()));
-		Annotation portionToTest = portionToConsiderAdding.minus(orderedAssembly.getValue2());
+//		Annotation portionToTest = portionToConsiderAdding.minus(orderedAssembly.getValue2());
 		//ONLY IF THE REGION OF THE PORTIONTOCONSIDERADDING THAT DOES NOT OVERLAP THE SECOND ASSEMBLY IS NOT SPLICED
-		if(portionToTest.getSpliceConnections().isEmpty()){
+//		if(portionToTest.getSpliceConnections().isEmpty()){
 			//if this is compatible with second assemebly
 			if(compatible(orderedAssembly.getValue2(), portionToConsiderAdding)){
 				Assembly merged=merge(portionToConsiderAdding, orderedAssembly.getValue2());
@@ -541,7 +729,7 @@ public class BuildScriptureCoordinateSpace {
 				rtrn.add(orderedAssembly.getValue1());
 				//System.out.println(merged);
 			}
-		}
+//		}
 		//get first exon of later start site exon
 		//trim assembly 2 from start till this point
 		//ask if compatible
@@ -607,7 +795,7 @@ public class BuildScriptureCoordinateSpace {
 						graph.connectVertexToGraph(blocks.get(0));
 					}
 					else{
-						logger.info(gene.getName()+" is not added to the graph because it does not pass the p-value threshold.");
+						logger.debug(gene.getName()+" is not added to the graph because it does not pass the p-value threshold.");
 					}
 				}
 				else{
@@ -616,7 +804,7 @@ public class BuildScriptureCoordinateSpace {
 						graph.addAnnotationToGraph(gene);
 			/*		}
 					else{
-						logger.info("Gene "+gene.toUCSC()+" is filtered out because it does not meet the significance threshold : "+pval);
+						logger.debug("Gene "+gene.toUCSC()+" is filtered out because it does not meet the significance threshold : "+pval);
 					}*/
 				}
 			}
@@ -640,7 +828,7 @@ public class BuildScriptureCoordinateSpace {
 			boolean countRead = true;
 			for(Annotation mate:read.getReadAlignments(space)){
 				if(!compatible(gene,mate)){
-					//logger.info("Read "+mate.toUCSC()+" is not compatible with isoform with "+isoform.getExons().length);
+					//logger.debug("Read "+mate.toUCSC()+" is not compatible with isoform with "+isoform.getExons().length);
 					countRead=false;
 					break;
 				}
@@ -651,7 +839,10 @@ public class BuildScriptureCoordinateSpace {
 			}
 		}
 		iter.close();
-		scores[1] = AlignmentDataModelStats.calculatePVal(new Double(scores[0]).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(gene), model.getGlobalLength());
+		//logger.debug("Count = "+scores[0]+" Int version "+new Double(scores[0]).intValue()+" global paired lambda = "+globalPairedLambda+" gene size = "+model.getCoordinateSpace().getSize(gene)+ " or "+gene.size()+" global length = "+model.getGlobalLength()+" global lambda = "+model.getGlobalLambda());
+		scores[1] = AlignmentDataModelStats.calculatePVal(new Double(scores[0]).intValue(), globalPairedLambda,gene.size(), model.getGlobalLength());
+		
+//		scores[1] = AlignmentDataModelStats.calculatePVal(new Double(scores[0]).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(gene), model.getGlobalLength());
 		
 		return scores;
 	}
@@ -662,7 +853,7 @@ public class BuildScriptureCoordinateSpace {
 		//if overlaps but is incompatible, see if we can branch
 		//iterate
 		Collection<Assembly> considered = new HashSet<Assembly>();
- 		logger.info("Enter merging");
+ 		logger.debug("Enter merging");
 		while(iter.hasNext()){
 			Assembly branch1=iter.next();
 			considered.add(branch1);
@@ -673,7 +864,7 @@ public class BuildScriptureCoordinateSpace {
 				Assembly branch2=overlappers.next();
 				if(!considered.contains(branch2)){
 					if(!branch1.equals(branch2) && compatible(branch1, branch2)){
-						logger.info("Merging: "+ branch1.getName()+ " and "+branch2.getName());
+						logger.debug("Merging: "+ branch1.getName()+ " and "+branch2.getName());
 						Assembly merged=merge(branch1, branch2);
 						merged.setName(branch1.getName());
 						//remove annotation1 and annotation2
@@ -714,7 +905,7 @@ public class BuildScriptureCoordinateSpace {
 				boolean	toRemoveAssembly1 = false;
 				//For all overlapping assemblies
 				Iterator<Assembly> overlappers=assemblies.overlappingValueIterator(assembly1.getStart(), assembly1.getEnd());
-				while(overlappers.hasNext()){
+				while(overlappers.hasNext() && !toRemoveAssembly1){
 					Assembly assembly2 = overlappers.next();
 					if(assembly1.getOrientation().equals(assembly2.getOrientation())){
 						//For all exons of this assembly
@@ -731,23 +922,23 @@ public class BuildScriptureCoordinateSpace {
 										double ratioE = exonCount/(intronCount+exonCount);
 										//CASE 1 : Assembly with intron is mature and assembly with exon is immature
 										if(ratioI>THRESHOLD_SPURIOUS){
-											logger.info("Comparing exon "+ exon2.toUCSC()+" in assembly "+assembly2.getName()+ " to intron "+intron1.toUCSC()+" in assembly "+assembly1.getName());
+											logger.debug("Comparing exon "+ exon2.toUCSC()+" in assembly "+assembly2.getName()+ " to intron "+intron1.toUCSC()+" in assembly "+assembly1.getName());
 											assembly2.setSpurious(true);
-											logger.info("CASE 1: assembly "+ assembly2.getName()+" is spurious. Intron count "+intronCount+" > "+exonCount+" Ratio: "+ratioI);
+											logger.debug("CASE 1: assembly "+ assembly2.getName()+" is spurious. Intron count "+intronCount+" > "+exonCount+" Ratio: "+ratioI);
 										}
 										else{
 											//CASE 2: Assembly with exon is real and the other 
 											if(ratioE>THRESHOLD_SPURIOUS){
 												//logger.warn(assembly.toUCSC()+" is filtered as pre-mature because "+exon1.toUCSC()+" overlaps "+intron2.toUCSC());
-												logger.info("Comparing exon "+ exon2.toUCSC()+" in assembly "+assembly2.getName()+ " to intron "+intron1.toUCSC()+" in assembly "+assembly1.getName());
+												logger.debug("Comparing exon "+ exon2.toUCSC()+" in assembly "+assembly2.getName()+ " to intron "+intron1.toUCSC()+" in assembly "+assembly1.getName());
 												assembly1.setSpurious(true);
 												toRemoveAssembly1 = true;
-												logger.info("CASE 2: assembly "+ assembly1.getName()+" is spurious.Exon count "+exonCount+" > "+intronCount+" Ratio: "+(ratioE));
+												logger.debug("CASE 2: assembly "+ assembly1.getName()+" is spurious.Exon count "+exonCount+" > "+intronCount+" Ratio: "+(ratioE));
 												break;
 											}
-											else{
+											//else{
 												//Both are real
-											}
+											//}
 										}
 									}
 								}
@@ -811,7 +1002,7 @@ public class BuildScriptureCoordinateSpace {
 						setConfidence(overlapper);
 					}
 					if(overlapper.isConfident()){
-						logger.warn("Compare " +assembly.getName()+" and "+overlapper.getName());
+						//logger.warn("Compare " +assembly.getName()+" and "+overlapper.getName());
 						//CHECK IF THE PARTS OF THE ASSEMBLY OTHER THAN THIS EXON OF THE ASSEMBLY) ARE COMPATIBLE
 						//For all exons of this assembly
 						for(Annotation exon1: assembly.getBlocks()){
@@ -865,13 +1056,13 @@ public class BuildScriptureCoordinateSpace {
 			
 			if(leftScore<rightScore){
 				if(leftScore<rightScore*coveragePercentThreshold){ 
-					logger.info(overlapper.getName()+" does not pass confidence test because "+exons[0].toUCSC()+" has score "+leftScore+" compared to "+
+					logger.debug(overlapper.getName()+" does not pass confidence test because "+exons[0].toUCSC()+" has score "+leftScore+" compared to "+
 								exons[1].toUCSC()+" which has "+rightScore);
 					overlapper.setConfident(false);
 				}
 			}else{
 				if(rightScore<leftScore*coveragePercentThreshold){
-					logger.info(overlapper.getName()+" does not pass confidence test because "+exons[1].toUCSC()+" has score "+rightScore+" compared to "+
+					logger.debug(overlapper.getName()+" does not pass confidence test because "+exons[1].toUCSC()+" has score "+rightScore+" compared to "+
 							exons[0].toUCSC()+" which has "+leftScore);
 					overlapper.setConfident(false);
 				}
@@ -983,8 +1174,8 @@ public class BuildScriptureCoordinateSpace {
 		if(intronCount!=0.0){
 			double ratio = exonCount/intronCount;
 			if(ratio<0.8){
-				logger.info("Paired end count for exon " +exon1.toUCSC()+" : "+exonCount);
-				logger.info("Paired end count for intron " +intron2.toUCSC()+" : "+intronCount+ " ratio = "+ratio);
+				logger.debug("Paired end count for exon " +exon1.toUCSC()+" : "+exonCount);
+				logger.debug("Paired end count for intron " +intron2.toUCSC()+" : "+intronCount+ " ratio = "+ratio);
 				return false;
 			}
 		}
@@ -1047,18 +1238,16 @@ public class BuildScriptureCoordinateSpace {
 		while(iter.hasNext()){
 			Assembly assembly=iter.next();
 			
+			boolean toRemove=false;
 			//If the assembly does not pass the confidence test, remove it
 			if(!assembly.isConfidentIsSet()){
-				logger.info("Confidence is set in the splice filter");
+				logger.debug("Confidence is set in the splice filter");
 				setConfidence(assembly);
 			}
 			if(!assembly.isConfident()){
 				logger.error(assembly.getName()+" removed because does not pass the confidence test.");
-			} else{
-				Map<Annotation,Double> intronToSplicedCountMap = new HashMap<Annotation,Double>();
-				double avgCount = 0.0;
-				boolean toRemove = false;
-				//IF THE GENE HAS ONE INTRON, NOTHING
+			} else{		
+				//IF THE GENE HAS ONE INTRON, check min #splice reads
 				if(assembly.getSpliceConnections().size()==1){
 					for(Annotation intron:assembly.getSpliceConnections()){
 						double count=model.getIntronCounts(intron);
@@ -1066,49 +1255,118 @@ public class BuildScriptureCoordinateSpace {
 							toRemove = true;
 						}
 					}
+					if(!toRemove)
+						currentAssemblies.put(assembly.getStart(), assembly.getEnd(), assembly);
 				}
 				else{
+					Map<Annotation,Double> intronToSplicedCountMap = new TreeMap<Annotation,Double>();
+					double avgCount = 0.0;
+					//boolean toRemove = false;
 					//for each intron
 					for(Annotation intron:assembly.getSpliceConnections()){
 						//find the number of supporting splice junctions
-						double count=model.getIntronCounts(intron);
-													
+						double count=model.getIntronCounts(intron);											
 						avgCount +=count;
 						intronToSplicedCountMap.put(intron, count);
 					}
 					
+					//Calculate average
 					avgCount = (avgCount / (double)intronToSplicedCountMap.keySet().size());
 					toRemove = false;
 					//Check for all introns
+					int cnt=0;
+					//First check the first and last intron. If they do not pass the threshold
+					//then trim and then go over this again.
 					for(Annotation intron:intronToSplicedCountMap.keySet()){
+						if(cnt==0 || cnt==intronToSplicedCountMap.keySet().size()-1){
+							if(intronToSplicedCountMap.get(intron)<=avgCount*MIN_SPLICE_PERCENT){
+								assembly = new Assembly(trimEnds(assembly,0.25));
+							}
+						}
+						cnt++;
+					}
+					
+					for(Annotation intron:assembly.getSpliceConnections()){
 						if(intronToSplicedCountMap.get(intron)<=avgCount*MIN_SPLICE_PERCENT){
+							//If  assembly is flagged to be removed because of an intron,
 							logger.error(assembly.getName()+" removed because intron "+intron.toUCSC()+" has coverage "+intronToSplicedCountMap.get(intron)+" compared to "+avgCount);
 							toRemove = true; 
-							break;
-						}
-						else{
-							//logger.error(intron.toUCSC()+" has coverage "+intronToSplicedCountMap.get(intron)+" passes");
+							//return true;
 						}
 					}
-				}
-				if(!toRemove){
-					//Removed by this filter but confidence was set to remove
-					if(!assembly.isConfident())
-						logger.info(assembly.getName()+" is NOT confident but RETAINED.");
-					currentAssemblies.put(assembly.getStart(), assembly.getEnd(), assembly);
-				}
-				else{
-					if(assembly.isConfident()){
-						logger.info(assembly.getName()+" is confident but REMOVED.");
+					if(!toRemove){
+						//Removed by this filter but confidence was set to remove
+						/*if(!assembly.isConfident())
+							logger.debug(assembly.getName()+" is NOT confident but RETAINED.");*/
+						currentAssemblies.put(assembly.getStart(), assembly.getEnd(), assembly);
 					}
-					/*else
-						logger.info(assembly.getName()+" : Confidence and filter agree.");*/
+					else{
+						//Assembly flagged to remove
+						logger.debug(assembly.getName()+" is confident but flagged to be REMOVED. Check trimming.");
+						//trimEnds(assembly);
+						
+					}
 				}
 			}
 		}
 		return currentAssemblies;
 	}
 
+	/**
+	 * Returns the assembly trimmed at both ends
+	 * @param assembly
+	 * @return
+	 */
+	private Annotation trimEnds(Annotation assembly,double pct){
+		
+		List<Double> counts = model.getCountsStrandedPerPosition(assembly);
+		double[] cntArr = l2a(counts);
+
+		Collections.sort(counts);		
+		double cutoff = Math.max(2, Statistics.quantile(counts, pct));
+/*		for(int i=0;i<assembly.size();i++){
+			System.out.print(cntArr[i]+" ");
+		}*/
+		int trimStart = MaximumContiguousSubsequence.contiguousStartSubSequenceOverMin(cntArr, cutoff);
+		int trimEnd   =  assembly.size() - MaximumContiguousSubsequence.contiguousEndSubSequenceOverMin(cntArr, cutoff);
+		logger.debug(assembly.getName()+" trimStart " + trimStart + " trimEnd " + trimEnd + ", transcript length " + assembly.size()+ " with cutoff "+cutoff);
+
+/*			int transcriptFirstExonEnd = assembly.getOrientation().equals(Strand.NEGATIVE) 
+					? assembly.getPositionAtReferenceCoordinate(assembly.getStart())
+					: assembly.getPositionAtReferenceCoordinate(assembly.getEnd()-1);
+
+			int transcriptLastExonStart = assembly.getOrientation().equals(Strand.NEGATIVE)
+						? assembly.getPositionAtReferenceCoordinate(assembly.getEnd()-1)
+						: assembly.getPositionAtReferenceCoordinate(assembly.getStart());
+				
+			logger.trace("first exon end in transcript " + transcriptFirstExonEnd + " last exon start " + transcriptLastExonStart);
+
+			if(trimStart > transcriptFirstExonEnd) {
+				trimStart = Math.max(0, transcriptFirstExonEnd - 50);
+			}	
+			if(trimEnd < transcriptLastExonStart) {
+				trimEnd = Math.min(align.getTranscriptLength(), transcriptLastExonStart + 50);
+			}	
+*/			
+		if(trimStart>trimEnd){
+			return assembly;
+		}
+		if(assembly.getOrientation().equals(Strand.NEGATIVE)){
+			int temp = trimStart;
+			trimStart = trimEnd;
+			trimEnd = temp;
+			logger.debug("Reset trimStart and TrimEnd to  " + trimStart + " - " + trimEnd);
+		}	
+			
+		Assembly newAssembly = new Assembly(assembly);
+			
+		if(((trimEnd+trimStart) < assembly.size()) && trimStart<trimEnd && trimStart<assembly.size() && trimEnd<assembly.size()){
+			newAssembly.trim(trimStart, trimEnd);
+			logger.debug("trimming ("+trimStart +" - "+ trimEnd+") gene was: " + assembly.toBED() + " and now is: " +newAssembly.toBED());
+		}
+		return newAssembly;
+	}
+	
 	/**
 	 * Helper function to removePrematureAssemblies
 	 * @param exon1
@@ -1150,12 +1408,12 @@ public class BuildScriptureCoordinateSpace {
 		if(overlapScore>=nonoverlapScore*coveragePercentThreshold){
 			//logger.error(exon1.toUCSC()+" passes coverage test with intron "+ intron2.toUCSC());
 			//logger.error(overlap.toUCSC()+" overlap coverage: "+overlapScore+" against "+nonoverlapScore);
-			logger.info("Intron boundary score for "+intronBoundary.toUCSC()+ " : "+overlapScore+" Exon boundary score for "+exonBoundary.toUCSC()+ " : "+nonoverlapScore);
+			//logger.debug("Intron boundary score for "+intronBoundary.toUCSC()+ " : "+overlapScore+" Exon boundary score for "+exonBoundary.toUCSC()+ " : "+nonoverlapScore);
 			return true;
 		}
 		else{
 			//logger.error(exon1.toUCSC()+" does not pass coverage test with intron "+ intron2.toUCSC());
-			logger.info("REMOVED: Intron boundary score for "+intronBoundary.toUCSC()+ " : "+overlapScore+" Exon boundary score for "+exonBoundary.toUCSC()+ " : "+nonoverlapScore);
+			logger.debug("REMOVED: Intron boundary score for "+intronBoundary.toUCSC()+ " : "+overlapScore+" Exon boundary score for "+exonBoundary.toUCSC()+ " : "+nonoverlapScore);
 			return false;
 		}		
 	}
@@ -1170,24 +1428,31 @@ public class BuildScriptureCoordinateSpace {
 	private IntervalTree<Assembly> assembleDirectly(CloseableIterator<Alignment> iter, IntervalTree<Assembly> workingAssemblies,TranscriptionRead strand) {
 		
 		String linc="gene_v2_";
-		
+		long cnt=0;
+		long start = System.currentTimeMillis();
+		int c=0;
 		boolean flagPremature=!workingAssemblies.isEmpty();
 		while(iter.hasNext()){
 			
-			Alignment reads=iter.next();
-			
-			//reads.setFragmentStrand(strand);	
-			
+			Alignment reads=iter.next();			
+			//reads.setFragmentStrand(strand);				
 			//For the assembly, we need to treat each read separately
 			for(Annotation read: reads.getReadAlignments(space)){
+				cnt++;
+				if(cnt%100000==0){
+					long end = System.currentTimeMillis();
+					logger.debug("Processed "+cnt+" reads in "+(end-start)/1000+" seconds with "+workingAssemblies.size()+" "+c);
+					start = System.currentTimeMillis();
+				}
 				
 				//Find all compatible assemblies
-				Collection<Assembly> compatibleAssemblies = new TreeSet<Assembly>();
-				
-				logger.info("New read : "+read.toUCSC()+" "+!read.getSpliceConnections().isEmpty());
+				Collection<Assembly> compatibleAssemblies = new ArrayList<Assembly>();
+
+/*				logger.debug("New read : "+read.toUCSC()+" "+!read.getSpliceConnections().isEmpty());
 				for(Assembly as:workingAssemblies.toCollection()){
-					logger.info(as.toUCSC()+"\t"+as.toBED());
-				}
+					logger.debug(as.toUCSC()+"\t"+as.toBED());
+				
+				}*/
 				//EACH READ HAS THE FRAGMENT STRAND
 				//for each read, get overlapping assemblies
 				Iterator<Node<Assembly>> overlappers=workingAssemblies.overlappers(read.getStart(), read.getEnd());
@@ -1202,52 +1467,86 @@ public class BuildScriptureCoordinateSpace {
 						readAssembly.setPossiblePremature(true);
 					}
 					workingAssemblies.put(readAssembly.getStart(), readAssembly.getEnd(), readAssembly);
-					//logger.info("READ HAS NO OVERLAPS. NEW ASSEMBLY");
+					c++;
 				}
 				else{
 					boolean hasCompatible=false;
-					Collection<Assembly> overlapNotCompatible = new TreeSet<Assembly>();
+//					Collection<Assembly> overlapNotCompatible = new TreeSet<Assembly>();
+//					long s1 = System.currentTimeMillis();
 					while(overlappers.hasNext()){
 						Collection<Assembly> assemblies=new TreeSet<Assembly>(overlappers.next().getContainedValues());
 						//Find all compatible assemblies
 						for(Assembly assembly: assemblies){
-							boolean isCompatible=compatible(assembly, read);
-							if(isCompatible){
+							if(compatible(assembly, read)){
 								compatibleAssemblies.add(assembly);
+								Assembly merged=merge(assembly, read);
+								merged.setName(assembly.getName());
+								//remove assembly
+								workingAssemblies.remove(assembly.getStart(), assembly.getEnd(), assembly);
+								//add merged
+								workingAssemblies.put(merged.getStart(), merged.getEnd(), merged);
 								hasCompatible=true;
 							}
-							else{
-								overlapNotCompatible.add(assembly);	
-							}
+/*							else{
+								if(assembly.overlaps(read)){
+									overlapNotCompatible.add(assembly);	
+								}
+							}*/
 						}
 						
 					}
+/*					if(cnt>2900){
+						logger.debug("compatible assemblies size "+compatibleAssemblies.size());
+						logger.debug("overlap not compatible "+overlapNotCompatible.size());
+					}*/
+					
 					//If some compatible assembly
-					if(hasCompatible & compatibleAssemblies.size()>0){
+/*					if(hasCompatible & compatibleAssemblies.size()>0){
+						//MERGE NON-OVERLAPPING ASSEMBLIES
 						if(compatibleAssemblies.size()>1){
 							Collection<Assembly> alreadyMerged = new HashSet<Assembly>();
 							Collection<String> names = new HashSet<String>();
-							//Compare all compatible assemblies to each other 
-							for(Assembly assembly1:compatibleAssemblies){
-								for(Assembly assembly2:compatibleAssemblies){
-									if(!(assembly1.equals(assembly2))){
+							boolean mergedFlag = false;
+							//Compare all compatible assemblies to each other
+							for (Iterator<Assembly> iterator = compatibleAssemblies.iterator(); iterator.hasNext();) {
+								Assembly assembly1 = iterator.next();
+								for (Iterator<Assembly> iterator2 = compatibleAssemblies.iterator(); iterator2.hasNext();) {
+									Assembly assembly2 = iterator2.next();
+									if(!(assembly1.equals(assembly2)) && (!names.contains(assembly2.getName()+"_"+assembly1.getName()))){
 										if(!assembly1.overlaps(assembly2) && assembly1.getOrientation().equals(assembly2.getOrientation())){
 											alreadyMerged.add(assembly1);
 											alreadyMerged.add(assembly2);
+											mergedFlag=true;
 											//Merge assembly1 and assembly2 and read
 											Assembly merged=merge(assembly1, read);
 											merged=merge(merged,assembly2);
+											for(Assembly a:workingAssemblies.toCollection()){
+												if(merged.equals(a)){
+													logger.debug("Merged: "+merged.toBED());
+													logger.debug("a = "+a.toBED());
+												}
+											}
 											String name =assembly1.getName()+"_"+assembly2.getName();
 											merged.setName(name);
-											if(!names.contains(assembly2.getName()+"_"+assembly1.getName())){
-												workingAssemblies.put(merged.getStart(), merged.getEnd(), merged);
-												names.add(name);
-											}
+											workingAssemblies.put(merged.getStart(), merged.getEnd(), merged);
+											c++;
+											names.add(name);
 										}
 									}
 								}
+								if(!mergedFlag){
+									Assembly merged=merge(assembly1, read);
+									merged.setName(assembly1.getName());
+									//remove assembly
+									workingAssemblies.remove(assembly1.getStart(), assembly1.getEnd(), assembly1);
+									//add merged
+									workingAssemblies.put(merged.getStart(), merged.getEnd(), merged);
+								}
+								iterator.remove();
 							}
+							
 							for(Assembly assembly:alreadyMerged){
+								c--;
 								workingAssemblies.remove(assembly.getStart(), assembly.getEnd(), assembly);
 							}
 						}
@@ -1265,72 +1564,30 @@ public class BuildScriptureCoordinateSpace {
 								workingAssemblies.put(merged.getStart(), merged.getEnd(), merged);
 							}
 						}
-					}
+					}*/
 					if(!hasCompatible){
-						if(overlapNotCompatible.isEmpty()){
-							Assembly readAssembly=new Assembly(read, false);
-							readAssembly.setName(linc+globalCounter);
-							globalCounter++;
-							if(flagPremature){
-								readAssembly.setPossiblePremature(true);
-							}
-							workingAssemblies.put(readAssembly.getStart(), readAssembly.getEnd(), readAssembly);
-						}
-						else{
+/*						boolean splittable =false;
+						if(!overlapNotCompatible.isEmpty()){
+//							s1 = System.currentTimeMillis();
 							for(Assembly assembly:overlapNotCompatible){
-								//OLD SPLIT
-/*								Collection<Assembly> branches=oldSplitBranch(assembly, read);
-								if(branches!=null && !branches.isEmpty()){
-									for(Assembly branch: branches){
-										branch.setName(linc+globalCounter);
-										globalCounter++;
-										//add merged assemblies to the tree
-										workingAssemblies.put(branch.getStart(), branch.getEnd(), branch);
+								if(read.getSpliceConnections().isEmpty()){
+									//OLD SPLIT
+									Collection<Assembly> branches=oldSplitBranch(assembly, read);
+									if(branches!=null && !branches.isEmpty()){
+										splittable=true;
+										for(Assembly branch: branches){
+											branch.setName(linc+globalCounter);
+											globalCounter++;
+											//add merged assemblies to the tree
+											workingAssemblies.put(branch.getStart(), branch.getEnd(), branch);
+										}
 									}
-								}*/
+								}
+								else{
 								//NEW SPLIT
-								Collection<Assembly> branches=newSplitBranch(assembly, read);
-								if(branches!=null && !branches.isEmpty()){
-									//remove assembly
-									//workingAssemblies.remove(assembly.getStart(), assembly.getEnd(), assembly);
-									for(Assembly branch: branches){
-										//add merged assemblies to the tree
-										branch.setName(linc+globalCounter);
-										globalCounter++;
-										workingAssemblies.put(branch.getStart(), branch.getEnd(), branch);
-									}
-								}	
-							}
-						}
-					}
-				}
-				
-/*				else{
-					boolean hasCompatible=false;
-					//store the overlappers
-					//else, test compatability between read and overlapping assembly
-					while(overlappers.hasNext()){
-						Collection<Assembly> assemblies=new TreeSet<Assembly>(overlappers.next().getContainedValues());
-						for(Assembly assembly: assemblies){
-							boolean isCompatible=compatible(assembly, read);
-							if(isCompatible){
-								//if compatible --> merge
-								Assembly merged=merge(assembly, read);
-								merged.setName(assembly.getName());
-								//remove assembly
-								workingAssemblies.remove(assembly.getStart(), assembly.getEnd(), assembly);
-								//add merged
-								workingAssemblies.put(merged.getStart(), merged.getEnd(), merged);
-								//set has compatable to true
-								hasCompatible=true;
-							}
-							else{
-								//Split only if read is spliced
-			//					if(!read.getSpliceConnections().isEmpty()){
-									//Split and branch partially compatible (partiallyCompatible(assembly, read))
-									//NEW SPLIT
 									Collection<Assembly> branches=newSplitBranch(assembly, read);
 									if(branches!=null && !branches.isEmpty()){
+										splittable=true;
 										//remove assembly
 										//workingAssemblies.remove(assembly.getStart(), assembly.getEnd(), assembly);
 										for(Assembly branch: branches){
@@ -1339,30 +1596,39 @@ public class BuildScriptureCoordinateSpace {
 											globalCounter++;
 											workingAssemblies.put(branch.getStart(), branch.getEnd(), branch);
 										}
-										//set hasCompatible to true
-										hasCompatible=true;
-									}	
-									
-									//OLD SPLIT
-									Collection<Assembly> branches=oldSplitBranch(assembly, read);
-									if(branches!=null && !branches.isEmpty()){
-										for(Assembly branch: branches){
-											//add merged assemblies to the tree
-											branch.setName(linc+globalCounter);
-											globalCounter++;
-											workingAssemblies.put(branch.getStart(), branch.getEnd(), branch);
-										}
-										//remove assembly
-										workingAssemblies.remove(assembly.getStart(), assembly.getEnd(), assembly);
-										//set hasCompatible to true
-										hasCompatible=true;
-									}	
-			//					}
-							}	
+									}
+								}
+								
+								//SOPHISTICATED SPLITTING
+//								Annotation portionToConsiderAdding=assembly.intersect(new Alignments(assembly.getChr(), assembly.getStart(), read.getBlocks().get(0).getEnd()));
+								if(assembly.getOverlappingAssembly(read)==null){
+									logger.debug("Assembly: "+assembly.toBED());
+									logger.debug("Read: "+read.toUCSC()+" "+!read.getSpliceConnections().isEmpty()+" "+assembly.overlaps(read));
+								}
+								Annotation portionToConsiderAdding=assembly.intersect
+										(new Alignments(assembly.getChr(), assembly.getStart(), 
+												(assembly.getOverlappingAssembly(read)).getEnd()));
+								if(compatible(portionToConsiderAdding,read)){
+									Assembly branch = merge(portionToConsiderAdding,read);
+									branch.setName(linc+globalCounter);
+									globalCounter++;
+									workingAssemblies.put(branch.getStart(), branch.getEnd(), branch);
+									c++;
+									splittable=true;
+								}
+							}
+							if(!splittable){
+								Assembly readAssembly=new Assembly(read, false);
+								readAssembly.setName(linc+globalCounter);
+								globalCounter++;
+								if(flagPremature){
+									readAssembly.setPossiblePremature(true);
+								}
+								workingAssemblies.put(readAssembly.getStart(), readAssembly.getEnd(), readAssembly);
+								c++;
+							}
 						}
-					}
-					if(!hasCompatible){
-						
+						else{*/
 							Assembly readAssembly=new Assembly(read, false);
 							readAssembly.setName(linc+globalCounter);
 							globalCounter++;
@@ -1370,10 +1636,11 @@ public class BuildScriptureCoordinateSpace {
 								readAssembly.setPossiblePremature(true);
 							}
 							workingAssemblies.put(readAssembly.getStart(), readAssembly.getEnd(), readAssembly);
-							//logger.info("READ IS ADDED AS A NEW ASSEMBLY");
+							c++;
+//						}
 					}
-				}*/
-
+				}
+				
 			}
 		}		
 		iter.close(); //close the iterator
@@ -1537,15 +1804,15 @@ public class BuildScriptureCoordinateSpace {
 		//Two alignments will be defined as compatible if:
 		//(i) the intronic locations are exactly same
 		//if both have introns, ensure that there are no non-overlapping introns
-		//logger.info(read.getName());
+		//logger.debug(read.getName());
 		if(!assembly.getSpliceConnections().isEmpty() 
 				|| !read.getSpliceConnections().isEmpty()){
 			//check if introns are compatible
 			if(areIntronsCompatible(assembly, read)){
-				//logger.info("Introns are compatible");
+				//logger.debug("Introns are compatible");
 				return true;
 			}
-			//logger.info("Introns are NOT compatible");
+			//logger.debug("Introns are NOT compatible");
 			//TODO In the case of partial compatibility we should split and make new path
 			return false;
 		}
@@ -1575,7 +1842,7 @@ public class BuildScriptureCoordinateSpace {
 				//if overlaps but not identical
 				if(intron1.overlaps(intron2,forceStrandSpecificity)){
 					if(!intron1.equals(intron2, forceStrandSpecificity)){
-					//	logger.info("Case1");
+					//	logger.debug("Case1");
 						return false;
 					} //TODO: This should use strand info or not based on flag
 				}
@@ -1586,7 +1853,7 @@ public class BuildScriptureCoordinateSpace {
 		for(Annotation exon1: assembly.getBlocks()){
 			for(Annotation intron2: readIntrons){
 				if(exon1.overlaps(intron2,forceStrandSpecificity)){
-					//logger.info("Case2a");
+					//logger.debug("Case2a");
 					return false;
 				}
 			}
@@ -1595,7 +1862,7 @@ public class BuildScriptureCoordinateSpace {
 		for(Annotation exon2: read.getBlocks()){
 			for(Annotation intron1: assemblyIntrons){
 				if(exon2.overlaps(intron1,forceStrandSpecificity)){
-					//logger.info("Case2b");
+					//logger.debug("Case2b");
 					return false;
 				}
 			}
@@ -1610,7 +1877,7 @@ public class BuildScriptureCoordinateSpace {
 				}
 			}
 		}
-		//logger.info("Case3");
+		//logger.debug("Case3");
 		return false;
 	}
 	
@@ -1829,7 +2096,7 @@ public class BuildScriptureCoordinateSpace {
 						
 			
 			if(!counted && this.alignsWithEdge(exon, introns)){
-				logger.info("aligns with edge "+exon.toUCSC());
+				logger.debug("aligns with edge "+exon.toUCSC());
 				spliced.add(exon); //These are likely legit
 				counted=true;
 			}
@@ -1846,7 +2113,7 @@ public class BuildScriptureCoordinateSpace {
 	private boolean notOverlapping(Annotation exon, Collection<Annotation> spliced) {
 		for(Annotation splic: spliced){
 			if(exon.overlaps(splic)){
-				logger.info(exon.toUCSC()+" overlaps");
+				logger.debug(exon.toUCSC()+" overlaps");
 				return false;
 			}
 		}
@@ -1953,7 +2220,7 @@ public class BuildScriptureCoordinateSpace {
 				Annotation intron2=list.get(j);
 				//if intron 1 and intron 2 don't overlap then split
 				if(!intron1.overlaps(intron2)){
-					//logger.info(intron1.toUCSC()+" "+intron2.toUCSC()+" dont overlap");
+					//logger.debug(intron1.toUCSC()+" "+intron2.toUCSC()+" dont overlap");
 					newList.add(intron1);
 					newList.add(intron2);
 				}
@@ -1988,8 +2255,8 @@ public class BuildScriptureCoordinateSpace {
 					lists.add(new ArrayList(rtrn.get(ref))); //TODO We should figure out a way to exclude the exact same lists from being added multiple times
 				}
 				accountedFor.addAll(rtrn.get(ref));
-				//logger.info(ref.toUCSC()+" "+rtrn.get(ref).size());
-				//for(Annotation temp: rtrn.get(ref)){logger.info(temp.toUCSC());}
+				//logger.debug(ref.toUCSC()+" "+rtrn.get(ref).size());
+				//for(Annotation temp: rtrn.get(ref)){logger.debug(temp.toUCSC());}
 			}
 		}
 		//TODO Make sure every intron is accounted for
@@ -2092,7 +2359,7 @@ public class BuildScriptureCoordinateSpace {
 	}
 
 	private Collection<? extends Annotation> dissect(Annotation exon, List<Annotation> introns) {
-		logger.info("dissecting "+exon+" "+introns.size());
+		logger.debug("dissecting "+exon+" "+introns.size());
 		return exon.intersect(introns);
 	}
 
@@ -2164,7 +2431,7 @@ public class BuildScriptureCoordinateSpace {
 			List<GraphPath<Annotation, TranscriptGraphEdge>> paths=this.graphs.get(chr).getPaths();
 			Collection<Gene> genes=new TreeSet<Gene>();
 			for(GraphPath<Annotation, TranscriptGraphEdge> path: paths){
-				//logger.info(path.toString());
+				//logger.debug(path.toString());
 				Gene gene=this.graphs.get(chr).pathToGene(path);
 				genes.add(gene);
 			}
@@ -2176,6 +2443,20 @@ public class BuildScriptureCoordinateSpace {
 				rtrn.get(chr).add(g);
 			}			
 		}
+		return rtrn;
+	}
+	
+	/**
+	 * Converts a list to an array
+	 * @param list
+	 * @return
+	 */
+	private double[] l2a(List<Double> list){
+		double[] rtrn=new double[list.size()];
+	
+		int i=0;
+		for(Double val: list){rtrn[i++]=val;}
+	
 		return rtrn;
 	}
 	
@@ -2203,9 +2484,9 @@ public class BuildScriptureCoordinateSpace {
 	private Map<String,Collection<Gene>> setFPKMScores(Map<String,Collection<Gene>> geneMap,FileWriter writer,FileWriter writer2){
 		
 		Map<String,Collection<Gene>> filteredGenes = new HashMap<String,Collection<Gene>>();
-		String name = "gene.v1.2_";
+		String name = "gene.v2.1_";
 		for(String chr:geneMap.keySet()){
-			//logger.info("For chromosome "+chr+" graph gave "+geneMap.get(chr).size()+" genes");
+			//logger.debug("For chromosome "+chr+" graph gave "+geneMap.get(chr).size()+" genes");
 			Collection<Gene> filtered = new ArrayList<Gene>();
 			try{
 			//MAKE A MAP OF GENE TO ISOFORMS
@@ -2215,14 +2496,14 @@ public class BuildScriptureCoordinateSpace {
 			//For each gene
 			for(Gene gene:isoformMap.keySet()){
 				writer2.write("Gene:\n");
-				//logger.info("Starting new gene");
+				//logger.debug("Starting new gene");
 				//For each transcript
 				for(Gene isoform:isoformMap.get(gene)){
 					
 					double[] scores = getScores(isoform);
 					double[] fields = new double[4];
+					logger.debug(gene.toUCSC()+" "+scores[0]+"\t"+scores[1]);
 					if(scores[1]<DEFAULT_ALPHA){
-						//logger.info(count);
 						isoform.setName(name+new Double(counter).toString()+"_"+isoform.getChr());
 						//[0] : sum
 						fields[0] = scores[0];
@@ -2233,7 +2514,7 @@ public class BuildScriptureCoordinateSpace {
 						//[3] : FPKM
 						//Calculate FPKM
 						fields[3] = fields[2]*((double)1000000.0)/model.getGlobalPairedFragments();
-						//logger.info("For isoform : "+isoform.getName()+"\tNum of exons: "+isoform.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
+						//logger.debug("For isoform : "+isoform.getName()+"\tNum of exons: "+isoform.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
 						isoform.setBedScore(fields[3]);
 						isoform.setExtraFields(fields);
 						counter++;
@@ -2243,7 +2524,7 @@ public class BuildScriptureCoordinateSpace {
 						filtered.add(isoform);
 					}
 					else{
-						logger.info("Gene "+gene.toUCSC()+" is filtered out because it does not meet the significance threshold : "+scores[1]);
+						logger.debug("Gene "+gene.toUCSC()+" is filtered out because it does not meet the significance threshold : "+scores[1]);
 					}
 				}
 			}
