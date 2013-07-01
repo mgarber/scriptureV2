@@ -25,6 +25,7 @@ import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.*;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.GenomicSpace;
+import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.feature.GeneWindow;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
@@ -1357,6 +1358,30 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		int i=0;
 		while(scoreIter.hasNext()) {
 			rtrn[i] = scoreIter.next().getCount();
+			i++;
+		}
+		return rtrn;
+	}
+	
+	
+	/**
+	 * This function returns an array list of counts for each position along the specified gene
+	 * @param gene
+	 * @return
+	 */
+	public List<Double> getCountsStrandedPerPosition(Annotation gene){
+		
+		List<Double> rtrn = new ArrayList<Double>();
+		Map<String,Collection<Gene>> anns = new TreeMap<String,Collection<Gene>>(); 
+		anns.put(gene.getChr(), new TreeSet<Gene>());
+		anns.get(gene.getChr()).add(new Gene(gene));
+		TranscriptomeSpace sp = new TranscriptomeSpace(anns);
+		
+		Iterator<Window> winIter = sp.getWindowIterator(1, 0);
+		int i=0;
+		while(winIter.hasNext()){
+			rtrn.add(i,getCountStranded(winIter.next(), false));
+			i++;
 		}
 		return rtrn;
 	}
