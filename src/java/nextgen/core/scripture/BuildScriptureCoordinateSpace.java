@@ -18,6 +18,7 @@ import java.util.TreeSet;
 
 import org.apache.commons.collections15.Predicate;
 import org.apache.log4j.Logger;
+import org.broad.igv.Globals;
 import org.jgrapht.GraphPath;
 
 import broad.core.annotation.MaximumContiguousSubsequence;
@@ -25,7 +26,9 @@ import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.datastructures.Pair;
 import broad.core.math.Statistics;
+import broad.core.util.CLUtil;
 import broad.core.util.CollapseByIntersection;
+import broad.core.util.CLUtil.ArgumentMap;
 import broad.pda.datastructures.Alignments;
 import broad.pda.seq.graph.Path;
 import broad.pda.seq.segmentation.AlignmentDataModelStats;
@@ -60,14 +63,17 @@ public class BuildScriptureCoordinateSpace {
 	private CoordinateSpace space;
 	private Map<String, ChromosomeTranscriptGraph> graphs;
 	private static boolean forceStrandSpecificity=true; //TODO This should be passed or at least determined from data
-	private static double DEFAULT_MIN_COV_THRESHOLD = 0.1;
+	private static double DEFAULT_MIN_COV_THRESHOLD = 0.2;
 	private static double MIN_SPLICE_PERCENT = 0.05;
 	private double coveragePercentThreshold = DEFAULT_MIN_COV_THRESHOLD;
-	private static TranscriptionRead DEFAULT_TXN_READ = TranscriptionRead.UNSTRANDED;
+	//private static TranscriptionRead DEFAULT_TXN_READ = TranscriptionRead.UNSTRANDED;
 	String outName = null;
 	private double DEFAULT_ALPHA = 0.01;
+	private double alpha=DEFAULT_ALPHA;
 	private static double MIN_SPLICE_READS = 3.0;
 	private double THRESHOLD_SPURIOUS = 0.95;
+	private double minSpliceReads = MIN_SPLICE_READS;
+	private double minSplicePercent = MIN_SPLICE_PERCENT;
 	int counter = 1000;
 	int globalCounter = 1000;
 	File bamFileName;
@@ -76,7 +82,7 @@ public class BuildScriptureCoordinateSpace {
 	File bamfile;
 	//double globalFragments;
 	
-	public BuildScriptureCoordinateSpace(File bamFile){
+/*	public BuildScriptureCoordinateSpace(File bamFile){
 		this(bamFile,DEFAULT_MIN_COV_THRESHOLD,null,null,true,DEFAULT_TXN_READ);
 		logger.info("Genome sequence has not been provided");
 	}
@@ -89,7 +95,7 @@ public class BuildScriptureCoordinateSpace {
 		//By default first read is transcription read
 		this(bamFile,threshold,genomeDir,outputName,true,DEFAULT_TXN_READ);
 	}
-	
+	*/
 	/**
 	 * 
 	 * @param bamFile
@@ -98,7 +104,7 @@ public class BuildScriptureCoordinateSpace {
 	 * @param outputName
 	 * @param forceStrandedness
 	 */
-	public BuildScriptureCoordinateSpace(File bamFile,double threshold,String genomeDir,String outputName,boolean forceStrandedness,TranscriptionRead strand){
+	public BuildScriptureCoordinateSpace(File bamFile,String genomeDir,String outputName,boolean forceStrandedness,TranscriptionRead strand,ArgumentMap argMap){
 			
 		bamfile=bamFile;
 		this.graphs=new TreeMap<String, ChromosomeTranscriptGraph>();
@@ -106,15 +112,16 @@ public class BuildScriptureCoordinateSpace {
 		bamFileName = bamFile;
 		forceStrandSpecificity = forceStrandedness;
 		outName = outputName;
-		coveragePercentThreshold = DEFAULT_MIN_COV_THRESHOLD;//threshold;
+		
+		setThresholds(argMap);
 //		globalFragments = calculateGlobalFragments();
 		logger.info("Parameters used: " +
-				"\nSpurious Filter: "+THRESHOLD_SPURIOUS+
+				"\nIntron intention Filter: "+THRESHOLD_SPURIOUS+
 				"\nPremature Assembly Filter: "+coveragePercentThreshold+
 				"\nSplice junction Filter : "+
-				"\n\tNumber of spliced reads : "+MIN_SPLICE_READS+
-				"\n\tPercentage of total spliced reads: "+MIN_SPLICE_PERCENT+
-				"\nAlpha for single exon assemblies : "+this.DEFAULT_ALPHA
+				"\n\tNumber of spliced reads : "+minSpliceReads+
+				"\n\tPercentage of total spliced reads: "+minSplicePercent+
+				"\nAlpha for single exon assemblies : "+alpha
 				);
 		
 		assemble(strand);
@@ -156,7 +163,7 @@ public class BuildScriptureCoordinateSpace {
 	 * @param forceStrandedness
 	 * @param chr
 	 */
-	public BuildScriptureCoordinateSpace(File bamFile,double threshold,String genomeDir,String outputName,boolean forceStrandedness,TranscriptionRead strand,String chr){
+	public BuildScriptureCoordinateSpace(File bamFile,String genomeDir,String outputName,boolean forceStrandedness,TranscriptionRead strand,String chr,ArgumentMap argMap){
 			
 		bamfile=bamFile;
 		this.graphs=new TreeMap<String, ChromosomeTranscriptGraph>();
@@ -165,15 +172,16 @@ public class BuildScriptureCoordinateSpace {
 		forceStrandSpecificity = forceStrandedness;
 
 		outName = outputName;
-		coveragePercentThreshold = DEFAULT_MIN_COV_THRESHOLD;//threshold;
+		
+		setThresholds(argMap);
 		//assemble(strand);
 		logger.info("Parameters used: " +
-				"\nSpurious Filter: "+THRESHOLD_SPURIOUS+
+				"\nIntron Retention Filter: "+THRESHOLD_SPURIOUS+
 				"\nPremature Assembly Filter: "+coveragePercentThreshold+
 				"\nSplice junction Filter : "+
-				"\n\tNumber of spliced reads : "+MIN_SPLICE_READS+
-				"\n\tPercentage of total spliced reads: "+MIN_SPLICE_PERCENT+
-				"\nAlpha for single exon assemblies : "+this.DEFAULT_ALPHA
+				"\n\tNumber of spliced reads : "+minSpliceReads+
+				"\n\tPercentage of total spliced reads: "+minSplicePercent+
+				"\nAlpha for single exon assemblies : "+alpha
 				);
 		
 		ChromosomeTranscriptGraph graph=assemble(chr,strand);
@@ -204,6 +212,14 @@ public class BuildScriptureCoordinateSpace {
 			e.printStackTrace();
 		}
 	} 
+	
+	private void setThresholds(ArgumentMap argMap){ 
+		
+		coveragePercentThreshold = argMap.getDouble("coverage", DEFAULT_MIN_COV_THRESHOLD);
+		alpha = argMap.getDouble("alpha", DEFAULT_ALPHA);
+		minSpliceReads = argMap.getDouble("minSpliceReads", MIN_SPLICE_READS);
+		minSplicePercent = argMap.getDouble("percentSpliceReads", MIN_SPLICE_PERCENT);
+	}
 
 	private void assemble(TranscriptionRead strand) {
 		//Iterate over all chromosomes
@@ -366,11 +382,27 @@ public class BuildScriptureCoordinateSpace {
 									Annotation connected = getConnectedTranscript(gene,other,medianInsertSize);
 									if(connected!=null){
 										somethingWasConnected = true;
+										Gene newConnected = new Gene(connected);
+										double[] scores = getScores(newConnected);
+										double[] fields = new double[4];
+										newConnected.setName(gene.getName()+"_"+other.getName());
+										//[0] : sum
+										fields[0] = scores[0];
+										//[1] : p-value
+										fields[1] = scores[1];
+										//[2] : FPK
+										fields[2] = (scores[0]*1000.0)/newConnected.getSize();
+										//[3] : FPKM
+										//Calculate FPKM
+										fields[3] = fields[2]*((double)1000000.0)/model.getGlobalPairedFragments();
+										//logger.debug("For isoform : "+isoform.getName()+"\tNum of exons: "+isoform.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
+										newConnected.setBedScore(fields[3]);
+										newConnected.setExtraFields(fields);
 										newGenes.remove(gene);
-										newGenes.add(new Gene(connected));
+										newGenes.add(newConnected);
 										conn.get(chr).remove(gene);
 										conn.get(chr).remove(other);
-										conn.get(chr).add(new Gene(connected));
+										conn.get(chr).add(newConnected);
 									}
 								//}
 							}
@@ -790,7 +822,7 @@ public class BuildScriptureCoordinateSpace {
 				if(blocks.size()==1){
 					double pval = getScores(gene)[1];
 					//System.err.println(gene.toUCSC()+" Count: "+score.getCount()+" pval:"+pval+"new count: "+s+"  new p-val "+pval2);
-					if(pval<DEFAULT_ALPHA){
+					if(pval<alpha){
 						//System.err.println("passes");
 						graph.connectVertexToGraph(blocks.get(0));
 					}
@@ -1251,7 +1283,7 @@ public class BuildScriptureCoordinateSpace {
 				if(assembly.getSpliceConnections().size()==1){
 					for(Annotation intron:assembly.getSpliceConnections()){
 						double count=model.getIntronCounts(intron);
-						if(count<MIN_SPLICE_READS){
+						if(count<minSpliceReads){
 							toRemove = true;
 						}
 					}
@@ -1279,7 +1311,7 @@ public class BuildScriptureCoordinateSpace {
 					//then trim and then go over this again.
 					for(Annotation intron:intronToSplicedCountMap.keySet()){
 						if(cnt==0 || cnt==intronToSplicedCountMap.keySet().size()-1){
-							if(intronToSplicedCountMap.get(intron)<=avgCount*MIN_SPLICE_PERCENT){
+							if(intronToSplicedCountMap.get(intron)<=avgCount*minSplicePercent){
 								assembly = new Assembly(trimEnds(assembly,0.25));
 							}
 						}
@@ -1287,7 +1319,7 @@ public class BuildScriptureCoordinateSpace {
 					}
 					
 					for(Annotation intron:assembly.getSpliceConnections()){
-						if(intronToSplicedCountMap.get(intron)<=avgCount*MIN_SPLICE_PERCENT){
+						if(intronToSplicedCountMap.get(intron)<=avgCount*minSplicePercent){
 							//If  assembly is flagged to be removed because of an intron,
 							logger.error(assembly.getName()+" removed because intron "+intron.toUCSC()+" has coverage "+intronToSplicedCountMap.get(intron)+" compared to "+avgCount);
 							toRemove = true; 
@@ -2503,7 +2535,7 @@ public class BuildScriptureCoordinateSpace {
 					double[] scores = getScores(isoform);
 					double[] fields = new double[4];
 					logger.debug(gene.toUCSC()+" "+scores[0]+"\t"+scores[1]);
-					if(scores[1]<DEFAULT_ALPHA){
+					if(scores[1]<alpha){
 						isoform.setName(name+new Double(counter).toString()+"_"+isoform.getChr());
 						//[0] : sum
 						fields[0] = scores[0];
@@ -2592,13 +2624,39 @@ public class BuildScriptureCoordinateSpace {
 	}
 	
 	public static void main(String[] args)throws IOException{
-		if(args.length>1){
+		
+		Globals.setHeadless(true);
+		/*
+		 * @param for ArgumentMap - size, usage, default task
+		 * argMap maps the command line arguments to the respective parameters
+		 */
+		ArgumentMap argMap = CLUtil.getParameters(args,usage,"reconstruct");
+		
+		TranscriptionRead strand = TranscriptionRead.UNSTRANDED;
+		if(argMap.get("strand").equalsIgnoreCase("first")){
+			//System.out.println("First read");
+			strand = TranscriptionRead.FIRST_OF_PAIR;
+		}
+		else if(argMap.get("strand").equalsIgnoreCase("second")){
+			//System.out.println("Second read");
+			strand = TranscriptionRead.SECOND_OF_PAIR;
+		}
+		else
+			logger.info("no strand");
+		
+		if(argMap.containsKey("chr")){
+			new BuildScriptureCoordinateSpace(new File(argMap.getMandatory("alignment")),argMap.getMandatory("genome"),argMap.getOutput(),true, strand,argMap.getMandatory("chr"),argMap);
+		}
+		else{
+			new BuildScriptureCoordinateSpace(new File(argMap.getMandatory("alignment")),argMap.getMandatory("genome"),argMap.getOutput(),true, strand,argMap);
+		}
+/*		if(args.length>1){
 			File bamFile=new File(args[0]);
 			String genomeSeqFile = null;
 			double threshold = new Double(args[1]);
 			genomeSeqFile = args[2];
-		/*	if(args.length==3)
-				new BuildScriptureCoordinateSpace(bamFile,threshold,genomeSeqFile,args[3]);*/
+			if(args.length==3)
+				new BuildScriptureCoordinateSpace(bamFile,threshold,genomeSeqFile,args[3]);
 			if(args.length==3)
 				new BuildScriptureCoordinateSpace(bamFile,threshold,null,args[2],true, TranscriptionRead.SECOND_OF_PAIR);
 			if(args.length>=5){
@@ -2621,10 +2679,29 @@ public class BuildScriptureCoordinateSpace {
 				}
 			}
 		}
-		else{System.err.println(usage);}
+		else{System.err.println(usage);}*/
 	}
 	
-	static String usage=" args[0]=bam file \n\t args[1]=minimum percentage threshold for coverage \n\t args[2]: Fasta file with Genome sequence"
-						+"\n\t args[3]= outputName \n\t args[4] transcription strand \n\targs[5] If specified only this chromosome";
+	static final String usage = "Usage: BuildScriptureCoordinateSpace -task reconstruct "+
+			"\n**************************************************************"+
+			"\n\t\tArguments"+
+			"\n**************************************************************"+
+			"\n\n\t\t-alignment <Alignment file to be used for reconstruction.> "+
+			"\n\n\t\t-genome <Fasta file with Genome sequence to be used as reference.> "+
+			"\n\t\t-out <Output file [Defaults to stdout]> "+		
+			"\n\t\t-strand <VALUES: first, second, unstranded. Specifies the mate that is in the direction of transcription DEFAULT: Unstranded> "+
+			
+			"\n\n**************************************************************"+
+			"\n\t\tOptional Arguments"+
+			"\n**************************************************************"+
+			"\n\t\t-chr <If specified, Scripture will be run for this chromosome only.> "+
+			"\n\t\t-coverage <Specifies the minimum percentage of drop in coverage allowed for an exon. DEFAULT: 0.2> "+
+			"\n\t\t-minSpliceReads <The minimum number of splice reads allowed to support a single intron transcript. DEFAULT: 3> "+
+			"\n\t\t-percentSpliceReads <The minimum percentage of the average splice counts for a transcript, that an intron can be supported by. DEFAULT: 0.05> "+
+			"\n\t\t-alpha <The significance p-value threshold for reconstructions. DEFAULT: 0.01> "+
+			"\n";
+	
+	//static String usage=" args[0]=bam file \n\t args[1]=minimum percentage threshold for coverage \n\t args[2]: Fasta file with Genome sequence"
+	//					+"\n\t args[3]= outputName \n\t args[4] transcription strand \n\targs[5] If specified only this chromosome";
 	
 }
