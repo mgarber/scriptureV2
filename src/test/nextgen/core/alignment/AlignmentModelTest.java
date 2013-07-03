@@ -21,10 +21,10 @@ public class AlignmentModelTest {
 	
 	public static void main(String[] args) throws IOException {
 		
-		//String bamFile = "ProtectSeq_March_Rnase1K_merged.bam";
-		//String bedFile = "RefSeq.nonrandom.bed";
-		String bamFile = args[0];
-		String bedFile = args[1];
+		String bamFile = "ProtectSeq_March_Rnase1K_merged.bam";
+		String bedFile = "RefSeq.nonrandom.bed";
+		//String bamFile = args[0];
+		//String bedFile = args[1];
 		//String chromosome = args[2];
 		Map<String, Collection<Gene>> genesByChromosome = BEDFileParser.loadDataByChr(new File (bedFile));
 		TranscriptomeSpace transcriptomeSpace = new TranscriptomeSpace(genesByChromosome);
@@ -35,7 +35,7 @@ public class AlignmentModelTest {
 				data.scan(gene, 10, 1);
 				
 			//gene.getWindows(10);
-			} 
+			}
 		//long endTime=System.currentTimeMillis();
 		//logger.info((endTime-startTime));
 		logger.info("");

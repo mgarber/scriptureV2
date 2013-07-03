@@ -5,7 +5,6 @@ import java.util.TreeSet;
 
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
-import nextgen.core.annotation.Annotation.Strand;
 
 
 public class GeneWindow extends Gene implements Window{
@@ -26,12 +25,6 @@ public class GeneWindow extends Gene implements Window{
 	public GeneWindow(Annotation window) {
 		super(window);
 		this.containedGenes=new TreeSet<Gene>();
-	}
-	
-	public GeneWindow(String chr, int start, int end, Gene sourceGene){
-		super(chr, start, end);
-		this.containedGenes=new TreeSet<Gene>();
-		this.containedGenes.add(sourceGene);
 	}
 
 	public GeneWindow(Collection<? extends Annotation> exons) {
@@ -111,14 +104,14 @@ public class GeneWindow extends Gene implements Window{
 	 * @param stepSize Step size
 	 * @return The collection of windows
 	 */
-	/*public Collection<Window> getWindows(int windowSize, int stepSize) {
+	public Collection<Window> getWindows(int windowSize, int stepSize) {
 		Collection<Window> subGenes=new TreeSet<Window>();
 		for(int i=0; i<getSize(); i=i+stepSize){
 			GeneWindow trimmed=this.trimGene(i, i+windowSize);
 			subGenes.add(trimmed);
 		}
 		return subGenes;
-	}*/
+	}
 
 	
 }
