@@ -561,7 +561,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	/**
 	 * Return the reads that overlap with this region in coordinate space
 	 */
-	private CloseableIterator<AlignmentCount> getOverlappingReadCounts(Annotation region, boolean fullyContained) {
+	public CloseableIterator<AlignmentCount> getOverlappingReadCounts(Annotation region, boolean fullyContained) {
 		//get Alignments over the whole region
 		return this.cache.query(region, fullyContained, this.coordinateSpace);
 	}
