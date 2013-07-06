@@ -82,8 +82,8 @@ public class TwoSampleScanSkellamAnalysis extends TwoSampleScanSkellamPeakCaller
 		pValueCutoffScan = alphaScan;
 		trimPeakByQuantile = trimQuantile;
 		hasBackgroundExpressionScores = false;
-		backgroundProcessor = new CountScore.Processor(backgroundData);
-		signalProcessor = new ScanStatisticScore.Processor(signalData);
+		backgroundProcessor = new CountScore.Processor(backgroundData, false);
+		signalProcessor = new ScanStatisticScore.Processor(signalData, false);
 		backgroundName = sampleNameFromBamName(backgroundAlignmentFile);
 		signalName = sampleNameFromBamName(signalAlignmentFile);
 		significantPeaks = new TreeMap<Gene, Collection<Annotation>>();
@@ -560,8 +560,8 @@ public class TwoSampleScanSkellamAnalysis extends TwoSampleScanSkellamPeakCaller
 	 * @throws IOException
 	 */
 	public double skellamPval(Annotation region, double backgroundLambda, double signalLambda) throws IOException {
-		CountScore backgroundScore = new CountScore(backgroundData, region);
-		CountScore signalScore = new CountScore(signalData, region);
+		CountScore backgroundScore = new CountScore(backgroundData, region, false);
+		CountScore signalScore = new CountScore(signalData, region, false);
 		int backgroundCount = (int) Math.round(backgroundScore.getCount());
 		int signalCount = (int) Math.round(signalScore.getCount());
 		return getSkellamPvalue(backgroundLambda, signalLambda, backgroundCount, signalCount);
@@ -574,8 +574,8 @@ public class TwoSampleScanSkellamAnalysis extends TwoSampleScanSkellamPeakCaller
 	 * @return The scan P value of counts in the region
 	 */
 	public double signalScanPval(Gene parentGene, Annotation window) {
-		ScanStatisticScore windowScore = new ScanStatisticScore(signalData, window);
-		ScanStatisticScore geneScore = new ScanStatisticScore(signalData, parentGene);
+		ScanStatisticScore windowScore = new ScanStatisticScore(signalData, window, false);
+		ScanStatisticScore geneScore = new ScanStatisticScore(signalData, parentGene, false);
 		double windowCount = windowScore.getCount();
 		double globalLambda = geneScore.getLocalLambda();
 		double windowLength = window.getSize();

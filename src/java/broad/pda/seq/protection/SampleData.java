@@ -55,6 +55,7 @@ public class SampleData {
 	protected boolean expressionByScanPval;
 	private String originalBamFile;
 	private boolean read1TranscriptionStrand;
+	protected boolean fullyContainedReads;
 	
 	/**
 	 * @param bamFile Bam file
@@ -64,9 +65,11 @@ public class SampleData {
 	 * @param step Step size
 	 * @param expressionCutoff P value cutoff for scan test of gene expression
 	 * @param expByScanPval Expression is assessed by scan P value. If false, uses average read depth
+	 * @param fullyContained Count fully contained reads only
 	 * @throws IOException 
 	 */
-	public SampleData(String bamFile, boolean firstReadTranscriptionStrand, Map<String, Collection<Gene>> genes, int window, int step, double expressionCutoff, boolean expByScanPval) throws IOException {
+	public SampleData(String bamFile, boolean firstReadTranscriptionStrand, Map<String, Collection<Gene>> genes, int window, int step, double expressionCutoff, boolean expByScanPval, boolean fullyContained) throws IOException {
+		fullyContainedReads = fullyContained;
 		geneAvgCoverage = new TreeMap<Gene, Double>();
 		originalBamFile = bamFile;
 		read1TranscriptionStrand = firstReadTranscriptionStrand;
@@ -92,7 +95,7 @@ public class SampleData {
 		maxFragmentLengthData.addFilter(new NumHitsFilter(1));
 		maxFragmentLengthData.addFilter(new FragmentLengthFilter(maxFragmentLengthData.getCoordinateSpace(), DEFAULT_MAX_FRAGMENT_LENGTH));
 		
-		processor = new ScanStatisticScore.Processor(data);
+		processor = new ScanStatisticScore.Processor(data, fullyContainedReads);
 		genesByName = new TreeMap<String, Gene>();
 		for(String chr : genesByChr.keySet()) {
 			for(Gene gene : genesByChr.get(chr)) {
@@ -139,7 +142,7 @@ public class SampleData {
 		if(geneScores.containsKey(gene)) {
 			return geneScores.get(gene).getCount();
 		}
-		ScanStatisticScore score = new ScanStatisticScore(data, gene);
+		ScanStatisticScore score = new ScanStatisticScore(data, gene, fullyContainedReads);
 		logger.debug("GET_GENE_COUNT\t" + gene.getName());
 		logger.debug("GET_GENE_COUNT\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
 		logger.debug("GET_GENE_COUNT\tglobal_length=" + score.getGlobalLength());
@@ -163,7 +166,7 @@ public class SampleData {
 		if(geneScores.containsKey(gene)) {
 			return geneScores.get(gene).getScanPvalue();
 		}
-		ScanStatisticScore score = new ScanStatisticScore(data, gene);
+		ScanStatisticScore score = new ScanStatisticScore(data, gene, fullyContainedReads);
 		logger.debug("GET_GENE_SCAN_PVAL\t" + gene.getName());
 		logger.debug("GET_GENE_SCAN_PVAL\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
 		logger.debug("GET_GENE_SCAN_PVAL\tglobal_length=" + score.getGlobalLength());
@@ -187,7 +190,7 @@ public class SampleData {
 		if(geneAvgCoverage.containsKey(gene)) {
 			return geneAvgCoverage.get(gene).doubleValue();
 		}
-		ScanStatisticScore score = new ScanStatisticScore(data, gene);
+		ScanStatisticScore score = new ScanStatisticScore(data, gene, fullyContainedReads);
 		geneScores.put(gene, score);
 		double avgCoverage = score.getAverageCoverage(data);
 		logger.debug("GET_GENE_AVG_COVERAGE\t" + gene.getName());
@@ -210,7 +213,7 @@ public class SampleData {
 	 */
 	public boolean isExpressed(Gene gene) {
 		if(!geneScores.containsKey(gene)) {
-			ScanStatisticScore score = new ScanStatisticScore(data, gene);
+			ScanStatisticScore score = new ScanStatisticScore(data, gene, fullyContainedReads);
 			logger.debug("CHECK_GENE_EXPRESSION\t" + gene.getName());
 			logger.debug("CHECK_GENE_EXPRESSION\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
 			logger.debug("CHECK_GENE_EXPRESSION\t" + "global_length=" + score.getGlobalLength());
@@ -347,7 +350,7 @@ public class SampleData {
 	public ScanStatisticScore scoreWindow(Gene gene, Annotation window, double count) {
 		double geneTotal = getGeneCount(gene);
 		double geneLength = gene.getSize();
-		ScanStatisticScore score = new ScanStatisticScore(data, window);
+		ScanStatisticScore score = new ScanStatisticScore(data, window, fullyContainedReads);
 		double regionLength = window.getSize();
 		score.setGlobalLength(geneLength);
 		score.setRegionLength(regionLength);

@@ -3,13 +3,13 @@ package nextgen.core.general;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.util.Iterator;
+import java.io.IOException;
 
 import broad.core.error.ParseException;
 
 import org.apache.commons.collections15.Predicate;
-import org.apache.commons.collections15.iterators.FilterIterator;
 import org.apache.commons.io.LineIterator;
+import net.sf.samtools.util.CloseableIterator;
 
 public class TabbedReader {
 
@@ -24,28 +24,34 @@ public class TabbedReader {
 	 * @param filter
 	 * @return
 	 */
-	public static <T> Iterator<T> read(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory, Predicate<? super T> filter) {
-		return new FilterIterator<T>(new TabbedIterator<T>(file, factory), filter);
+	public static <T> CloseableIterator<T> read(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory, Predicate<? super T> filter) throws IOException {
+		return new CloseableFilterIterator<T>(new TabbedIterator<T>(file, factory), filter);
 	}
 	
-	public static <T> Iterator<T> read(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory) {
+	public static <T> CloseableIterator<T> read(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory) throws IOException {
 		return read(file, clazz, factory, Predicates.alwaysTrue());
 	}
 	
-	public static class TabbedIterator<T> implements Iterator<T> {
+	public static class TabbedIterator<T> implements CloseableIterator<T> {
 		protected LineIterator itr;
 		private T curr;
 		protected Factory<? extends T> factory;
+		BufferedReader br;
 		
-		public TabbedIterator(File file, Factory<? extends T> factory) {
-			try {
-				itr = new LineIterator(new BufferedReader(new FileReader(file)));
-			} catch (Exception e) {
-				e.printStackTrace();
-				throw new RuntimeException(e.getMessage());
-			}
+		public TabbedIterator(File file, Factory<? extends T> factory) throws IOException {
+			br = new BufferedReader(new FileReader(file));
+			itr = new LineIterator(br);
 			this.factory = factory;
 			advance();
+		}
+		
+		@Override
+		public void close() {
+			try {
+				br.close();
+			} catch (Exception e) {
+				throw new IllegalStateException("Could not close BufferedReader");
+			}
 		}
 		
 		@Override

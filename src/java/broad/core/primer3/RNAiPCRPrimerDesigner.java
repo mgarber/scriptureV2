@@ -62,7 +62,7 @@ public class RNAiPCRPrimerDesigner {
 	}
 
 	private Collection<PrimerPair> designBestPrimers(Gene gene, Sequence chrom, boolean crossJunction) throws Exception {
-		return qPCRPrimerDesigner.designPCRPrimers(chrom, gene, repeatMask, numDesigns, crossJunction);
+		return PcrPrimerDesigner.designPCRPrimers(chrom, gene, repeatMask, numDesigns, crossJunction);
 	}
 
 	private Map<Gene, Collection<PrimerPair>> filterByCrossingJunction(Map<Gene, Collection<PrimerPair>> splicedPrimers) throws Exception {
@@ -220,7 +220,7 @@ public class RNAiPCRPrimerDesigner {
 		TreeSet<PrimerPair> both=new TreeSet();
 		TreeSet<PrimerPair> singles=new TreeSet();
 		
-		Collection<PrimerPair> primers=qPCRPrimerDesigner.designIntronPrimers(chrom, gene, repeatMask, null, null, numDesigns*4, min3, min5);
+		Collection<PrimerPair> primers=PcrPrimerDesigner.designIntronPrimers(chrom, gene, repeatMask, null, null, numDesigns*4, min3, min5);
 		
 		/**Try to find primers with 2 junctions spanned**/
 		for(PrimerPair primer: primers){
@@ -229,14 +229,14 @@ public class RNAiPCRPrimerDesigner {
 				else if(primerPositions[0].getNumExons()>1){
 					//fix left primer and find right primer
 					singles.add(primer);
-					Collection<PrimerPair> newPrimers=qPCRPrimerDesigner.designIntronPrimers(chrom, gene, repeatMask, primer.getLeftPrimer(), null, numDesigns, min3, min5);
+					Collection<PrimerPair> newPrimers=PcrPrimerDesigner.designIntronPrimers(chrom, gene, repeatMask, primer.getLeftPrimer(), null, numDesigns, min3, min5);
 					newPrimers=getBoth(newPrimers, gene);
 					both.addAll(newPrimers);
 				}
 				else if(primerPositions[1].getNumExons()>1){
 					//fix right primer and find left
 					singles.add(primer);
-					Collection<PrimerPair> newPrimers=qPCRPrimerDesigner.designIntronPrimers(chrom, gene, repeatMask, null, primer.getRightPrimer(), numDesigns, min3, min5);
+					Collection<PrimerPair> newPrimers=PcrPrimerDesigner.designIntronPrimers(chrom, gene, repeatMask, null, primer.getRightPrimer(), numDesigns, min3, min5);
 					newPrimers=getBoth(newPrimers, gene);
 					both.addAll(newPrimers);
 				}

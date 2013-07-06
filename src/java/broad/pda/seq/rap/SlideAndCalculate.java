@@ -5,10 +5,12 @@ import java.io.File;
 import java.io.FileWriter;
 import java.util.Iterator;
 import java.util.List;
+import java.io.IOException;
 
 import net.sf.picard.cmdline.Option;
 import net.sf.picard.cmdline.Usage;
 import net.sf.picard.util.Log;
+import net.sf.samtools.util.CloseableIterator;
 
 import nextgen.core.annotation.*;
 import nextgen.core.general.TabbedReader;
@@ -66,10 +68,10 @@ public class SlideAndCalculate extends GenomeScoringProgram {
 	}
 	
 
-	public Iterator<? extends WindowScore> getWindowScoreIterator() {
+	public Iterator<? extends WindowScore> getWindowScoreIterator() throws IOException {
 		Iterator<? extends WindowScore> itr;
-		Iterator<CountScore> target = TabbedReader.read(TARGET, CountScore.class, new CountScore.Factory());
-		Iterator<CountScore> control = TabbedReader.read(CONTROL, CountScore.class, new CountScore.Factory());
+		CloseableIterator<CountScore> target = TabbedReader.read(TARGET, CountScore.class, new CountScore.Factory());
+		CloseableIterator<CountScore> control = TabbedReader.read(CONTROL, CountScore.class, new CountScore.Factory());
 		if (SCORE.equalsIgnoreCase("ratio")) {
 			itr = new RatioScore.RatioScoreIterator(target, control);
 		} else {

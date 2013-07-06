@@ -109,12 +109,9 @@ public class PairedEndWriter {
 		int single = 0;
 		int paired = 0;
 		int temp = 0;
-		String prevChr=null;
 		while(iter.hasNext()) {
 			SAMRecord record=iter.next();
 			String name=record.getReadName();
-			if(prevChr==null)
-				prevChr=record.getReferenceName();
 			//If the read is unmapped, skip
 			if(record.getReadUnmappedFlag()) continue;
 			//If the read is not paired or the mate is unmapped, write it as it is
@@ -159,12 +156,6 @@ public class PairedEndWriter {
 			}
 			// read is paired && mate is mapped	
 			else{
-				if(!prevChr.equals(record.getReferenceName())){
-					for(String s:tempCollection.keySet()){
-						//logger.info(s);
-					}
-				}
-					
 				//create or get the existing pair
 				AlignmentPair pair = tempCollection.containsKey(name) ? pair=tempCollection.get(name) :  new AlignmentPair();
 				
@@ -229,7 +220,6 @@ public class PairedEndWriter {
 		logger.warn("WARNING Remainder: "+tempCollection.size()+" writing as single end reads");
 		for(String name: tempCollection.keySet()){
 			Pair<Collection<SAMRecord>> pair=tempCollection.get(name);
-			System.out.println(name);
 			Collection<SAMRecord> records;
 			
 			if(pair.hasValue1() && pair.hasValue2()){

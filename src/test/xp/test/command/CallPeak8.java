@@ -64,6 +64,7 @@ public class CallPeak8 extends CommandLineProgram{
 	protected int doWork() {
 		// TODO Auto-generated method stub
 		 logger.setLevel(Level.DEBUG);
+		 logger.info("aha change now");
 		 
 		 GenomicSpace GENOMESPACE = new GenomicSpace(CHROMSIZES);
     	 try {
@@ -81,8 +82,10 @@ public class CallPeak8 extends CommandLineProgram{
     	 else
     	
     	 {
-    	 caseAIter = BamIteratorFactory.makeIterator(CASEA,isPaired); 
-    	 controlAIter = BamIteratorFactory.makeIterator(CONTROLA,isPaired); 
+    	 //caseAIter = BamIteratorFactory.makeIterator(CASEA,isPaired); 
+    	 caseAIter = BamIteratorFactory.makeIterator(CASEA); 
+    	 //controlAIter = BamIteratorFactory.makeIterator(CONTROLA,isPaired); 
+    	 controlAIter = BamIteratorFactory.makeIterator(CONTROLA); 
     	 }
     	 
     	 Iterator<? extends Annotation>[] iters=new Iterator[2];
