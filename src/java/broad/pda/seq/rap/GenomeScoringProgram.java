@@ -18,9 +18,11 @@ public abstract class GenomeScoringProgram extends GenomeCommandLineProgram {
 	
 	@Option(doc="Scoring function to use")
 	public String SCORE = "count";
+	
+	@Option(doc="Whether to force paired end behavior")
+	public boolean PAIRED_END=true;
 
 	
-
 	@Override
 	protected String[] customCommandLineValidation() {
 		if (SCORE.equalsIgnoreCase("ratio") && CONTROL == null) {
@@ -31,8 +33,8 @@ public abstract class GenomeScoringProgram extends GenomeCommandLineProgram {
 	
 	
 	public WindowProcessor<? extends WindowScore> getWindowProcessor() {
-		AnnotationCollection<? extends Annotation> target = loadAlignmentModel(TARGET);
-		AnnotationCollection<? extends Annotation> control = CONTROL == null ? null : loadAlignmentModel(CONTROL);
+		AnnotationCollection<? extends Annotation> target = loadAlignmentModel(TARGET, PAIRED_END);
+		AnnotationCollection<? extends Annotation> control = CONTROL == null ? null : loadAlignmentModel(CONTROL, PAIRED_END);
 		return getWindowProcessor(target, control);
 	}
 

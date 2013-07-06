@@ -27,9 +27,6 @@ public class CountReads extends GenomeScoringProgram {
     @Option(doc="Output BED file", shortName="O")
     public File OUTPUT;
     
-	@Option(doc="Whether to force paired end behavior")
-	public boolean PAIRED_END=false;
-    
 	/**
 	 * Stock main method.
 	 *
