@@ -4,6 +4,7 @@ import org.apache.log4j.Logger;
 
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.AnnotationCollection;
+import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.model.AlignmentModel;
 
 /**
@@ -98,7 +99,11 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 	
 	public String toString() {
 		annotation.setScore(getScore());
-		return annotation.toBED() + "\t" + getCount() + "\t" + getRPKM() + "\t" + getRegionTotal() + "\t" + getTotal();
+		return annotation.toBED() + "\t" + 
+				getCount() + "\t" + 
+				getRPKM() + "\t" + 
+				getRegionTotal() + "\t" + 
+				getTotal();
 	}
 	
 	/**
@@ -197,6 +202,14 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 			}
 		}
 		
+	}
+	
+	
+	public static class Factory implements nextgen.core.general.TabbedReader.Factory<CountScore> {
+		public CountScore create(String[] rawFields) {
+			BasicAnnotation a = new BasicAnnotation.Factory().create(rawFields);
+			return new CountScore(a, Double.parseDouble(rawFields[12]), Double.parseDouble(rawFields[14]), Double.parseDouble(rawFields[15]));
+		}
 	}
 
 

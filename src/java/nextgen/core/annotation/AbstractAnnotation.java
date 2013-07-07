@@ -277,8 +277,12 @@ public abstract class AbstractAnnotation implements Annotation {
 		return compareToAnnotation(other);
 	}
 	
+	
 	public int compareToAnnotation(Annotation b) {
-		if (equals(b)) {return 0;} 
+		return compareToAnnotation(b, true);
+	}
+	
+	public int compareToAnnotation(Annotation b, boolean useOrientation) {
 		
 		//first sort by chromosome
 		int comp = getReferenceName().compareTo(b.getReferenceName());
@@ -293,8 +297,10 @@ public abstract class AbstractAnnotation implements Annotation {
 		if(comp!=0){return comp;}
 		
 		//fourth sort by strand
-		comp=getOrientation().compareTo(b.getOrientation());
-		if(comp!=0){return comp;}
+		if (useOrientation) {
+			comp=getOrientation().compareTo(b.getOrientation());
+			if(comp!=0){return comp;}
+		}
 		
 		//Fifth sort by number of blocks
 		comp=getBlocks().size()-b.getBlocks().size();
@@ -309,7 +315,6 @@ public abstract class AbstractAnnotation implements Annotation {
 				if(comp!=0){return comp;}
 			}
 		}
-		
 		return 0;
 	}
 
@@ -328,27 +333,7 @@ public abstract class AbstractAnnotation implements Annotation {
 	
 	@Override
 	public boolean equals (Annotation a, boolean useOrientation){
-		//simple comparison
-		if(!a.getReferenceName().equalsIgnoreCase(getReferenceName())){return false;}
-		if(a.getStart()!=getStart()){return false;}
-		if(a.getEnd()!=getEnd()){return false;}
-		if(useOrientation){
-			if(!a.getOrientation().equals(getOrientation())){return false;}
-		}
-		if(a.getBlocks().size() != getBlocks().size()){return false;}
-		if(a.getBlocks().size()>1){
-			//compare blocks
-			for(int i=0; i<a.getBlocks().size(); i++){
-				boolean blockMatch=false;
-				for(int j=0; j<getBlocks().size(); j++){
-					Annotation ann1=a.getBlocks().get(i);
-					Annotation ann2=getBlocks().get(j);
-					if(ann1.getStart()==ann2.getStart() && ann1.getEnd()==ann2.getEnd()){blockMatch=true;}
-				}
-				if(!blockMatch){return false;}
-			}
-		}
-		return true;
+		return (compareToAnnotation(a, useOrientation) == 0);
 	}
 	
 	/**

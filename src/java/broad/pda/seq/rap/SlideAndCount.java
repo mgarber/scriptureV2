@@ -22,10 +22,10 @@ public class SlideAndCount extends GenomeScoringProgram {
     public String USAGE = "Slides across the genome and counts reads (or calculates ratios for two models).  This is currently written for Genomic Space analyses but should be modified to allow other coordinate systems.";
    
 	@Option(doc="Window size")
-	public int WINDOW;
+	public Integer WINDOW = null;
 	
 	@Option(doc="Overlap between windows")
-	public int OVERLAP;
+	public Integer OVERLAP = null;
 
 	@Option(doc="Output file", shortName="O")
 	public File OUTPUT;

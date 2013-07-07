@@ -4,8 +4,11 @@ import java.io.*;
 import java.util.Collection;
 
 import nextgen.core.coordinatesystem.CoordinateSpace;
+import nextgen.core.general.TabbedReader;
 import nextgen.core.general.Predicates;
 import org.apache.commons.collections15.Predicate;
+import nextgen.core.general.CloseableFilterIterator;
+import net.sf.samtools.util.CloseableIterator;
 
 /**
  * @author engreitz
@@ -13,24 +16,23 @@ import org.apache.commons.collections15.Predicate;
  * Parsing logic is partially copied from broad.core.annotation.AnnotationReader
  */
 public class AnnotationFileReader {
-
-	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, AnnotationFactory<? extends T> factory) throws IOException {
+	
+	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory) throws IOException {
 		return load(file, clazz, factory, null);
 	}
 	
-	
-	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, AnnotationFactory<? extends T> factory, CoordinateSpace cs) throws IOException{
+
+	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory, CoordinateSpace cs)  throws IOException {
 		return load(file, clazz, factory, cs, Predicates.alwaysTrue());	
 	}
 	
-	
-	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, AnnotationFactory<? extends T> factory, CoordinateSpace cs, Collection<Predicate<? super T>> filters) throws IOException{
+	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory, CoordinateSpace cs, Collection<Predicate<? super T>> filters)  throws IOException {
 		return load(file, clazz, factory, cs, Predicates.and(filters));
 	}
 
 	
 	/**
-	 * Reads an Annotation file line by line. 
+	 * Reads an Annotation file line by line and return an AnnotationList containing the results
 	 * @param <T>
 	 * @param file File containing annotations
 	 * @param clazz	The class of the desired AnnotationList
@@ -40,42 +42,62 @@ public class AnnotationFileReader {
 	 * @return AnnotationList containing all annotations from file that pass the filter
 	 * @throws IOException 
 	 */
-	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, AnnotationFactory<? extends T> factory, CoordinateSpace cs, Predicate<? super T> filter) throws IOException {
+	public static <T extends Annotation> AnnotationList<T> load(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory, CoordinateSpace cs, Predicate<? super T> filter) throws IOException {
 		AnnotationList<T> annotations = new AnnotationList<T>(cs);
+		CloseableIterator<T> itr = read(file, clazz, factory, filter);
+		while (itr.hasNext()) {
+			annotations.add(itr.next());
+		}		
+		itr.close();
+		return annotations;
+	}
+	
+	
+	/**
+	 * Read an Annotation file line by line in a buffered format and return an iterator over the results.
+	 * Should be refactored with the "load" function as appropriate ("load" can call this function and then
+	 * add it to its Annotation list)
+	 * @param file
+	 * @param clazz
+	 * @param factory
+	 * @param cs
+	 * @param filter
+	 * @return
+	 */
+	public static <T extends Annotation> CloseableIterator<T> read(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory, Predicate<? super T> filter) throws IOException {
+		return new CloseableFilterIterator<T>(new AnnotationIterator<T>(file, factory), filter);
+	}
+	
+	
+	public static <T extends Annotation> CloseableIterator<T> read(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory) throws IOException  {
+		return read(file, clazz, factory, Predicates.alwaysTrue());
+	}
+	
+	
+	private static class AnnotationIterator<T> extends nextgen.core.general.TabbedReader.TabbedIterator<T> {
 		
-		BufferedReader br = null;
-		try {
-			br = new BufferedReader(new FileReader(file));
-			
-			String line;
-			while((line = br.readLine()) != null) {
-			
+		public AnnotationIterator(File file, TabbedReader.Factory<? extends T> factory) throws IOException {
+			super(file, factory);
+		}
+
+		@Override
+		protected String getNextLine() {
+			while (itr.hasNext()) {
+				String line = itr.next();
+
 				if (line.toLowerCase().startsWith("track")) {
-					// TODO
 					throw new IllegalArgumentException("AnnotationFileReader does not support files with track headers (TODO)");
 				}
 				
 				line = line.trim();
-				if(line.startsWith("#") || line.length() == 0) {
+				if (line.startsWith("#") || line.length() == 0) {
 					continue;
-				}
-				
-				String[] lineSplit = line.split("\t");
-				
-				T annotation = factory.create(lineSplit);
-				if (filter.evaluate(annotation)) {
-					annotations.add(annotation);
+				} else {
+					return line;
 				}
 			}
-			
-			br.close();
-				
-		} finally {
-			if (br != null) {
-				br.close();
-			}
+			return null;
 		}
-		
-		return annotations;
 	}
+	
 }
