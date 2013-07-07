@@ -542,7 +542,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		while(iter.hasNext()) {
 			Alignment align = iter.next();
 			done++;
-			if(done % 100000 == 0) logger.info("Got " + done + " records.");
+			if(done % 1000000 == 0) logger.info("Got " + done + " records.");
 			try {
 				for(Integer size : align.getFragmentSize(coord)) {
 					double doublesize = size.doubleValue();
