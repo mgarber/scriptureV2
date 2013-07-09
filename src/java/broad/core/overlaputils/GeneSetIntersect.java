@@ -13,6 +13,7 @@ import java.util.Random;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import nextgen.core.annotation.Gene;
@@ -160,10 +161,10 @@ public class GeneSetIntersect {
 		logger.info("Getting overlaps with randomized positions...");
 		Random rand = new Random();
 		for(String chr : intersectGenes.keySet()) {
-			logger.info(chr);
 			Collection<Gene> randomizedOverlapsThisChr = new TreeSet<Gene>();
 			if(!genes.containsKey(chr)) continue;
 			if(genes.get(chr).isEmpty()) continue;
+			logger.info(chr);
 			Map<String, Collection<Gene>> genesThisChr = new HashMap<String, Collection<Gene>>();
 			genesThisChr.put(chr, genes.get(chr));
 			for(Gene feature : intersectGenes.get(chr)) {
@@ -171,6 +172,7 @@ public class GeneSetIntersect {
 					if(feature.getStart() > gene.getEnd()) continue;
 					if(feature.getEnd() < gene.getStart()) break;
 					if(feature.overlaps(gene) && feature.getStart() >= gene.getStart() && feature.getEnd() <= gene.getEnd()) {
+						logger.debug("Region " + gene.getName() + " contains region " + feature.getName());
 						int overlapperStart = gene.genomicToTranscriptPosition(feature.getStart());
 						int overlapperEndInclusive = gene.genomicToTranscriptPosition(feature.getEnd() - 1);
 						int overlapperStartOnTranscript = Math.min(overlapperStart,overlapperEndInclusive);
@@ -354,15 +356,20 @@ public class GeneSetIntersect {
 	public static void main(String[] args) throws IOException {
 		
 		CommandLineParser p = new CommandLineParser();
-		p.addStringArg("-b", "Bed file containing genes of interest", true);
-		p.addStringArg("-i1", "Bed file containing genes to intersect with first (set1)", true);
-		p.addStringArg("-i2", "Bed file containing genes to intersect with second (set2)", false, null);
-		p.addBooleanArg("-r", "Only has effect if -ob is provided. Intersect genes with set1 and write bed file. Ignore set2. If true, randomize position of overlap within set1 gene. ", false, false);
-		p.addIntArg("-nr", "Randomize overlap positions within set1 this many times, intersect with set2, and print counts only.", false, 0);
-		p.addStringArg("-e", "Bed file containing genes to exclude - exclude any gene in input file that overlaps one of these", false, null);
+		p.addStringArg("-b", "Bed file of genes", true);
+		p.addStringArg("-i1", "Bed file containing regions to intersect with first (set1)", true);
+		p.addStringArg("-i2", "Bed file containing regions to intersect with second (set2)", false, null);
+		p.addBooleanArg("-r", "Only has effect if -ob is provided. Intersect genes with set1 and write bed file. Ignore set2. If true, randomize position of set1 overlap within gene. ", false, false);
+		p.addIntArg("-nr", "Randomize overlap positions of set1 within genes this many times, intersect with set2, and print counts only.", false, 0);
+		p.addStringArg("-e", "Bed file containing regions to exclude - exclude any gene that overlaps one of these", false, null);
 		p.addStringArg("-ob", "Output bed file for intersection with set1 (randomized or not)", false, null);
 		p.addStringArg("-oc", "Output counts file for intersections with set1, randomized and intersected with set2. Requires -i2 and -nr.", false, null);
+		p.addBooleanArg("-d", "Debug logging", false, false);
 		p.parse(args);
+		boolean debug = p.getBooleanArg("-d");
+		if(debug) {
+			logger.setLevel(Level.DEBUG);
+		}
 		String geneFile = p.getStringArg("-b");
 		String intersectFile1 = p.getStringArg("-i1");
 		String intersectFile2 = p.getStringArg("-i2");
@@ -392,19 +399,19 @@ public class GeneSetIntersect {
 			if(excludeFile != null) excludeFeatures.putAll(BEDFileParser.loadDataByChr(new File(excludeFile)));
 			
 			logger.info("");
-			logger.info("Getting overlap between genes and set1...");
+			logger.info("Getting overlap between regions and set1...");
 			Map<String, Collection<Gene>> overlapSet1 = getOverlap(genes, intersectFeatures1, excludeFeatures, true);
 			logger.info("Overlap is " + totalGenes(overlapSet1) + " genes and " + totalBases(overlapSet1) + " bases.");
 			
 			logger.info("");
-			logger.info("Getting overlap between genes and set1+set2...");
+			logger.info("Getting overlap between regions and set1+set2...");
 			Map<String, Collection<Gene>> overlapSet2 = getOverlap(overlapSet1, intersectFeatures2, true);
 			logger.info("Overlap is " + totalGenes(overlapSet2) + " genes and " + totalBases(overlapSet2) + " bases.");
 			logger.info("COUNT\treal_overlap\t" + totalBases(overlapSet2));
 			w.write("real_overlap\t" + totalBases(overlapSet2) + "\n");
 			
 			logger.info("");
-			logger.info("Randomizing overlap positions of set1 within genes...");
+			logger.info("Randomizing overlap positions of set1 within regions...");
 			for(int i=0; i < numRandom; i++) {
 				logger.info("Random iteration " + Integer.valueOf(i+1).toString());
 				Map<String, Collection<Gene>> randomizedOverlap = getOverlapWithRandomizedPositions(genes, intersectFeatures1);
