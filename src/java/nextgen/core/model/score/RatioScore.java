@@ -16,7 +16,10 @@ public class RatioScore extends CountScore {
 	private double dTotal;                // whole "genome"
 	private double dRegionTotal = DEFAULT_REGION_TOTAL;          // whole chromosome / gene / region under consideration / etc.
 
-
+	public RatioScore(Annotation a) {
+		super(a);
+	}
+	
 	public RatioScore(Annotation numerator, Annotation denominator, double nTotal, double dTotal) {
 		this(numerator, denominator, nTotal, dTotal, DEFAULT_REGION_TOTAL, DEFAULT_REGION_TOTAL);
 	}
