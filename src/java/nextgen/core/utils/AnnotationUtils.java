@@ -25,6 +25,42 @@ public class AnnotationUtils {
 
 	public static Logger logger = Logger.getLogger(AnnotationUtils.class.getName());
 	
+	public static Map<String, Collection<Gene>> collapseOverlappers(Map<String, Collection<Gene>> genes) {		
+		return collapseOverlappers(genes, false);
+	}
+	
+	public static Map<String, Collection<Gene>> collapseOverlappers(Map<String, Collection<Gene>> genes, boolean ignoreOrientation) {		
+		Map<String, Collection<Gene>> rtrn = new TreeMap<String, Collection<Gene>>();
+		for(String chr : genes.keySet()) {
+			Collection<Gene> genesThisChr = genes.get(chr);
+			Collection<Gene> collapsedThisChr = new TreeSet<Gene>();
+			for(Gene gene : genesThisChr) {
+				gene.setOrientation(Strand.UNKNOWN);
+				if(collapsedThisChr.isEmpty()) {
+					collapsedThisChr.add(gene);
+					continue;
+				}
+				boolean added = false;
+				for(Gene collapsed : collapsedThisChr) {
+					if(gene.overlaps(collapsed)) {
+						collapsed.addBlocks(gene);
+						collapsed.setCDSStart(Math.min(collapsed.getCDSStart(), gene.getCDSStart()));
+						collapsed.setCDSEnd(Math.max(collapsed.getCDSEnd(), gene.getCDSEnd()));
+						collapsed.setName(collapsed.getName() + "_" + gene.getName());
+						added = true;
+						break;
+					} 
+				}
+				if(!added) {
+					collapsedThisChr.add(gene);
+				}
+			}
+			rtrn.put(chr, collapsedThisChr);
+		}
+		return rtrn;
+	}
+
+	
 	/**
 	 * Merge annotations that overlap in the same orientation as each other, and leave singleton windows the same
 	 * @param windows Annotation set
