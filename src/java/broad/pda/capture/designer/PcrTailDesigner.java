@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeoutException;
 
+import nextgen.core.pipeline.PipelineUtils;
+
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;
 import broad.core.primer3.Primer3Configuration;
@@ -23,7 +25,6 @@ import broad.core.primer3.PrimerPair;
 import broad.core.primer3.PrimerUtils;
 import broad.core.primer3.PcrPrimerDesigner;
 import broad.core.sequence.Sequence;
-import broad.core.util.PipelineUtils;
 
 public final class PcrTailDesigner {
 	
