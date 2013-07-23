@@ -43,7 +43,7 @@ import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.general.CloseableFilterIterator;
-import nextgen.core.model.AlignmentModel;
+import nextgen.core.model.JCSAlignmentModel;
 import nextgen.core.readFilters.CanonicalSpliceFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.IndelFilter;
@@ -58,7 +58,7 @@ public class BuildScriptureCoordinateSpace {
 
 	private static final TranscriptionRead DEFAULT_TXN_READ =  TranscriptionRead.UNSTRANDED;
 	static Logger logger = Logger.getLogger(BuildScriptureCoordinateSpace.class.getName());
-	private AlignmentModel model;
+	private JCSAlignmentModel model;
 	String genomeSeq = null;
 	int windowSize=20000000;
 	private CoordinateSpace space;
@@ -114,7 +114,7 @@ public class BuildScriptureCoordinateSpace {
 		bamFileName = bamFile;
 		forceStrandSpecificity = forceStrandedness;
 		outName = outputName;
-		model=new AlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
+		model=new JCSAlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		space=model.getCoordinateSpace();
 
 		setThresholds(argMap);
@@ -613,7 +613,7 @@ public class BuildScriptureCoordinateSpace {
 	 */
 	private ChromosomeTranscriptGraph assembleDirectly(String chr,TranscriptionRead strand){
 		
-		model=new AlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
+		model=new JCSAlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		model.addFilter(new ProperPairFilter());
 		model.addFilter(new IndelFilter());
 		model.addFilter(new GenomicSpanFilter(20000000));
@@ -652,7 +652,7 @@ public class BuildScriptureCoordinateSpace {
 		logger.info("Size of direct assemblies: "+workingAssemblies.size());		
 		//try{write(workingAssemblies, outName+"."+chr+"."+"02directAssemblies.bed");}catch(IOException ex){}
 				
-/*		model=new AlignmentModel(bamFileName.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
+/*		model=new JCSAlignmentModel(bamFileName.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		model.addFilter(new ProperPairFilter());
 		model.addFilter(new IndelFilter());
 		model.addFilter(new GenomicSpanFilter(20000000));*/
