@@ -24,10 +24,14 @@ import nextgen.core.writers.PairedEndWriter;
  * @author prussell
  *
  */
-public abstract class AbstractPairedEndAlignment extends BasicAnnotation implements Alignment {
+public abstract class AbstractPairedEndAlignment extends BasicAnnotation implements Alignment,java.io.Serializable {
 
 
-    //First in pair alignment
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	//First in pair alignment
     SingleEndAlignment firstMate;
     //Second in pair alignment
     SingleEndAlignment secondMate;
@@ -329,7 +333,7 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	 * @author skadri
 	 *
 	 */
-	public static enum TranscriptionRead{
+	public static enum TranscriptionRead implements java.io.Serializable{
 		/**
 		 * 
 		 */

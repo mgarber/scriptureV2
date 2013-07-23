@@ -70,7 +70,7 @@ public interface Interval
      * A perfectly trivial implementation of the Interval interface.
      */
     public static class Impl
-        implements Interval
+        implements Interval,java.io.Serializable
     {
         public Impl( int start, int end )
         {

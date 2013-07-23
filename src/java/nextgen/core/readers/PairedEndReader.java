@@ -9,6 +9,11 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.logging.Logger;
 
+import org.broad.igv.Globals;
+
+import broad.core.util.CLUtil;
+import broad.core.util.CLUtil.ArgumentMap;
+
 
 import net.sf.picard.util.Log;
 import net.sf.samtools.SAMFileHeader;
@@ -370,5 +375,41 @@ public class PairedEndReader {
 		}
 		return result;
 	}
+	
+	public static void main(String[] args){
+		Globals.setHeadless(true);
+		/*
+		 * @param for ArgumentMap - size, usage, default task
+		 * argMap maps the command line arguments to the respective parameters
+		 */
+		ArgumentMap argMap = CLUtil.getParameters(args,usage,"makeFile");
+		
+		TranscriptionRead strand = TranscriptionRead.UNSTRANDED;
+		if(argMap.get("strand").equalsIgnoreCase("first")){
+			//System.out.println("First read");
+			strand = TranscriptionRead.FIRST_OF_PAIR;
+		}
+		else if(argMap.get("strand").equalsIgnoreCase("second")){
+			//System.out.println("Second read");
+			strand = TranscriptionRead.SECOND_OF_PAIR;
+		}
+		else
+			log.info("no strand");
+		//String bamFile = argMap.getMandatory("alignment");
+		String bamFile = getOrCreatePairedEndFile(argMap.getMandatory("alignment"),strand);
+		String file = PairedEndReader.getPairedEndFile(bamFile);
+		if (file == null) {
+			file = PairedEndWriter.getDefaultFile(bamFile);
+			PairedEndWriter writer = new PairedEndWriter(new File(bamFile), file);
+			writer.convertInputToPairedEnd(strand);
+		}
+	}
+	
+	static final String usage = "Usage: CreatePairedEndBamFile -task makeFile "+
+			"\n**************************************************************"+
+			"\n\t\tArguments"+
+			"\n**************************************************************"+
+			"\n\t\t-strand <VALUES: first, second, unstranded. Specifies the mate that is in the direction of transcription DEFAULT: Unstranded> "+
+			"\n\n\t\t-alignment <Alignment file to be used for reconstruction. Required.> ";			
 	
 }

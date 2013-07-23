@@ -114,7 +114,9 @@ public class BuildScriptureCoordinateSpace {
 		bamFileName = bamFile;
 		forceStrandSpecificity = forceStrandedness;
 		outName = outputName;
-		
+		model=new AlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
+		space=model.getCoordinateSpace();
+
 		setThresholds(argMap);
 //		globalFragments = calculateGlobalFragments();
 		logger.info("Parameters used: " +

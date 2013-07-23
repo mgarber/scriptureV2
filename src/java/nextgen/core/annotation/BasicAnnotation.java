@@ -23,7 +23,7 @@ import broad.core.error.ParseException;
  * @author engreitz
  * Coordinate system:  0-based, including first base but not the last
  */
-public class BasicAnnotation extends AbstractAnnotation {
+public class BasicAnnotation extends AbstractAnnotation implements java.io.Serializable {
 	protected CompoundInterval blocks = new CompoundInterval();
 	private String referenceName;
 	private Strand orientation = Strand.UNKNOWN;
