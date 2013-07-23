@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.util.List;
 
 import broad.core.math.EmpiricalDistribution;
-import broad.core.util.PipelineUtils;
 
 import net.sf.picard.cmdline.Option;
 import net.sf.picard.cmdline.Usage;
@@ -18,6 +17,7 @@ import nextgen.core.alignment.Alignment;
 import nextgen.core.model.score.*;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.writers.PairedEndWriter;
+import nextgen.core.pipeline.PipelineUtils;
 import nextgen.core.readFilters.*;
 
 public class BuildRatioNullDistribution extends GenomeCommandLineProgram {

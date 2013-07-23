@@ -6,6 +6,7 @@ import java.util.List;
 
 import broad.core.annotation.GenomicAnnotation;
 import broad.core.motif.SequenceMotif;
+import broad.core.multiplealignment.MultipleAlignment.AlignedSequence;
 import broad.core.sequence.Sequence;
 import broad.core.sequence.SequenceRegion;
 
@@ -44,5 +45,6 @@ public class SequenceTest extends TestCase {
 		
 		
 	}
+	
 
 }

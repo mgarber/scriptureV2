@@ -12,11 +12,12 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
+import nextgen.core.pipeline.PipelineUtils;
+
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
-import broad.core.util.PipelineUtils;
 
 /**
  * @author prussell

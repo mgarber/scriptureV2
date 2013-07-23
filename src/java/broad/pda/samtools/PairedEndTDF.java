@@ -6,7 +6,6 @@ package broad.pda.samtools;
 import java.io.File;
 import java.util.Iterator; 
 
-import broad.core.util.PipelineUtils;
 
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
@@ -20,6 +19,7 @@ import net.sf.samtools.SAMFileWriter;
 import net.sf.samtools.SAMFileWriterFactory;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMRecordIterator;
+import nextgen.core.pipeline.PipelineUtils;
 
 import org.apache.commons.lang3.StringUtils;
 

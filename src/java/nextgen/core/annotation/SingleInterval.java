@@ -87,6 +87,6 @@ public final class SingleInterval extends Interval.Impl implements Comparable<Si
 	}
 	
 	public String toString() {
-		return "(" + getStart() + "," + getEnd() + "]";
+		return "[" + getStart() + "," + getEnd() + ")"; //Intervals are open/closed by default
 	}
 }

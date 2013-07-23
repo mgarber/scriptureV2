@@ -13,7 +13,6 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import broad.core.annotation.ShortBEDReader;
-import broad.core.util.PipelineUtils;
 import broad.pda.enrichment.EnrichmentUtils;
 
 import net.sf.picard.cmdline.Option;
@@ -23,6 +22,7 @@ import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.annotation.*;
 import nextgen.core.annotation.filter.*;
 import nextgen.core.model.score.CountScore;
+import nextgen.core.pipeline.PipelineUtils;
 
 import broad.core.math.EmpiricalDistribution;
 

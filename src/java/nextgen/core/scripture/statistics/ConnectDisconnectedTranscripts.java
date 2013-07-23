@@ -163,7 +163,7 @@ public class ConnectDisconnectedTranscripts {
 	 */
 	private boolean secondTranscriptIsSingleExon(Gene gene,Gene other){
 		
-		Pair<Gene> orderedGenes = this.getOrderedAssembly(gene, other);
+		Pair<Gene> orderedGenes = ConnectDisconnectedTranscripts.getOrderedAssembly(gene, other);
 		if(gene.isNegativeStrand()){
 			if(orderedGenes.getValue1().getBlocks().size()==1){
 				return true;
@@ -186,7 +186,7 @@ public class ConnectDisconnectedTranscripts {
 	 */
 	private Annotation getConnectedTranscript(Gene gene,Gene other) throws IOException{
 		
-		Pair<Gene> orderedGenes = this.getOrderedAssembly(gene, other);
+		Pair<Gene> orderedGenes = ConnectDisconnectedTranscripts.getOrderedAssembly(gene, other);
 		Annotation connected = null;
 		/*
 		 * If the distance between the transcripts is less than the insert size,

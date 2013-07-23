@@ -503,34 +503,38 @@ public class MultipleAlignment  {
 		BasicGenomicAnnotation target = new BasicGenomicAnnotation("ReferenceTarget");
 		target.setStart(refStart);
 		target.setEnd(refEnd);
-		AlignedSequence ref = alignments.get(refId) ;
-		target.setChromosome(ref.getChromosome());
-		if(ref == null) {
+
+		if( ! alignments.containsKey(refId)) {
 			throw new IllegalArgumentException("Bad refId, multiple alignment does not include " + refId);
 		}
+
+		AlignedSequence ref = alignments.get(refId) ;
+		target.setChromosome(ref.getChromosome());
+
 		target = new BasicGenomicAnnotation(target.intersect(ref));
-		//System.out.println("RefStart " + refStart + " ref.getRegionStart() " + ref.getRegionStart() + " refEnd " + refEnd );
 		int stringStartPos = ref.getGapAdjustedCoordinate(target.getStart() - ref.getRegionStart());
 		int stringEndPos   = ref.getGapAdjustedCoordinate(target.getEnd()   - ref.getRegionStart());
-		//System.out.println("gap adjusted start " + stringStartPos + " gap adjusted end " +stringEndPos );
 		
 		Iterator<AlignedSequence> it = getAlignedSequences().iterator();
 		SequenceRegion tmpRegion = null;
 		while(it.hasNext()) {
 			AlignedSequence seq = it.next();
-			//System.out.print(seq.getId());
 			tmpRegion = seq.getRegion(stringStartPos, stringEndPos);
-			//System.out.println(" " + tmpRegion.getSequenceBases());
 			if(reverse){
 				tmpRegion.reverse();
 			}
-			AlignedSequence newSeq = new AlignedSequence(tmpRegion.getContainingSequenceId()); 
-			newSeq.setRegionStart(seq.getRegionStart() + seq.getSequencePosition(stringStartPos));
-			newSeq.setRegionEnd(seq.getRegionStart() + seq.getSequencePosition(stringEndPos));
-			newSeq.setChromosome(seq.getChromosome());
-			newSeq.setSequence(tmpRegion);
-			newSeq.setName(tmpRegion.getContainingSequenceId());
-			result.addSequence(newSeq);
+			
+			int gappedSeqStartPos = seq.getSequencePosition(stringStartPos);
+			int gappedSeqEndPos   = seq.getSequencePosition(stringEndPos);
+			if(gappedSeqEndPos - gappedSeqStartPos > 0) { //Added 7/16/13 to fix a bug when the trimmed aligned sequence had zero length
+				AlignedSequence newSeq = new AlignedSequence(tmpRegion.getContainingSequenceId()); 
+				newSeq.setRegionStart(seq.getRegionStart() + gappedSeqStartPos);
+				newSeq.setRegionEnd(seq.getRegionStart() + gappedSeqEndPos);
+				newSeq.setChromosome(seq.getChromosome());
+				newSeq.setSequence(tmpRegion);
+				newSeq.setName(tmpRegion.getContainingSequenceId());
+				result.addSequence(newSeq);
+			}
 		}
 		
 		result.setIOHelper(this.ioHelper);

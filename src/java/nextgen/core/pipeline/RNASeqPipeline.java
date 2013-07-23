@@ -1,4 +1,4 @@
-package broad.core.util;
+package nextgen.core.pipeline;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -19,14 +19,10 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.GenomicSpace;
-import nextgen.core.coordinatesystem.TranscriptomeSpace;
-import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.ScanStatisticDataAlignmentModel;
 import nextgen.core.readFilters.FirstOfPairFilter;
-import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.ProperPairFilter;
 import nextgen.core.readFilters.SecondOfPairFilter;
 import nextgen.core.writers.PairedEndWriter;
@@ -36,9 +32,7 @@ import org.apache.log4j.Logger;
 import org.broad.igv.Globals;
 
 import broad.core.error.ParseException;
-import broad.core.math.EmpiricalDistribution;
 import broad.core.parser.CommandLineParser;
-import broad.core.parser.ConfigFileParser;
 import broad.core.parser.StringParser;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
@@ -52,9 +46,9 @@ import broad.pda.countreads.LibraryCompositionByRnaClass;
  * @author prussell
  *
  */
-public class PipelineAutomator {
+public class RNASeqPipeline {
 
-	static Logger logger = Logger.getLogger(PipelineAutomator.class.getName());
+	static Logger logger = Logger.getLogger(RNASeqPipeline.class.getName());
 
 	/*
 	 * For a file with paired data in the fq list file, there will be 4 columns
@@ -65,7 +59,7 @@ public class PipelineAutomator {
 	private static int PAIRED_COLUMNS = 4;
 	private static int UNPAIRED_COLUMNS = PAIRED_COLUMNS - 1;
 	
-	ConfigFileParser configP;
+	private ConfigFile configFile;
 	
 	/**
 	 * The sample names
@@ -109,17 +103,6 @@ public class PipelineAutomator {
 	 */
 	private String fastqReadIdPairNumberDelimiter;
 	
-	/*
-	 * LIST OF COMMANDS (in order for ease of coding)
-	 */
-	static String SPLIT_TRIM_BARCODES = "SPLIT_TRIM_BARCODES";
-	static String CLIP_ADAPTERS = "TRIM_ADAPTERS";
-	static String LIBRARY_STATS = "LIBRARY_STATS";
-	static String RNA_CLASSES = "RNA_CLASSES";
-	static String FILTER_RRNA = "FILTER_RRNA";
-	static String ALIGN = "ALIGN";
-	static String ALIGN_TO_TRANSCRIPTS = "ALIGN_TO_TRANSCRIPTS";
-	static String RUN_DGE = "RUN_DGE";
 	
 	/**
 	 * Output directories
@@ -131,24 +114,21 @@ public class PipelineAutomator {
 	static String FILTER_RRNA_DIRECTORY = "filter_rRNA";
 	static String ALIGN_TO_TRANSCRIPTS_DIRECTORY = "bowtie_to_transcripts";
 
-
-	
 	/**
 	 * @param inputListFile The input list of fastq files
 	 * @param configFileName The config file
 	 * @throws IOException
 	 * @throws ParseException
-	 * @throws MathException
 	 * @throws InterruptedException
 	 */
-	public PipelineAutomator(String inputListFile,String configFileName) throws IOException, ParseException, InterruptedException {
+	public RNASeqPipeline(String inputListFile,String configFileName) throws IOException, ParseException, InterruptedException {
 		
 		Globals.setHeadless(true);
 		logger.info("Using Version R4.4");
 		logger.debug("DEBUG ON");
 
-		configP = new ConfigFileParser(configFileName);
-		fastqReadIdPairNumberDelimiter = configP.basicOptions.getFastqReadIdPairDelimiter();
+		configFile = getConfigFile(configFileName);
+		fastqReadIdPairNumberDelimiter = configFile.getSingleValueField(sectionBasicOptions, optionFastqReadNumberDelimiter);
 		
 		//If this flag is false, then the expected input file formats are different
 		boolean runBasic = false;
@@ -169,61 +149,67 @@ public class PipelineAutomator {
 			pairedData = new TreeMap<String,Boolean>();
 			currentBamFiles = new TreeMap<String,String>();
 			nameToCondition = new TreeMap<String,String>();
-			queueName = configP.basicOptions.getQueueName();
+			queueName = configFile.getSingleValueField(sectionBasicOptions, optionQueueName);
 			
 			//Read the Fq list
 			readFqList(inputListFile);
 
 			// Split and trim barcodes
-			if(configP.hasCommandFor(SPLIT_TRIM_BARCODES)){
+			if(configFile.hasOption(sectionCommands, optionSplitTrimBarcodes)){
 				splitTrimBarcodes();
 			}
 			
 			// Clip sequencing adapters
-			if(configP.hasCommandFor(CLIP_ADAPTERS)) {
-				String fastxDir = configP.basicOptions.getFastxDirectory();
-				String adapter1 = configP.basicOptions.getSequencingAdapterRead1();
+			if(configFile.hasOption(sectionCommands, optionTrimAdapters)) {
+				if(!configFile.hasOption(sectionBasicOptions, optionFastxDirectory)) {
+					throw new IllegalArgumentException("In order to clip adapters, must provide config file option " + optionFastxDirectory.getName());
+				}
+				if(!configFile.hasOption(sectionBasicOptions, optionRead1Adapter)) {
+					throw new IllegalArgumentException("In order to clip adapters, must provide config file option " + optionRead1Adapter.getName());
+				}
+				String fastxDir = configFile.getSingleValueField(sectionBasicOptions, optionFastxDirectory);
+				String adapter1 = configFile.getSingleValueField(sectionBasicOptions, optionRead1Adapter);
 				String adapter2 = null;
-				if(configP.basicOptions.hasCommandFor(ConfigFileParser.OPTION_SEQUENCING_ADAPTER_READ_2)) adapter2 = configP.basicOptions.getSequencingAdapterRead2();
+				if(configFile.hasOption(sectionBasicOptions, optionRead2Adapter)) adapter2 = configFile.getSingleValueField(sectionBasicOptions, optionRead2Adapter);
 				clipAdapters(fastxDir, adapter1, adapter2);
 			}
 			
 			// Count reads
 			// Quantify duplicates
 			// Estimate library size
-			if(configP.hasCommandFor(LIBRARY_STATS)){
+			if(configFile.hasOption(sectionCommands, optionComputeLibraryStats)){
 				calculateLibraryStats();
 			}
 			
 			// Characterize library composition by RNA class
-			if(configP.hasCommandFor(RNA_CLASSES)){
+			if(configFile.hasOption(sectionCommands, optionCountRnaClasses)){
 				quantifyRNAClasses();
 			}
 			
 			// Update current fastqs with reads not matching rRNA
-			if(configP.hasCommandFor(FILTER_RRNA)){
+			if(configFile.hasOption(sectionCommands, optionFilterRrna)){
 				filterrRNA();
 			}
 			
 			// Align to transcript sequences
 			// Calculate median fragment size for each sequence
-			if(configP.hasCommandFor(ALIGN_TO_TRANSCRIPTS)) {
+			if(configFile.hasOption(sectionCommands, optionAlignToTranscripts)) {
 				alignToTranscripts();
 			}
 			
 			// Align to genome
 			// Generate bam and tdf files
 			// Generate fragment size distributions
-			if(configP.hasCommandFor(ALIGN)){
+			if(configFile.hasOption(sectionCommands, optionAlign)){
 				alignToGenome();
 			}
 			
 		}
 		
-		if(configP.hasCommandFor(RUN_DGE)){
+		if(configFile.hasOption(sectionCommands, optionRunDge)){
 			
 			String DGEInputFile= null;
-			if(configP.hasCommandFor(ALIGN)){
+			if(configFile.hasOption(sectionCommands, optionAlign)){
 				//Input file format
 				//Name	Bam_file	condition
 				//TODO: Not needed right now but provision for future flexibility
@@ -248,8 +234,8 @@ public class PipelineAutomator {
 	 * @return
 	 */
 	private boolean containsBasicCommand(){
-		return (configP.hasCommandFor(SPLIT_TRIM_BARCODES) || configP.hasCommandFor(LIBRARY_STATS) 
-				|| configP.hasCommandFor(RNA_CLASSES) || configP.hasCommandFor(FILTER_RRNA) || configP.hasCommandFor(ALIGN) || configP.hasCommandFor(ALIGN_TO_TRANSCRIPTS));
+		return (configFile.hasOption(sectionCommands, optionSplitTrimBarcodes) || configFile.hasOption(sectionCommands, optionComputeLibraryStats) 
+				|| configFile.hasOption(sectionCommands, optionCountRnaClasses) || configFile.hasOption(sectionCommands, optionFilterRrna) || configFile.hasOption(sectionCommands, optionAlign) || configFile.hasOption(sectionCommands, optionAlignToTranscripts));
 	}
 	
 	/**
@@ -574,6 +560,7 @@ public class PipelineAutomator {
 		
 		// Make directory for library stats
 		File dir = new File(LIBRARY_STATS_DIRECTORY);
+		@SuppressWarnings("unused")
 		boolean madeDir = dir.mkdir();
 		if(!dir.exists()) {
 			throw new IOException("Could not create directory " + LIBRARY_STATS_DIRECTORY);
@@ -622,17 +609,39 @@ public class PipelineAutomator {
 		// Make directory for RNA classes
 		String rnaClassDir = "rna_class_counts";
 		File dir = new File(rnaClassDir);
+		@SuppressWarnings("unused")
 		boolean madeDir = dir.mkdir();
 		if(!dir.exists()) {
 			throw new IOException("Could not create directory " + rnaClassDir);
 		}
 		
 		// Get options from config file
-		Map<String, String> classFiles = configP.basicOptions.getRNAClassFileNames();
-		String genomeBowtieIndex = configP.basicOptions.getGenomeBowtieIndex();
-		String bowtie2Executable = configP.basicOptions.getBowtie2ExecutablePath();
-		String bowtie2BuildExecutable = configP.basicOptions.getBowtie2BuildExecutablePath();
-		String samtoolsExecutable = configP.basicOptions.getSamtoolsPath();
+		if(!configFile.hasOption(sectionBasicOptions, optionRnaClassFastaFile)) {
+			throw new IllegalArgumentException("In order to quantify RNA classes, config file must specify option " + optionRnaClassFastaFile.getName());
+		}
+		Map<String, String> classFiles = new TreeMap<String, String>();
+		for(ConfigFileOptionValue value : configFile.getOptionValues(sectionBasicOptions, optionRnaClassFastaFile)) {
+			classFiles.put(value.asString(1), value.asString(2));
+		}
+		
+		if(!configFile.hasOption(sectionBasicOptions, optionGenomeBowtieIndex)) {
+			throw new IllegalArgumentException("In order to quantify RNA classes, config file must specify option " + optionGenomeBowtieIndex.getName());
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionBowtie2Executable)) {
+			throw new IllegalArgumentException("In order to quantify RNA classes, config file must specify option " + optionBowtie2Executable.getName());
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionBowtie2BuildExecutable)) {
+			throw new IllegalArgumentException("In order to quantify RNA classes, config file must specify option " + optionBowtie2BuildExecutable.getName());
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionSamtoolsPath)) {
+			throw new IllegalArgumentException("In order to quantify RNA classes, config file must specify option " + optionSamtoolsPath.getName());
+		}
+		
+		
+		String genomeBowtieIndex = configFile.getSingleValueField(sectionBasicOptions, optionGenomeBowtieIndex);
+		String bowtie2Executable = configFile.getSingleValueField(sectionBasicOptions, optionBowtie2Executable);
+		String bowtie2BuildExecutable = configFile.getSingleValueField(sectionBasicOptions, optionBowtie2BuildExecutable);
+		String samtoolsExecutable = configFile.getSingleValueField(sectionBasicOptions, optionSamtoolsPath);
 		
 		// Files to write tables to
 		String countFileName = rnaClassDir + "/counts_by_class.out";
@@ -648,7 +657,10 @@ public class PipelineAutomator {
 		
 		// Align and count reads for each library and RNA class
 		LibraryCompositionByRnaClass lcrc = new LibraryCompositionByRnaClass(genomeBowtieIndex, classFiles, leftFqs, rightFqs, logger);
-		Map<String, String> bowtie2options = configP.basicOptions.getBowtie2Options();
+		Map<String, String> bowtie2options = new TreeMap<String, String>();
+		for(ConfigFileOptionValue value : configFile.getOptionValues(sectionBasicOptions, optionBowtie2Option)) {
+			bowtie2options.put(value.asString(1), value.getLastFields(2));
+		}
 		Map<String, Integer> totalReadCounts = lcrc.getTotalReadCounts();
 		Map<String, Map<String, Integer>> classCounts = lcrc.alignAndGetCounts(samtoolsExecutable, bowtie2Executable, bowtie2options, bowtie2BuildExecutable, rnaClassDir);
 		
@@ -691,7 +703,7 @@ public class PipelineAutomator {
 		
 		logger.info("");
 		logger.info("Done quantifying RNA classes.");
-		logger.info("Delete sam and fastq files to save disk space. If rerunning pipeline remove " + RNA_CLASSES + " option from config file.");
+		logger.info("Delete sam and fastq files to save disk space. If rerunning pipeline remove " + optionCountRnaClasses.getName() + " option from config file.");
 
 	}
 	
@@ -706,11 +718,24 @@ public class PipelineAutomator {
 		
 		// Establish paths and software locations
 		File outDirFile = new File(FILTER_RRNA_DIRECTORY);
+		@SuppressWarnings("unused")
 		boolean madeDir = outDirFile.mkdir();
 		String outIndex = FILTER_RRNA_DIRECTORY + "/rRNA";
-		String rRnaFasta = configP.basicOptions.getRrnaSeqsForDepletion();
-		String bowtieBuild = configP.basicOptions.getBowtie2BuildExecutablePath();
-		String bowtie = configP.basicOptions.getBowtie2ExecutablePath();
+		
+		if(!configFile.hasOption(sectionBasicOptions, optionRrnaSequences)) {
+			throw new IllegalArgumentException("In order to filter ribosomal RNA, must provide config file option " + optionRrnaSequences.getName());
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionBowtie2BuildExecutable)) {
+			throw new IllegalArgumentException("In order to filter ribosomal RNA, must provide config file option " + optionBowtie2BuildExecutable.getName());
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionBowtie2Executable)) {
+			throw new IllegalArgumentException("In order to filter ribosomal RNA, must provide config file option " + optionBowtie2Executable.getName());
+		}
+
+		
+		String rRnaFasta = configFile.getSingleValueField(sectionBasicOptions, optionRrnaSequences);
+		String bowtieBuild = configFile.getSingleValueField(sectionBasicOptions, optionBowtie2BuildExecutable);
+		String bowtie = configFile.getSingleValueField(sectionBasicOptions, optionBowtie2Executable);
 		
 		logger.info("");
 		logger.info("Filtering ribosomal RNA by removing reads that map to sequences in " + rRnaFasta);
@@ -761,7 +786,10 @@ public class PipelineAutomator {
 			}
 			
 			// Align to rRNA and keep unmapped reads
-			Map<String, String> bowtie2options = configP.basicOptions.getBowtie2Options();
+			Map<String, String> bowtie2options = new TreeMap<String, String>();
+			for(ConfigFileOptionValue value : configFile.getOptionValues(sectionBasicOptions, optionBowtie2Option)) {
+				bowtie2options.put(value.asString(1), value.getLastFields(2));
+			}
 			String jobID = AlignmentUtils.runBowtie2(outIndex, bowtie2options, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, outRibosomal, paired ? outFilteredPairedArg : outFilteredUnpaired, bowtie, FILTER_RRNA_DIRECTORY, paired);
 			jobIDs.add(jobID);
 			
@@ -793,14 +821,36 @@ public class PipelineAutomator {
 		
 		// Establish paths and software locations
 		File outDirFile = new File(ALIGN_TO_TRANSCRIPTS_DIRECTORY);
+		@SuppressWarnings("unused")
 		boolean madeDir = outDirFile.mkdir();
 		String outIndex = ALIGN_TO_TRANSCRIPTS_DIRECTORY + "/transcripts";
-		String fasta = configP.basicOptions.getTranscriptSeqsForAlignment();
-		String bowtieBuild = configP.basicOptions.getBowtie2BuildExecutablePath();
-		String bowtie = configP.basicOptions.getBowtie2ExecutablePath();
-		Map<String, String> bowtie2options = configP.basicOptions.getBowtie2Options();
-		String samtools = configP.basicOptions.getSamtoolsPath();
-		String picardJarDir = configP.basicOptions.getPicardDirectory();
+		
+		if(!configFile.hasOption(sectionBasicOptions, optionTranscriptFasta)) {
+			throw new IllegalArgumentException("In order to align to transcripts, must provide config file option " + optionTranscriptFasta.getName());
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionBowtie2BuildExecutable)) {
+			throw new IllegalArgumentException("In order to align to transcripts, must provide config file option " + optionBowtie2BuildExecutable.getName());
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionBowtie2Executable)) {
+			throw new IllegalArgumentException("In order to align to transcripts, must provide config file option " + optionBowtie2Executable.getName());
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionSamtoolsPath)) {
+			throw new IllegalArgumentException("In order to align to transcripts, must provide config file option " + optionSamtoolsPath.getName());
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionPicardDir)) {
+			throw new IllegalArgumentException("In order to align to transcripts, must provide config file option " + optionPicardDir.getName());
+		}
+
+		
+		String fasta = configFile.getSingleValueField(sectionBasicOptions, optionTranscriptFasta);
+		String bowtieBuild = configFile.getSingleValueField(sectionBasicOptions, optionBowtie2BuildExecutable);
+		String bowtie = configFile.getSingleValueField(sectionBasicOptions, optionBowtie2Executable);
+		Map<String, String> bowtie2options = new TreeMap<String, String>();
+		for(ConfigFileOptionValue value : configFile.getOptionValues(sectionBasicOptions, optionBowtie2Option)) {
+			bowtie2options.put(value.asString(1), value.getLastFields(2));
+		}
+		String samtools = configFile.getSingleValueField(sectionBasicOptions, optionSamtoolsPath);
+		String picardJarDir = configFile.getSingleValueField(sectionBasicOptions, optionPicardDir);
 		
 		logger.info("");
 		logger.info("Aligning to transcript sequences in " + fasta);
@@ -893,7 +943,9 @@ public class PipelineAutomator {
 				
 		logger.info("");
 		logger.info("Getting median fragment sizes per transcript.");
-		String outputMedians = ALIGN_TO_TRANSCRIPTS_DIRECTORY + "/fragment_size_median";
+		logger.error("TODO: fix in config file");
+		// TODO adapt config file
+		/*String outputMedians = ALIGN_TO_TRANSCRIPTS_DIRECTORY + "/fragment_size_median";
 		File outputMedianFile = new File(outputMedians);
 		if(outputMedianFile.exists()) {
 			logger.warn("File " + outputMedians + " already exists. Not recalculating median fragment sizes.");
@@ -932,7 +984,7 @@ public class PipelineAutomator {
 				w.write(line + "\n");
 			}
 			w.close();
-		}
+		}*/
 		
 		// Make paired end bam files
 		logger.info("");
@@ -946,6 +998,7 @@ public class PipelineAutomator {
 				logger.warn("Paired end bam file for sample " + sample + " already exists. Not regenerating file.");
 				continue;
 			}
+			@SuppressWarnings("unused")
 			ScanStatisticDataAlignmentModel dam = new ScanStatisticDataAlignmentModel(sortedBamOutput.get(sample), new GenomicSpace(sequenceSizes));
 		}
 		
@@ -962,7 +1015,12 @@ public class PipelineAutomator {
 			logger.info("Done indexing fasta file.");
 		}
 		logger.info("Making tdf files.");
-		makeTdfs(peBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, configP.basicOptions.getIgvtoolsPath());
+		
+		if(!configFile.hasOption(sectionBasicOptions, optionIgvToolsExecutable)) {
+			throw new IllegalArgumentException("In order to make tdf, must provide config file option " + optionIgvToolsExecutable.getName());
+		}
+		
+		makeTdfs(peBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable));
 		
 		// Make wig and bigwig files of fragment ends
 		logger.info("");
@@ -996,16 +1054,33 @@ public class PipelineAutomator {
 		logger.info("");
 		logger.info("Aligning current fastq files to genome using Tophat...");
 
+		if(!configFile.hasOption(sectionBasicOptions, optionGenomeBowtieIndex)) {
+			throw new IllegalArgumentException("In order to align to genome, config file must specify option " + optionGenomeBowtieIndex.getName());
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionSamtoolsPath)) {
+			throw new IllegalArgumentException("In order to align to genome, config file must specify option " + optionSamtoolsPath.getName());
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionTophatExecutable)) {
+			throw new IllegalArgumentException("In order to align to genome, config file must specify option " + optionTophatExecutable.getName());
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionPicardDir)) {
+			throw new IllegalArgumentException("In order to align to genome, config file must specify option " + optionPicardDir.getName());
+		}
+
+		
 		// Establish index files and executables
-		String genomeIndex = configP.basicOptions.getGenomeBowtieIndex();
-		String samtools = configP.basicOptions.getSamtoolsPath();
-		String tophat = configP.basicOptions.getTophatPath();
-		String picardJarDir = configP.basicOptions.getPicardDirectory();
+		String genomeIndex = configFile.getSingleValueField(sectionBasicOptions, optionGenomeBowtieIndex);
+		String samtools = configFile.getSingleValueField(sectionBasicOptions, optionSamtoolsPath);
+		String tophat = configFile.getSingleValueField(sectionBasicOptions, optionTophatExecutable);
+		String picardJarDir = configFile.getSingleValueField(sectionBasicOptions, optionPicardDir);
 		File tophatDirFile = new File(TOPHAT_DIRECTORY);
 		tophatDirFile.mkdir();
 		
 		// Get tophat options
-		Map<String, String> tophatOptions = configP.basicOptions.getTophatOptions();
+		Map<String, String> tophatOptions = new TreeMap<String, String>();
+		for(ConfigFileOptionValue value : configFile.getOptionValues(sectionBasicOptions, optionTophatOption)) {
+			tophatOptions.put(value.asString(1), value.getLastFields(2));
+		}
 		if(tophatOptions.containsKey("-o") || tophatOptions.containsKey("--output-dir")) {
 			logger.warn("Overriding tophat output directory provided in config file. Creating directories for each sample.");
 			tophatOptions.remove("-o");
@@ -1028,18 +1103,18 @@ public class PipelineAutomator {
 		
 		// *** Novoalign steps ***
 		// Only run if novoalign path was provided in config file
-		if(configP.basicOptions.hasNovoalignPath()) {
+		if(configFile.hasOption(sectionBasicOptions, optionNovoalignExecutable)) {
 		
 			logger.info("");
 			logger.info("Entering steps to align unmapped reads with Novoalign...");
 			
 			// Make sure genome novoindex was provided in config file
-			if(!configP.basicOptions.getAllOptionMaps().containsKey(ConfigFileParser.OPTION_GENOME_NOVOINDEX)) {
+			if(!configFile.hasOption(sectionBasicOptions, optionGenomeNovoindex)) {
 				throw new IllegalArgumentException("Novoalign index for genome is required. Specify in config file with option genome_novoindex.");
 			}
 			
-			String novoalign = configP.basicOptions.getNovoalignPath();
-			String novoIndex = configP.basicOptions.getGenomeNovoindex();
+			String novoalign = configFile.getSingleValueField(sectionBasicOptions, optionNovoalignExecutable);
+			String novoIndex = configFile.getSingleValueField(sectionBasicOptions, optionGenomeNovoindex);
 			
 			// Convert tophat unmapped.bam files to fastq files
 			logger.info("");
@@ -1054,6 +1129,7 @@ public class PipelineAutomator {
 			
 			// Establish file locations
 			File novoDirFile = new File(NOVOALIGN_DIRECTORY);
+			@SuppressWarnings("unused")
 			boolean madeNovDir = novoDirFile.mkdir();
 			Map<String, String> novoDirsPerSample = new TreeMap<String, String>();
 			Map<String, String> novoSubdirsPerSample = new TreeMap<String, String>();
@@ -1068,6 +1144,7 @@ public class PipelineAutomator {
 			for(String sample : sampleNames) {
 				String dir = NOVOALIGN_DIRECTORY + "/" + NOVOALIGN_DIRECTORY + "_" + sample;
 				File dirFile = new File(dir);
+				@SuppressWarnings("unused")
 				boolean madeSampleDir = dirFile.mkdir();
 				novoDirsPerSample.put(sample,dir);
 				novoSubdirsPerSample.put(sample, NOVOALIGN_DIRECTORY + "_" + sample);
@@ -1169,41 +1246,45 @@ public class PipelineAutomator {
 		logger.info("All Picard metrics done.");
 		
 		// Make tdf files from current bam files
-		logger.info("");
-		logger.info("Making tdf files for bam files...");
-		makeTdfs(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeAssembly(), configP.basicOptions.getIgvtoolsPath());
-		logger.info("All tdf files created.");
+		if(configFile.hasOption(sectionBasicOptions, optionIgvToolsExecutable)) {
+			logger.info("");
+			logger.info("Making tdf files for bam files...");
+			makeTdfs(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionGenomeAssemblyName), configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable));
+			logger.info("All tdf files created.");
+		}
 		
 		// Make fragment size distributions
-		if(configP.fragmentSizeOptions.hasOptionMakeFragmentSizeDistribution()) {
+		// TODO adapt config file
+		logger.error("TODO adapt config file");
+		/*if(configP.fragmentSizeOptions.hasOptionMakeFragmentSizeDistribution()) {
 			logger.info("");
 			logger.info("Making fragment size distributions for bam files...");
 			makeFragmentSizeDistributionCurrentBams();
 			logger.info("All fragment size distributions created.");
-		}
+		}*/
 		
 		// Make wig and bigwig files of fragment ends and total fragments
-		if(configP.basicOptions.getWigToBigWigExecutable() != null && configP.basicOptions.getBedFileForWig() != null) {
+		if(configFile.hasOption(sectionBasicOptions, optionWigToBigWigExecutable) && configFile.hasOption(sectionBasicOptions, optionBedFileForWig)) {
 			logger.info("");
 			logger.info("Making wig and bigwig files of fragment end points.");
-			writeWigFragmentEndsAndMidpoints(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForWig());
+			writeWigFragmentEndsAndMidpoints(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionGenomeFasta), configFile.getSingleValueField(sectionBasicOptions, optionBedFileForWig));
 			//writeWigFragments(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForWig());
 			logger.info("");
 			logger.info("Done writing wig files.\n");
 		}
 
 		// Compute global transcriptome space stats
-		if(configP.basicOptions.getAlignmentGlobalStatsJar() != null) {
-			if(configP.basicOptions.getBedFileForTranscriptomeSpaceStats() != null || configP.basicOptions.getChrSizeFileForGenomicSpaceStats() != null) {
-				writeAlignmentGlobalStats(configP.basicOptions.getAlignmentGlobalStatsJar(), configP.basicOptions.getBedFileForTranscriptomeSpaceStats(), configP.basicOptions.getChrSizeFileForGenomicSpaceStats());
+		if(configFile.hasOption(sectionBasicOptions, optionAlignGlobalStatsJar)) {
+			if(configFile.hasOption(sectionBasicOptions, optionTranscriptomeSpaceStatsBedFile) || configFile.hasOption(sectionBasicOptions, optionGenomicSpaceStatsSizeFile)) {
+				writeAlignmentGlobalStats(configFile.getSingleValueField(sectionBasicOptions, optionAlignGlobalStatsJar), configFile.getSingleValueField(sectionBasicOptions, optionTranscriptomeSpaceStatsBedFile), configFile.getSingleValueField(sectionBasicOptions, optionGenomicSpaceStatsSizeFile));
 			}
 		}
 		
 		// Make wig files of normalized position counts
-		if(configP.basicOptions.getWigWriterJar() != null && configP.basicOptions.getBedFileForWig() != null) {
+		if(configFile.hasOption(sectionBasicOptions, optionWigWriterJar) && configFile.hasOption(sectionBasicOptions, optionBedFileForWig)) {
 			logger.info("");
 			logger.info("Making wig files of position counts normalized to transcript average coverage.");
-			writeWigPositionCount(currentBamFiles, currentBamDir, configP.basicOptions.getBedFileForWig(), configP.basicOptions.getGenomeFasta());
+			writeWigPositionCount(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionBedFileForWig), configFile.getSingleValueField(sectionBasicOptions, optionGenomeFasta));
 			logger.info("");
 			logger.info("Done writing wig files.\n");
 		}
@@ -1322,13 +1403,15 @@ public class PipelineAutomator {
 					FileReader r = new FileReader(tophatDirsPerSample.get(sample) + "/unmapped_1.fq");
 					BufferedReader b = new BufferedReader(r);
 					while(b.ready()) {
+						@SuppressWarnings("unused")
 						String line = b.readLine();
 						totalLines++;
 					}
-					if(pairedData.get(sample)) {
+					if(pairedData.get(sample).booleanValue()) {
 						FileReader r2 = new FileReader(tophatDirsPerSample.get(sample) + "/unmapped_2.fq");
-						BufferedReader b2 = new BufferedReader(r);
+						BufferedReader b2 = new BufferedReader(r2);
 						while(b2.ready()) {
+							@SuppressWarnings("unused")
 							String line = b2.readLine();
 							totalLines++;
 						}
@@ -1438,7 +1521,10 @@ public class PipelineAutomator {
 	 */
 	private void runNovoalignOnUnmappedReads(Map<String, String> tophatOptions, String novoindex, String novoalign, Map<String, String> novoDirsPerSample, Map<String, String> novoSamOutput, Map<String, String> novoBamFinalPath, Map<String, String[]> unmappedFastq, boolean tophat2) throws IOException, InterruptedException {
 		// Get novoalign options
-		Map<String, String> novoalignOptions = configP.basicOptions.getNovoalignOptions();
+		Map<String, String> novoalignOptions = new TreeMap<String, String>();
+		for(ConfigFileOptionValue value : configFile.getOptionValues(sectionBasicOptions, optionNovoalignOption)) {
+			novoalignOptions.put(value.asString(1), value.getLastFields(2));
+		}
 		// Override certain flags if provided in config file
 		if(novoalignOptions.containsKey("-F")) {
 			logger.warn("Overriding novoalign option -F provided in config file. Using STDFQ.");
@@ -1703,7 +1789,7 @@ public class PipelineAutomator {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	private void indexFastaFile(String fastaFileName, String samtoolsExecutable, String bsubOutDir) throws IOException, InterruptedException {
+	private static void indexFastaFile(String fastaFileName, String samtoolsExecutable, String bsubOutDir) throws IOException, InterruptedException {
 		String cmmd = samtoolsExecutable + " faidx " + fastaFileName;
 		logger.info("Running samtools command: " + cmmd);
 		String jobID = Long.valueOf(System.currentTimeMillis()).toString();
@@ -1723,6 +1809,7 @@ public class PipelineAutomator {
 	 */
 	private void mergeTophatNovoalign(Map<String, String> tophatBamFinalPath, Map<String, String> novoBamFinalPath, String picardJarDir) throws IOException, InterruptedException {
 		File mergedDir = new File(MERGED_TOPHAT_NOVOALIGN_DIRECTORY);
+		@SuppressWarnings("unused")
 		boolean madeMergedDir = mergedDir.mkdir();
 		ArrayList<String> mergeJobIDs = new ArrayList<String>();
 		for(String sample : sampleNames) {
@@ -1795,7 +1882,13 @@ public class PipelineAutomator {
 	 * @throws InterruptedException
 	 */
 	private void writeWigPositionCount(Map<String, String> bamFiles, String bamDir, String geneBedFile, String refFasta) throws IOException, InterruptedException {
-		String wigToBigWig = configP.basicOptions.getWigToBigWigExecutable();
+		if(!configFile.hasOption(sectionBasicOptions, optionWigToBigWigExecutable)) {
+			throw new IllegalArgumentException("In order to write wig file, must specify " + optionWigToBigWigExecutable.getName() + " in config file.");
+		}
+		if(!configFile.hasOption(sectionBasicOptions, optionWigToBigWigExecutable)) {
+			throw new IllegalArgumentException("In order to write wig file, must specify " + optionWigWriterJar.getName() + " in config file.");
+		}
+		String wigToBigWig = configFile.getSingleValueField(sectionBasicOptions, optionWigToBigWigExecutable);
 		Map<String, Collection<Gene>> genes = BEDFileParser.loadDataByChr(new File(geneBedFile));
 		Collection<String> chrNames = genes.keySet();
 		Map<String, Map<String, String>> normalizedWigFiles = new TreeMap<String, Map<String, String>>();
@@ -1805,7 +1898,7 @@ public class PipelineAutomator {
 		Map<String, String> fullUnnormalizedWigFiles = new TreeMap<String, String>();
 		Map<String, String> fullUnnormalizedBigwigFiles = new TreeMap<String, String>();
 		ArrayList<String> wigJobIDs = new ArrayList<String>();
-		String wigWriter = configP.basicOptions.getWigWriterJar();
+		String wigWriter = configFile.getSingleValueField(sectionBasicOptions, optionWigWriterJar);
 		for(String sample : sampleNames) {
 			String normalizedWigFile = bamDir + "/" + sample + ".normalized.wig";
 			String normalizedBigwigFile = bamDir + "/" + sample + ".normalized.bw";
@@ -1991,7 +2084,10 @@ public class PipelineAutomator {
 		Map<String, String> read2endBigwig = new TreeMap<String, String>();
 		Map<String, String> midpointWig = new TreeMap<String, String>();
 		Map<String, String> midpointBigwig = new TreeMap<String, String>();
-		String wigToBigWig = configP.basicOptions.getWigToBigWigExecutable();
+		if(!configFile.hasOption(sectionBasicOptions, optionWigToBigWigExecutable)) {
+			throw new IllegalArgumentException("In order to write wig file, must specify " + optionWigToBigWigExecutable.getName() + " in config file.");
+		}
+		String wigToBigWig = configFile.getSingleValueField(sectionBasicOptions, optionWigToBigWigExecutable);
 		ArrayList<String> bigwigJobIDs = new ArrayList<String>();
 		
 		// Chromosome size file to pass to wig writer if using genomic space
@@ -2125,13 +2221,21 @@ public class PipelineAutomator {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
+	@SuppressWarnings("unused")
 	private void writeWigFragments(Map<String, String> bamFiles, String bamDir, String refFasta, String geneBedFile) throws IOException, InterruptedException {
 		
-		Map<String, String> wig = new TreeMap<String, String>();
+		// TODO adapt to config file
+		logger.error("TODO: adapt to config file");
+		
+		/*Map<String, String> wig = new TreeMap<String, String>();
 		
 		Map<String, String> bigwig = new TreeMap<String, String>();
 		
-		String wigToBigWig = configP.basicOptions.getWigToBigWigExecutable();
+		if(!configFile.hasOption(sectionBasicOptions, optionWigToBigWigExecutable)) {
+			throw new IllegalArgumentException("In order to write wig file, must specify " + optionWigToBigWigExecutable.getName() + " in config file.");
+		}
+
+		String wigToBigWig = configFile.getSingleOptionValue(sectionBasicOptions, optionWigToBigWigExecutable).asString(1);
 		ArrayList<String> bigwigJobIDs = new ArrayList<String>();
 		
 		// Chromosome size file to pass to UCSC program wigToBigWig
@@ -2194,7 +2298,7 @@ public class PipelineAutomator {
 				logger.info("LSF job ID is " + jobID + ".");
 				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
 			}
-		}
+		}*/
 		
 	}
 	
@@ -2241,7 +2345,7 @@ public class PipelineAutomator {
 		for(String sample : sampleNames) {
 			String bam = currentBamFiles.get(sample);
 			reordered.put(sample, bam + ".reordered");
-			String cmmd = "java -jar " + picardDir + "/ReorderSam.jar I=" + bam + " O=" + reordered.get(sample) + " R=" + configP.basicOptions.getGenomeFasta();
+			String cmmd = "java -jar " + picardDir + "/ReorderSam.jar I=" + bam + " O=" + reordered.get(sample) + " R=" + configFile.getSingleValue(sectionBasicOptions, optionGenomeFasta);
 			logger.info("Running picard command: " + cmmd);
 			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 			reorderJobIDs.add(jobID);
@@ -2343,7 +2447,17 @@ public class PipelineAutomator {
 	 * @throws InterruptedException
 	 */
 	private void mergeBamFiles(String picardJarDir) throws IOException, InterruptedException {
-		Map<String, Collection<String>> setsToMerge = configP.basicOptions.getSamplesToMerge();
+		Map<String, Collection<String>> setsToMerge = new TreeMap<String, Collection<String>>();
+		if(configFile.hasOption(sectionBasicOptions, optionSamplesToMerge)) {
+			for(ConfigFileOptionValue value : configFile.getOptionValues(sectionBasicOptions, optionSamplesToMerge)) {
+				String newName = value.asString(1);
+				Collection<String> oldNames = new TreeSet<String>();
+				for(int i = 2; i < value.getActualNumValues(); i++) {
+					oldNames.add(value.asString(i));
+				}
+				setsToMerge.put(newName, oldNames);
+			}
+		}
 		if(setsToMerge.isEmpty()) {
 			logger.info("No sets to merge.");
 			return;
@@ -2467,7 +2581,10 @@ public class PipelineAutomator {
 	 */
 	private void makeFragmentSizeDistributionCurrentBams() throws IOException {
 		
-		String distFileName = currentBamDir + "/fragment_size_histogram";
+		logger.error("TODO: adapt config file");
+		// TODO adapt config file
+		
+		/*String distFileName = currentBamDir + "/fragment_size_histogram";
 		File distFile = new File(distFileName);
 		String medianFileName = currentBamDir + "/fragment_size_median";
 		File medianFile = new File(medianFileName);
@@ -2559,7 +2676,7 @@ public class PipelineAutomator {
 				w3.write(line + "\n");
 			}
 		}
-		w3.close();
+		w3.close();*/
 		
 	}
 	
@@ -2571,6 +2688,7 @@ public class PipelineAutomator {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
+	@SuppressWarnings("unused")
 	private void collectPicardMetricsCurrentBams(String picardExecutableDir) throws IOException, InterruptedException {
 		String picardMetricsDir = currentBamDir + "/picard_metrics";
 		logger.info("Writing all Picard metrics in directory " + picardMetricsDir + "....");
@@ -2578,10 +2696,11 @@ public class PipelineAutomator {
 		boolean madePicardMetricsDir = picardMetricsDirFile.mkdir();
 		ArrayList<String> pmJobIDs = new ArrayList<String>();
 		// Inputs to picard metrics
-		String refFlat = configP.basicOptions.getPicardRefFlat();
-		String ribIntervals = configP.basicOptions.getPicardRibosomalIntervals();
-		String genomeFasta = configP.basicOptions.getGenomeFasta();
-		String strandSpecificity = configP.basicOptions.getPicardStrandSpecificity();
+		
+		String refFlat = configFile.getSingleValueField(sectionBasicOptions, optionPicardRefFlat);
+		String ribIntervals = configFile.getSingleValueField(sectionBasicOptions, optionPicardRibosomalIntervals);
+		String genomeFasta = configFile.getSingleValueField(sectionBasicOptions, optionGenomeFasta);
+		String strandSpecificity = configFile.getSingleValueField(sectionBasicOptions, optionPicardStrandSpecificity);
 		
 		for(String sample : sampleNames) {
 			
@@ -2639,7 +2758,7 @@ public class PipelineAutomator {
 				// Use Picard program CollectRnaSeqMetrics
 				String cmmd = "java -jar ";
 				// Use user-provided CollectRnaSeqMetrics executable if provided
-				if(configP.basicOptions.getPicardCollectRnaSeqMetrics() != null) cmmd += configP.basicOptions.getPicardCollectRnaSeqMetrics();
+				if(configFile.hasOption(sectionBasicOptions, optionPicardCollectRnaSeqMetricsJar)) cmmd += configFile.getSingleValue(sectionBasicOptions, optionPicardCollectRnaSeqMetricsJar);
 				else cmmd += picardExecutableDir + "/CollectRnaSeqMetrics.jar";
 				cmmd += " INPUT=" + currentBamFiles.get(sample);
 				cmmd += " OUTPUT=" + rsMetrics;
@@ -2808,7 +2927,7 @@ public class PipelineAutomator {
 		String fastqList = p.getStringArg("-r");
 		String configFile = p.getStringArg("-c");
 		
-		PipelineAutomator PA = new PipelineAutomator(fastqList,configFile);
+		RNASeqPipeline PA = new RNASeqPipeline(fastqList,configFile);
 		logger.info("Pipeline all done.");
 	}
 
@@ -3097,6 +3216,122 @@ public class PipelineAutomator {
 
 		
 	}
+	
+	/*
+	 * Config file options and sections 
+	 */
+	
+	private static ConfigFileSection sectionCommands = new ConfigFileSection("commands", true);
+	private static ConfigFileSection sectionSpecies = new ConfigFileSection("species", false);
+	private static ConfigFileSection sectionBasicOptions = new ConfigFileSection("basic_options", true);
+	
+	private static ConfigFileOption optionSplitTrimBarcodes = new ConfigFileOption("SPLIT_TRIM_BARCODES", 1, false, false, false);
+	private static ConfigFileOption optionTrimAdapters = new ConfigFileOption("TRIM_ADAPTERS", 1, false, false, false);
+	private static ConfigFileOption optionComputeLibraryStats = new ConfigFileOption("LIBRARY_STATS", 1, false, false, false);
+	private static ConfigFileOption optionCountRnaClasses = new ConfigFileOption("RNA_CLASSES", 1, false, false, false);
+	private static ConfigFileOption optionFilterRrna = new ConfigFileOption("FILTER_RRNA", 1, false, false, false);
+	private static ConfigFileOption optionAlign = new ConfigFileOption("ALIGN", 1, false, false, false);
+	private static ConfigFileOption optionAlignToTranscripts = new ConfigFileOption("ALIGN_TO_TRANSCRIPTS", 1, false, false, false);
+	private static ConfigFileOption optionRunDge = new ConfigFileOption("RUN_DGE", 1, false, false, false);
+	private static ConfigFileOption optionGenomeFasta = new ConfigFileOption("genome_fasta", 2, false, false, true);
+	private static ConfigFileOption optionQueueName = new ConfigFileOption("queue_name", 2, false, false, false, "week");
+	private static ConfigFileOption optionGenomeBowtieIndex = new ConfigFileOption("genome_bowtie", 2, false, false, true);
+	private static ConfigFileOption optionGenomeAssemblyName = new ConfigFileOption("genome_assembly", 2, false, false, true);
+	private static ConfigFileOption optionGtfAnnotation = new ConfigFileOption("annotation", 2, false, false, false);
+	private static ConfigFileOption optionRnaClassFastaFile = new ConfigFileOption("rna_classes", 3, false, true, false);
+	private static ConfigFileOption optionRrnaSequences = new ConfigFileOption("filter_rrna", 2, false, false, false);
+	private static ConfigFileOption optionTranscriptFasta = new ConfigFileOption("align_to_transcripts", 2, false, false, false);
+	private static ConfigFileOption optionSamplesToMerge = new ConfigFileOption("merge_samples", 10, true, true, false);
+	private static ConfigFileOption optionTophatExecutable = new ConfigFileOption("tophat_path", 2, false, false, true);
+	private static ConfigFileOption optionBedFileForWig = new ConfigFileOption("bed_file_for_wig", 2, false, false, false);
+	private static ConfigFileOption optionWigToBigWigExecutable = new ConfigFileOption("wig_to_bigwig_path", 2, false, false, false);
+	private static ConfigFileOption optionWigWriterJar = new ConfigFileOption("wig_writer_jar", 2, false, false, false);
+	private static ConfigFileOption optionChrSizeFile = new ConfigFileOption("chr_size_file", 2, false, false, true);
+	private static ConfigFileOption optionAlignGlobalStatsJar = new ConfigFileOption("alignment_global_stats_jar_file", 2, false, false, false);
+	private static ConfigFileOption optionTophatOption = new ConfigFileOption("tophat_options", 3, true, true, false);
+	private static ConfigFileOption optionBowtie2Option = new ConfigFileOption("bowtie2_options", 3, true, true, false);
+	private static ConfigFileOption optionNovoalignOption = new ConfigFileOption("novoalign_options", 3, true, true, false);
+	private static ConfigFileOption optionFragmentSizeDistOption = new ConfigFileOption("fragment_size_dist_options", 3, true, true, false);
+	private static ConfigFileOption optionBowtie2Executable = new ConfigFileOption("bowtie2_path", 2, false, false, true);
+	private static ConfigFileOption optionBowtie2BuildExecutable = new ConfigFileOption("bowtie2_build_path", 2, false, false, true);
+	private static ConfigFileOption optionSamtoolsPath = new ConfigFileOption("samtools_path", 2, false, false, true);
+	private static ConfigFileOption optionIgvToolsExecutable = new ConfigFileOption("igvtools_path", 2, false, false, true);
+	private static ConfigFileOption optionFastqReadNumberDelimiter = new ConfigFileOption("fastq_read_number_delimiter", 2, false, false, false, "\\s++");
+	private static ConfigFileOption optionPicardDir = new ConfigFileOption("picard_directory", 2, false, false, true);
+	private static ConfigFileOption optionFastxDirectory = new ConfigFileOption("fastx_directory", 2, false, false, false);
+	private static ConfigFileOption optionRead1Adapter = new ConfigFileOption("sequencing_adapter_read1", 2, false, false, false);
+	private static ConfigFileOption optionRead2Adapter = new ConfigFileOption("sequencing_adapter_read2", 2, false, false, false);
+	private static ConfigFileOption optionNovoalignExecutable = new ConfigFileOption("novoalign_path", 2, false, false, false);
+	private static ConfigFileOption optionGenomeNovoindex = new ConfigFileOption("genome_novoindex", 2, false, false, false);
+	private static ConfigFileOption optionPicardRefFlat = new ConfigFileOption("picard_ref_flat", 2, false, false, false);
+	private static ConfigFileOption optionPicardRibosomalIntervals = new ConfigFileOption("picard_ribosomal_intervals", 2, false, false, false);
+	private static ConfigFileOption optionPicardStrandSpecificity = new ConfigFileOption("picard_strand_specificity", 2, false, false, false);
+	private static ConfigFileOption optionPicardCollectRnaSeqMetricsJar = new ConfigFileOption("picard_collect_rnaseq_metrics", 2, false, false, false);
+	private static ConfigFileOption optionTranscriptomeSpaceStatsBedFile = new ConfigFileOption("bed_transcriptome_space_stats", 2, false, false, false);
+	private static ConfigFileOption optionGenomicSpaceStatsSizeFile = new ConfigFileOption("size_file_genomic_space_stats", 2, false, false, false);
+	private static ConfigFileOption optionSpeciesName = new ConfigFileOption("species", 2, false, false, false, "mouse");
+
+	
+	private static ConfigFile getConfigFile(String fileName) throws IOException {
+		
+		sectionCommands.addAllowableOption(optionAlign);
+		sectionCommands.addAllowableOption(optionAlignToTranscripts);
+		sectionCommands.addAllowableOption(optionComputeLibraryStats);
+		sectionCommands.addAllowableOption(optionCountRnaClasses);
+		sectionCommands.addAllowableOption(optionFilterRrna);
+		sectionCommands.addAllowableOption(optionRunDge);
+		sectionCommands.addAllowableOption(optionSplitTrimBarcodes);
+		sectionCommands.addAllowableOption(optionTrimAdapters);
+		
+		sectionSpecies.addAllowableOption(optionSpeciesName);
+		
+		sectionBasicOptions.addAllowableOption(optionGenomeFasta);
+		sectionBasicOptions.addAllowableOption(optionQueueName);
+		sectionBasicOptions.addAllowableOption(optionGenomeBowtieIndex);
+		sectionBasicOptions.addAllowableOption(optionGenomeAssemblyName);
+		sectionBasicOptions.addAllowableOption(optionGtfAnnotation);
+		sectionBasicOptions.addAllowableOption(optionRnaClassFastaFile);
+		sectionBasicOptions.addAllowableOption(optionRrnaSequences);
+		sectionBasicOptions.addAllowableOption(optionTranscriptFasta);
+		sectionBasicOptions.addAllowableOption(optionSamplesToMerge);
+		sectionBasicOptions.addAllowableOption(optionTophatExecutable);
+		sectionBasicOptions.addAllowableOption(optionBedFileForWig);
+		sectionBasicOptions.addAllowableOption(optionWigToBigWigExecutable);
+		sectionBasicOptions.addAllowableOption(optionWigWriterJar);
+		sectionBasicOptions.addAllowableOption(optionChrSizeFile);
+		sectionBasicOptions.addAllowableOption(optionAlignGlobalStatsJar);
+		sectionBasicOptions.addAllowableOption(optionTophatOption);
+		sectionBasicOptions.addAllowableOption(optionBowtie2Option);
+		sectionBasicOptions.addAllowableOption(optionNovoalignOption);
+		sectionBasicOptions.addAllowableOption(optionFragmentSizeDistOption);
+		sectionBasicOptions.addAllowableOption(optionBowtie2Executable);
+		sectionBasicOptions.addAllowableOption(optionBowtie2BuildExecutable);
+		sectionBasicOptions.addAllowableOption(optionSamtoolsPath);
+		sectionBasicOptions.addAllowableOption(optionIgvToolsExecutable);
+		sectionBasicOptions.addAllowableOption(optionFastqReadNumberDelimiter);
+		sectionBasicOptions.addAllowableOption(optionPicardDir);
+		sectionBasicOptions.addAllowableOption(optionFastxDirectory);
+		sectionBasicOptions.addAllowableOption(optionRead1Adapter);
+		sectionBasicOptions.addAllowableOption(optionRead2Adapter);
+		sectionBasicOptions.addAllowableOption(optionNovoalignExecutable);
+		sectionBasicOptions.addAllowableOption(optionGenomeNovoindex);
+		sectionBasicOptions.addAllowableOption(optionPicardRefFlat);
+		sectionBasicOptions.addAllowableOption(optionPicardRibosomalIntervals);
+		sectionBasicOptions.addAllowableOption(optionPicardStrandSpecificity);
+		sectionBasicOptions.addAllowableOption(optionPicardCollectRnaSeqMetricsJar);
+		sectionBasicOptions.addAllowableOption(optionTranscriptomeSpaceStatsBedFile);
+		sectionBasicOptions.addAllowableOption(optionGenomicSpaceStatsSizeFile);
+		
+		Collection<ConfigFileSection> sections = new ArrayList<ConfigFileSection>();
+		sections.add(sectionCommands);
+		sections.add(sectionSpecies);
+		sections.add(sectionBasicOptions);
+		
+		ConfigFile cf = new ConfigFile(sections, fileName);
+		return cf;
+
+	}
+
 	
 }
 

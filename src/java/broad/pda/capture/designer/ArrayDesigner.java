@@ -20,6 +20,8 @@ import java.util.NoSuchElementException;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import nextgen.core.pipeline.PipelineUtils;
+
 import broad.core.motif.SearchException;
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;
@@ -32,7 +34,6 @@ import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
 import broad.core.sequence.SequenceRegion;
 import broad.core.sequence.WindowSlider;
-import broad.core.util.PipelineUtils;
 
 /**
  * For a given set of sequences, design tiling oligos and primers that do not cross-hybridize with each other or the rest of the transcriptome

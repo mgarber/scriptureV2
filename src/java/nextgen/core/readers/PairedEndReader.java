@@ -244,7 +244,7 @@ public class PairedEndReader {
 				}
 			} else {
 				//check if paired end without our modified record --> throw warning
-				if (!record.getMateUnmappedFlag() && !warned) {
+				if (record.getReadPairedFlag() && !record.getMateUnmappedFlag() && !warned) {
 					log.warn("DEBUG: Paired end reads were found but file is not in our paired end format.  Processing as single-end reads ..."); 
 					warned = true;
 				}				
@@ -275,10 +275,8 @@ public class PairedEndReader {
 				else{
 					//NOTHING
 				}
-				if(record.getFirstOfPairFlag()){
-					
-				}
-				rtrn = new SingleEndAlignment(record,record.getFirstOfPairFlag());
+
+				rtrn = new SingleEndAlignment(record, record.getReadPairedFlag() && record.getFirstOfPairFlag());
 				//rtrn=new SingleEndAlignment(record);
 			}
 		} catch (RuntimeException e) {
