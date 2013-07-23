@@ -15,8 +15,11 @@ import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
+//import broad.core.datastructures.CachedIntervalTree;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
+import broad.core.datastructures.JCSCache;
+//import broad.core.datastructures.CachedIntervalTree.Node;
 import broad.core.math.EmpiricalDistribution;
 import broad.pda.annotation.BEDFileParser;
 import broad.pda.datastructures.Alignments;
@@ -58,7 +61,7 @@ import nextgen.core.model.score.WindowScoreIterator;
  * @author skadri
  */
 
-public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
+public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	static Logger logger = Logger.getLogger(AlignmentModel.class.getName());
 	protected CoordinateSpace coordinateSpace;
 	PairedEndReader  reader;
@@ -72,7 +75,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	private double globalLambda = -99;
 	private double globalPairedFragments = -99;
 	//private double globalRpkmConstant = -99;
-	private Cache cache;
+	private JCSCache cache;
 	int cacheSize=500000;
 	private boolean hasGlobalStats = false;
 	private SortedMap<String, Double> refSequenceCounts=new TreeMap<String, Double>();
@@ -85,12 +88,12 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @param readFilters 
 	 * @throws IOException 
 	 */
-	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam) {
+	public JCSAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam) {
 
 		this(bamFile,coordinateSpace,readFilters,readOrCreatePairedEndBam,TranscriptionRead.UNSTRANDED);				
 	}
 	
-	public AlignmentModel(){
+	public JCSAlignmentModel(){
 		
 	}
 	
@@ -101,7 +104,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @param readFilters 
 	 * @throws IOException 
 	 */
-	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead) {
+	public JCSAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead) {
 
 		this.bamFile=bamFile;
 		
@@ -130,7 +133,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		this.coordinateSpace=coordinateSpace;
 		
 		// Initialize the cache
-		this.cache=new Cache(this.reader,this.cacheSize);
+		this.cache=new JCSCache(this.reader,this.cacheSize,this);
 		
 		// Initialize the readFilters
 		this.readFilters.addAll(readFilters);
@@ -144,7 +147,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @param readFilters 
 	 * @throws IOException 
 	 */
-	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead,boolean fragment) {
+	public JCSAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead,boolean fragment) {
 
 		this.bamFile=bamFile;
 		
@@ -173,33 +176,33 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		this.coordinateSpace=coordinateSpace;
 		
 		// Initialize the cache
-		this.cache=new Cache(this.reader,this.cacheSize);
+		this.cache=new JCSCache(this.reader,this.cacheSize,this);
 		
 		// Initialize the readFilters
 		this.readFilters.addAll(readFilters);
 				
 	}
 	
-	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters) {
+	public JCSAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters) {
 		this(bamFile, coordinateSpace, readFilters, true);
 	}
 	
-	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, TranscriptionRead transcriptionRead) {
+	public JCSAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, TranscriptionRead transcriptionRead) {
 		this(bamFile, coordinateSpace, readFilters, true, transcriptionRead);
 	}
-	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, boolean readOrCreatePairedEndBam) {
+	public JCSAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, boolean readOrCreatePairedEndBam) {
 		this(bamFile, coordinateSpace, new ArrayList<Predicate<Alignment>>(), readOrCreatePairedEndBam);
 	}
 	
-	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, boolean readOrCreatePairedEndBam, TranscriptionRead transcriptionRead) {
+	public JCSAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, boolean readOrCreatePairedEndBam, TranscriptionRead transcriptionRead) {
 		this(bamFile, coordinateSpace, new ArrayList<Predicate<Alignment>>(), readOrCreatePairedEndBam, transcriptionRead);
 	}
 	
-	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace) {
+	public JCSAlignmentModel(String bamFile, CoordinateSpace coordinateSpace) {
 		this(bamFile, coordinateSpace, true);
 	}
 
-	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, TranscriptionRead transcriptionRead) {
+	public JCSAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, TranscriptionRead transcriptionRead) {
 		this(bamFile, coordinateSpace, true, transcriptionRead);
 	}
 	/**
