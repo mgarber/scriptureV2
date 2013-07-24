@@ -6,8 +6,6 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -22,6 +20,11 @@ import java.util.TreeSet;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.GenomicSpace;
 import nextgen.core.model.ScanStatisticDataAlignmentModel;
+import nextgen.core.pipeline.util.AlignmentUtils;
+import nextgen.core.pipeline.util.BamUtils;
+import nextgen.core.pipeline.util.FastaUtils;
+import nextgen.core.pipeline.util.FastqUtils;
+import nextgen.core.pipeline.util.PipelineUtils;
 import nextgen.core.readFilters.FirstOfPairFilter;
 import nextgen.core.readFilters.ProperPairFilter;
 import nextgen.core.readFilters.SecondOfPairFilter;
@@ -48,7 +51,7 @@ import broad.pda.countreads.LibraryCompositionByRnaClass;
  */
 public class RNASeqPipeline {
 
-	static Logger logger = Logger.getLogger(RNASeqPipeline.class.getName());
+	private static Logger logger = Logger.getLogger(RNASeqPipeline.class.getName());
 
 	/*
 	 * For a file with paired data in the fq list file, there will be 4 columns
@@ -171,7 +174,14 @@ public class RNASeqPipeline {
 				String adapter1 = configFile.getSingleValueField(sectionBasicOptions, optionRead1Adapter);
 				String adapter2 = null;
 				if(configFile.hasOption(sectionBasicOptions, optionRead2Adapter)) adapter2 = configFile.getSingleValueField(sectionBasicOptions, optionRead2Adapter);
-				clipAdapters(fastxDir, adapter1, adapter2);
+				Map<String, ArrayList<String>> clippedFqs = FastqUtils.clipAdapters(fastxDir, currentLeftFqs, currentRightFqs, adapter1, adapter2, fastqReadIdPairNumberDelimiter);
+				// Update current fastq files
+				for(String sample : clippedFqs.keySet()) {
+					currentLeftFqs.put(sample, clippedFqs.get(sample).get(0));
+					if(clippedFqs.get(sample).size() > 1) {
+						currentRightFqs.put(sample, clippedFqs.get(sample).get(1));
+					}
+				}
 			}
 			
 			// Count reads
@@ -322,230 +332,7 @@ public class RNASeqPipeline {
 		// TODO: finish
 	}
 	
-	/**
-	 * Clip sequencing adapters
-	 * @param fastxDir Directory containing fastx binaries
-	 * @param adapter1 Sequencing adapter for read 1
-	 * @param adapter2 Sequencing adapter for read 2
-	 * @throws InterruptedException 
-	 * @throws IOException 
-	 */
-	private void clipAdapters(String fastxDir, String adapter1, String adapter2) throws IOException, InterruptedException {
-		
-		logger.info("");
-		logger.info("Trimming sequencing adapters...");
-		Map<String, String> outTmpFilesLeft = new TreeMap<String, String>();
-		Map<String, String> outClippedFilesLeft = new TreeMap<String, String>();
-		Map<String, String> outTmpFilesRight = new TreeMap<String, String>();
-		Map<String, String> outClippedFilesRight = new TreeMap<String, String>();
-		
-		ArrayList<String> jobIDs = new ArrayList<String>();
-		
-		// Clip left fastq files
-		for(String sampleName : sampleNames) {
-			String inFile = currentLeftFqs.get(sampleName);
-			String outTmpFile = inFile + ".clipped_tmp";
-			String outClippedFile = inFile + ".clipped.fq";
-			outTmpFilesLeft.put(sampleName, outTmpFile);
-			outClippedFilesLeft.put(sampleName, outClippedFile);
-			File finalClipped = new File(outClippedFile);
-			if(finalClipped.exists()) {
-				logger.warn("Clipped file " + outClippedFile + " already exists. Not rerunning fastx_clipper.");
-				continue;
-			}
-			File tmpFile = new File(outTmpFile);
-			if(!tmpFile.exists()) {
-				// Use fastx program fastx_clipper
-				String cmmd = fastxDir + "/fastx_clipper -a " + adapter1 + " -Q 33 -n -i " + inFile + " -o " ;
-				if(pairedData.get(sampleName).booleanValue()) {
-					cmmd += outTmpFile;
-				} else {
-					cmmd += outClippedFile;
-				}
-				logger.info("Running fastx command: " + cmmd);
-				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-				jobIDs.add(jobID);
-				logger.info("LSF job ID is " + jobID + ".");
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "week", 4);
-			} else {
-				logger.warn("Temp clipped file " + outTmpFile + " already exists. Not rerunning fastx_clipper. Starting from temp file.");
-			}
-		}
-		
-		// Clip right fastq files
-		for(String sampleName : sampleNames) {
-			if(pairedData.get(sampleName).booleanValue()) {
-				String inFile = currentRightFqs.get(sampleName);
-				String outTmpFile = inFile + ".clipped_tmp";
-				String outClippedFile = inFile + ".clipped.fq";
-				outTmpFilesRight.put(sampleName, outTmpFile);
-				outClippedFilesRight.put(sampleName, outClippedFile);
-				File finalClipped = new File(outClippedFile);
-				if(finalClipped.exists()) {
-					logger.warn("Clipped file " + outClippedFile + " already exists. Not rerunning fastx_clipper.");
-					continue;
-				}
-				File tmpFile = new File(outTmpFile);
-				if(!tmpFile.exists()) {
-					// Use fastx program fastx_clipper
-					String cmmd = fastxDir + "/fastx_clipper -a " + adapter2 + " -Q 33 -n -i " + inFile + " -o " + outTmpFile;
-					logger.info("Running fastx command: " + cmmd);
-					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-					jobIDs.add(jobID);
-					logger.info("LSF job ID is " + jobID + ".");
-					PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "week", 4);
-				} else {
-					logger.warn("Temp clipped file " + outTmpFile + " already exists. Not rerunning fastx_clipper. Starting from temp file.");
-				}
-			}
-		}
-		
-		logger.info("Waiting for fastx_clipper jobs to finish...");
-		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
-		
-		logger.info("Done running fastx_clipper.");
-		
-		for(String sampleName : sampleNames) {
-			if(!pairedData.get(sampleName).booleanValue()) {
-				currentLeftFqs.put(sampleName, outClippedFilesLeft.get(sampleName));
-				logger.info("Current left fq file for sample " + sampleName + " is " + currentLeftFqs.get(sampleName) + ".");
-				continue;
-			}
-			String inFastq1 = outTmpFilesLeft.get(sampleName);
-			String inFastq2 = outTmpFilesRight.get(sampleName);
-			String outFastq1 = outClippedFilesLeft.get(sampleName);
-			String outFastq2 = outClippedFilesRight.get(sampleName);
-			File file1 = new File(outFastq1);
-			File file2 = new File(outFastq1);
-			if(file1.exists() && file2.exists()) {
-				logger.warn("Using existing files " + outFastq1 + " and " + outFastq2 + ".");
-				currentLeftFqs.put(sampleName, outFastq1);
-				currentRightFqs.put(sampleName, outFastq2);
-				logger.info("Current fastq files for sample " + sampleName + " are " + currentLeftFqs.get(sampleName) + " and " + currentRightFqs.get(sampleName) + ".");
-				continue;
-			}
-			logger.info("Removing reads from files " + inFastq1 + " and " + inFastq2 + " that are not in both files and writing new files to " + outFastq1 + " and " + outFastq2 + "...");
-			filterPairedFastqFilesMissingReads(inFastq1, inFastq2, outFastq1, outFastq2);
-			logger.info("Done writing cleaned fastq files. To save storage, delete temporary files " + inFastq1 + " and " + inFastq2 + ".");
-			currentLeftFqs.put(sampleName, outFastq1);
-			currentRightFqs.put(sampleName, outFastq2);
-			logger.info("Current fastq files for sample " + sampleName + " are " + currentLeftFqs.get(sampleName) + " and " + currentRightFqs.get(sampleName) + ".");
-			
-		}
-		
-		
-		
-		
-	}
 	
-	/**
-	 * Remove reads that are missing from file1 or file2 and write new fastq files
-	 * @param inFastq1 Input fastq file read 1
-	 * @param inFastq2 Input fastq file read 2
-	 * @param outFastq1 Output fastq file read 1
-	 * @param outFastq2 Output fastq file read 2
-	 * @throws IOException 
-	 */
-	private void filterPairedFastqFilesMissingReads(String inFastq1, String inFastq2, String outFastq1, String outFastq2) throws IOException {
-		
-		StringParser sp = new StringParser();
-		
-		// Save all read names from infile 1 to a treeset
-		TreeSet<String> inFastq1Ids = new TreeSet<String>();
-		FileReader r1 = new FileReader(inFastq1);
-		BufferedReader b1 = new BufferedReader(r1);
-		int linesRead1 = 0;
-		while(b1.ready()) {
-			String line = b1.readLine();
-			linesRead1++;
-			if(linesRead1 % 4 == 1) {
-				sp.parse(line, fastqReadIdPairNumberDelimiter);
-				String id = sp.asString(0);
-				// Avoid rare duplicated read IDs
-				if(inFastq1Ids.contains(id)) { 
-					inFastq1Ids.remove(id);
-					logger.warn("Skipping read " + id + " because appears in file " + inFastq1 + " twice.");
-					continue;
-				}
-				inFastq1Ids.add(id);
-				id = null;
-			}
-			line = null;
-		}
-		r1.close();
-		b1.close();
-		
-		// Save read names that appear in both files to a treeset
-		// Write those reads from input file 2 to new file
-		FileWriter w2 = new FileWriter(outFastq2);
-		TreeSet<String> bothFastqIds = new TreeSet<String>();
-		TreeSet<String> inFastq2Ids = new TreeSet<String>();
-		FileReader r2 = new FileReader(inFastq2);
-		BufferedReader b2 = new BufferedReader(r2);
-		int linesRead2 = 0;
-		while(b2.ready()) {
-			String line = b2.readLine();
-			linesRead2++;
-			if(linesRead2 % 4 == 1) {
-				sp.parse(line, fastqReadIdPairNumberDelimiter);
-				String id = sp.asString(0);
-				// Avoid rare duplicated read IDs
-				if(inFastq2Ids.contains(id)) {
-					logger.warn("Skipping read " + id + " because appears in file " + inFastq2 + " twice.");
-					inFastq2Ids.remove(id);
-					continue;
-				}
-				inFastq2Ids.add(id);
-				if(inFastq1Ids.contains(id)) {
-					bothFastqIds.add(id);
-					String line2 = b2.readLine();
-					String line3 = b2.readLine();
-					String line4 = b2.readLine();
-					linesRead2 += 3;
-					w2.write(line + "\n" + line2 + "\n" + line3 + "\n" + line4 + "\n");			
-					line2 = null;
-					line3 = null;
-					line4 = null;
-				}
-				id = null;
-			}
-			line = null;
-		}
-		r2.close();
-		b2.close();
-		w2.close();
-		
-		// Write reads from infile 1 that appear in both files to new file
-		FileWriter w1 = new FileWriter(outFastq1);
-		FileReader r3 = new FileReader(inFastq1);
-		BufferedReader b3 = new BufferedReader(r3);
-		int linesRead3 = 0;
-		while(b3.ready()) {
-			String line = b3.readLine();
-			linesRead3++;
-			if(linesRead3 % 4 == 1) {
-				sp.parse(line, fastqReadIdPairNumberDelimiter);
-				if(bothFastqIds.contains(sp.asString(0))) {
-					String line2 = b3.readLine();
-					String line3 = b3.readLine();
-					String line4 = b3.readLine();
-					linesRead3 += 3;
-					w1.write(line + "\n" + line2 + "\n" + line3 + "\n" + line4 + "\n");			
-					line2 = null;
-					line3 = null;
-					line4 = null;
-				}
-			}
-			line = null;
-		}
-		r3.close();
-		b3.close();
-		w1.close();
-		
-		
-		
-		
-	}
 	
 	/**
 	 * TASK 2: CALCULATE LIBRARY STATS
@@ -656,7 +443,7 @@ public class RNASeqPipeline {
 		}
 		
 		// Align and count reads for each library and RNA class
-		LibraryCompositionByRnaClass lcrc = new LibraryCompositionByRnaClass(genomeBowtieIndex, classFiles, leftFqs, rightFqs, logger);
+		LibraryCompositionByRnaClass lcrc = new LibraryCompositionByRnaClass(genomeBowtieIndex, classFiles, currentLeftFqs, currentRightFqs, logger);
 		Map<String, String> bowtie2options = new TreeMap<String, String>();
 		for(ConfigFileOptionValue value : configFile.getOptionValues(sectionBasicOptions, optionBowtie2Option)) {
 			bowtie2options.put(value.asString(1), value.getLastFields(2));
@@ -924,12 +711,12 @@ public class RNASeqPipeline {
 		logger.info("Done aligning to transcripts. Converting sam to bam files.");
 		Map<String, String> bsubDir = new TreeMap<String, String>();
 		for(String sample : sampleNames) bsubDir.put(sample, ALIGN_TO_TRANSCRIPTS_DIRECTORY);
-		samToBam(samOutput, unsortedBamOutput, sortedBamOutput, bsubDir, samtools);
+		BamUtils.samToBam(samOutput, unsortedBamOutput, sortedBamOutput, bsubDir, samtools);
 		
 		logger.info("");
 		logger.info("Done converting sam to bam files. Delete sam files to save storage.");
 		logger.info("Sorting bam files.");
-		sortBamFiles(unsortedBamOutput, sortedBamOutput, bsubDir, sortedBamOutput, picardJarDir);
+		BamUtils.sortBamFiles(unsortedBamOutput, sortedBamOutput, bsubDir, sortedBamOutput, picardJarDir);
 		// Delete unsorted bam files
 		for(String sample : sampleNames) {
 			File unsorted = new File(unsortedBamOutput.get(sample));
@@ -939,7 +726,7 @@ public class RNASeqPipeline {
 		
 		logger.info("");
 		logger.info("Done sorting bam files. Indexing sorted bam files.");
-		indexBamFiles(sortedBamOutput, samtools);
+		AlignmentUtils.indexBamFiles(sortedBamOutput, samtools);
 				
 		logger.info("");
 		logger.info("Getting median fragment sizes per transcript.");
@@ -1011,7 +798,7 @@ public class RNASeqPipeline {
 		if(indexedFastaFile.exists()) {
 			logger.warn("Fasta index " + indexedFasta + " already exists. Not remaking fasta index.");
 		} else {
-			indexFastaFile(fasta, samtools, ALIGN_TO_TRANSCRIPTS_DIRECTORY);
+			FastaUtils.indexFastaFile(fasta, samtools, ALIGN_TO_TRANSCRIPTS_DIRECTORY);
 			logger.info("Done indexing fasta file.");
 		}
 		logger.info("Making tdf files.");
@@ -1020,7 +807,7 @@ public class RNASeqPipeline {
 			throw new IllegalArgumentException("In order to make tdf, must provide config file option " + optionIgvToolsExecutable.getName());
 		}
 		
-		makeTdfs(peBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable));
+		BamUtils.makeTdfs(peBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable));
 		
 		// Make wig and bigwig files of fragment ends
 		logger.info("");
@@ -1098,7 +885,9 @@ public class RNASeqPipeline {
 		}
 		
 		// Run tophat
-		runTophat(tophat, samtools, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex);
+		currentBamFiles.putAll(AlignmentUtils.runTophat(tophat, samtools, sampleNames, leftFqs, rightFqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, queueName, TOPHAT_DIRECTORY));
+		// Update current bam directory
+		currentBamDir = TOPHAT_DIRECTORY;
 		logger.info("Done running tophat.");
 		
 		// *** Novoalign steps ***
@@ -1169,13 +958,13 @@ public class RNASeqPipeline {
 			// Convert novoalign sam files to bam format
 			logger.info("");
 			logger.info("Converting novoalign sam files to bam format...");
-			samToBam(novoSamOutput, novoBamOutput, novoBamFinalPath, novoDirsPerSample, samtools);
+			BamUtils.samToBam(novoSamOutput, novoBamOutput, novoBamFinalPath, novoDirsPerSample, samtools);
 			logger.info("All samples done converting to bam format.");
 			
 			// Sort the bam files
 			logger.info("");
 			logger.info("Sorting novoalign bam files...");
-			sortBamFiles(novoBamOutput, novoSortedBam, novoDirsPerSample, novoBamFinalPath, picardJarDir);
+			BamUtils.sortBamFiles(novoBamOutput, novoSortedBam, novoDirsPerSample, novoBamFinalPath, picardJarDir);
 			logger.info("All bam files sorted.");
 			
 			// Move all novoalign bam files to one directory
@@ -1249,7 +1038,7 @@ public class RNASeqPipeline {
 		if(configFile.hasOption(sectionBasicOptions, optionIgvToolsExecutable)) {
 			logger.info("");
 			logger.info("Making tdf files for bam files...");
-			makeTdfs(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionGenomeAssemblyName), configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable));
+			BamUtils.makeTdfs(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionGenomeAssemblyName), configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable));
 			logger.info("All tdf files created.");
 		}
 		
@@ -1294,144 +1083,6 @@ public class RNASeqPipeline {
 	}
 	
 
-	/**
-	 * Run tophat against genome
-	 * @param tophat Tophat executable
-	 * @param samtools Samtools executable
-	 * @param tophatOptions Mapping of tophat flags to values
-	 * @param tophatDirsPerSample Directory to write tophat output to, by sample name
-	 * @param tophatBamFinalPath Location for final tophat output, by sample name
-	 * @param genomeIndex Genome fasta index
-	 * @throws IOException
-	 * @throws InterruptedException
-	 */
-	private void runTophat(String tophat, String samtools, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex) throws IOException, InterruptedException {
-		
-		// Identify tophat version
-		boolean version2 = tophat.substring(tophat.length()-1).equals("2");
-		
-		ArrayList<String> tophatJobIDs = new ArrayList<String>();
-		// Run tophat
-		for(String sample : sampleNames) {
-			File outdir = new File(tophatDirsPerSample.get(sample));
-			outdir.mkdir();
-			File finalBamFile = new File(tophatBamFinalPath.get(sample));
-			// Check if tophat has already been run
-			if(finalBamFile.exists()) {
-				logger.warn("Alignment file " +tophatBamFinalPath.get(sample) + " already exists. Not rerunning alignment.");
-				continue;
-			}
-			// Make tophat command
-			String optionsString = "";
-			for(String flag : tophatOptions.keySet()) {
-				optionsString += flag + " " + tophatOptions.get(flag) + " ";
-			}
-			String tophatCmmd = tophat + " ";
-			tophatCmmd += optionsString + " ";
-			tophatCmmd += "--output-dir " + outdir + " "; 
-			tophatCmmd += genomeIndex + " ";
-			tophatCmmd += currentLeftFqs.get(sample) + " ";
-			if(pairedData.get(sample).booleanValue()) tophatCmmd += currentRightFqs.get(sample);
-			logger.info("Writing tophat output for sample " + sample + " to directory " + outdir + ".");
-			logger.info("Running tophat command: " + tophatCmmd);
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			tophatJobIDs.add(jobID);
-			logger.info("LSF job ID is " + jobID + ".");
-			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, tophatCmmd, outdir + "/tophat_" + jobID + ".bsub", queueName, 16);
-		}
-		// Wait for tophat jobs to finish
-		logger.info("Waiting for tophat jobs to finish...");
-		PipelineUtils.waitForAllJobs(tophatJobIDs, Runtime.getRuntime());
-		logger.info("All samples done aligning to genome.");
-		
-		// Move all tophat bam files to one directory
-		logger.info("");
-		logger.info("Moving all tophat bam files to directory " + TOPHAT_DIRECTORY + "...");
-		for(String sample : sampleNames) {
-			String cmmd = "mv " + tophatDirsPerSample.get(sample) + "/accepted_hits.bam " + tophatBamFinalPath.get(sample);
-			Process p = Runtime.getRuntime().exec(cmmd, null);
-			p.waitFor();
-			// Update current bam files
-			currentBamFiles.put(sample, tophatBamFinalPath.get(sample));
-		}
-		// Update current bam directory
-		currentBamDir = TOPHAT_DIRECTORY;
-		
-		// Count aligned and unaligned reads
-		// If tophat version 1, unzip unmapped fastq files and rename
-		logger.info("");
-		logger.info("Counting mapped and unmapped reads...");
-		String countFile = TOPHAT_DIRECTORY + "/mapped_unmapped_count.out";
-		String pctFile = TOPHAT_DIRECTORY + "/mapped_unmapped_percentage.out";
-		
-		// Check if files already exist
-		File cFile = new File(countFile);
-		File pFile = new File(pctFile);
-		if(cFile.exists() && pFile.exists()) {
-			logger.warn("Files " + countFile +" and " + pctFile +" already exist. Not recomputing mapping counts.");
-		} else {
-		
-			FileWriter w = new FileWriter(countFile);
-			FileWriter wp = new FileWriter(pctFile);
-			String header = "Sample\tMapped\tUnmapped\n";
-			w.write(header);
-			wp.write(header);
-			for(String sample : sampleNames) {
-				int mapped = AlignmentUtils.countAlignments(samtools, TOPHAT_DIRECTORY + "/" + sample + ".bam", tophatDirsPerSample.get(sample), false);
-				int unmapped = 0;
-				if(version2) AlignmentUtils.countAlignments(samtools, tophatDirsPerSample.get(sample) + "/unmapped.bam", tophatDirsPerSample.get(sample), true, false);
-				else {
-					// Tophat version 1 writes separate unmapped fastq files
-					// Unzip files
-					String cmmd1 = "gunzip " + tophatDirsPerSample.get(sample) + "/unmapped_left.fq.z";
-					Process p1 = Runtime.getRuntime().exec(cmmd1);
-					p1.waitFor();
-					String cmmd2 = "mv " + tophatDirsPerSample.get(sample) + "/unmapped_left.fq " + tophatDirsPerSample.get(sample) + "/unmapped_1.fq";
-					Process p2 = Runtime.getRuntime().exec(cmmd2);
-					p2.waitFor();
-
-					String cmmd3 = "gunzip " + tophatDirsPerSample.get(sample) + "/unmapped_right.fq.z";
-					Process p3 = Runtime.getRuntime().exec(cmmd3);
-					p3.waitFor();
-					String cmmd4 = "mv " + tophatDirsPerSample.get(sample) + "/unmapped_right.fq " + tophatDirsPerSample.get(sample) + "/unmapped_2.fq";
-					Process p4 = Runtime.getRuntime().exec(cmmd4);
-					p4.waitFor();
-
-					// Count unmapped reads
-					int totalLines = 0;
-					FileReader r = new FileReader(tophatDirsPerSample.get(sample) + "/unmapped_1.fq");
-					BufferedReader b = new BufferedReader(r);
-					while(b.ready()) {
-						@SuppressWarnings("unused")
-						String line = b.readLine();
-						totalLines++;
-					}
-					if(pairedData.get(sample).booleanValue()) {
-						FileReader r2 = new FileReader(tophatDirsPerSample.get(sample) + "/unmapped_2.fq");
-						BufferedReader b2 = new BufferedReader(r2);
-						while(b2.ready()) {
-							@SuppressWarnings("unused")
-							String line = b2.readLine();
-							totalLines++;
-						}
-					}
-					unmapped = totalLines / 4;
-				
-				}
-				int total = mapped + unmapped;
-				w.write(sample + "\t" + mapped + "\t" + unmapped + "\n");
-				wp.write(sample + "\t" + (double)mapped/(double)total + "\t" + (double)unmapped/(double)total + "\n");
-			}
-			w.close();
-			wp.close();
-		}
-		
-		logger.info("Wrote table of counts to file " + countFile);
-		logger.info("Wrote table of percentages to file " + pctFile);
-
-	}
-	
 	/**
 	 * Convert unmapped reads to fastq format if necessary and get fastq file names
 	 * @param tophatDirsPerSample Directories containing tophat output, by sample name
@@ -1713,91 +1364,7 @@ public class RNASeqPipeline {
 		}
 	}
 	
-	/**
-	 * Convert sam files to bam files
-	 * @param samFiles The sam files by sample name
-	 * @param bamFiles The bam files to write, by sample name
-	 * @param finalBamFiles Final bam files; skip if they already exist
-	 * @param bsubOutputDirs The directories to write bsub output to, by sample name
-	 * @param samtools Samtools executables
-	 * @throws IOException
-	 * @throws InterruptedException
-	 */
-	private void samToBam(Map<String, String> samFiles, Map<String, String> bamFiles, Map<String, String> finalBamFiles, Map<String, String> bsubOutputDirs, String samtools) throws IOException, InterruptedException {
-		ArrayList<String> cbJobIDs = new ArrayList<String>();
-		for(String sample : sampleNames) {
-			File bam = new File(bamFiles.get(sample));
-			// Check if bam files already exist
-			if(bam.exists()) {
-				logger.warn("Bam file " + bam + " already exists. Not redoing format conversion from sam.");
-				continue;
-			}
-			File finalBam = new File(finalBamFiles.get(sample));
-			if(finalBam.exists()) {
-				logger.warn("Alignment file " + finalBam + " already exists. Not looking for or converting sam file.");
-				continue;					
-			}
-			// Use samtools view
-			String cmmd = samtools + " view -Sb -o " + bamFiles.get(sample) + " " + samFiles.get(sample);
-			logger.info("Running Samtools command: " + cmmd);
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			cbJobIDs.add(jobID);
-			logger.info("LSF job ID is " + jobID + ".");
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutputDirs.get(sample) + "/sam_to_bam_" + jobID + ".bsub", "hour", 1);
-		}
-		// Wait for jobs to finish
-		logger.info("Waiting for samtools view jobs to finish...");
-		PipelineUtils.waitForAllJobs(cbJobIDs, Runtime.getRuntime());
-	}
 	
-	/**
-	 * Sort all bam files and write sorted files to specified locations
-	 * @param unsortedBams The unsorted bam files to sort, by sample name
-	 * @param sortedBams The sorted bam files to write, by sample name
-	 * @param bsubOutputDirs The directories to write bsub output to, by sample name
-	 * @param finalBams Final bam files; skip if they already exist
-	 * @param picardJarDir Directory containing Picard jar files
-	 * @throws IOException
-	 * @throws InterruptedException
-	 */
-	private void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, Map<String, String> bsubOutputDirs, Map<String, String> finalBams, String picardJarDir) throws IOException, InterruptedException {
-		ArrayList<String> sbJobIDs = new ArrayList<String>();
-		for(String sample : sampleNames) {
-			File finalBam = new File(finalBams.get(sample));
-			if(finalBam.exists()) {
-				logger.warn("Alignment file " + finalBam + " already exists. Not sorting.");
-				continue;					
-			}
-			// Use Picard program SortSam
-			String cmmd = "java -jar " + picardJarDir + "/SortSam.jar INPUT=" + unsortedBams.get(sample) + " OUTPUT=" + sortedBams.get(sample) + " SORT_ORDER=coordinate";
-			logger.info("Running Picard command: " + cmmd);
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			sbJobIDs.add(jobID);
-			logger.info("LSF job ID is " + jobID + ".");
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutputDirs.get(sample) + "/sort_bam_" + jobID + ".bsub", "hour", 4);
-		}
-		// Wait for jobs to finish
-		logger.info("Waiting for SortSam jobs to finish...");
-		PipelineUtils.waitForAllJobs(sbJobIDs, Runtime.getRuntime());
-	}
-	
-	/**
-	 * Index a fasta file using samtools faidx
-	 * @param fastaFileName The fasta file to index
-	 * @param samtoolsExecutable Path to samtools executable
-	 * @param bsubOutDir Directory to write bsub output to
-	 * @throws IOException
-	 * @throws InterruptedException
-	 */
-	private static void indexFastaFile(String fastaFileName, String samtoolsExecutable, String bsubOutDir) throws IOException, InterruptedException {
-		String cmmd = samtoolsExecutable + " faidx " + fastaFileName;
-		logger.info("Running samtools command: " + cmmd);
-		String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-		logger.info("LSF job ID is " + jobID + ".");
-		PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutDir + "/index_fasta_" + jobID + ".bsub", "hour", 4);
-		logger.info("Waiting for samtools faidx job to finish...");
-		PipelineUtils.waitForJobs(jobID, Runtime.getRuntime());
-	}
 	
 	/**
 	 * Merge tophat and novoalign bam files
@@ -1870,14 +1437,16 @@ public class RNASeqPipeline {
 	 * @throws InterruptedException
 	 */
 	private void indexCurrentBams(String samtools) throws IOException, InterruptedException {
-		indexBamFiles(currentBamFiles, samtools);
+		AlignmentUtils.indexBamFiles(currentBamFiles, samtools);
 	}
+	
 	
 	/**
 	 * Write wig files of position count normalized by average coverage over gene
 	 * @param bamFiles Bam files by sample name
 	 * @param bamDir Bam directory
 	 * @param geneBedFile Bed file of genes to use
+	 * @param refFasta Reference fasta file
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
@@ -1889,182 +1458,10 @@ public class RNASeqPipeline {
 			throw new IllegalArgumentException("In order to write wig file, must specify " + optionWigWriterJar.getName() + " in config file.");
 		}
 		String wigToBigWig = configFile.getSingleValueField(sectionBasicOptions, optionWigToBigWigExecutable);
-		Map<String, Collection<Gene>> genes = BEDFileParser.loadDataByChr(new File(geneBedFile));
-		Collection<String> chrNames = genes.keySet();
-		Map<String, Map<String, String>> normalizedWigFiles = new TreeMap<String, Map<String, String>>();
-		Map<String, String> fullNormalizedWigFiles = new TreeMap<String, String>();
-		Map<String, String> fullNormalizedBigwigFiles = new TreeMap<String, String>();
-		Map<String, Map<String, String>> unnormalizedWigFiles = new TreeMap<String, Map<String, String>>();
-		Map<String, String> fullUnnormalizedWigFiles = new TreeMap<String, String>();
-		Map<String, String> fullUnnormalizedBigwigFiles = new TreeMap<String, String>();
-		ArrayList<String> wigJobIDs = new ArrayList<String>();
 		String wigWriter = configFile.getSingleValueField(sectionBasicOptions, optionWigWriterJar);
-		for(String sample : sampleNames) {
-			String normalizedWigFile = bamDir + "/" + sample + ".normalized.wig";
-			String normalizedBigwigFile = bamDir + "/" + sample + ".normalized.bw";
-			fullNormalizedWigFiles.put(sample, normalizedWigFile);
-			fullNormalizedBigwigFiles.put(sample, normalizedBigwigFile);
-			File normalizedBw = new File(fullNormalizedBigwigFiles.get(sample));
-			String unnormalizedWigFile = bamDir + "/" + sample + ".wig";
-			String unnormalizedBigwigFile = bamDir + "/" + sample + ".bw";
-			fullUnnormalizedWigFiles.put(sample, unnormalizedWigFile);
-			fullUnnormalizedBigwigFiles.put(sample, unnormalizedBigwigFile);
-			File unnormalizedBw = new File(fullUnnormalizedBigwigFiles.get(sample));
-			if(normalizedBw.exists() && unnormalizedBw.exists()) {
-				logger.warn("Bigwig files " + normalizedBw + " and " + unnormalizedBw + " already exist. Not remaking wigs or bigwigs.");
-				continue;
-			}
-			File wfn = new File(fullNormalizedWigFiles.get(sample));
-			File wfu = new File(fullUnnormalizedWigFiles.get(sample));
-			if(wfn.exists() && wfu.exists()) {
-				logger.warn("Wig files " + wfn + " and " + wfu + " already exist. Not remaking files.");
-				continue;
-			}
-			String bamFile = bamFiles.get(sample);
-			
-			// Create normalized wig files
-			Map<String, String> normalizedWigFilesByChr = new TreeMap<String, String>();
-			for(String chr : chrNames) {
-				String prefix = bamDir + "/" + sample + "_" + chr + ".normalized";
-				String normalizedFile = prefix + ".wig";
-				normalizedWigFilesByChr.put(chr, normalizedFile);
-				File nf = new File(normalizedFile);
-				if(nf.exists()) {
-					logger.warn("Wig file " + normalizedFile + " already exists. Not remaking file.");
-				} else {
-					logger.info("Writing wig file " + normalizedFile + "...");
-					String cmmd = "java -jar -Xmx15g -Xms10g -Xmn5g " + wigWriter + " -b " + bamFile + " -g " + geneBedFile + " -n true -o " + prefix + " -chr " + chr;
-					logger.info("Running command: " + cmmd);
-					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-					wigJobIDs.add(jobID);
-					logger.info("LSF job ID is " + jobID + ".");
-					// Submit job
-					PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/write_wig_normalized_" + sample + "_" + chr + "_" + jobID + ".bsub", "week", 16);
-				}
-			}
-			normalizedWigFiles.put(sample, normalizedWigFilesByChr);
-			
-			// Create unnormalized wig files
-			Map<String, String> unnormalizedWigFilesByChr = new TreeMap<String, String>();
-			for(String chr : chrNames) {
-				String prefix = bamDir + "/" + sample + "_" + chr;
-				String unnormalizedFile = prefix + ".wig";
-				unnormalizedWigFilesByChr.put(chr, unnormalizedFile);
-				File uf = new File(unnormalizedFile);
-				if(uf.exists()) {
-					logger.warn("Wig file " + unnormalizedFile + " already exists. Not remaking file.");
-				} else {
-					logger.info("Writing wig file " + unnormalizedFile + "...");
-					String cmmd = "java -jar -Xmx15g -Xms10g -Xmn5g " + wigWriter + " -b " + bamFile + " -g " + geneBedFile + " -n false -o " + prefix + " -chr " + chr;
-					logger.info("Running command: " + cmmd);
-					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-					wigJobIDs.add(jobID);
-					logger.info("LSF job ID is " + jobID + ".");
-					// Submit job
-					PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/write_wig_unnormalized_" + sample + "_" + chr + "_" + jobID + ".bsub", "week", 16);
-				}
-			}
-			unnormalizedWigFiles.put(sample, unnormalizedWigFilesByChr);
-		}
-		logger.info("");
-		logger.info("Waiting for wig writer jobs to finish...");
-		PipelineUtils.waitForAllJobs(wigJobIDs, Runtime.getRuntime());
-		logger.info("");
-		logger.info("Combining normalized chromosome wig files...");
-		for(String sample : normalizedWigFiles.keySet()) {
-			logger.info(sample);
-			String wigFile = fullNormalizedWigFiles.get(sample);
-			FileWriter w = new FileWriter(wigFile);
-			for(String chrFile : normalizedWigFiles.get(sample).values()) {
-				FileReader r = new FileReader(chrFile);
-				BufferedReader b = new BufferedReader(r);
-				while(b.ready()) {
-					w.write(b.readLine() + "\n");
-				}
-				r.close();
-				b.close();
-			}
-			w.close();
-		}
-		logger.info("Done combining normalized chromosome wig files. Delete individual chromosome files to save storage.");
-		logger.info("");
-		logger.info("Combining unnormalized chromosome wig files...");
-		for(String sample : unnormalizedWigFiles.keySet()) {
-			logger.info(sample);
-			String wigFile = fullUnnormalizedWigFiles.get(sample);
-			FileWriter w = new FileWriter(wigFile);
-			for(String chrFile : unnormalizedWigFiles.get(sample).values()) {
-				FileReader r = new FileReader(chrFile);
-				BufferedReader b = new BufferedReader(r);
-				while(b.ready()) {
-					w.write(b.readLine() + "\n");
-				}
-				r.close();
-				b.close();
-			}
-			w.close();
-		}
-		logger.info("Done combining unnormalized chromosome wig files. Delete individual chromosome files to save storage.");
 		
-		logger.info("");
-		logger.info("Making normalized and unnormalized bigwig files...");
-		String chrSizeFile = writeChrSizeFile(refFasta);
-		ArrayList<String> bigwigJobIDs = new ArrayList<String>();
-		// Submit jobs for normalized files
-		for(String sample : fullNormalizedBigwigFiles.keySet()) {
-			String wig = fullNormalizedWigFiles.get(sample);
-			String bigwig = fullNormalizedBigwigFiles.get(sample);
-			File b = new File(bigwig);
-			if(b.exists()) {
-				logger.warn("Bigwig file " +  bigwig + " already exists. Not remaking file.");
-				continue;
-			}
-			String cmmd = wigToBigWig + " " + wig + " " + chrSizeFile + " " + bigwig;
-			logger.info("");
-			logger.info("Making bigwig file for wig file " + wig + ".");
-			logger.info("Running UCSC command " + cmmd);
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			bigwigJobIDs.add(jobID);
-			logger.info("LSF job ID is " + jobID + ".");
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_normalized_" + jobID + ".bsub", "hour", 4);
-		}
-		// Submit jobs for unnormalized files
-		for(String sample : fullUnnormalizedBigwigFiles.keySet()) {
-			String wig = fullUnnormalizedWigFiles.get(sample);
-			String bigwig = fullUnnormalizedBigwigFiles.get(sample);
-			File b = new File(bigwig);
-			if(b.exists()) {
-				logger.warn("Bigwig file " +  bigwig + " already exists. Not remaking file.");
-				continue;
-			}
-			String cmmd = wigToBigWig + " " + wig + " " + chrSizeFile + " " + bigwig;
-			logger.info("");
-			logger.info("Making bigwig file for wig file " + wig + ".");
-			logger.info("Running UCSC command " + cmmd);
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			bigwigJobIDs.add(jobID);
-			logger.info("LSF job ID is " + jobID + ".");
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_unnormalized_" + jobID + ".bsub", "hour", 4);
-		}
-		logger.info("Waiting for wigToBigWig jobs to finish...");
-		PipelineUtils.waitForAllJobs(bigwigJobIDs, Runtime.getRuntime());
-
-	}
-	
-	private static String writeChrSizeFile(String refFasta) throws IOException {
-		String sizeFileName = refFasta + ".sizes";
-		File chrSizeFile = new File(sizeFileName);
-		if(!chrSizeFile.exists()) {
-			FileWriter w = new FileWriter(sizeFileName);
-			logger.info("Writing chromosome sizes to file " + sizeFileName);
-			FastaSequenceIO fsio = new FastaSequenceIO(refFasta);
-			Collection<Sequence> seqs = fsio.loadAll();
-			for(Sequence seq : seqs) {
-				w.write(seq.getId() + "\t" + seq.getLength() + "\n");
-			}
-			w.close();
-		}
-		return sizeFileName;
+		BamUtils.writeWigPositionCount(bamFiles, bamDir, geneBedFile, refFasta, wigToBigWig, wigWriter);
+		
 	}
 	
 	/**
@@ -2077,140 +1474,13 @@ public class RNASeqPipeline {
 	 * @throws InterruptedException
 	 */
 	private void writeWigFragmentEndsAndMidpoints(Map<String, String> bamFiles, String bamDir, String refFasta, String geneBedFile) throws IOException, InterruptedException {
-		
-		Map<String, String> read1endWig = new TreeMap<String, String>();
-		Map<String, String> read2endWig = new TreeMap<String, String>();
-		Map<String, String> read1endBigwig = new TreeMap<String, String>();
-		Map<String, String> read2endBigwig = new TreeMap<String, String>();
-		Map<String, String> midpointWig = new TreeMap<String, String>();
-		Map<String, String> midpointBigwig = new TreeMap<String, String>();
 		if(!configFile.hasOption(sectionBasicOptions, optionWigToBigWigExecutable)) {
 			throw new IllegalArgumentException("In order to write wig file, must specify " + optionWigToBigWigExecutable.getName() + " in config file.");
 		}
 		String wigToBigWig = configFile.getSingleValueField(sectionBasicOptions, optionWigToBigWigExecutable);
-		ArrayList<String> bigwigJobIDs = new ArrayList<String>();
-		
-		// Chromosome size file to pass to wig writer if using genomic space
-		// Null if using transcriptome space
-		String chrSizesForWigToBigWig = writeChrSizeFile(refFasta);
-		String chrSizesForWigWriter = null;
-		if(geneBedFile == null) {
-			chrSizesForWigWriter = chrSizesForWigToBigWig;
-		}
-		
-		
-		
-		
-		for(String sampleName : sampleNames) {
-			
-			String bamFile = bamFiles.get(sampleName);
-			read1endWig.put(sampleName, bamFile + ".read1.wig");
-			read2endWig.put(sampleName, bamFile + ".read2.wig");
-			read1endBigwig.put(sampleName, bamFile + ".read1.bw");
-			read2endBigwig.put(sampleName, bamFile + ".read2.bw");
-			midpointWig.put(sampleName, bamFile + ".midpoint.wig");
-			midpointBigwig.put(sampleName, bamFile + ".midpoint.bw");
-			
-			// Write wig file for read1
-			String wig1 = read1endWig.get(sampleName);
-			File read1wigFile = new File(wig1);
-			String bigwig1 = read1endBigwig.get(sampleName);
-			File read1bigwigFile = new File(bigwig1);
-			if(read1wigFile.exists() || read1bigwigFile.exists()) {
-				logger.warn("Read 1 wig file or bigwig file for sample " + sampleName + " already exists. Not remaking wig file.");
-			} else {
-				logger.info("Writing fragment ends of read 1 from bam file " + bamFile + " to wig file " + wig1 + ".");
-				WigWriter read1ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, WigWriter.BEGINNING_POSITION_DESCRIPTION, false, false);
-				read1ww.addReadFilter(new FirstOfPairFilter());
-				read1ww.addReadFilter(new ProperPairFilter());
-				String prefix1 = wig1.replaceAll(".wig", "");
-				read1ww.writeFullWig(prefix1);
-				logger.info("Done writing file " + wig1 + ".");
-			}
-			// Write bigwig file for read1
-			if(read1bigwigFile.exists()) {
-				logger.warn("Bigwig file " + bigwig1 + " already exists. Not remaking file.");
-			} else {
-				String cmmd = wigToBigWig + " " + wig1 + " " + chrSizesForWigToBigWig + " " + bigwig1;
-				logger.info("");
-				logger.info("Making bigwig file for wig file " + wig1 + ".");
-				logger.info("Running UCSC command " + cmmd);
-				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-				bigwigJobIDs.add(jobID);
-				logger.info("LSF job ID is " + jobID + ".");
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
-			}
-			
-			// Write midpoint wig file
-			String midpointWigFileName = midpointWig.get(sampleName);
-			File midpointWigFile = new File(midpointWigFileName);
-			String midpointBigwigFileName = midpointBigwig.get(sampleName);
-			File midpointBigwigFile = new File(midpointBigwigFileName);
-			if(midpointWigFile.exists() || midpointBigwigFile.exists()) {
-				logger.warn("Fragment midpoint wig file or bigwig file for sample " + sampleName + " already exists. Not remaking wig file.");
-			} else {
-				logger.info("Writing fragment midpoints from bam file " + bamFile + " to wig file " + midpointWigFile + ".");
-				WigWriter ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, WigWriter.MIDPOINT_POSITION_DESCRIPTION, true, false);
-				ww.addReadFilter(new ProperPairFilter());
-				String prefix = midpointWigFileName.replaceAll(".wig", "");
-				ww.writeFullWig(prefix);
-				logger.info("Done writing file " + midpointWigFileName + ".");
-			}
-			// Write midpoint bigwig file
-			if(midpointBigwigFile.exists()) {
-				logger.warn("Bigwig file " + midpointBigwigFileName + " already exists. Not remaking file.");
-			} else {
-				String cmmd = wigToBigWig + " " + midpointWigFileName + " " + chrSizesForWigToBigWig + " " + midpointBigwigFileName;
-				logger.info("");
-				logger.info("Making bigwig file for wig file " + midpointWigFileName + ".");
-				logger.info("Running UCSC command " + cmmd);
-				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-				bigwigJobIDs.add(jobID);
-				logger.info("LSF job ID is " + jobID + ".");
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
-			}
-
-			
-			if(pairedData.get(sampleName).booleanValue()) {
-				// Write wig file for read2
-				String wig2 = read2endWig.get(sampleName);
-				File read2wigFile = new File(wig2);
-				String bigwig2 = read2endBigwig.get(sampleName);
-				File read2bigwigFile = new File(bigwig2);
-				if(read2wigFile.exists() || read2bigwigFile.exists()) {
-					logger.warn("Read 2 wig file or bigwig file for sample " + sampleName + " already exists. Not remaking wig file.");
-				} else {
-					logger.info("Writing fragment ends of read 2 from bam file " + bamFile + " to wig file " + wig2 + ".");
-					WigWriter read2ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, WigWriter.BEGINNING_POSITION_DESCRIPTION, false, false);
-					read2ww.addReadFilter(new SecondOfPairFilter());
-					read2ww.addReadFilter(new ProperPairFilter());
-					String prefix2 = wig2.replaceAll(".wig", "");
-					read2ww.writeFullWig(prefix2);
-					logger.info("Done writing file " + wig2 + ".");
-				}
-				// Write bigwig file for read2
-				if(read2bigwigFile.exists()) {
-					logger.warn("Bigwig file " + bigwig2 + " already exists. Not remaking file.");
-				} else {
-					String cmmd = wigToBigWig + " " + wig2 + " " + chrSizesForWigToBigWig + " " + bigwig2;
-					logger.info("");
-					logger.info("Making bigwig file for wig file " + wig2 + ".");
-					logger.info("Running UCSC command " + cmmd);
-					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-					bigwigJobIDs.add(jobID);
-					logger.info("LSF job ID is " + jobID + ".");
-					PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
-				}
-			}
-		
-			
-		}
-
-		logger.info("");
-		logger.info("Waiting for wigToBigWig jobs to finish...");
-		PipelineUtils.waitForAllJobs(bigwigJobIDs, Runtime.getRuntime());
-		
+		BamUtils.writeWigFragmentEndsAndMidpoints(bamFiles, pairedData, bamDir, refFasta, geneBedFile, wigToBigWig);
 	}
+	
 	
 	/**
 	 * Write full fragment counts in wig and bigwig formats
@@ -2303,37 +1573,6 @@ public class RNASeqPipeline {
 	}
 	
 	/**
-	 * Index a set of bam files
-	 * @param bamFiles Map of sample name to bam file to index
-	 * @param outDir Output directory for all indexed bam files
-	 * @param samtools Samtools executable
-	 * @throws IOException
-	 * @throws InterruptedException
-	 */
-	private void indexBamFiles(Map<String, String> bamFiles, String samtools) throws IOException, InterruptedException {
-		ArrayList<String> indexJobIDs = new ArrayList<String>();
-		for(String sample : sampleNames) {
-			String bam = bamFiles.get(sample);
-			String index = bam + ".bai";
-			File indexfile = new File(index);
-			// Check if bai files exist
-			if(indexfile.exists()) {
-				logger.warn("Index " + index + " already exists. Not re-indexing bam file.");
-				continue;
-			}
-			String cmmd = samtools + " index " + bam + " " + index;
-			logger.info("Running samtools command: " + cmmd);
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			indexJobIDs.add(jobID);
-			logger.info("LSF job ID is " + jobID + ".");
-			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, indexfile.getParent() + "/index_bam_" + jobID + ".bsub", "hour", 1);
-		}
-		logger.info("Waiting for samtools jobs to finish...");
-		PipelineUtils.waitForAllJobs(indexJobIDs, Runtime.getRuntime());
-	}
-	
-	/**
 	 * Reorder current bam files to match reference genome
 	 * @param picardDir Directory containing Picard jar files
 	 * @throws IOException
@@ -2375,68 +1614,18 @@ public class RNASeqPipeline {
 		logger.info("Writing global stats for alignments...");
 		ArrayList<String> jobIDs = new ArrayList<String>();
 		if(bedFile != null) {
-			Collection<String> tJobIDs = writeTranscriptomeSpaceStats(currentBamFiles, bedFile, alignmentGlobalStatsJar);
+			Collection<String> tJobIDs = BamUtils.writeTranscriptomeSpaceStats(currentBamFiles, bedFile, alignmentGlobalStatsJar, currentBamDir);
 			jobIDs.addAll(tJobIDs);
 		}
 		if(chrSizeFile != null) {
-			Collection<String> gJobIDs = writeGenomicSpaceStats(currentBamFiles, chrSizeFile, alignmentGlobalStatsJar);
+			Collection<String> gJobIDs = BamUtils.writeGenomicSpaceStats(currentBamFiles, chrSizeFile, alignmentGlobalStatsJar, currentBamDir);
 			jobIDs.addAll(gJobIDs);
 		}
 		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
 		logger.info("Done writing all global alignment stats.");
 	}
 	
-	/**
-	 * Write global transcriptome space stats for bam files
-	 * @param bamFiles Bam files by sample name
-	 * @param bedFile Bed annotation for transcriptome space
-	 * @param alignmentGlobalStatsJar Jar file for alignment global stats
-	 * @return Set of LSF job IDs
-	 * @throws IOException
-	 * @throws InterruptedException 
-	 */
-	private Collection<String> writeTranscriptomeSpaceStats(Map<String, String> bamFiles, String bedFile, String alignmentGlobalStatsJar) throws IOException, InterruptedException {
-		logger.info("Calculating transcriptome space stats from annotation in " + bedFile);
-		ArrayList<String> jobIDs = new ArrayList<String>();
-		for(String sampleName : bamFiles.keySet()) {
-			String bamFile = bamFiles.get(sampleName);
-			logger.info("Calculating transcriptome space stats for sample " + sampleName + "...");
-			String cmmd = "java -jar -Xmx30g -Xms20g -Xmn10g " + alignmentGlobalStatsJar + " -b " + bamFile + " -t " + bedFile;
-			logger.info("Running command: " + cmmd);
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			jobIDs.add(jobID);
-			logger.info("LSF job ID is " + jobID + ".");
-			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/compute_transcriptome_space_stats_" + jobID + ".bsub", "week", 32);		
-		}
-		return jobIDs;
-	}
 
-	/**
-	 * Write global genomic space stats for bam files
-	 * @param bamFiles Bam files by sample name
-	 * @param chrSizeFile Chromosome size file for genomic space
-	 * @param alignmentGlobalStatsJar Jar file for alignment global stats
-	 * @return Set of LSF job IDs
-	 * @throws IOException
-	 * @throws InterruptedException 
-	 */
-	private Collection<String> writeGenomicSpaceStats(Map<String, String> bamFiles, String chrSizeFile, String alignmentGlobalStatsJar) throws IOException, InterruptedException {
-		logger.info("Calculating genomic space stats from chromosome sizes in " + chrSizeFile);
-		ArrayList<String> jobIDs = new ArrayList<String>();
-		for(String sampleName : bamFiles.keySet()) {
-			String bamFile = bamFiles.get(sampleName);
-			logger.info("Calculating genomic space stats for sample " + sampleName + "...");
-			String cmmd = "java -jar -Xmx30g -Xms20g -Xmn10g " + alignmentGlobalStatsJar + " -b " + bamFile + " -g " + chrSizeFile;
-			logger.info("Running command: " + cmmd);
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			jobIDs.add(jobID);
-			logger.info("LSF job ID is " + jobID + ".");
-			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/compute_genomic_space_stats_" + jobID + ".bsub", "week", 32);		
-		}
-		return jobIDs;
-	}
 
 
 	/**
@@ -2519,61 +1708,6 @@ public class RNASeqPipeline {
 		pairedData.putAll(paired);
 	}
 	
-	/**
-	 * Make tdf files for bam files
-	 * @param bamFilesBySampleName Bam file name by sample name
-	 * @param bamDirectory Directory containing bam files
-	 * @param assemblyFasta Fasta file of assembly
-	 * @param igvtoolsExecutable Igvtools executable file
-	 * @throws IOException
-	 * @throws InterruptedException
-	 */
-	private void makeTdfs(Map<String, String> bamFilesBySampleName, String bamDirectory, String assemblyFasta, String igvtoolsExecutable) throws IOException, InterruptedException {
-		ArrayList<String> tdfJobIDs = new ArrayList<String>();
-		Map<String, String> outTdf = new TreeMap<String, String>();
-		for(String sample : sampleNames) {
-			String bam = bamFilesBySampleName.get(sample);
-			String tdf = bam + ".tdf";
-			outTdf.put(sample, tdf);
-			File tdffile = new File(tdf);
-			// Check if tdf files exist
-			if(tdffile.exists()) {
-				logger.warn("Tdf file " + tdf + " already exists. Not remaking tdf file.");
-				continue;
-			}
-			// Use igvtools count
-			String cmmd = igvtoolsExecutable + " count -w 3 " + bam + " " + tdf + " " + assemblyFasta;
-			logger.info("Running igvtools command: " + cmmd);
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			tdfJobIDs.add(jobID);
-			logger.info("LSF job ID is " + jobID + ".");
-			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDirectory + "/make_tdf_" + jobID + ".bsub", "hour", 1);
-		}
-		if(tdfJobIDs.isEmpty()) return;
-		logger.info("Waiting for igvtools jobs to finish...");
-		logger.info("Note: igvtools count always exits with code -1 even though it worked, so disregard failure notifications from LSF.");
-		// Igvtools count always ends by crashing even though it worked, so catch the exception and check if files were really created
-		try {
-			PipelineUtils.waitForAllJobs(tdfJobIDs, Runtime.getRuntime());
-		} catch(IllegalArgumentException e) {
-			boolean ok = true;
-			String errMsg = "";
-			for(String sample : sampleNames) {
-				String tdf = outTdf.get(sample);
-				File tdffile = new File(tdf);
-				if(!tdffile.exists()) {
-					ok = false;
-					errMsg += "Tdf file " + tdf + " does not exist.";
-					break;
-				}
-			}
-			if(!ok) {
-				throw new IllegalArgumentException(errMsg);
-			}
-		}
-
-	}
 	
 	/**
 	 * Write fragment size distribution for all paired bam files
@@ -2962,260 +2096,7 @@ public class RNASeqPipeline {
 		}
 	}
 	
-	/**
-	 * Bowtie command lines needed for this pipeline
-	 * @author prussell
-	 *
-	 */
-	public static class AlignmentUtils {
-		
-		static int MAX_INSERT_SIZE = 1000;
-		
-		/**
-		 * Check whether the string represents a valid sam file line
-		 * @param line The string
-		 * @return True if the line is a sam header line or a valid alignment line, false otherwise
-		 */
-		public static boolean isSamLine(String line) {
-			StringParser p = new StringParser();
-			return isSamLine(p, line);
-		}
-
-		/**
-		 * Check whether the string represents a valid sam file line using an exisiting StringParser object
-		 * @param p The StringParser object
-		 * @param line The string
-		 * @return True if the line is a sam header line or a valid alignment line, false otherwise
-		 */		
-		public static boolean isSamLine(StringParser p, String line) {
-			p.parse(line);
-			if(p.getFieldCount() == 0) return false;
-			if(p.getFieldCount() >= 11) {
-				// Line might be an alignment line
-				// Check if correct fields are ints
-				try {
-					int i1 = p.asInt(1);
-					int i3 = p.asInt(3);
-					int i4 = p.asInt(4);
-					int i7 = p.asInt(7);
-					int i8 = p.asInt(8);
-					return true;
-				} catch(NumberFormatException e) {
-					// The value in a sam int position is not an int
-					return false;
-				}
-			}
-			// Check if this is a header line
-			String first = p.asString(0);
-			if(first.equals("@HD") || first.equals("@SQ") || first.equals("@RG") || first.equals("@PG") || first.equals("@CO")) return true;
-			// Line is neither a header line nor an alignment line
-			return false;
-		}
-		
-
-		
-		/**
-		 * Count total number of mapped reads in a sam or bam file
-		 * @param samtoolsExecutable Samtools executable file
-		 * @param samFile The sam file
-		 * @param logDir Directory to write log information to
-		 * @param samFormat True if sam format, false if bam format
-		 * @return The alignment count obtained by running the command "samtools view -c -F 4"
-		 * @throws IOException
-		 * @throws InterruptedException
-		 */
-		public static int countAlignments(String samtoolsExecutable, String samFile, String logDir, boolean samFormat) throws IOException, InterruptedException {
-			return countAlignments(samtoolsExecutable, samFile, logDir, false, samFormat);
-		}
-		
-		/**
-		 * Count total number of mapped or unmapped reads in a sam file
-		 * @param samtoolsExecutable Samtools executable file
-		 * @param samFile The sam file
-		 * @param logDir Directory to write log information to
-		 * @param countUnmapped True if counting unmapped reads, false if counting mapped reads
-		 * @param samFormat True if sam format, false if bam format
-		 * @return The alignment count obtained by running the command "samtools view -c -F 4"
-		 * @throws IOException
-		 * @throws InterruptedException
-		 */
-		public static int countAlignments(String samtoolsExecutable, String samFile, String logDir, boolean countUnmapped, boolean samFormat) throws IOException, InterruptedException {
-
-			File dir = new File(logDir);
-			boolean madeDir = dir.mkdir();
-			
-			// Use samtools to count alignments
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			String output = logDir + "/count_alignments_" + jobID + ".bsub";
-			String cmmd = samtoolsExecutable + " view -c ";
-			if(samFormat) cmmd += " -S ";
-			if(!countUnmapped) cmmd += " -F 4 ";
-			else cmmd += " -f 4 ";
-			cmmd += samFile;
-			
-			// Capture output of samtools process and read into int
-			Process p = Runtime.getRuntime().exec(cmmd);
-			InputStream is = p.getInputStream();
-			InputStreamReader isr = new InputStreamReader(is);
-			BufferedReader br = new BufferedReader(isr);
-			String line = br.readLine();
-			int count = 0;
-			try {
-				count = Integer.parseInt(line);
-			} catch(NumberFormatException e) {
-				logger.error("Command did not return valid integer result:");
-				logger.error(cmmd);
-				logger.error("Result:");
-				logger.error(line);
-				throw e;
-			}
-			is.close();
-			isr.close();
-			br.close();
-			
-			String type = countUnmapped ? "unmapped" : "mapped";
-			logger.info("There are " + count + " " + type + " reads in sam file " + samFile + ".");
-			
-			return count;
-			
-		}
-
-		
-		
-		/**
-		 * Make bowtie2 index of fasta file
-		 * @param fastaFile The fasta file
-		 * @param outBtIndexBase Output index file without .bt2 extension
-		 * @param bowtie2BuildExecutable The bowtie2-build executable
-		 * @param bsubOutputDir Output directory for bsub file
-		 * @throws IOException
-		 * @throws InterruptedException
-		 */
-		public static void makeBowtie2Index(String fastaFile, String outBtIndexBase, String bowtie2BuildExecutable, String bsubOutputDir) throws IOException, InterruptedException {
-			logger.info("");
-			logger.info("Writing bowtie2 index for file " + fastaFile + " to files " + outBtIndexBase);
-			File bsubDir = new File(bsubOutputDir);
-			boolean madeDir = bsubDir.mkdir();
-			
-			// Check if index already exists
-			String f1 = outBtIndexBase + ".1.bt2";
-			String f2 = outBtIndexBase + ".2.bt2";
-			String f3 = outBtIndexBase + ".3.bt2";
-			String f4 = outBtIndexBase + ".4.bt2";
-			String r1 = outBtIndexBase + ".rev.1.bt2";
-			String r2 = outBtIndexBase + ".rev.2.bt2";
-			File f1file = new File(f1);
-			File f2file = new File(f2);
-			File f3file = new File(f3);
-			File f4file = new File(f4);
-			File r1file = new File(r1);
-			File r2file = new File(r2);
-			if(f1file.exists() && f2file.exists() && f3file.exists() && f4file.exists() && r1file.exists() && r2file.exists()) {
-				logger.warn("Bowtie2 index files already exist. Not writing new files.");
-				return;
-			}
-			
-			String cmmd = bowtie2BuildExecutable + " " + fastaFile + " " + outBtIndexBase;
-			logger.info("Submitting command " + cmmd);
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			String output = bsubOutputDir + "/make_bowtie_index_" + jobID + ".bsub";
-			int prc = PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
-			PipelineUtils.waitForJobs(jobID, Runtime.getRuntime());
-			logger.info("Done creating bowtie2 index for file " + fastaFile);
-		}
-		
-		/**
-		 * Run bowtie2 with unpaired reads and default max insert size
-		 * @param bowtie2IndexBase Index filename prefix (minus trailing .X.bt2)
-		 * @param options 
-		 * @param reads Fastq file containing unpaired reads
-		 * @param outSamFile Output sam file
-		 * @param outUnalignedFastq Output fastq file for unaligned reads or null
-		 * @param bowtie2Executable Bowtie2 executable
-		 * @param bsubOutDir Output directory for bsub file
-		 * @throws IOException
-		 * @throws InterruptedException
-		 * @return The bsub job ID
-		 */
-		public static String runBowtie2(String bowtie2IndexBase, Map<String, String> options, String reads, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir) throws IOException, InterruptedException {
-			return runBowtie2(bowtie2IndexBase, options, reads, null, outSamFile, outUnalignedFastq, bowtie2Executable, bsubOutDir, false);
-		}
-
-		
-		/**
-		 * Run bowtie2 with paired reads and default max insert size
-		 * @param bowtie2IndexBase Index filename prefix (minus trailing .X.bt2)
-		 * @param options Bowtie2 option flags and values
-		 * @param read1Fastq Fastq file containing read1 if paired or single end reads if unpaired
-		 * @param read2Fastq Fastq file containing read2 if paired or null if unpaired
-		 * @param outSamFile Output sam file
-		 * @param outUnalignedFastq Output fastq file for unaligned reads or null
-		 * @param bowtie2Executable Bowtie2 executable
-		 * @param bsubOutDir Output directory for bsub file
-		 * @throws IOException
-		 * @throws InterruptedException
-		 * @return The bsub job ID
-		 */
-		public static String runBowtie2(String bowtie2IndexBase, Map<String, String> options, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir) throws IOException, InterruptedException {
-			return runBowtie2(bowtie2IndexBase, options, read1Fastq, read2Fastq, outSamFile, outUnalignedFastq, bowtie2Executable, bsubOutDir, true);
-		}
-		
-		/**
-		 * Run bowtie2 with paired reads and specified max insert size
-		 * @param bowtie2IndexBase Index filename prefix (minus trailing .X.bt2)
-		 * @param options Bowtie2 option flags and values
-		 * @param read1Fastq Fastq file containing read1 if paired or single end reads if unpaired
-		 * @param read2Fastq Fastq file containing read2 if paired or null if unpaired
-		 * @param outSamFile Output sam file
-		 * @param outUnalignedFastq Output fastq file for unaligned reads or null
-		 * @param bowtie2Executable Bowtie2 executable
-		 * @param bsubOutDir Output directory for bsub files
-		 * @param readsPaired Whether the reads are paired
-		 * @throws IOException
-		 * @throws InterruptedException
-		 * @return The bsub job ID
-		 */
-		public static String runBowtie2(String bowtie2IndexBase, Map<String, String> options, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, boolean readsPaired) throws IOException, InterruptedException {
-
-			File bsubOutDirectory = new File(bsubOutDir);
-			boolean madeDir = bsubOutDirectory.mkdir();
-			
-			String executable = bowtie2Executable + " ";
-			String index = "-x " + bowtie2IndexBase + " ";
-			
-			String reads;
-			if(read2Fastq != null) reads = "-1 " + read1Fastq + " -2 " + read2Fastq + " ";
-			else reads = "-U " + read1Fastq + " ";
-
-			String optionString = "";
-			for(String flag : options.keySet()) {
-				optionString += flag + " " + options.get(flag) + " ";
-			}
-			
-			if(outUnalignedFastq != null) {
-				if(!readsPaired) optionString += "--un " + outUnalignedFastq + " ";
-				else optionString += "--un-conc " + outUnalignedFastq + " ";
-			}
-			
-			String sam = "-S " + outSamFile;
-			
-			String cmmd = executable + optionString + index + reads + sam;
-			
-			logger.info("");
-			logger.info("Running bowtie2 command:");
-			logger.info(cmmd);
-			
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			String output = bsubOutDir + "/run_bowtie_" + jobID + ".bsub";
-			logger.info("Writing bsub output to file " + output);
-			int prc = PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
-			logger.info("Job ID is " + jobID);
-			return jobID;
-			
-		}
-
-		
-	}
+	
 	
 	/*
 	 * Config file options and sections 

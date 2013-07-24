@@ -20,7 +20,7 @@ import java.util.NoSuchElementException;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import nextgen.core.pipeline.PipelineUtils;
+import nextgen.core.pipeline.util.PipelineUtils;
 
 import broad.core.motif.SearchException;
 import broad.core.parser.CommandLineParser;
