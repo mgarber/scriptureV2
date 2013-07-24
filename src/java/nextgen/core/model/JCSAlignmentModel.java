@@ -1470,5 +1470,10 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 		return rtrn;
 	}
+
+	@Override
+	public double getCountStranded(Annotation region) {
+		return getCountStranded(region,false);
+	}
 	
 }
