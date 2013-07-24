@@ -37,7 +37,7 @@ import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
-import nextgen.core.pipeline.PipelineUtils;
+import nextgen.core.pipeline.util.PipelineUtils;
 import nextgen.core.utils.AlignmentUtils;
 import nextgen.core.utils.AnnotationUtils;
 

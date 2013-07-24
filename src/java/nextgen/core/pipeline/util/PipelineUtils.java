@@ -1,4 +1,4 @@
-package nextgen.core.pipeline;
+package nextgen.core.pipeline.util;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;

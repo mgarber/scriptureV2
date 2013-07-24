@@ -22,7 +22,7 @@ import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.annotation.*;
 import nextgen.core.annotation.filter.*;
 import nextgen.core.model.score.CountScore;
-import nextgen.core.pipeline.PipelineUtils;
+import nextgen.core.pipeline.util.PipelineUtils;
 
 import broad.core.math.EmpiricalDistribution;
 

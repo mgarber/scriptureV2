@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeoutException;
 
-import nextgen.core.pipeline.PipelineUtils;
+import nextgen.core.pipeline.util.PipelineUtils;
 
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;

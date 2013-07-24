@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-import nextgen.core.pipeline.PipelineUtils;
+import nextgen.core.pipeline.util.PipelineUtils;
 
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;
