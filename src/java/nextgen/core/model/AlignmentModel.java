@@ -400,6 +400,10 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			return result;
 		}
 	}
+	
+	public double getCountStranded(Annotation window){
+		return getCountStranded(window,false);
+	}
 
 	
 	/**

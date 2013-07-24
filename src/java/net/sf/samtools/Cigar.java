@@ -78,6 +78,7 @@ public class Cigar implements java.io.Serializable{
                 case N:
                 case EQ:
                 case X:
+                case S:
                     length += element.getLength();
             }
         }
@@ -97,6 +98,7 @@ public class Cigar implements java.io.Serializable{
                 case EQ:
                 case X:
                 case P:
+                case S:
                     length += element.getLength();
             }
         }
