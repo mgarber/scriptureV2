@@ -189,7 +189,7 @@ public class StrandedScanStatisticScore extends StrandedCountScore {
 		 * @param previousScore The WindowScore before
 		 * @return the count of the current window
 		 */
-		private double computeCount(Annotation nextRegion, CountScore previousScore) {
+		private double computeCount(Annotation nextRegion, StrandedCountScore previousScore) {
 			//else, get the minus region scores and the plus value scores
 			//This is not so simple because we'll need to use the fully contained regions
 			double subtractVal=model.getCountExcludingRegion(previousScore.getAnnotation().minus(nextRegion), nextRegion);

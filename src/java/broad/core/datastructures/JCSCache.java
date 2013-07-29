@@ -1,5 +1,6 @@
 package broad.core.datastructures;
 
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -11,6 +12,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 import java.util.TreeMap;
 
 import net.sf.samtools.util.CloseableIterator;
@@ -23,7 +25,6 @@ import nextgen.core.model.JCSAlignmentModel.AlignmentCount;
 import nextgen.core.model.JCSAlignmentModel.FilteredIterator;
 import nextgen.core.model.JCSAlignmentModel;
 import nextgen.core.readers.PairedEndReader;
-import nextgen.core.scripture.BuildScriptureCoordinateSpace;
 
 import org.apache.jcs.JCS;
 import org.apache.jcs.access.exception.CacheException;
@@ -31,6 +32,7 @@ import org.apache.jcs.engine.control.CompositeCacheManager;
 import org.apache.log4j.Logger;
 import org.apache.log4j.Level;
 
+import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 
 public class JCSCache {
@@ -450,13 +452,13 @@ public class JCSCache {
 				
 				Long key = generateRandom(KEY_LENGTH);
 
-//				long start = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+				long start = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
 				JCS.getInstance(cacheName).put(key,record);
 			    keys.add(key);    
-//			    long end = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-//				if((end-start)!=0){
-//					logger.info(end-start);
-//				}
+			    long end = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+				if((end-start)!=0){
+					logger.info(end-start);
+				}
 			    			
 				tree.put(record.getAlignmentStart(), record.getAlignmentEnd(), key);
 			}	
