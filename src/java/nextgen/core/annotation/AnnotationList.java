@@ -13,6 +13,7 @@ import nextgen.core.coordinatesystem.ShuffledIterator;
 
 import nextgen.core.general.Predicates;
 import nextgen.core.general.CloseableFilterIterator;
+import nextgen.core.readFilters.SameOrientationFilter;
 import net.sf.samtools.util.CloseableIterator;
 import org.apache.commons.collections15.iterators.IteratorChain;
 import org.apache.commons.collections15.Predicate;
@@ -454,5 +455,19 @@ public class AnnotationList<T extends Annotation> extends AbstractAnnotationColl
 	public double getRefSequenceLambda(String refname) {
 		// TODO Auto-generated method stub
 		return 0;
+	}
+
+
+	@Override
+	public double getCountStranded(Annotation region, boolean fullyContained) {
+//		Predicate<? super T> filter = Predicates.and(new SameOrientationFilter(region));
+//		return getIteratorCount(new CloseableFilterIterator<T>(getOverlappingAnnotations(region, false), filter));
+		//TODO: Complete the method
+		return 0;
+	}
+	
+	@Override
+	public double getCountStranded(Annotation window){
+		return getCountStranded(window,false);
 	}
 }

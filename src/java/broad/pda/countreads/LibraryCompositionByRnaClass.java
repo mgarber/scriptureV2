@@ -12,13 +12,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+
+import nextgen.core.pipeline.util.AlignmentUtils;
+import nextgen.core.pipeline.util.PipelineUtils;
+
 import org.apache.log4j.Logger;
 
 import broad.core.parser.StringParser;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
-import broad.core.util.PipelineAutomator;
-import broad.core.util.PipelineUtils;
 
 /**
  * @author prussell
@@ -70,6 +72,7 @@ public class LibraryCompositionByRnaClass {
 		// Count total number of reads for each sample
 		this.totalReadCounts = new TreeMap<String, Integer>();
 		for(String sample : this.read1FastqFiles.keySet()) {
+			logger.info("Counting total reads for sample " + sample + "...");
 			FileReader r = new FileReader(this.read1FastqFiles.get(sample));
 			BufferedReader b = new BufferedReader(r);
 			int numLines = 0;
@@ -202,7 +205,7 @@ public class LibraryCompositionByRnaClass {
 		if(!new File(rev1).exists()) writeIndex = true;
 		if(!new File(rev2).exists()) writeIndex = true;
 		
-		if(writeIndex) PipelineAutomator.AlignmentUtils.makeBowtie2Index(singleFasta, btBase, bowtie2BuildExecutable, logDir);
+		if(writeIndex) AlignmentUtils.makeBowtie2Index(singleFasta, btBase, bowtie2BuildExecutable, logDir);
 		else {
 			logger.warn("Bowtie2 index files " + btBase + ".*.bt2 already exist. Not remaking index.");
 		}
@@ -242,7 +245,7 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq file for sample " + sample + " already exist. Not rerunning alignment to transcriptome.");
 					continue;
 				}
-				String jobID = PipelineAutomator.AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomeUnpaired.get(sample), bowtie2Executable, logDir);
+				String jobID = AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomeUnpaired.get(sample), bowtie2Executable, logDir);
 				transcriptomeJobIDs.add(jobID);
 			} else {
 				File outUnalignedFile1 = new File(fastqNotTranscriptomePaired1.get(sample));
@@ -252,7 +255,7 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq files for sample " + sample + " already exist. Not rerunning alignment to transcriptome.");
 					continue;
 				}
-				String jobID = PipelineAutomator.AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), this.read2FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomePairedBase.get(sample), bowtie2Executable, logDir);
+				String jobID = AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), this.read2FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomePairedBase.get(sample), bowtie2Executable, logDir);
 				transcriptomeJobIDs.add(jobID);
 			}		
 		}
@@ -274,7 +277,7 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq file for sample " + sample + " already exist. Not rerunning alignment to genome.");
 					continue;
 				}
-				String jobID = PipelineAutomator.AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomeUnpaired.get(sample), samToGenome.get(sample), fastqNotGenomeUnpaired.get(sample), bowtie2Executable, logDir);
+				String jobID = AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomeUnpaired.get(sample), samToGenome.get(sample), fastqNotGenomeUnpaired.get(sample), bowtie2Executable, logDir);
 				genomeJobIDs.add(jobID);
 			} else {
 				File outUnalignedFile1 = new File(fastqNotGenomePaired1.get(sample));
@@ -284,7 +287,7 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq files for sample " + sample + " already exist. Not rerunning alignment to genome.");
 					continue;
 				}
-				String jobID = PipelineAutomator.AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomePaired1.get(sample), fastqNotTranscriptomePaired2.get(sample), samToGenome.get(sample), fastqNotGenomePairedBase.get(sample), bowtie2Executable, logDir);
+				String jobID = AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomePaired1.get(sample), fastqNotTranscriptomePaired2.get(sample), samToGenome.get(sample), fastqNotGenomePairedBase.get(sample), bowtie2Executable, logDir);
 				genomeJobIDs.add(jobID);
 			}		
 		}
@@ -304,7 +307,7 @@ public class LibraryCompositionByRnaClass {
 			Map<String, Integer> classCounts = countClasses(samToTranscriptome.get(sample));
 			int transcriptomeCount = 0;
 			for(String className : classCounts.keySet()) transcriptomeCount += classCounts.get(className).intValue();
-			int genomeCount = PipelineAutomator.AlignmentUtils.countAlignments(samtoolsExecutable, samToGenome.get(sample), logDir, true);
+			int genomeCount = AlignmentUtils.countAlignments(samtoolsExecutable, samToGenome.get(sample), logDir, true);
 			int mysteryCount = Math.max(0, this.totalReadCounts.get(sample).intValue() - transcriptomeCount - genomeCount);
 			classCounts.put(GENOME_CLASS_NAME, Integer.valueOf(genomeCount));
 			classCounts.put(MYSTERY_READS_CLASS_NAME, Integer.valueOf(mysteryCount));

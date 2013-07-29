@@ -23,7 +23,43 @@ import nextgen.core.annotation.Gene;
  */
 public class AnnotationUtils {
 
-	private static Logger logger = Logger.getLogger(AnnotationUtils.class.getName());
+	public static Logger logger = Logger.getLogger(AnnotationUtils.class.getName());
+	
+	public static Map<String, Collection<Gene>> collapseOverlappers(Map<String, Collection<Gene>> genes) {		
+		return collapseOverlappers(genes, false);
+	}
+	
+	public static Map<String, Collection<Gene>> collapseOverlappers(Map<String, Collection<Gene>> genes, boolean ignoreOrientation) {		
+		Map<String, Collection<Gene>> rtrn = new TreeMap<String, Collection<Gene>>();
+		for(String chr : genes.keySet()) {
+			Collection<Gene> genesThisChr = genes.get(chr);
+			Collection<Gene> collapsedThisChr = new TreeSet<Gene>();
+			for(Gene gene : genesThisChr) {
+				gene.setOrientation(Strand.UNKNOWN);
+				if(collapsedThisChr.isEmpty()) {
+					collapsedThisChr.add(gene);
+					continue;
+				}
+				boolean added = false;
+				for(Gene collapsed : collapsedThisChr) {
+					if(gene.overlaps(collapsed)) {
+						collapsed.addBlocks(gene);
+						collapsed.setCDSStart(Math.min(collapsed.getCDSStart(), gene.getCDSStart()));
+						collapsed.setCDSEnd(Math.max(collapsed.getCDSEnd(), gene.getCDSEnd()));
+						collapsed.setName(collapsed.getName() + "_" + gene.getName());
+						added = true;
+						break;
+					} 
+				}
+				if(!added) {
+					collapsedThisChr.add(gene);
+				}
+			}
+			rtrn.put(chr, collapsedThisChr);
+		}
+		return rtrn;
+	}
+
 	
 	/**
 	 * Merge annotations that overlap in the same orientation as each other, and leave singleton windows the same
@@ -187,6 +223,66 @@ public class AnnotationUtils {
 		}
 		return rtrn;
 	}
+	
+	
+	/**
+	 * Get children of parent annotation
+	 * @param parent Parent
+	 * @param children Potential children by chromosome
+	 * @return Set of children contained in parent or empty set if none
+	 */
+	public static <T extends Annotation> Collection<T> getChildren(T parent, Map<String, Collection<T>> children) {
+		Collection<T> rtrn = new TreeSet<T>();
+		String chr = parent.getChr();
+		if(!children.containsKey(chr)) {
+			logger.debug("Child set does not contain key " + chr);
+			return rtrn;
+		}
+		for(T other : children.get(chr)) {
+			if(other.getEnd() < parent.getStart() || other.getStart() > parent.getEnd()) {
+				//logger.debug(other.toUCSC() + " does not overlap " + parent.toUCSC());
+				continue;
+			}
+			boolean b1 = parent.contains(other);
+			boolean b2 = other.overlaps(parent);
+			boolean b3 = parent.getOrientation().equals(other.getOrientation());
+			logger.debug(parent.toUCSC() + "\t" + other.toUCSC() + "\t" + b1 + "\t" + b2 + "\t" + b3);
+			if(b1 && b2 && b3) {
+				rtrn.add(other);
+			}
+		}
+		logger.debug(parent.toUCSC() + " " + rtrn.size() + " overlappers");
+		return rtrn;
+	}
+	
+	
+	
+	
+	/**
+	 * Map each parent annotation to its set of contained children
+	 * @param <T>
+	 * @param children Child annotations by chromosome
+	 * @param parents Parent annotations by chromosome
+	 * @return Map of parent to set of children. Annotations with no children map to empty set.
+	 */
+	public static <T extends Annotation> Map<T, Collection<T>> mapParentsToChildren(Map<String, Collection<T>> children, Map<String, Collection<T>> parents) {
+		logger.info("Mapping parent annotations to children...");
+		Map<T, Collection<T>> rtrn = new TreeMap<T, Collection<T>>();
+		for(String chr : parents.keySet()) {
+			logger.info(chr);
+			if(!children.containsKey(chr)) {
+				continue;
+			}
+			for(T parent : parents.get(chr)) {
+				Collection<T> childSet = getChildren(parent, children);
+				logger.debug(parent.toUCSC() + " " + childSet.size() + " overlappers");
+				rtrn.put(parent, childSet);
+			}
+		}
+		logger.info("Done mapping parent annotations to child annotations.");
+		return rtrn;
+	}
+	
 	
 	/**
 	 * Map each child annotation to its set of parents defined as annotations overlapping and containing child

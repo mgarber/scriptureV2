@@ -12,7 +12,7 @@ import broad.core.annotation.TwoSubjectAnnotation;
 public class SequenceRegion extends Sequence implements Annotation{
 	BasicGenomicAnnotation annotation;
 	private String containingSequenceId;
-	public static final int INF = 1000000000;
+	public static final int INF = Integer.MAX_VALUE;
 	
 	public SequenceRegion(String containingSequenceId) {
 		super(null);

@@ -109,9 +109,15 @@ public class PairedEndWriter {
 		int single = 0;
 		int paired = 0;
 		int temp = 0;
+		String prevChr=null;
+		
 		while(iter.hasNext()) {
 			SAMRecord record=iter.next();
 			String name=record.getReadName();
+			
+			if(prevChr==null){
+				prevChr=record.getReferenceName();
+			}
 			//If the read is unmapped, skip
 			if(record.getReadUnmappedFlag()) continue;
 			//If the read is not paired or the mate is unmapped, write it as it is
@@ -180,7 +186,14 @@ public class PairedEndWriter {
 						writeAll(fragmentRecords);
 					}
 				}
-			}		
+			}	
+			if(!record.getReferenceName().equals(prevChr)){
+				
+				//PURGE TEMP COLLECTION
+				writeRemainder(tempCollection);
+				tempCollection=new TreeMap<String, AlignmentPair>();
+				prevChr = record.getReferenceName();
+			}
 			numRead++;
 			if(numRead % 1000000 == 0) {
 				logger.info("Processed " + numRead + " reads, free mem: " + Runtime.getRuntime().freeMemory() + " tempCollection size : " + tempCollection.size()+" on "+record.getReferenceName()+" Single alignments : "+single+ " Paired alignments"+paired+" In temp : "+temp);
@@ -224,8 +237,7 @@ public class PairedEndWriter {
 			
 			if(pair.hasValue1() && pair.hasValue2()){
 				//throw new IllegalStateException("There are samples in both pairs that are unaccounted for: "+name);
-				logger.error("There are samples in both pairs that are unaccounted for: "+name);
-
+				//logger.error("There are samples in both pairs that are unaccounted for: "+name);
 			}
 			else{
 				if(pair.hasValue1()){records=pair.getValue1();}

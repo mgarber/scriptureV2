@@ -25,7 +25,6 @@ import broad.core.math.MathUtil;
 import broad.core.math.Statistics;
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;
-import broad.core.util.PipelineUtils;
 import broad.pda.annotation.BEDFileParser;
 
 import nextgen.core.alignment.Alignment;
@@ -38,6 +37,7 @@ import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
+import nextgen.core.pipeline.util.PipelineUtils;
 import nextgen.core.utils.AlignmentUtils;
 import nextgen.core.utils.AnnotationUtils;
 

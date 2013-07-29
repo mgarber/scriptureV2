@@ -13,9 +13,10 @@ public class StringParser {
 	private static String whitespaceDelimiter = "\\s++";
 	private String[] tokens;
 	
-	public StringParser() {
-		//tokens = null;
-	}
+	/**
+	 * 
+	 */
+	public StringParser() {}
 	
 	/**
 	 * Parses the string around whitespace and stores tokens
@@ -27,9 +28,14 @@ public class StringParser {
 		tokens = s.split(whitespaceDelimiter);
 	}
 	
+	public void clear() {
+		tokens = null;
+	}
+	
 	/**
 	 * Parses the string around whitespace and stores tokens
 	 * @param s The string to parse
+	 * @return Tokens
 	 */
 	public static String[] getTokens(String s) {
 		return s.split(whitespaceDelimiter);

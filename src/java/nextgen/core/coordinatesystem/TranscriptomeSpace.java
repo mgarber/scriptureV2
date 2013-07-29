@@ -80,7 +80,7 @@ public class TranscriptomeSpace implements CoordinateSpace{
 	 */
 	private Map<String, Collection<Gene>> assemble(File bamFile,String genomeSeq) {
 		BuildScriptureCoordinateSpace scriptureSpace = null;
-		scriptureSpace = new BuildScriptureCoordinateSpace(bamFile,genomeSeq);
+		scriptureSpace = new BuildScriptureCoordinateSpace(bamFile, genomeSeq);
 		return scriptureSpace.getPaths();
 	}
 
@@ -366,7 +366,7 @@ protected class GeneTree {
 		 */
 		public Collection<GeneWindow> getRegion(Annotation region) {
 			if(!tree.containsKey(region.getChr())){
-				logger.error(region.getChr()+" is not in the genomic space");
+				//logger.error(region.getChr()+" is not in the genomic space");
 				return null;
 			}
 			

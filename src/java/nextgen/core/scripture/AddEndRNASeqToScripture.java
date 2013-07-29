@@ -27,6 +27,7 @@ import broad.core.util.CLUtil.ArgumentMap;
 import broad.pda.annotation.BEDFileParser;
 import broad.pda.gene.GeneWithIsoforms;
 
+import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.alignment.PairedReadAlignment;
@@ -58,7 +59,6 @@ public class AddEndRNASeqToScripture {
 	private TranscriptionRead strand;
 	private static int DEFAULT_EXTENSION = 0;
 	private static int DEFAULT_WINDOW_SIZE = 2;
-	IsoformMap isoformMap;
 	Map<String, IntervalTree<Gene>> intervalTrees;
 	
 	static final String usage = "Usage: AddEndRNASeqToScripture -task <task name> "+
@@ -117,9 +117,7 @@ public class AddEndRNASeqToScripture {
 		
 		windowSize = windowS;
 		extension = ext;
-		
-		isoformMap = buildIsoformMap(annotations);
-				
+			
 		//numberOfIsoformsPerGene(outputName,fullBam);
 		findCompleteTranscripts(outputName);
 	}
@@ -149,9 +147,7 @@ public class AddEndRNASeqToScripture {
 		annotations= BEDFileParser.loadDataByChr(new File(annotationFile));
 		windowSize = windowS;
 		extension = ext;
-		
-		isoformMap = buildIsoformMap(annotations);
-				
+						
 		numberOfIsoformsPerGene(outputName,fullBam);
 		//findCompleteTranscripts(outputName);
 	}
@@ -180,6 +176,8 @@ public class AddEndRNASeqToScripture {
 	 * @throws IOException
 	 */
 	public void numberOfIsoformsPerGene(String outputName,File fullBam) throws IOException{
+		
+		IsoformMap isoformMap = buildIsoformMap(annotations);
 		
 		BufferedWriter bw = new BufferedWriter(new FileWriter(outputName+".isoforms.info"));
 		BufferedWriter bwCov = new BufferedWriter(new FileWriter(outputName+".isoforms.coverage.info"));
@@ -332,7 +330,8 @@ public class AddEndRNASeqToScripture {
 					int start = 0;
 					int end =0;
 					int bestExtension = getDistanceToClosestSameOrientation5pGene(gene);
-					if(bestExtension>extension){
+					//logger.info(gene.getName()+" getDistanceToClosestSameOrientation5pGene "+bestExtension);
+					if(bestExtension>extension || bestExtension<0){
 						bestExtension = extension;
 					}
 					if(gene.isNegativeStrand()){
@@ -341,9 +340,11 @@ public class AddEndRNASeqToScripture {
 					else{
 						start = bestExtension;
 					}
+					//logger.info("Start = "+start+" End = "+end);
 					Gene ge = gene.copy();
 					//EXPAND IS A STRAND-INDEPENDENT FUNCTION
 					ge.expand(start, end);
+					//logger.info(ge.toBED());
 					chrToGenesMap = new HashMap<String,Collection<Gene>>();
 					g = new ArrayList<Gene>();
 					g.add(ge);
@@ -355,18 +356,18 @@ public class AddEndRNASeqToScripture {
 					start = 0;
 					end =0;
 					bestExtension = getDistanceToClosestSameOrientation3pGene(gene);
-					logger.info(gene.getName()+" getDistanceToClosestSameOrientation3pGene "+bestExtension);
-					if(bestExtension>extension){
+					//logger.info(gene.getName()+" getDistanceToClosestSameOrientation3pGene "+bestExtension);
+					if(bestExtension>extension || bestExtension<0){
 						bestExtension = extension;
 					}
 					if(gene.isNegativeStrand()){
 						start = bestExtension;
-						//logger.info("Start: "+start+" End: "+end);
+						//
 					}
 					else{
 						end = bestExtension;
 					}
-					
+					//logger.info("Start: "+start+" End: "+end);
 					Gene gs = gene.copy();
 					//EXPAND IS A STRAND-INDEPENDENT FUNCTION
 					gs.expand(start, end);
@@ -541,7 +542,8 @@ public class AddEndRNASeqToScripture {
 							//Get the z-score of each window
 //							double zscore = getMinimumZScore(windowCount,nulls,window.getSize());
 							double zscore3p = Statistics.zScore(windowCount3p, nulls3p[0],nulls3p[1],window.getSize());
-							//logger.info("Count = "+windowCount3p+" zscore = "+zscore3p);
+//							if(windowCount3p>0)
+//								logger.info(window.toUCSC()+" Count = "+windowCount3p+" zscore = "+zscore3p);
 							//If window is significant
 							if(zscore3p>=7){
 								//if flag=false, that is, no peak found before this(?)
@@ -744,14 +746,14 @@ public class AddEndRNASeqToScripture {
 							if(maxPeak.getStart()<edited.getStart()){
 								extend3p++;
 								edited.setStart(maxPeak.getStart());
-								edited.setName(edited.getName()+".trimmed3p");
+								edited.setName(edited.getName()+".adj3p");
 							}
 							else{
 								if(maxPeak.getStart()>edited.getStart()){
 									if(maxPeak.getStart()<edited.getEnd()){
 										trim3p++;
 										edited.setStart(maxPeak.getStart());
-										edited.setName(edited.getName()+".trimmed3p");
+										edited.setName(edited.getName()+".adj3p");
 									}
 									else{
 										logger.info("For "+gene.getName()+" the 3' end is upstream of 5' end.");
@@ -763,14 +765,14 @@ public class AddEndRNASeqToScripture {
 							if(maxPeak.getEnd()>edited.getEnd()){
 								extend3p++;
 								edited.setEnd(maxPeak.getEnd());
-								edited.setName(edited.getName()+".trimmed3p");
+								edited.setName(edited.getName()+".adj3p");
 							}
 							else{
 								if(maxPeak.getEnd()<edited.getEnd()){
 									if(maxPeak.getEnd()>edited.getStart()){
 										trim3p++;
 										edited.setEnd(maxPeak.getEnd());
-										edited.setName(edited.getName()+".trimmed3p");
+										edited.setName(edited.getName()+".adj3p");
 									}
 									else{
 										logger.info("For "+gene.getName()+" the 3' end is upstream of 5' end.");
@@ -875,7 +877,7 @@ public class AddEndRNASeqToScripture {
 								edited.setEnd(peak5.getEnd());
 								geneTrimmed=true;
 								peakTrimmed=true;
-								edited.setName(edited.getName()+".trimmed5p");
+								edited.setName(edited.getName()+".adj5p");
 							}
 							else{
 								if(peak5.getEnd()<gene.getEnd()){
@@ -884,7 +886,7 @@ public class AddEndRNASeqToScripture {
 										edited.setEnd(peak5.getEnd());
 										geneTrimmed=true;
 										peakTrimmed=true;
-										edited.setName(edited.getName()+".trimmed5p");
+										edited.setName(edited.getName()+".adj5p");
 									}
 									else{
 										logger.info("For "+gene.getName()+" the 5' end is downstream of 3' end.");
@@ -898,7 +900,7 @@ public class AddEndRNASeqToScripture {
 								edited.setStart(peak5.getStart());
 								geneTrimmed=true;
 								peakTrimmed=true;
-								edited.setName(edited.getName()+".trimmed5p");
+								edited.setName(edited.getName()+".adj5p");
 							}
 							else{
 								if(peak5.getStart()>gene.getStart()){
@@ -907,7 +909,7 @@ public class AddEndRNASeqToScripture {
 										edited.setStart(peak5.getStart());
 										geneTrimmed=true;
 										peakTrimmed=true;
-										edited.setName(edited.getName()+".trimmed5p");
+										edited.setName(edited.getName()+".adj5p");
 									}
 									else{
 										logger.info("For "+gene.getName()+" the 5' end is downstream of 3' end.");
@@ -935,17 +937,17 @@ public class AddEndRNASeqToScripture {
 						for(Gene edited:editedGenes){
 							Gene editedAgain = edited.copy();
 							if(gene.isNegativeStrand()){ 
-								if(peak3.getStart()<edited.getStart()){
+								if(peak3.getStart()<edited.getStart() && (edited.getEnd()-peak3.getStart())>200){
 									extend3p++;
 									editedAgain.setStart(peak3.getStart());
-									editedAgain.setName(edited.getName()+".trimmed3p");
+									editedAgain.setName(edited.getName()+".adj3p");
 								}
 								else{
 									if(peak3.getStart()>edited.getStart()){
-										if(peak3.getStart()<edited.getEnd()){
+										if(peak3.getStart()<edited.getEnd() && (edited.getEnd()-peak3.getStart())>200){
 											trim3p++;
 											editedAgain.setStart(peak3.getStart());
-											editedAgain.setName(edited.getName()+".trimmed3p");
+											editedAgain.setName(edited.getName()+".adj3p");
 										}
 										else{
 											logger.info("For "+gene.getName()+" the 3' end is upstream of 5' end.");
@@ -954,17 +956,17 @@ public class AddEndRNASeqToScripture {
 								}
 							}
 							else{
-								if(peak3.getEnd()>edited.getEnd()){
+								if(peak3.getEnd()>edited.getEnd() && (peak3.getEnd()-edited.getStart())>200){
 									extend3p++;
 									editedAgain.setEnd(peak3.getEnd());
-									editedAgain.setName(edited.getName()+".trimmed3p");
+									editedAgain.setName(edited.getName()+".adj3p");
 								}
 								else{
 									if(peak3.getEnd()<edited.getEnd()){
-										if(peak3.getEnd()>edited.getStart()){
+										if(peak3.getEnd()>edited.getStart() && (peak3.getEnd()-edited.getStart())>200){
 											trim3p++;
 											editedAgain.setEnd(peak3.getEnd());
-											editedAgain.setName(edited.getName()+".trimmed3p");
+											editedAgain.setName(edited.getName()+".adj3p");
 										}
 										else{
 											logger.info("For "+gene.getName()+" the 3' end is upstream of 5' end.");
@@ -1014,7 +1016,7 @@ public class AddEndRNASeqToScripture {
 		//Get the reads in the window
 		window.setOrientation(orientation);
 		//Iterator<AlignmentCount> readiter = model5p.getOverlappingReadCountsStranded(window, false);
-		Iterator<Alignment> readiter = model5p.getOverlappingReads(window, false);
+		CloseableIterator<Alignment> readiter = model5p.getOverlappingReads(window, false);
 		//for all reads in the window
 		while(readiter.hasNext()){
 			//AlignmentCount read = readiter.next();
@@ -1023,6 +1025,7 @@ public class AddEndRNASeqToScripture {
 				windowCount += read.getWeight();
 			}
 		}
+		readiter.close();
 		return windowCount;
 	}
 	
@@ -1031,7 +1034,7 @@ public class AddEndRNASeqToScripture {
 		//Get the reads in the window
 		window.setOrientation(orientation);
 		//Iterator<AlignmentCount> readiter = model3p.getOverlappingReadCountsStranded(window, false);
-		Iterator<Alignment> readiter = model3p.getOverlappingReads(window, false);
+		CloseableIterator<Alignment> readiter = model3p.getOverlappingReads(window, false);
 		//for all reads in the window
 		while(readiter.hasNext()){
 			//AlignmentCount read = readiter.next();
@@ -1040,6 +1043,7 @@ public class AddEndRNASeqToScripture {
 				windowCount += read.getWeight();
 			}
 		}
+		readiter.close();
 		return windowCount;
 	}
 	
@@ -1070,7 +1074,7 @@ public class AddEndRNASeqToScripture {
 			//For each block in the window
 			for(Annotation block: window.getBlocks()){
 				
-				Iterator<Alignment> readiter = model5p.getOverlappingReads(block,false);
+				CloseableIterator<Alignment> readiter = model5p.getOverlappingReads(block,false);
 				//for all reads in the window
 				while(readiter.hasNext()){
 					Alignment read = readiter.next();					
@@ -1078,6 +1082,7 @@ public class AddEndRNASeqToScripture {
 						windowCount += read.getWeight();
 					}				
 				}
+				readiter.close();
 			}
 			if(windowCount>0.0){
 				values.add(windowCount);
@@ -1085,7 +1090,9 @@ public class AddEndRNASeqToScripture {
 		}
 		double[] rtrn = new double[2];
 		if(values.size()>0){
-			rtrn[0] = Statistics.mean(values);
+			//rtrn[0] = Statistics.mean(values);
+			//rtrn[0] = Statistics.median(values);
+			rtrn[0] = Statistics.geometricMean(l2a(values));
 			rtrn[1] = Statistics.variance(values);
 		}
 		else{ 
@@ -1114,7 +1121,7 @@ public class AddEndRNASeqToScripture {
 			//For each block in the window
 			for(Annotation block: window.getBlocks()){
 				
-				Iterator<Alignment> readiter = model3p.getOverlappingReads(block,false);
+				CloseableIterator<Alignment> readiter = model3p.getOverlappingReads(block,false);
 				//for all reads in the window
 				while(readiter.hasNext()){
 					Alignment read = readiter.next();
@@ -1124,6 +1131,7 @@ public class AddEndRNASeqToScripture {
 						windowCount += read.getWeight();
 					}				
 				}
+				readiter.close();
 			}
 			if(windowCount>0.0){
 				values.add(windowCount);
@@ -1131,7 +1139,9 @@ public class AddEndRNASeqToScripture {
 		}
 		double[] rtrn = new double[2];
 		if(values.size()>0){
-			rtrn[0] = Statistics.mean(values);
+			//rtrn[0] = Statistics.mean(values);
+			//rtrn[0] = Statistics.median(values);
+			rtrn[0] = Statistics.geometricMean(l2a(values));
 			rtrn[1] = Statistics.variance(values);
 		}
 		else{ 
@@ -1391,13 +1401,14 @@ public class AddEndRNASeqToScripture {
 		if(chrTree != null) {
 			if(gene.isNegativeStrand()){
 				Node<Gene> max  = chrTree.max(gene.getEnd()+1, gene.getEnd()+2 );
-				if(max != null) {
+				if(max != null&& !max.getValue().overlaps(gene) && max.getValue().getOrientation()==gene.getOrientation()) {
+					//logger.info("Gene = "+gene.toUCSC()+" max is "+max.getValue().toUCSC());
 					closestUpstream = max.getValue().getStart() - gene.getEnd();
 				}
 			}
 			else{
 				Node<Gene> max  = chrTree.max(gene.getStart()-1, gene.getStart() );
-				if(max != null) {
+				if(max != null && !max.getValue().overlaps(gene) && max.getValue().getOrientation()==gene.getOrientation()) {
 					closestUpstream = gene.getStart() - max.getValue().getEnd();
 				}
 			}
@@ -1415,22 +1426,31 @@ public class AddEndRNASeqToScripture {
 				Node<Gene> max  = chrTree.max(gene.getEnd()+1, gene.getEnd()+2 );
 				if(max != null && !max.getValue().overlaps(gene) && max.getValue().getOrientation()==gene.getOrientation()) {
 					closestUpstream = max.getValue().getStart() - gene.getEnd();
-					logger.info(gene.toBED());
-					logger.info(max.getValue().toBED());
+					//logger.info(gene.toBED());
+					//logger.info(max.getValue().toBED());
 				}
 			}
 			else{
 				Node<Gene> max  = chrTree.max(gene.getStart()-1, gene.getStart() );
 				if(max != null && !max.getValue().overlaps(gene) && max.getValue().getOrientation()==gene.getOrientation()) {
 					closestUpstream = gene.getStart() - max.getValue().getEnd();
-					logger.info(gene.toBED());
-					logger.info(max.getValue().toBED());
+					//logger.info(gene.toBED());
+					//logger.info(max.getValue().toBED());
 				}
 			}
 			
 		}
 		return closestUpstream;
 		
+	}
+	
+	private double[] l2a(List<Double> list){
+		double[] rtrn=new double[list.size()];
+	
+		int i=0;
+		for(Double val: list){rtrn[i++]=val;}
+	
+		return rtrn;
 	}
 	
 	/*static String usage=" args[0]=bam file \n\t args[1]=annotation file \n\t args[2]: Output name"

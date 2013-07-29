@@ -2,11 +2,13 @@ package nextgen.core.model;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -128,7 +130,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		this.coordinateSpace=coordinateSpace;
 		
 		// Initialize the cache
-		this.cache=new Cache(this.reader, this.cacheSize);
+		this.cache=new Cache(this.reader,this.cacheSize);
 		
 		// Initialize the readFilters
 		this.readFilters.addAll(readFilters);
@@ -171,7 +173,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		this.coordinateSpace=coordinateSpace;
 		
 		// Initialize the cache
-		this.cache=new Cache(this.reader, this.cacheSize);
+		this.cache=new Cache(this.reader,this.cacheSize);
 		
 		// Initialize the readFilters
 		this.readFilters.addAll(readFilters);
@@ -398,6 +400,10 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			return result;
 		}
 	}
+	
+	public double getCountStranded(Annotation window){
+		return getCountStranded(window,false);
+	}
 
 	
 	/**
@@ -542,7 +548,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		while(iter.hasNext()) {
 			Alignment align = iter.next();
 			done++;
-			if(done % 100000 == 0) logger.info("Got " + done + " records.");
+			if(done % 1000000 == 0) logger.info("Got " + done + " records.");
 			try {
 				for(Integer size : align.getFragmentSize(coord)) {
 					double doublesize = size.doubleValue();
@@ -666,7 +672,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 
 	
 	
-	private boolean isValid(Alignment read) {
+	public boolean isValid(Alignment read) {
 		// TODO replace with Predicates#and
 		
 		for(Predicate<Alignment> filter: this.readFilters){
@@ -684,10 +690,10 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	}
 
 
-	private class WrapAlignmentCountIterator implements CloseableIterator<AlignmentCount>{
+	public class WrapAlignmentCountIterator implements CloseableIterator<AlignmentCount>{
 		CloseableIterator<Alignment> iter;
 		
-		WrapAlignmentCountIterator (CloseableIterator<Alignment> iter) {
+		public WrapAlignmentCountIterator (CloseableIterator<Alignment> iter) {
 			this.iter=iter;
 		}
 
@@ -712,7 +718,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	}
 	
 	
-	private class NodeIterator implements CloseableIterator<AlignmentCount>{
+	public class NodeIterator implements CloseableIterator<AlignmentCount>{
 		Iterator<Node<Alignment>> iter;
 		Iterator<Alignment> subIter;
 
@@ -774,7 +780,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		int numReplicates;
 		Collection<Alignment> containedReads;
 
-		AlignmentCount (Alignment read, Collection<Alignment> containedReads) {
+		public AlignmentCount (Alignment read, Collection<Alignment> containedReads) {
 			this.read=read;
 			this.containedReads=containedReads;
 			this.numReplicates=containedReads.size();
@@ -809,7 +815,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @author mguttman
 	 *
 	 */
-	private class FilteredIterator implements CloseableIterator<AlignmentCount>{
+	public class FilteredIterator implements CloseableIterator<AlignmentCount>{
 		// JE note:  extending nextgen.core.general.CloseableFilterIterator could clean this up a bit
 		
 		CloseableIterator<AlignmentCount> iter;
@@ -818,7 +824,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		AlignmentCount next;
 		boolean hasWindow;
 		
-		FilteredIterator (CloseableIterator<AlignmentCount> overlappers, Annotation region, CoordinateSpace cs, boolean fullyContained) {
+		public FilteredIterator (CloseableIterator<AlignmentCount> overlappers, Annotation region, CoordinateSpace cs, boolean fullyContained) {
 			this.hasWindow=true;
 			this.iter=overlappers;
 			this.fullyContained=fullyContained;
@@ -840,7 +846,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		 * This is the constructor for all reads other parms not meaningful
 		 * @param reads
 		 */
-		FilteredIterator (CloseableIterator<AlignmentCount> reads) {
+		public FilteredIterator (CloseableIterator<AlignmentCount> reads) {
 			this.iter=reads;
 			this.hasWindow=false;
 			//this.fullyContained=fullyContained;
@@ -924,9 +930,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		int cacheSize;
 		IntervalTree<Alignment> cachedTree;
 		
-		/*
-		 * FLAG TO INDICATE WHETHER UPDATE CACHE FAILED
-		 */
+		//FLAG TO INDICATE WHETHER UPDATE CACHE FAILED
 		boolean updateCacheFailed;
 		// Collection of trouble regions for which the update cache has failed at least once.
 		Map<String,List<Annotation>> troubleRegions;
@@ -1467,7 +1471,5 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 		return rtrn;
 	}
-	
-	
 	
 }

@@ -43,7 +43,7 @@ import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.general.CloseableFilterIterator;
-import nextgen.core.model.AlignmentModel;
+import nextgen.core.model.JCSAlignmentModel;
 import nextgen.core.readFilters.CanonicalSpliceFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.IndelFilter;
@@ -56,8 +56,9 @@ import nextgen.core.scripture.statistics.ConnectDisconnectedTranscripts;
 
 public class BuildScriptureCoordinateSpace {
 
+	private static final TranscriptionRead DEFAULT_TXN_READ =  TranscriptionRead.UNSTRANDED;
 	static Logger logger = Logger.getLogger(BuildScriptureCoordinateSpace.class.getName());
-	private AlignmentModel model;
+	private JCSAlignmentModel model;
 	String genomeSeq = null;
 	int windowSize=20000000;
 	private CoordinateSpace space;
@@ -87,15 +88,16 @@ public class BuildScriptureCoordinateSpace {
 		logger.info("Genome sequence has not been provided");
 	}
 	
-	public BuildScriptureCoordinateSpace(File bamFile,String genomeDir){
-		this(bamFile,DEFAULT_MIN_COV_THRESHOLD,genomeDir,null,true,DEFAULT_TXN_READ);
-	}
 	
 	public BuildScriptureCoordinateSpace(File bamFile,double threshold,String genomeDir,String outputName){
 		//By default first read is transcription read
 		this(bamFile,threshold,genomeDir,outputName,true,DEFAULT_TXN_READ);
 	}
 	*/
+	
+	public BuildScriptureCoordinateSpace(File bamFile,String genomeDir){
+		this(bamFile,genomeDir,bamFile.getName()+".reconstructions",true,DEFAULT_TXN_READ,null);
+	}
 	/**
 	 * 
 	 * @param bamFile
@@ -112,7 +114,9 @@ public class BuildScriptureCoordinateSpace {
 		bamFileName = bamFile;
 		forceStrandSpecificity = forceStrandedness;
 		outName = outputName;
-		
+		model=new JCSAlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
+		space=model.getCoordinateSpace();
+
 		setThresholds(argMap);
 //		globalFragments = calculateGlobalFragments();
 		logger.info("Parameters used: " +
@@ -215,10 +219,12 @@ public class BuildScriptureCoordinateSpace {
 	
 	private void setThresholds(ArgumentMap argMap){ 
 		
-		coveragePercentThreshold = argMap.getDouble("coverage", DEFAULT_MIN_COV_THRESHOLD);
-		alpha = argMap.getDouble("alpha", DEFAULT_ALPHA);
-		minSpliceReads = argMap.getDouble("minSpliceReads", MIN_SPLICE_READS);
-		minSplicePercent = argMap.getDouble("percentSpliceReads", MIN_SPLICE_PERCENT);
+		if(argMap!=null){
+			coveragePercentThreshold = argMap.getDouble("coverage", DEFAULT_MIN_COV_THRESHOLD);
+			alpha = argMap.getDouble("alpha", DEFAULT_ALPHA);
+			minSpliceReads = argMap.getDouble("minSpliceReads", MIN_SPLICE_READS);
+			minSplicePercent = argMap.getDouble("percentSpliceReads", MIN_SPLICE_PERCENT);
+		}
 	}
 
 	private void assemble(TranscriptionRead strand) {
@@ -336,7 +342,14 @@ public class BuildScriptureCoordinateSpace {
 		model.addFilter(new PairedAndProperFilter());
 		int loop=0;
 		boolean somethingWasConnected = true;
-		double medianInsertSize = model.getReadSizeDistribution(new TranscriptomeSpace(annotations), 800, 100).getMedianOfAllDataValues();
+		double medianInsertSize=0.0; 
+		Map<String,Collection<Gene>> temp = new HashMap<String,Collection<Gene>>();
+		for(String chr:annotations.keySet()){
+			if(!annotations.get(chr).isEmpty()){
+				temp.put(chr, annotations.get(chr));
+			}
+		}
+		medianInsertSize += model.getReadSizeDistribution(new TranscriptomeSpace(temp), 800, 100).getMedianOfAllDataValues();
 		//double medianInsertSize = 600;
 		logger.info("Median size = "+medianInsertSize);
 
@@ -600,7 +613,7 @@ public class BuildScriptureCoordinateSpace {
 	 */
 	private ChromosomeTranscriptGraph assembleDirectly(String chr,TranscriptionRead strand){
 		
-		model=new AlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
+		model=new JCSAlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		model.addFilter(new ProperPairFilter());
 		model.addFilter(new IndelFilter());
 		model.addFilter(new GenomicSpanFilter(20000000));
@@ -639,7 +652,7 @@ public class BuildScriptureCoordinateSpace {
 		logger.info("Size of direct assemblies: "+workingAssemblies.size());		
 		//try{write(workingAssemblies, outName+"."+chr+"."+"02directAssemblies.bed");}catch(IOException ex){}
 				
-/*		model=new AlignmentModel(bamFileName.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
+/*		model=new JCSAlignmentModel(bamFileName.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		model.addFilter(new ProperPairFilter());
 		model.addFilter(new IndelFilter());
 		model.addFilter(new GenomicSpanFilter(20000000));*/
@@ -1052,7 +1065,7 @@ public class BuildScriptureCoordinateSpace {
 												//toRemove = false;
 											}
 											else{
-												logger.warn(assembly.getName()+" is filtered as pre-mature because "+exon1.toUCSC()+" overlaps "+intron2.toUCSC()+" of "+overlapper.getName());
+												//logger.warn(assembly.getName()+" is filtered as pre-mature because "+exon1.toUCSC()+" overlaps "+intron2.toUCSC()+" of "+overlapper.getName());
 												toRemove = true;
 												break;
 											}
@@ -1277,7 +1290,7 @@ public class BuildScriptureCoordinateSpace {
 				setConfidence(assembly);
 			}
 			if(!assembly.isConfident()){
-				logger.error(assembly.getName()+" removed because does not pass the confidence test.");
+				logger.debug(assembly.getName()+" removed because does not pass the confidence test.");
 			} else{		
 				//IF THE GENE HAS ONE INTRON, check min #splice reads
 				if(assembly.getSpliceConnections().size()==1){
@@ -1321,7 +1334,7 @@ public class BuildScriptureCoordinateSpace {
 					for(Annotation intron:assembly.getSpliceConnections()){
 						if(intronToSplicedCountMap.get(intron)<=avgCount*minSplicePercent){
 							//If  assembly is flagged to be removed because of an intron,
-							logger.error(assembly.getName()+" removed because intron "+intron.toUCSC()+" has coverage "+intronToSplicedCountMap.get(intron)+" compared to "+avgCount);
+							logger.debug(assembly.getName()+" removed because intron "+intron.toUCSC()+" has coverage "+intronToSplicedCountMap.get(intron)+" compared to "+avgCount);
 							toRemove = true; 
 							//return true;
 						}
@@ -1420,7 +1433,7 @@ public class BuildScriptureCoordinateSpace {
 		}
 		
 		if(overlap.getLengthOnReference()<=3){
-			logger.warn(exon1.toUCSC()+" overlaps "+intron2.toUCSC()+" with <=3");
+			//logger.warn(exon1.toUCSC()+" overlaps "+intron2.toUCSC()+" with <=3");
 			return false;
 		}
 		
@@ -2294,7 +2307,7 @@ public class BuildScriptureCoordinateSpace {
 		//TODO Make sure every intron is accounted for
 		for(Annotation newIntron: newList){
 			if(!accountedFor.contains(newIntron)){
-				logger.error("MISSING: "+newIntron.toUCSC());
+				logger.debug("MISSING: "+newIntron.toUCSC());
 			}
 		}
 		
