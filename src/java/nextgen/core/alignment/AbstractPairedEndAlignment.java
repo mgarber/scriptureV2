@@ -11,6 +11,7 @@ import java.util.TreeSet;
 import org.apache.log4j.Logger;
 
 
+import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.util.StringUtil;
 import nextgen.core.coordinatesystem.CoordinateSpace;
@@ -534,6 +535,16 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		blocks.add(secondMate);
 		return new BasicAnnotation(blocks);
 		
+	}
+	
+	@Override
+	public void setHeader(SAMFileHeader header){
+		getFirstMate().setHeader(header);
+		getSecondMate().setHeader(header);
+	}
+	
+	public SAMFileHeader getHeader(){
+		return getFirstMate().getHeader();
 	}
 
 	

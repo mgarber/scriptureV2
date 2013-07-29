@@ -427,6 +427,12 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return counter;
 	}
 		
+	/**
+	 * Returns the counts for the reads in the iterator that do no overlap the excluded region
+	 * @param iter
+	 * @param excludedRegion
+	 * @return
+	 */
 	private double getCount(CloseableIterator<AlignmentCount> iter, Annotation excludedRegion){
 		double counter=0;
 		while(iter.hasNext()){
@@ -438,7 +444,6 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		iter.close();
 		return counter;
 	}
-		
 	
 	public double getGlobalLambda() {
 		if(!this.hasGlobalStats){
@@ -1470,6 +1475,15 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			i++;
 		}
 		return rtrn;
+	}
+
+	
+	@Override
+	public double getCountStrandedExcludingRegion(Annotation region,
+			Annotation excluded) {
+		CloseableIterator<AlignmentCount> iter=getOverlappingReadCountsStranded(region,false);
+		double result = getCount(iter, excluded);
+		return result;
 	}
 	
 }

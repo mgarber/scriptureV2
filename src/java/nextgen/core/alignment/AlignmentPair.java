@@ -3,7 +3,10 @@ package nextgen.core.alignment;
 import java.util.ArrayList;
 import java.util.Collection;
 
+import org.apache.log4j.Logger;
+
 import net.sf.samtools.SAMRecord;
+import nextgen.core.writers.PairedEndWriter;
 import broad.core.datastructures.Pair;
 
 /**
@@ -17,7 +20,7 @@ import broad.core.datastructures.Pair;
 public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 
 	private Pair<Integer> numHits = new Pair<Integer>();
-	
+	static Logger logger = Logger.getLogger(AlignmentPair.class.getName());
 
 	public void add(SAMRecord record) {
 		if(record.getFirstOfPairFlag()){
@@ -47,6 +50,9 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 			
 			if(size1==expectedSize1 && size2==expectedSize2){
 				return true;
+			}
+			else{
+				System.out.println("Size1="+size1+" ExpectedSize1="+expectedSize1+" Size2="+size2+" ExpectedSize2="+expectedSize2);
 			}
 		}
 		

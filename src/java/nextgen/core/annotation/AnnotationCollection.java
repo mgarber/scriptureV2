@@ -161,6 +161,7 @@ public interface AnnotationCollection<T extends Annotation> {
 	 */
 	public double getCountExcludingRegion(Annotation region, Annotation excluded);
 	
+	public double getCountStrandedExcludingRegion(Annotation region, Annotation excluded);
 	
 	/**
 	 * @return The coordinate space currently used by the AnnotationCollection

@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 import java.util.TreeMap;
 
 import net.sf.samtools.util.CloseableIterator;
@@ -23,6 +24,7 @@ import nextgen.core.model.JCSAlignmentModel.AlignmentCount;
 import nextgen.core.model.JCSAlignmentModel.FilteredIterator;
 import nextgen.core.model.JCSAlignmentModel;
 import nextgen.core.readers.PairedEndReader;
+import nextgen.core.scripture.BuildScriptureCoordinateSpace;
 
 import org.apache.jcs.JCS;
 import org.apache.jcs.access.exception.CacheException;
@@ -36,16 +38,17 @@ public class JCSCache {
 	
 	static Logger logger = Logger.getLogger(JCSCache.class.getName());
 	/** Default directory where cache files will be spooled: ~/jcs **/
-	private final String defaultDir = System.getProperty("user.dir") + "/.jcs";
+	private final String defaultDir = System.getProperty("java.io.tmpdir") + "/.jcs";
 	
 //	private static final String DEFAULT_GROUP = "Default_JCS_Group";
 	private static final String DEFAULT_NAME = "Default_JCS_Name";
+	private static final int KEY_LENGTH = 10;
 
-	Collection<String> keys;
+	static Collection<Long> keys;
 	private final Long maxLifeSeconds=7200L;
 	/** Maximum number of in-memory instances before sending items to disk. Default is 50,000. */
-	private final Long defaultCapacity = 300000L;
-	IntervalTree<String> keyTree;
+	private Long defaultCapacity = 300000L;
+	IntervalTree<Long> keyTree;
 	PairedEndReader reader;
 	String cacheChr = null;
 	int cacheSize;
@@ -55,7 +58,7 @@ public class JCSCache {
 	JCSAlignmentModel model;
 	//String groupName;
 	String cacheName;
-	private static JCS treeCache;
+//	private static JCS treeCache;
 	
 	/** Holds a list of already defined caches to help ensure uniqueness. */
 	private static List<String> cacheNames = new ArrayList<String>();
@@ -68,6 +71,7 @@ public class JCSCache {
 			for (String cacheName : cacheNames) {
 				try {
 		              logger.info("Shutting down " + cacheName + " cache.");
+		              JCS.getInstance(cacheName).clear();
 		              JCS.getInstance(cacheName).dispose();
 		            }
 	            catch (Exception e) {
@@ -84,8 +88,11 @@ public class JCSCache {
 	public JCSCache(PairedEndReader reader,int cacheSize,JCSAlignmentModel m){
 		synchronized (JCSCache.class) {
 			this.reader=reader;
-			keyTree = new IntervalTree<String>();
+			keyTree = new IntervalTree<Long>();
 			
+			//SET THE DEFAULT CAPACITY
+			//EACH RECORD TAKES APPROX 348728 BYTES IN MEMORY
+			defaultCapacity = (long)(Runtime.getRuntime().maxMemory()/(2.0*175000));
 			Logger.getLogger("org.apache.jcs").setLevel(Level.OFF);
 			Runtime.getRuntime().addShutdownHook(JCSCache.shutdownThread);
 			
@@ -93,11 +100,14 @@ public class JCSCache {
 			this.model=m;
 			mkdirs(defaultDir);
 
-			keys = new HashSet<String>();
-/*			cacheName=this.DEFAULT_NAME+"_"+System.currentTimeMillis();
+			keys = new HashSet<Long>();
+			cacheName=JCSCache.DEFAULT_NAME+"_"+System.currentTimeMillis();
 			CompositeCacheManager ccm = CompositeCacheManager.getUnconfiguredInstance();
 			ccm.configure(initJcsProps(cacheName));
-
+			
+			logger.info("Indexed disk cache written to: "+defaultDir);
+			logger.info("Holding "+defaultCapacity+" in In-memory cache");
+/*
 			try{
 				treeCache = JCS.getInstance(cacheName);
 			}catch (Exception e)
@@ -108,6 +118,23 @@ public class JCSCache {
 		}
 	}
 	
+	/**
+	 * Generates a Long random number of length "length". We will use 10 digits
+	 * @param length
+	 * @return
+	 */
+	public static Long generateRandom(int length) {
+	    Random random = new Random();
+	    char[] digits = new char[length];
+	    digits[0] = (char) (random.nextInt(9) + '1');
+	    for (int i = 1; i < length; i++) {
+	        digits[i] = (char) (random.nextInt(10) + '0');
+	    }
+	    if(keys.contains(Long.parseLong(new String(digits)))){
+	    	return generateRandom(length);
+	    }
+	    return Long.parseLong(new String(digits));
+	}
 	/**
 	 * 
 	 * @return
@@ -215,8 +242,9 @@ public class JCSCache {
 	 * @param window
 	 * @param fullyContained
 	 * @return
+	 * @throws CacheException 
 	 */
-	private CloseableIterator<AlignmentCount> query(Annotation window, boolean fullyContained) {
+	private CloseableIterator<AlignmentCount> query(Annotation window, boolean fullyContained) throws CacheException {
 		//if larger than the cache size then just return the query directly
 		if(window.getSize()>this.cacheSize){
 			//logger.info("Get reads for the entire window of size "+window.getSize()+" for "+window.toUCSC());
@@ -231,10 +259,20 @@ public class JCSCache {
 		return getReadsFromCache(window);
 	}
 	
-	public FilteredIterator query(Annotation window, boolean fullyContained, CoordinateSpace cs) {
-		CloseableIterator<AlignmentCount> iter=query(window, fullyContained);
-		FilteredIterator filtered=model.new FilteredIterator(iter, window, cs, fullyContained);
-		return filtered;
+	public FilteredIterator query(Annotation window, boolean fullyContained, CoordinateSpace cs)  {
+		try {
+			CloseableIterator<AlignmentCount> iter = query(window, fullyContained);
+			FilteredIterator filtered=model.new FilteredIterator(iter, window, cs, fullyContained);
+			return filtered;
+		} catch (CacheException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			
+//			FilteredIterator filtered = model.new FilteredIterator(new CloseableIterator(Collections.<AlignmentCount>emptyList().iterator()));
+			//TODO: FIX
+			return null;
+		}
+		
 	}
 	
 	private CloseableIterator<AlignmentCount> getReadsFromCache(Annotation window) {
@@ -248,9 +286,9 @@ public class JCSCache {
 	}
 	
 	public class JCSNodeIterator implements CloseableIterator<AlignmentCount>{
-		Iterator<Node<String>> iter;
+		Iterator<Node<Long>> iter;
 
-		JCSNodeIterator (Iterator<Node<String>> overlappers) {
+		JCSNodeIterator (Iterator<Node<Long>> overlappers) {
 			iter=overlappers;
 		}
 
@@ -261,11 +299,11 @@ public class JCSCache {
 
 		@Override
 		public AlignmentCount next() {
-			Node<String> keyNode=iter.next();
+			Node<Long> keyNode=iter.next();
 			Collection<Alignment> reads = new HashSet<Alignment>();
 			boolean flag=true;
 			Alignment value=null;
-			for(String key:keyNode.getContainedValues()){
+			for(Long key:keyNode.getContainedValues()){
 			try{
 //				for(Object key1:JCS.getInstance(cacheName).getGroupKeys(groupName)){
 					//logger.info((String)key1);
@@ -274,14 +312,17 @@ public class JCSCache {
 				//Alignment read = (Alignment)treeCache.getFromGroup((Object)key,groupName);
 				Alignment read = (Alignment)JCS.getInstance(cacheName).get((Object)key);
 
+				if(read!=null){
+					if(read.getHeader()==null)
+						read.setHeader(model.getHeader());
+					reads.add(read);
+					//logger.info("Read is read");
+				}
 				if(flag && read!=null){
 					flag=false;
 					value = read;
 				}
-				if(read!=null){
-					reads.add(read);
-					//logger.info("Read is read");
-				}
+				
 /*				else{
 					
 					if(keys.contains(key)){
@@ -298,7 +339,12 @@ public class JCSCache {
 					}
 				}*/
 			}catch(CacheException e){
-				logger.info(e.getMessage());
+				try {
+					JCS.getInstance(cacheName).clear();
+				} catch (CacheException e1) {
+					logger.error(e.getMessage());
+				}
+				logger.error(e.getMessage());
 			}
 			}
 			return model.new AlignmentCount(value,reads);
@@ -316,8 +362,9 @@ public class JCSCache {
 	 * @param chr
 	 * @param start
 	 * @param end
+	 * @throws CacheException 
 	 */
-	private void updateCache(String chr, int start, int end, boolean fullyContained) {
+	private void updateCache(String chr, int start, int end, boolean fullyContained) throws CacheException {
 		int newStart=start;
 		int newEnd=end;
 
@@ -357,8 +404,9 @@ public class JCSCache {
 	 * @param w
 	 * @param fullyContained
 	 * @return
+	 * @throws CacheException 
 	 */
-	private IntervalTree<String> getIntervalTree(Window w, boolean fullyContained) {
+	private IntervalTree<Long> getIntervalTree(Window w, boolean fullyContained) throws CacheException {
 		
 		//logger.info("Get interval tree");
 		//Assume update cache will not fail
@@ -369,8 +417,10 @@ public class JCSCache {
 				treeCache.remove(key, groupName);
 			}
 		}	*/
-		if(cacheName!=null)
-			dispose(cacheName);
+/*		if(cacheName!=null)
+			dispose(cacheName);*/
+		
+		JCS.getInstance(cacheName).clear();
 /*		if(!keys.isEmpty()){
 			for(String k:keys){
 				try {
@@ -382,30 +432,33 @@ public class JCSCache {
 			}
 		}*/
 		
-	 	IntervalTree<String> tree=new IntervalTree<String>();
-	 	keys = new HashSet<String>();
+	 	IntervalTree<Long> tree=new IntervalTree<Long>();
+	 	keys = new HashSet<Long>();
 //	 	groupName = this.DEFAULT_GROUP+w.getChr()+w.getStart();
-	 	cacheName = DEFAULT_NAME+System.currentTimeMillis();
-	 	cacheNames.add(cacheName);
+//	 	cacheName = DEFAULT_NAME+System.currentTimeMillis();
+//	 	cacheNames.add(cacheName);
 	 	//Initialize the cache
-		CompositeCacheManager ccm = CompositeCacheManager.getUnconfiguredInstance();
-		ccm.configure(initJcsProps(cacheName));
+//		CompositeCacheManager ccm = CompositeCacheManager.getUnconfiguredInstance();
+//		ccm.configure(initJcsProps(cacheName));
 	 	
 		CloseableIterator<AlignmentCount> iterReadsOverlappingRegion=getReads(w, fullyContained);
 		while(iterReadsOverlappingRegion.hasNext()){
 			Alignment record=iterReadsOverlappingRegion.next().getRead();
 			if (model.isValid(record)) {
 				//logger.info("Attempting to ADD "+record.getName());
-				String key = record.getReadName()+"-"+record.getAlignmentStart()+":"+record.getAlignmentEnd();
+				//String key = record.getReadName()+"-"+record.getAlignmentStart()+":"+record.getAlignmentEnd();
 				//logger.info(record.getName());
-				try {
-				      JCS.getInstance(cacheName).put(key,record);
-				      keys.add(key);
-			    }
-			    catch (CacheException e) {
-			      String msg = "Failure to add " + record.getAlignmentStart()+":"+record.getAlignmentEnd()+ " to cache " + this.cacheName + ":" + e.getMessage();
-			      logger.warn(msg);
-			    }				
+				
+				Long key = generateRandom(KEY_LENGTH);
+
+//				long start = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+				JCS.getInstance(cacheName).put(key,record);
+			    keys.add(key);    
+//			    long end = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//				if((end-start)!=0){
+//					logger.info(end-start);
+//				}
+			    			
 				tree.put(record.getAlignmentStart(), record.getAlignmentEnd(), key);
 			}	
 			/*Node<Alignment> node=tree.find(record.getAlignmentStart(), record.getAlignmentEnd());			
@@ -453,11 +506,11 @@ public class JCSCache {
 	public static void dispose(String cacheName) {
         try {
           cacheNames.remove(cacheName);
-          JCS.getInstance(cacheName).dispose();
+          JCS.getInstance(cacheName).clear();
         }
         catch (CacheException e) {
           String msg = "Failure to clear cache " + cacheName + ":" + e.getMessage();
-          logger.debug(msg);
+          logger.error(msg);
         }
       }     
 	

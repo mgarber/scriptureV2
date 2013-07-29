@@ -24,6 +24,7 @@ import broad.core.math.EmpiricalDistribution;
 import broad.pda.annotation.BEDFileParser;
 import broad.pda.datastructures.Alignments;
 
+import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
@@ -35,6 +36,7 @@ import nextgen.core.feature.GeneWindow;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
 import nextgen.core.general.CloseableFilterIterator;
+import nextgen.core.model.AlignmentModel.AlignmentCount;
 import nextgen.core.model.score.WindowScore;
 import nextgen.core.readFilters.PairedAndProperFilter;
 import nextgen.core.readFilters.SameOrientationFilter;
@@ -204,6 +206,14 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 
 	public JCSAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, TranscriptionRead transcriptionRead) {
 		this(bamFile, coordinateSpace, true, transcriptionRead);
+	}
+	
+	/**
+	 * Returns the SAM file header for this reader
+	 * @return
+	 */
+	public SAMFileHeader getHeader(){
+		return reader.getHeader();
 	}
 	/**
 	 * Check whether the global stats file is valid
@@ -1474,6 +1484,14 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	@Override
 	public double getCountStranded(Annotation region) {
 		return getCountStranded(region,false);
+	}
+
+	@Override
+	public double getCountStrandedExcludingRegion(Annotation region,
+			Annotation excluded) {
+		CloseableIterator<AlignmentCount> iter=getOverlappingReadCountsStranded(region,false);
+		double result = getCount(iter, excluded);
+		return result;
 	}
 	
 }

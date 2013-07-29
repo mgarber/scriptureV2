@@ -588,21 +588,21 @@ public class BuildScriptureCoordinateSpace {
         //Getting the runtime reference from system
         Runtime runtime = Runtime.getRuntime();
          
-        logger.debug("##### Heap utilization statistics [MB] #####");
+        logger.info("##### Heap utilization statistics [MB] #####");
          
         //Print used memory
-        logger.debug("Used Memory:"
+        logger.info("Used Memory:"
             + (runtime.totalMemory() - runtime.freeMemory()) / mb);
  
         //Print free memory
-        logger.debug("Free Memory:"
+        logger.info("Free Memory:"
             + runtime.freeMemory() / mb);
          
         //Print total available memory
-        logger.debug("Total Memory:" + runtime.totalMemory() / mb);
+        logger.info("Total Memory:" + runtime.totalMemory() / mb);
  
         //Print Maximum available memory
-        logger.debug("Max Memory:" + runtime.maxMemory() / mb);
+        logger.info("Max Memory:" + runtime.maxMemory() / mb);
 	}
 	
 	/**
