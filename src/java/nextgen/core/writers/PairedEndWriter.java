@@ -100,7 +100,6 @@ public class PairedEndWriter {
 
 	/**
 	 * Convert the bamFile provided in the constructor to paired end format.
-	 * FOR STRANDED DATA
 	 */
 	public void convertInputToPairedEnd(TranscriptionRead txnRead) {
 		SAMRecordIterator iter = reader.iterator();		
@@ -190,6 +189,28 @@ public class PairedEndWriter {
 			if(!record.getReferenceName().equals(prevChr)){
 				
 				//PURGE TEMP COLLECTION
+				/*for(String ch:tempCollection.keySet()){
+					Pair<Collection<SAMRecord>> pair1=tempCollection.get(name);
+					Collection<SAMRecord> records;
+					
+					try {
+				 if(pair1.hasValue1()){
+						records=pair1.getValue1();
+						for(SAMRecord record1: records) {
+							filewriter.write(record1.getSAMString());
+						}
+					}
+					if(pair1.hasValue2()){
+						records=pair1.getValue2();
+						for(SAMRecord record1: records) {
+							filewriter.write(record1.toString());
+						}
+					}
+					
+				} catch (IOException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}*/
 				writeRemainder(tempCollection);
 				tempCollection=new TreeMap<String, AlignmentPair>();
 				prevChr = record.getReferenceName();

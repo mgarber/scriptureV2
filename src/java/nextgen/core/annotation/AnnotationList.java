@@ -10,6 +10,7 @@ import broad.core.datastructures.IntervalTree;
 import nextgen.core.annotation.filter.*;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.ShuffledIterator;
+import nextgen.core.exception.IncompleteMethodImplementationException;
 
 import nextgen.core.general.Predicates;
 import nextgen.core.general.CloseableFilterIterator;
@@ -469,5 +470,18 @@ public class AnnotationList<T extends Annotation> extends AbstractAnnotationColl
 	@Override
 	public double getCountStranded(Annotation window){
 		return getCountStranded(window,false);
+	}
+
+
+	@Override
+	public double getCountStrandedExcludingRegion(Annotation region,
+			Annotation excluded) {
+		try {
+			throw new IncompleteMethodImplementationException();
+		} catch (IncompleteMethodImplementationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return 0;
 	}
 }

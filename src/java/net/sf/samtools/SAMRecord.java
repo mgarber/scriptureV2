@@ -213,12 +213,7 @@ public class SAMRecord implements Cloneable, java.io.Serializable
         else
         	out.writeInt(mIndexingBin);
         
-        out.writeObject(mHeader);
-/*        if(mHeader==null){
-        	out.writeObject(new String("NULL"));
-        }
-        else
-        	out.writeObject(mHeader);*/
+        //out.writeObject(mHeader);
         
 //        private SAMFileSource mFileSource;
     	for(SAMTagAndValue attr:getAttributes()){
@@ -273,7 +268,7 @@ public class SAMRecord implements Cloneable, java.io.Serializable
         	mIndexingBin=temp;
         }     
         
-        mHeader=(SAMFileHeader)in.readObject();
+        //mHeader=(SAMFileHeader)in.readObject();
 /*        if(mHeader==null){
         	out.writeObject(new String("NULL"));
         }

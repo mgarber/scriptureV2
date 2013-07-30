@@ -15,6 +15,7 @@ import org.broad.igv.sam.AlignmentBlock;
 import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.CigarOperator;
+import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.TextCigarCodec;
 import net.sf.samtools.SAMRecord.SAMTagAndValue;
@@ -101,11 +102,12 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment,jav
     
     private void writeObject(java.io.ObjectOutputStream out) throws IOException{
 
-//   	logger.info("Writing to disk");
+   	logger.info("Writing to disk");
     	out.writeObject(txnRead);
     	out.writeObject(splicedEdges);
     	out.writeBoolean(hasIndel);
     	out.writeBoolean(isFirstMate);
+    	
     	out.writeObject(record);
     }
     
@@ -121,9 +123,7 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment,jav
 //    	    System.out.println("In read object "+this.getName());
     	    //Object r=in.readO;
     	    this.record=(SAMRecord)in.readObject();
-    	    if(this==null){
-    	    	System.out.println("WHAT THE");
-    	    }
+    	    
     	}
     	catch(EOFException e){
     		logger.debug(e.getMessage());
@@ -449,6 +449,15 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment,jav
 	@Override
 	public int getFragmentMidpoint(Annotation annot) {
 		return AnnotationUtils.getSubAnnotationMidpointWithinAnnotation(annot, this);
+	}
+	
+	@Override
+	public void setHeader(SAMFileHeader header){
+		this.record.setHeader(header);
+	}
+	
+	public SAMFileHeader getHeader(){
+		return record.getHeader();
 	}
 
 	/**

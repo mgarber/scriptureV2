@@ -30,7 +30,12 @@
 	<classpathentry kind="lib" path="lib/java-genomics-io.20120520.jar"/>
 	<classpathentry kind="lib" path="lib/sam-1.89.jar"/>
 	<classpathentry kind="lib" path="lib/commons-logging-1.1.3.jar"/>
+<<<<<<< HEAD
+	<classpathentry kind="lib" path="lib/jcs-1.3.jar"/>
+	<classpathentry kind="lib" path="lib/concurrent-1.3.3.jar"/>
+=======
 	<classpathentry kind="lib" path="lib/concurrent-1.3.3.jar"/>
 	<classpathentry kind="lib" path="lib/jcs-1.3.jar"/>
+>>>>>>> branch 'master' of https://github.com/mgarber/scriptureV2.git
 	<classpathentry kind="output" path="bin"/>
 </classpath>

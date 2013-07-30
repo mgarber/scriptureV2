@@ -7,6 +7,7 @@ import nextgen.core.feature.Window;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.Annotation;
 
+import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMRecord;
 
 /**
@@ -211,6 +212,18 @@ public interface Alignment extends Annotation {
 	 */
 	public int[] getIntervalBetweenReads();
 	
+	
+	/**
+	 * Sets the SAM File header for this alignment
+	 * @param header
+	 */
+	public void setHeader(SAMFileHeader header);
+	
+	/**
+	 * Returns the SAM file header for this alignment
+	 * @return
+	 */
+	public SAMFileHeader getHeader();
 	
 	
 }
