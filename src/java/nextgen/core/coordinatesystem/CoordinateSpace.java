@@ -149,5 +149,10 @@ public interface CoordinateSpace {
 	 */
 	public Annotation getReferenceAnnotation(String name);
 	
-	
+	/**
+	 * Returns true if the coordinate space contains any annotations on the queried chromosome
+	 * @param chr
+	 * @return
+	 */
+	public boolean hasChromosome(String chr);
 }

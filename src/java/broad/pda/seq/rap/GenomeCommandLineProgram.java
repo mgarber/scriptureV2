@@ -49,7 +49,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		return super.customCommandLineValidation();
 	}
 	
-	private void loadCoordinateSpace() {
+	protected void loadCoordinateSpace() {
 		coordinateSpace = new GenomicSpace(SIZES, MASK_FILE, PCT_MASKED_ALLOWED);
 	}
 	

@@ -224,6 +224,7 @@ public class JCSCache {
 		}
 		//else if doesnt contain the window then update cache and query again
 		else if (!contains(window) || this.fullyContained != fullyContained) {
+			//logger.info("this.fullyContained = " + this.fullyContained + "  fullyContained = " + fullyContained);
 			//logger.info("Updating cache for "+window.getSize()+" for "+window.toUCSC());
 			updateCache(window.getReferenceName(), window.getStart(), window.getEnd(), fullyContained);
 		}
@@ -321,7 +322,7 @@ public class JCSCache {
 		int newStart=start;
 		int newEnd=end;
 
-		//logger.info("Updating cache");
+		logger.info("Updating cache: " + chr + ":" + start + "-" + end + ". CacheSize=" + cacheSize);
 		// if window is larger than cache size 
 		//@skadri TODO: Isn't this checked in query() already?
 		// (this will happen in TranscriptomeSpace if a transcript is longer than the cache size)
@@ -331,13 +332,14 @@ public class JCSCache {
 		} else {
 			if (this.cacheChr == null || chr.equalsIgnoreCase(this.cacheChr)) { 
 				if (end > this.cacheEnd) {
-					// Set the cache to start and the beginning of the requested sequence
+					// Set the cache to start at the beginning of the requested sequence
 					newStart = start;
 					newEnd = start + this.cacheSize;
 				} else if (start < this.cacheStart) {
 					// Maybe we're scanning backwards?  So we'll fix the cache to the end of the window
 					newEnd = end;
 					newStart = end - this.cacheSize;
+					throw new IllegalStateException("JCSCache DEBUG");
 				}
 			}
 		}
@@ -350,6 +352,8 @@ public class JCSCache {
 		Window update=new GenomeWindow(this.cacheChr, this.cacheStart, this.cacheEnd);
 
 		this.keyTree=getIntervalTree(update, fullyContained);
+		
+		logger.info("Cache updated to: " + cacheChr + ":" + cacheStart + "-" + cacheEnd);
 	}
 	
 	/**
