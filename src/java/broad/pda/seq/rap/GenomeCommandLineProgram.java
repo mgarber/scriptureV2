@@ -4,14 +4,19 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
+
+import broad.pda.annotation.BEDFileParser;
 
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
 import net.sf.picard.io.IoUtil;
 import net.sf.picard.util.Log;
 
+import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.GenomicSpace;
+import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.AnnotationList;
 import nextgen.core.annotation.BasicAnnotation;
@@ -40,18 +45,35 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 	@Option(doc="Minimum mapping quality for reads") 
 	public Integer MIN_MAPPING_QUALITY = 30;
 	
-	protected GenomicSpace coordinateSpace;
+	@Option(doc="Process in genomic space or transcriptome space")
+	public String COORD_SPACE = "genomic";
+	
+	@Option(doc="File containing gene annotations (BED)")
+	public String ANNOTATION = "/seq/lincRNA/Shari/Annotations/RefSeq_LincV3_ChromatinWithNames_nonrandom_collapsed_overlappers.bed";
+	
+	protected CoordinateSpace coordinateSpace;
 	
 	
 	@Override
 	protected String[] customCommandLineValidation() {
-		loadCoordinateSpace();
+		try {
+			loadCoordinateSpace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		return super.customCommandLineValidation();
 	}
 	
-	private void loadCoordinateSpace() {
-		coordinateSpace = new GenomicSpace(SIZES, MASK_FILE, PCT_MASKED_ALLOWED);
-	}
+	private void loadCoordinateSpace() throws IOException {
+		
+		if (COORD_SPACE.equalsIgnoreCase("genomic")){
+			coordinateSpace = new GenomicSpace(SIZES, MASK_FILE, PCT_MASKED_ALLOWED);
+			}
+		else if (COORD_SPACE.equalsIgnoreCase("transcriptome")){
+			coordinateSpace = new TranscriptomeSpace(BEDFileParser.loadDataByChr(new File(ANNOTATION)));
+			}
+		}
 	
 	public List<Annotation> getRegions() {
 		List<Annotation> regions = new ArrayList<Annotation>();
@@ -99,7 +121,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 	}
 
 	
-	protected GenomicSpace getCoordinateSpace() { return coordinateSpace; }
+	protected CoordinateSpace getCoordinateSpace() { return coordinateSpace; }
 	
 	
 	public AlignmentModel loadAlignmentModel(File bamFile) {
