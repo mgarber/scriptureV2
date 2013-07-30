@@ -145,8 +145,8 @@ public class Primer3ConfigurationFactory {
     public static Primer3Configuration getPlasmidDeletionConfiguration(int optimalProductSize, int minProductSize, int maxProductSize) {
         Primer3Configuration config = new Primer3Configuration();
         config.optimalMeltingTemp = 60.0;
-        config.maxMeltingTemp = 61.0;
-        config.minMeltingTemp = 59.0;
+        config.maxMeltingTemp = 64.0;
+        config.minMeltingTemp = 58.0;
         config.interpretBasesLiberally = true;
         config.minQualityScore = 0;
         config.minGCContent = 40.0;
@@ -158,7 +158,7 @@ public class Primer3ConfigurationFactory {
         config.selfAnyAlignScore = 5.0;
         config.selfEndAlignScore = 2.0;
         config.optimalPrimerSize = 23;
-        config.minPrimerSize = 19;
+        config.minPrimerSize = 18;
         config.maxPrimerSize = 30;
         config.optimalProductSize = optimalProductSize;
         config.maxProductSize = maxProductSize;

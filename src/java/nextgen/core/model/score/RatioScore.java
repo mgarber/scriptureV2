@@ -1,5 +1,7 @@
 package nextgen.core.model.score;
 
+import java.util.Iterator;
+
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.AnnotationCollection;
 
@@ -14,9 +16,32 @@ public class RatioScore extends CountScore {
 	private double dTotal;                // whole "genome"
 	private double dRegionTotal = DEFAULT_REGION_TOTAL;          // whole chromosome / gene / region under consideration / etc.
 
-
 	public RatioScore(Annotation a) {
 		super(a);
+	}
+	
+	public RatioScore(Annotation numerator, Annotation denominator, double nTotal, double dTotal) {
+		this(numerator, denominator, nTotal, dTotal, DEFAULT_REGION_TOTAL, DEFAULT_REGION_TOTAL);
+	}
+	
+	public RatioScore(Annotation numerator, Annotation denominator, double nTotal, double dTotal, double nRegionTotal, double dRegionTotal) {
+		super(numerator, numerator.getScore(), nTotal, nRegionTotal);
+		if (!numerator.equals(denominator)) {
+			throw new IllegalArgumentException("Cannot create RatioScore from numerator and denominator with different coordinates.");
+		}
+		dCount = denominator.getScore();
+		this.dTotal = dTotal;
+		this.dRegionTotal = dRegionTotal;
+	}
+	
+	public RatioScore(CountScore numerator, CountScore denominator) {
+		super(numerator);
+		if (!numerator.getAnnotation().equals(denominator.getAnnotation())) {
+			throw new IllegalArgumentException("Cannot create RatioScore from numerator and denominator with different coordinates.");
+		}
+		dCount = denominator.getCount();
+		dTotal = denominator.getTotal();
+		dRegionTotal = denominator.getRegionTotal();
 	}
 	
 	public RatioScore(AnnotationCollection<? extends Annotation> numerator, AnnotationCollection<? extends Annotation> denominator, Annotation annotation) {
@@ -152,6 +177,36 @@ public class RatioScore extends CountScore {
 		//Using the cache may speed this up, we should discuss
 		public RatioScore processWindow(Annotation annotation, RatioScore previousScore) {
 			return processWindow(annotation);
+		}
+	}
+	
+	
+	
+	/**
+	 * @author engreitz
+	 * Create a RatioScore from two CountScores
+	 */
+	public static class RatioScoreIterator implements Iterator<RatioScore> {
+		protected Iterator<CountScore> numerator, denominator;
+		
+		public RatioScoreIterator(Iterator<CountScore> numeratorItr, Iterator<CountScore> denominatorItr) {
+			numerator = numeratorItr;
+			denominator = denominatorItr;
+		}
+		
+		@Override
+		public boolean hasNext() {
+			return numerator.hasNext() && denominator.hasNext();
+		}
+		
+		@Override
+		public RatioScore next() {
+			return new RatioScore(numerator.next(), denominator.next());
+		}
+
+		@Override
+		public void remove() {
+			throw new UnsupportedOperationException("not supported");
 		}
 	}
 	

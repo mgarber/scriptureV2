@@ -1,5 +1,7 @@
 package nextgen.core.alignment;
 
+import java.io.EOFException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -13,6 +15,7 @@ import org.broad.igv.sam.AlignmentBlock;
 import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.CigarOperator;
+import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.TextCigarCodec;
 import net.sf.samtools.SAMRecord.SAMTagAndValue;
@@ -23,15 +26,21 @@ import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.*;
 
-public class SingleEndAlignment extends BasicAnnotation implements Alignment {
+public class SingleEndAlignment extends BasicAnnotation implements Alignment,java.io.Serializable {
 	
-    static Logger logger = Logger.getLogger(SingleEndAlignment.class.getName());
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 2L;
+
+	static Logger logger = Logger.getLogger(SingleEndAlignment.class.getName());
 	
     TranscriptionRead txnRead;
 	// SAMRecord will keep track of everything EXCEPT chromosome, start, end, orientation, name, blocks
 	// BasicAnnotation will handle these functions.
 	private SAMRecord record;
-	Collection<Annotation> splicedEdges;
+	//WrapSamRecord record;
+    Collection<Annotation> splicedEdges;
 	boolean hasIndel;
     /**
      * 	true: this unpaired mate was the first mate
@@ -55,6 +64,7 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
     		logger.warn("Caught exception on record " + read.getReadName());
     		e.printStackTrace();
     	}
+    	//record=new WrapSamRecord(read);
     	assert(read.getAlignmentEnd() == getEnd()); // sanity check
     }
     
@@ -78,6 +88,47 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
     	setIsFirstMate(isFirstMateFlag);
     }
 
+    public SingleEndAlignment(){
+    	
+    }
+    
+    public void setSplicedEdges(Collection<Annotation> se){
+    	splicedEdges=se;
+    }
+    
+    public void setHasIndel(boolean h){
+    	this.hasIndel=h;
+    }
+    
+    private void writeObject(java.io.ObjectOutputStream out) throws IOException{
+
+   	logger.info("Writing to disk");
+    	out.writeObject(txnRead);
+    	out.writeObject(splicedEdges);
+    	out.writeBoolean(hasIndel);
+    	out.writeBoolean(isFirstMate);
+    	
+    	out.writeObject(record);
+    }
+    
+	private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+
+//		logger.info("Read "+this.getName()+" is being read");
+//		logger.info("Attempt to read");
+    	try{
+    		this.setFragmentStrand((TranscriptionRead)in.readObject());
+    	    this.setSplicedEdges((Collection<Annotation>)in.readObject());
+    	    this.setHasIndel((boolean)in.readBoolean());
+    	    this.setIsFirstMate((boolean)in.readBoolean());
+//    	    System.out.println("In read object "+this.getName());
+    	    //Object r=in.readO;
+    	    this.record=(SAMRecord)in.readObject();
+    	    
+    	}
+    	catch(EOFException e){
+    		logger.debug(e.getMessage());
+    	}
+    }
     //Cigar string is used to populate the alignment blocks and read length fields
     private void parseCigar(String cigarString, String chr, int start) {
     	Cigar cigar = TextCigarCodec.getSingleton().decode(cigarString);
@@ -399,5 +450,48 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment {
 	public int getFragmentMidpoint(Annotation annot) {
 		return AnnotationUtils.getSubAnnotationMidpointWithinAnnotation(annot, this);
 	}
+	
+	@Override
+	public void setHeader(SAMFileHeader header){
+		this.record.setHeader(header);
+	}
+	
+	public SAMFileHeader getHeader(){
+		return record.getHeader();
+	}
 
+	/**
+	 * This class is a wrapper for the SAMRecord class so that this class can be correctly serialized
+	 * @author skadri
+	 *
+	 */
+	public class WrapSamRecord implements java.io.Serializable{
+		
+		int mappingQuality;
+		boolean isDuplicate;
+		String readSequence;
+		
+		public WrapSamRecord(SAMRecord record){
+			
+			this.mappingQuality=record.getMappingQuality();
+			this.isDuplicate=record.getDuplicateReadFlag();
+			this.readSequence=record.getReadString();
+		}
+		
+		public int getMappingQuality(){
+			return this.mappingQuality;
+		}
+		
+		public boolean getDuplicateReadFlag(){
+			return this.isDuplicate;
+		}
+		
+		public void setDuplicateReadFlag(boolean duplicateFlag) {
+			this.isDuplicate = duplicateFlag;
+		}
+		
+		public String getReadString() {
+			return this.readSequence;
+		}
+	}
 }

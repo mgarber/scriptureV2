@@ -9,6 +9,8 @@ public class ProperPairFilter implements Predicate<Alignment> {
 	public boolean evaluate(Alignment read) {
 		//check if the read is paired
 		//if so, then return isProperPair
+		if(read==null)
+			return false;
 		if(!read.isPaired() || read.isProperPair()){
 				return true;
 		}

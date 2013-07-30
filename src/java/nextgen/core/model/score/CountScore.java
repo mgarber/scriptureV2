@@ -4,6 +4,7 @@ import org.apache.log4j.Logger;
 
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.AnnotationCollection;
+import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.model.AlignmentModel;
 
 /**
@@ -38,14 +39,23 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 	}
 	
 	public CountScore(AnnotationCollection<? extends Annotation> model, Annotation annotation) {
+		this(model, annotation, false);
+	}
+	
+	public CountScore(AnnotationCollection<? extends Annotation> model, Annotation annotation, double regionTotal) {
+		this(model, annotation, regionTotal, false);
+	}
+
+	
+	public CountScore(AnnotationCollection<? extends Annotation> model, Annotation annotation, boolean fullyContained) {
 		super(annotation);
-		setCount(model.getCount(annotation));
+		setCount(model.getCount(annotation, fullyContained));
 		setTotal(model.getGlobalCount());
 		getAnnotation().setScore(getCount());
 	}
 	
-	public CountScore(AnnotationCollection<? extends Annotation> model, Annotation annotation, double regionTotal) {
-		this(model, annotation);
+	public CountScore(AnnotationCollection<? extends Annotation> model, Annotation annotation, double regionTotal, boolean fullyContained) {
+		this(model, annotation, fullyContained);
 		setRegionTotal(regionTotal);
 	}
 	
@@ -89,7 +99,11 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 	
 	public String toString() {
 		annotation.setScore(getScore());
-		return annotation.toBED() + "\t" + getCount() + "\t" + getRPKM() + "\t" + getRegionTotal() + "\t" + getTotal();
+		return annotation.toBED() + "\t" + 
+				getCount() + "\t" + 
+				getRPKM() + "\t" + 
+				getRegionTotal() + "\t" + 
+				getTotal();
 	}
 	
 	/**
@@ -125,19 +139,26 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 		protected AnnotationCollection<? extends Annotation> model;
 		protected double regionTotal = DEFAULT_REGION_TOTAL;
 		protected boolean skipInit = false;
+		private boolean fullyContainedReads;
 		
 		public Processor(AnnotationCollection<? extends Annotation> model) {
-			this.model = model;
+			this(model, false);
 		}
 		
-		public Processor(AnnotationCollection<? extends Annotation> model, boolean skipInit) {
-			this(model);
+		
+		public Processor(AnnotationCollection<? extends Annotation> model, boolean fullyContained) {
+			this.model = model;
+			this.fullyContainedReads = fullyContained;
+		}
+		
+		public Processor(AnnotationCollection<? extends Annotation> model, boolean skipInit, boolean fullyContained) {
+			this(model, fullyContained);
 			this.skipInit = skipInit;
 		}
 		
 		
 		public CountScore processWindow(Annotation annotation) {
-			return new CountScore(model, annotation, regionTotal);
+			return new CountScore(model, annotation, regionTotal, fullyContainedReads);
 		}
 		
 		public CountScore processWindow(Annotation annotation, CountScore previousScore) {
@@ -181,6 +202,14 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 			}
 		}
 		
+	}
+	
+	
+	public static class Factory implements nextgen.core.general.TabbedReader.Factory<CountScore> {
+		public CountScore create(String[] rawFields) {
+			BasicAnnotation a = new BasicAnnotation.Factory().create(rawFields);
+			return new CountScore(a, Double.parseDouble(rawFields[12]), Double.parseDouble(rawFields[14]), Double.parseDouble(rawFields[15]));
+		}
 	}
 
 

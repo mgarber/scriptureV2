@@ -39,7 +39,15 @@ public interface AnnotationCollection<T extends Annotation> {
 	 * @throws IOException
 	 */
 	public double getCount(Annotation region, boolean fullyContained);
-	
+	/**
+	 * This method will return the number of reads overlapping a given region in the same orientation
+	 * @param region The reference region to count overlapping elements
+	 * @param fullyContained whether to only count overlapping elements if they are fully contained within the reference region
+	 * @return returns a double to allow implementing methods to utilize a weight object
+	 * @throws IOException
+	 */
+	public double getCountStranded(Annotation region, boolean fullyContained);
+	public double getCountStranded(Annotation region);
 	
 	/**
 	 * This method will return the number of reads overlapping a given region (not necessarily fully contained)
@@ -153,6 +161,7 @@ public interface AnnotationCollection<T extends Annotation> {
 	 */
 	public double getCountExcludingRegion(Annotation region, Annotation excluded);
 	
+	public double getCountStrandedExcludingRegion(Annotation region, Annotation excluded);
 	
 	/**
 	 * @return The coordinate space currently used by the AnnotationCollection

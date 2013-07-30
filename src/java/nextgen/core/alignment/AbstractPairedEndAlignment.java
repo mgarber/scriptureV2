@@ -11,6 +11,7 @@ import java.util.TreeSet;
 import org.apache.log4j.Logger;
 
 
+import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.util.StringUtil;
 import nextgen.core.coordinatesystem.CoordinateSpace;
@@ -24,10 +25,14 @@ import nextgen.core.writers.PairedEndWriter;
  * @author prussell
  *
  */
-public abstract class AbstractPairedEndAlignment extends BasicAnnotation implements Alignment {
+public abstract class AbstractPairedEndAlignment extends BasicAnnotation implements Alignment,java.io.Serializable {
 
 
-    //First in pair alignment
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	//First in pair alignment
     SingleEndAlignment firstMate;
     //Second in pair alignment
     SingleEndAlignment secondMate;
@@ -329,7 +334,7 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	 * @author skadri
 	 *
 	 */
-	public static enum TranscriptionRead{
+	public static enum TranscriptionRead implements java.io.Serializable{
 		/**
 		 * 
 		 */
@@ -530,6 +535,16 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		blocks.add(secondMate);
 		return new BasicAnnotation(blocks);
 		
+	}
+	
+	@Override
+	public void setHeader(SAMFileHeader header){
+		getFirstMate().setHeader(header);
+		getSecondMate().setHeader(header);
+	}
+	
+	public SAMFileHeader getHeader(){
+		return getFirstMate().getHeader();
 	}
 
 	

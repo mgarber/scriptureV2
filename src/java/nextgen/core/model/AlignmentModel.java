@@ -2,11 +2,13 @@ package nextgen.core.model;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -25,6 +27,7 @@ import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.*;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.GenomicSpace;
+import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.feature.GeneWindow;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
@@ -65,6 +68,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	Collection<Predicate<Alignment>> readFilters = new ArrayList<Predicate<Alignment>>();
 	private double globalLength = -99;
 	private double globalCount = -99;
+	private double globalCountReferenceSeqs = -99;
 	private double globalLambda = -99;
 	private double globalPairedFragments = -99;
 	//private double globalRpkmConstant = -99;
@@ -126,7 +130,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		this.coordinateSpace=coordinateSpace;
 		
 		// Initialize the cache
-		this.cache=new Cache(this.reader, this.cacheSize);
+		this.cache=new Cache(this.reader,this.cacheSize);
 		
 		// Initialize the readFilters
 		this.readFilters.addAll(readFilters);
@@ -169,7 +173,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		this.coordinateSpace=coordinateSpace;
 		
 		// Initialize the cache
-		this.cache=new Cache(this.reader, this.cacheSize);
+		this.cache=new Cache(this.reader,this.cacheSize);
 		
 		// Initialize the readFilters
 		this.readFilters.addAll(readFilters);
@@ -220,6 +224,14 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			return false;
 		}
 		
+		double refSeqTotal = 0;
+		for(String s : stats.keySet()) {
+			if(s.contains("global")) continue;
+			double d = stats.get(s).doubleValue();
+			refSeqTotal += d;
+		}
+		this.globalCountReferenceSeqs = refSeqTotal;
+		
 		// TODO we might also want to read/write/validate information about the read filters used to calculate global stats
 		return true; 
 	}
@@ -269,6 +281,15 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			this.globalCount = stats.get("globalCount");
 			this.globalLambda = stats.get("globalLambda");
 			this.globalPairedFragments = stats.get("globalPairedFragments");
+			
+			double refSeqTotal = 0;
+			for(String s : stats.keySet()) {
+				if(s.contains("global")) continue;
+				double d = stats.get(s).doubleValue();
+				refSeqTotal += d;
+			}
+			this.globalCountReferenceSeqs = refSeqTotal;
+
 
 			this.hasGlobalStats = true;
 
@@ -379,6 +400,10 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			return result;
 		}
 	}
+	
+	public double getCountStranded(Annotation window){
+		return getCountStranded(window,false);
+	}
 
 	
 	/**
@@ -402,6 +427,12 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return counter;
 	}
 		
+	/**
+	 * Returns the counts for the reads in the iterator that do no overlap the excluded region
+	 * @param iter
+	 * @param excludedRegion
+	 * @return
+	 */
 	private double getCount(CloseableIterator<AlignmentCount> iter, Annotation excludedRegion){
 		double counter=0;
 		while(iter.hasNext()){
@@ -413,7 +444,6 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		iter.close();
 		return counter;
 	}
-		
 	
 	public double getGlobalLambda() {
 		if(!this.hasGlobalStats){
@@ -458,7 +488,6 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return calculateReadSizeDistribution(iter, coord, maxSize, numBins);
 	}
 
-
 	/**
 	 * Get the distribution of read (or fragment) sizes in an annotation
 	 * @param region The annotation in which to count read sizes
@@ -466,20 +495,65 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @param maxSize The maximum read size to check for
 	 * @param numBins The number of bins for histogram
 	 * @return Distribution of read sizes with respect to coordinate space
-	 * @throws IOException
 	 */
 	public EmpiricalDistribution getReadSizeDistribution(Annotation region, CoordinateSpace coord, int maxSize, int numBins) {
-		CloseableIterator<Alignment> iter = getOverlappingReads(region, true); //TODO Is this what we want?
-		return calculateReadSizeDistribution(iter, coord, maxSize, numBins);
+		return getReadSizeDistribution(region, coord, maxSize, numBins, true);
 	}
 
+	/**
+	 * Get the median of all read (or fragment) sizes in an annotation
+	 * @param region The annotation in which to count read sizes
+	 * @param coord Coordinate space in which to compute read sizes
+	 * @param maxSize The maximum read size to check for
+	 * @param numBins The number of bins for histogram
+	 * @param fullyContained Count fully contained reads/fragments only
+	 * @return Distribution of read sizes with respect to coordinate space
+	 */
+	public double getMedianReadSize(Annotation region, CoordinateSpace coord, int maxSize, int numBins, boolean fullyContained) {
+		EmpiricalDistribution dist = getReadSizeDistribution(region, coord, maxSize, numBins, fullyContained);
+		if(dist.getAllDataValues().isEmpty()) {
+			throw new IllegalArgumentException("No overlapping reads for region " + region.getName());
+		}
+		return dist.getMedianOfAllDataValues();
+	}
+
+	/**
+	 * Get the median of all read (or fragment) sizes in an annotation
+	 * @param region The annotation in which to count read sizes
+	 * @param coord Coordinate space in which to compute read sizes
+	 * @param maxSize The maximum read size to check for
+	 * @param numBins The number of bins for histogram
+	 * @return Distribution of read sizes with respect to coordinate space
+	 */
+	public double getMedianReadSize(Annotation region, CoordinateSpace coord, int maxSize, int numBins) {
+		EmpiricalDistribution dist = getReadSizeDistribution(region, coord, maxSize, numBins, true);
+		if(dist.getAllDataValues().isEmpty()) {
+			throw new IllegalArgumentException("No overlapping reads for region " + region.getName());
+		}
+		return dist.getMedianOfAllDataValues();
+	}
+
+	/**
+	 * Get the distribution of read (or fragment) sizes in an annotation
+	 * @param region The annotation in which to count read sizes
+	 * @param coord Coordinate space in which to compute read sizes
+	 * @param maxSize The maximum read size to check for
+	 * @param numBins The number of bins for histogram
+	 * @param fullyContained Count fully contained reads/fragments only
+	 * @return Distribution of read sizes with respect to coordinate space
+	 */
+	public EmpiricalDistribution getReadSizeDistribution(Annotation region, CoordinateSpace coord, int maxSize, int numBins, boolean fullyContained) {
+		CloseableIterator<Alignment> iter = getOverlappingReads(region, fullyContained); //TODO Is this what we want?
+		return calculateReadSizeDistribution(iter, coord, maxSize, numBins);
+	}
+	
 	private EmpiricalDistribution calculateReadSizeDistribution(CloseableIterator<Alignment> iter, CoordinateSpace coord, int maxSize, int numBins) {
 		int done = 0;
 		EmpiricalDistribution rtrn = new EmpiricalDistribution(numBins, 1, maxSize);
 		while(iter.hasNext()) {
 			Alignment align = iter.next();
 			done++;
-			if(done % 100000 == 0) logger.info("Got " + done + " records.");
+			if(done % 1000000 == 0) logger.info("Got " + done + " records.");
 			try {
 				for(Integer size : align.getFragmentSize(coord)) {
 					double doublesize = size.doubleValue();
@@ -498,7 +572,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	/**
 	 * Return the reads that overlap with this region in coordinate space
 	 */
-	private CloseableIterator<AlignmentCount> getOverlappingReadCounts(Annotation region, boolean fullyContained) {
+	public CloseableIterator<AlignmentCount> getOverlappingReadCounts(Annotation region, boolean fullyContained) {
 		//get Alignments over the whole region
 		return this.cache.query(region, fullyContained, this.coordinateSpace);
 	}
@@ -584,7 +658,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	
 	
 	/**
-	 * Get total number of reads mapping to all reference sequences
+	 * Get total number of reads
 	 * @return Total read count
 	 */
 	public double getGlobalNumReads() {
@@ -592,8 +666,18 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return this.globalCount;
 	}
 
+	/**
+	 * Get total number of reads mapping to the coordinate space
+	 * @return Total read count on coordinate space
+	 */
+	public double getGlobalNumReadsReferenceSeqs() {
+		if(!this.hasGlobalStats) computeGlobalStats();
+		return this.globalCountReferenceSeqs;
+	}
+
 	
-	private boolean isValid(Alignment read) {
+	
+	public boolean isValid(Alignment read) {
 		// TODO replace with Predicates#and
 		
 		for(Predicate<Alignment> filter: this.readFilters){
@@ -611,10 +695,10 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	}
 
 
-	private class WrapAlignmentCountIterator implements CloseableIterator<AlignmentCount>{
+	public class WrapAlignmentCountIterator implements CloseableIterator<AlignmentCount>{
 		CloseableIterator<Alignment> iter;
 		
-		WrapAlignmentCountIterator (CloseableIterator<Alignment> iter) {
+		public WrapAlignmentCountIterator (CloseableIterator<Alignment> iter) {
 			this.iter=iter;
 		}
 
@@ -639,7 +723,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	}
 	
 	
-	private class NodeIterator implements CloseableIterator<AlignmentCount>{
+	public class NodeIterator implements CloseableIterator<AlignmentCount>{
 		Iterator<Node<Alignment>> iter;
 		Iterator<Alignment> subIter;
 
@@ -701,7 +785,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		int numReplicates;
 		Collection<Alignment> containedReads;
 
-		AlignmentCount (Alignment read, Collection<Alignment> containedReads) {
+		public AlignmentCount (Alignment read, Collection<Alignment> containedReads) {
 			this.read=read;
 			this.containedReads=containedReads;
 			this.numReplicates=containedReads.size();
@@ -736,7 +820,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @author mguttman
 	 *
 	 */
-	private class FilteredIterator implements CloseableIterator<AlignmentCount>{
+	public class FilteredIterator implements CloseableIterator<AlignmentCount>{
 		// JE note:  extending nextgen.core.general.CloseableFilterIterator could clean this up a bit
 		
 		CloseableIterator<AlignmentCount> iter;
@@ -745,7 +829,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		AlignmentCount next;
 		boolean hasWindow;
 		
-		FilteredIterator (CloseableIterator<AlignmentCount> overlappers, Annotation region, CoordinateSpace cs, boolean fullyContained) {
+		public FilteredIterator (CloseableIterator<AlignmentCount> overlappers, Annotation region, CoordinateSpace cs, boolean fullyContained) {
 			this.hasWindow=true;
 			this.iter=overlappers;
 			this.fullyContained=fullyContained;
@@ -767,7 +851,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		 * This is the constructor for all reads other parms not meaningful
 		 * @param reads
 		 */
-		FilteredIterator (CloseableIterator<AlignmentCount> reads) {
+		public FilteredIterator (CloseableIterator<AlignmentCount> reads) {
 			this.iter=reads;
 			this.hasWindow=false;
 			//this.fullyContained=fullyContained;
@@ -851,9 +935,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		int cacheSize;
 		IntervalTree<Alignment> cachedTree;
 		
-		/*
-		 * FLAG TO INDICATE WHETHER UPDATE CACHE FAILED
-		 */
+		//FLAG TO INDICATE WHETHER UPDATE CACHE FAILED
 		boolean updateCacheFailed;
 		// Collection of trouble regions for which the update cache has failed at least once.
 		Map<String,List<Annotation>> troubleRegions;
@@ -1043,6 +1125,13 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return this.globalCount;
 	}
 
+	public double getGlobalCountReferenceSeqs() {
+		if (!this.hasGlobalStats) {
+			computeGlobalStats();
+		}
+		return this.globalCountReferenceSeqs;
+	}
+
 	@Override
 	public int size() {
 		// WARNING: slow
@@ -1172,6 +1261,9 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		
 	}
 
+	public String getBamFile() {
+		return bamFile;
+	}
 
 	@Override
 	public int getBasesCovered(Annotation region) {
@@ -1357,10 +1449,41 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		int i=0;
 		while(scoreIter.hasNext()) {
 			rtrn[i] = scoreIter.next().getCount();
+			i++;
 		}
 		return rtrn;
 	}
 	
 	
+	/**
+	 * This function returns an array list of counts for each position along the specified gene
+	 * @param gene
+	 * @return
+	 */
+	public List<Double> getCountsStrandedPerPosition(Annotation gene){
+		
+		List<Double> rtrn = new ArrayList<Double>();
+		Map<String,Collection<Gene>> anns = new TreeMap<String,Collection<Gene>>(); 
+		anns.put(gene.getChr(), new TreeSet<Gene>());
+		anns.get(gene.getChr()).add(new Gene(gene));
+		TranscriptomeSpace sp = new TranscriptomeSpace(anns);
+		
+		Iterator<Window> winIter = sp.getWindowIterator(1, 0);
+		int i=0;
+		while(winIter.hasNext()){
+			rtrn.add(i,getCountStranded(winIter.next(), false));
+			i++;
+		}
+		return rtrn;
+	}
+
+	
+	@Override
+	public double getCountStrandedExcludingRegion(Annotation region,
+			Annotation excluded) {
+		CloseableIterator<AlignmentCount> iter=getOverlappingReadCountsStranded(region,false);
+		double result = getCount(iter, excluded);
+		return result;
+	}
 	
 }

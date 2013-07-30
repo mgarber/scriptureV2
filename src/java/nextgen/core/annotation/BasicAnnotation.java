@@ -12,6 +12,7 @@ import java.util.TreeSet;
 import org.apache.log4j.Logger;
 
 import nextgen.core.annotation.Annotation.Strand;
+import nextgen.core.general.TabbedReader;
 import nextgen.core.scripture.BuildScriptureCoordinateSpace;
 
 import broad.pda.datastructures.Alignments;
@@ -22,7 +23,7 @@ import broad.core.error.ParseException;
  * @author engreitz
  * Coordinate system:  0-based, including first base but not the last
  */
-public class BasicAnnotation extends AbstractAnnotation {
+public class BasicAnnotation extends AbstractAnnotation implements java.io.Serializable {
 	protected CompoundInterval blocks = new CompoundInterval();
 	private String referenceName;
 	private Strand orientation = Strand.UNKNOWN;
@@ -147,10 +148,61 @@ public class BasicAnnotation extends AbstractAnnotation {
 	}
 	
 	
-	public static class Factory implements AnnotationFactory<BasicAnnotation> {
+	public static class Factory implements TabbedReader.Factory<BasicAnnotation> {
 		@Override
 		public BasicAnnotation create(String[] rawFields) throws ParseException {
-			return new BasicAnnotation(rawFields[0], Integer.valueOf(rawFields[1]), Integer.valueOf(rawFields[2]));
+			// Default is to read in BED foramt
+			
+			if (rawFields.length < 3) {
+				throw new IllegalArgumentException("Cannot create BasicAnnotation from less than 3 fields");
+			}
+			
+			String chr = rawFields[0];
+			int start = Integer.parseInt(rawFields[1]);
+			int end = Integer.parseInt(rawFields[2]);
+			BasicAnnotation a = null;
+			
+			if (rawFields.length > 9) {
+				// Assemble the annotation from the block information
+				int nBlocks = Integer.parseInt(rawFields[9]);
+				if (nBlocks > 0) {
+					rawFields[10] = rawFields[10].replaceAll("\"", "");
+					rawFields[11] = rawFields[11].replaceAll("\"", "");
+					rawFields[10] = rawFields[10].replaceAll(" ", "");
+					rawFields[11] = rawFields[11].replaceAll(" ", "");
+				
+					String [] sizes = rawFields[10].split(",");
+					String [] starts   = rawFields[11].split(",");
+					if (sizes.length < nBlocks || starts.length < nBlocks) {
+						throw new ParseException("BAD BED FORMAT apparently the number of start ("+rawFields[10] +") and end ("+rawFields[11] +
+							") items does not agree with te blockCount " + rawFields[9]);
+					}
+					
+					for (int i = 0; i < nBlocks; i++) {
+						int blockSize = Integer.parseInt(sizes[i]);
+						int blockStart = Integer.parseInt(starts[i]);
+						if (i == 0) {
+							a = new BasicAnnotation(chr, start, start + blockSize);
+						} else {
+							a.addBlocks(new BasicAnnotation(chr, start + blockStart, start + blockStart + blockSize));
+						}
+					}
+					if (a.getEnd() != end) throw new IllegalArgumentException("End specified by blocks does not match BED end");
+				}
+			}
+			
+			if (a == null) {
+				// If we have no block information or block parsing failed, create the annotation from the start and end coordinates
+				a = new BasicAnnotation(chr, start, end);
+			}
+			
+			if (rawFields.length > 3) a.setName(rawFields[3]);
+			if (rawFields.length > 4) a.setScore(Double.parseDouble(rawFields[4]));
+			if (rawFields.length > 5) a.setOrientation(Annotation.Strand.fromString(rawFields[5]));
+			
+			// don't care about thickStart, thickEnd, rgb (rawFields[6], [7], and [8])
+			
+			return a;
 		}
 	}
 	

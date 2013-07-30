@@ -10,9 +10,11 @@ import broad.core.datastructures.IntervalTree;
 import nextgen.core.annotation.filter.*;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.ShuffledIterator;
+import nextgen.core.exception.IncompleteMethodImplementationException;
 
 import nextgen.core.general.Predicates;
 import nextgen.core.general.CloseableFilterIterator;
+import nextgen.core.readFilters.SameOrientationFilter;
 import net.sf.samtools.util.CloseableIterator;
 import org.apache.commons.collections15.iterators.IteratorChain;
 import org.apache.commons.collections15.Predicate;
@@ -453,6 +455,33 @@ public class AnnotationList<T extends Annotation> extends AbstractAnnotationColl
 	@Override
 	public double getRefSequenceLambda(String refname) {
 		// TODO Auto-generated method stub
+		return 0;
+	}
+
+
+	@Override
+	public double getCountStranded(Annotation region, boolean fullyContained) {
+//		Predicate<? super T> filter = Predicates.and(new SameOrientationFilter(region));
+//		return getIteratorCount(new CloseableFilterIterator<T>(getOverlappingAnnotations(region, false), filter));
+		//TODO: Complete the method
+		return 0;
+	}
+	
+	@Override
+	public double getCountStranded(Annotation window){
+		return getCountStranded(window,false);
+	}
+
+
+	@Override
+	public double getCountStrandedExcludingRegion(Annotation region,
+			Annotation excluded) {
+		try {
+			throw new IncompleteMethodImplementationException();
+		} catch (IncompleteMethodImplementationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		return 0;
 	}
 }

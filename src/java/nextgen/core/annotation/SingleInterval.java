@@ -6,7 +6,13 @@ import broad.core.datastructures.Interval;
  * @author engreitz
  * This class represents a single interval on a integer coordinate space.
  */
-public final class SingleInterval extends Interval.Impl implements Comparable<SingleInterval> {
+public final class SingleInterval extends Interval.Impl implements Comparable<SingleInterval>, java.io.Serializable {
+	
+	//TODO: Mock Constructor
+	public SingleInterval(){
+		super(0,0);
+	}
+	
 	public SingleInterval(int start, int end) {
 		super(start, end);
 	}
@@ -81,6 +87,6 @@ public final class SingleInterval extends Interval.Impl implements Comparable<Si
 	}
 	
 	public String toString() {
-		return "(" + getStart() + "," + getEnd() + "]";
+		return "[" + getStart() + "," + getEnd() + ")"; //Intervals are open/closed by default
 	}
 }

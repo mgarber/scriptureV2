@@ -21,9 +21,12 @@ public class ScanStatisticScore extends CountScore {
 	private double globalLength;
 	private CoordinateSpace coordSpace;
 
-	
 	public ScanStatisticScore(AlignmentModel model, Annotation annotation) {
-		super(model, annotation);
+		this(model, annotation, false);
+	}
+	
+	public ScanStatisticScore(AlignmentModel model, Annotation annotation, boolean fullyContained) {
+		super(model, annotation, fullyContained);
 		coordSpace = model.getCoordinateSpace();
 		setGlobalLength(model.getGlobalLength());
 		try {
@@ -54,7 +57,11 @@ public class ScanStatisticScore extends CountScore {
 	}
 	
 	public ScanStatisticScore(AlignmentModel model, Annotation annotation, double regionTotal, double regionLength) {
-		this(model, annotation);
+		this(model, annotation, regionTotal, regionLength, false);
+	}
+	
+	public ScanStatisticScore(AlignmentModel model, Annotation annotation, double regionTotal, double regionLength, boolean fullyContained) {
+		this(model, annotation, fullyContained);
 		setRegionTotal(regionTotal);
 		setRegionLength(regionLength);
 	}
@@ -69,8 +76,8 @@ public class ScanStatisticScore extends CountScore {
 	 * @param globalTotal Global number of fragments
 	 * @param globalLength Global length
 	 */
-	public ScanStatisticScore(AlignmentModel model, Annotation annotation, double regionTotal, double regionLength, double globalTotal, double globalLength) {
-		super(model, annotation);
+	public ScanStatisticScore(AlignmentModel model, Annotation annotation, double regionTotal, double regionLength, double globalTotal, double globalLength, boolean fullyContained) {
+		super(model, annotation, fullyContained);
 		coordSpace = model.getCoordinateSpace();
 		setRegionTotal(regionTotal);
 		setTotal(globalTotal);
@@ -154,13 +161,19 @@ public class ScanStatisticScore extends CountScore {
 		protected AlignmentModel model;
 		protected double regionTotal = DEFAULT_REGION_TOTAL;
 		protected double regionLength = DEFAULT_REGION_TOTAL;
+		private boolean fullyContainedReads;
 		
 		public Processor(AlignmentModel model) {
+			this(model, false);
+		}
+		
+		public Processor(AlignmentModel model, boolean fullyContained) {
 			this.model = model;
+			this.fullyContainedReads = fullyContained;
 		}
 		
 		public ScanStatisticScore processWindow(Annotation annotation) {
-			return new ScanStatisticScore(model, annotation, regionTotal, regionLength);
+			return new ScanStatisticScore(model, annotation, regionTotal, regionLength, fullyContainedReads);
 		}
 		
 		public void initRegion(Annotation region) {

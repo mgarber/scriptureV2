@@ -31,10 +31,11 @@ public class GenomeSpaceSampleData extends SampleData {
 	 * @param window Window size
 	 * @param step Step size
 	 * @param expressionCutoff Genome wide scan P value cutoff for expression
+	 * @param fullyContained Count fully contained reads only
 	 * @throws IOException
 	 */
-	public GenomeSpaceSampleData(String bamFile, String chrSizeFile, Map<String, Collection<Gene>> genes, int window, int step, double expressionCutoff) throws IOException {
-		super(bamFile, false, genes, window, step, expressionCutoff, true);
+	public GenomeSpaceSampleData(String bamFile, String chrSizeFile, Map<String, Collection<Gene>> genes, int window, int step, double expressionCutoff, boolean fullyContained) throws IOException {
+		super(bamFile, false, genes, window, step, expressionCutoff, true, fullyContained);
 		genomeData = new AlignmentModel(bamFile, new GenomicSpace(chrSizeFile));
 		genomeData.addFilter(new MappingQualityFilter(5,10));
 		genomeData.addFilter(new NumHitsFilter(1));
@@ -49,7 +50,7 @@ public class GenomeSpaceSampleData extends SampleData {
 	@Override
 	public boolean isExpressed(Gene gene) {
 		if(!genomeScores.containsKey(gene)) {
-			ScanStatisticScore score = new ScanStatisticScore(genomeData, gene);
+			ScanStatisticScore score = new ScanStatisticScore(genomeData, gene, fullyContainedReads);
 			logger.debug("CHECK_GENE_EXPRESSION\t" + gene.getName());
 			logger.debug("CHECK_GENE_EXPRESSION\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
 			logger.debug("CHECK_GENE_EXPRESSION\t" + "global_length=" + score.getGlobalLength());
@@ -74,7 +75,7 @@ public class GenomeSpaceSampleData extends SampleData {
 	@Override
 	public double getGeneScanPval(Gene gene) {
 		if(!genomeScores.containsKey(gene)) {
-			ScanStatisticScore score = new ScanStatisticScore(genomeData, gene);
+			ScanStatisticScore score = new ScanStatisticScore(genomeData, gene, fullyContainedReads);
 			logger.debug("GET_GENE_SCAN_PVAL\t" + gene.getName());
 			logger.debug("GET_GENE_SCAN_PVAL\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
 			logger.debug("GET_GENE_SCAN_PVAL\t" + "global_length=" + score.getGlobalLength());

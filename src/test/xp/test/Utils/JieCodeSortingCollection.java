@@ -180,6 +180,8 @@ public class JieCodeSortingCollection {
 	    	logger.debug("windowSize "+windowSize);
 	    	
 	    	}
+	    	if (chr2tid.containsKey(b.getChr()))
+	    	{
 	    	 JieCode  start=new JieCode(chr2tid.get(b.getChr()),startPos,true, classIndex);
 			 JieCode  stop= new JieCode(chr2tid.get(b.getChr()),stopPos,false, classIndex);
 			  
@@ -193,7 +195,12 @@ public class JieCodeSortingCollection {
 			 Long coverage = classIndexToCoverageLength.get(Integer.valueOf(classIndexState));
 			 classIndexToReadsNumber.put(Integer.valueOf(classIndexState),readsnum+1);
 			 classIndexToCoverageLength.put(Integer.valueOf(classIndex), coverage+Long.valueOf(length));
-	    	
+	    	}
+	    	else
+	    	{
+	    		
+	    		logger.warn("skipping read"+b.toBED());
+	    	}
 	    }
 	    else
 	    {	

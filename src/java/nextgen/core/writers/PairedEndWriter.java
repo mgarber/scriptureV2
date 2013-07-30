@@ -100,7 +100,6 @@ public class PairedEndWriter {
 
 	/**
 	 * Convert the bamFile provided in the constructor to paired end format.
-	 * FOR STRANDED DATA
 	 */
 	public void convertInputToPairedEnd(TranscriptionRead txnRead) {
 		SAMRecordIterator iter = reader.iterator();		
@@ -110,11 +109,14 @@ public class PairedEndWriter {
 		int paired = 0;
 		int temp = 0;
 		String prevChr=null;
+		
 		while(iter.hasNext()) {
 			SAMRecord record=iter.next();
 			String name=record.getReadName();
-			if(prevChr==null)
+			
+			if(prevChr==null){
 				prevChr=record.getReferenceName();
+			}
 			//If the read is unmapped, skip
 			if(record.getReadUnmappedFlag()) continue;
 			//If the read is not paired or the mate is unmapped, write it as it is
@@ -159,12 +161,6 @@ public class PairedEndWriter {
 			}
 			// read is paired && mate is mapped	
 			else{
-				if(!prevChr.equals(record.getReferenceName())){
-					for(String s:tempCollection.keySet()){
-						//logger.info(s);
-					}
-				}
-					
 				//create or get the existing pair
 				AlignmentPair pair = tempCollection.containsKey(name) ? pair=tempCollection.get(name) :  new AlignmentPair();
 				
@@ -189,7 +185,36 @@ public class PairedEndWriter {
 						writeAll(fragmentRecords);
 					}
 				}
-			}		
+			}	
+			if(!record.getReferenceName().equals(prevChr)){
+				
+				//PURGE TEMP COLLECTION
+				/*for(String ch:tempCollection.keySet()){
+					Pair<Collection<SAMRecord>> pair1=tempCollection.get(name);
+					Collection<SAMRecord> records;
+					
+					try {
+				 if(pair1.hasValue1()){
+						records=pair1.getValue1();
+						for(SAMRecord record1: records) {
+							filewriter.write(record1.getSAMString());
+						}
+					}
+					if(pair1.hasValue2()){
+						records=pair1.getValue2();
+						for(SAMRecord record1: records) {
+							filewriter.write(record1.toString());
+						}
+					}
+					
+				} catch (IOException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}*/
+				writeRemainder(tempCollection);
+				tempCollection=new TreeMap<String, AlignmentPair>();
+				prevChr = record.getReferenceName();
+			}
 			numRead++;
 			if(numRead % 1000000 == 0) {
 				logger.info("Processed " + numRead + " reads, free mem: " + Runtime.getRuntime().freeMemory() + " tempCollection size : " + tempCollection.size()+" on "+record.getReferenceName()+" Single alignments : "+single+ " Paired alignments"+paired+" In temp : "+temp);
@@ -229,13 +254,11 @@ public class PairedEndWriter {
 		logger.warn("WARNING Remainder: "+tempCollection.size()+" writing as single end reads");
 		for(String name: tempCollection.keySet()){
 			Pair<Collection<SAMRecord>> pair=tempCollection.get(name);
-			System.out.println(name);
 			Collection<SAMRecord> records;
 			
 			if(pair.hasValue1() && pair.hasValue2()){
 				//throw new IllegalStateException("There are samples in both pairs that are unaccounted for: "+name);
-				logger.error("There are samples in both pairs that are unaccounted for: "+name);
-
+				//logger.error("There are samples in both pairs that are unaccounted for: "+name);
 			}
 			else{
 				if(pair.hasValue1()){records=pair.getValue1();}

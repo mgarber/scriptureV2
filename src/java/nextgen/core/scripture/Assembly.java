@@ -4,9 +4,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+
+import broad.pda.datastructures.Alignments;
 
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.BasicAnnotation;
+import nextgen.core.annotation.Gene;
 
 /**
  * This class represents an assembly
@@ -110,6 +115,25 @@ public class Assembly extends BasicAnnotation{
 			return current;
 		}
 		return null;
+	}
+	
+	public Assembly getOverlappingAssembly(Annotation second) {
+		List<? extends Annotation> otherExons = second.getBlocks();
+		List<? extends Annotation> thisExons  = new ArrayList<Annotation>(getBlocks());
+		Collection<Annotation> overlappingExons = new TreeSet<Annotation>();
+		for(Annotation exon: otherExons) {
+			Annotation exonClone = new Alignments(exon);
+			List<Annotation> tmp = exonClone.intersect(thisExons);
+			overlappingExons.addAll(exonClone.intersect(thisExons));
+		}
+		
+		Assembly rtrn = null;
+		if(!overlappingExons.isEmpty()) {
+			rtrn = new Assembly(overlappingExons);
+			rtrn.setOrientation(getOrientation());
+		}
+		
+		return rtrn;
 	}
 	
 	public Annotation getLastBlock(){

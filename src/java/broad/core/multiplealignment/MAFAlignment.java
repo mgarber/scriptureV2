@@ -384,6 +384,7 @@ public class MAFAlignment extends MultipleAlignment {
 		String line = null;
 		String [] lineInfo = null;
 		Stack<MAFMultipleAlignmentBlock> alignmentBlockStack = new Stack<MAFMultipleAlignmentBlock>();
+		//ArrayList<String> lastAlignmentLines = new ArrayList<String>(); //FOR easier debugging
 		while((line = handle.readLine()) != null) {
 			//Ignore all comment lines
 			if(line.startsWith("#") || line.trim().length() == 0){
@@ -413,6 +414,7 @@ public class MAFAlignment extends MultipleAlignment {
 				lineInfo = line.substring(2).split("\\s");
 				ma.setAlignmentInfoFromRawData(lineInfo);
 				okToAdd = true;
+				//lastAlignmentLines.clear();
 			} else if(line.startsWith("s "))  {
 				if(alignmentBlockStack.isEmpty() || !okToAdd) {
 					continue;
@@ -452,7 +454,7 @@ public class MAFAlignment extends MultipleAlignment {
 						sequenceIds.add(seq.getId());
 					}
 				}
-
+				//lastAlignmentLines.add(line);
 			} else if (line.startsWith("i ")) {
 				//We do not handle information lines yet.
 				continue;

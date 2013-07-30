@@ -622,6 +622,18 @@ public class Gene extends BasicAnnotation {
 		return true;
 	}
 	
+	/**
+	 * Get an iterator over all reference positions making up the gene
+	 * @return Iterator over all positions in the gene
+	 */
+	public Iterator<Integer> getAllPositions() {
+		TreeSet<Integer> positions = new TreeSet<Integer>();
+		Collection<GeneWindow> windows = getWindows(1);
+		for(GeneWindow window : windows) {
+			positions.add(window.getStart());
+		}
+		return positions.iterator();
+	}
 
 	public Collection<GeneWindow> getWindows(int windowSize) {
 		return getWindows(windowSize, 1, 0);

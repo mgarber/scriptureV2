@@ -40,6 +40,12 @@ public interface Annotation extends Comparable<Annotation> {
 				return UNKNOWN;
 			}
 		}
+		
+		public static Strand fromString(String value) {
+			if (value.equals("+")) return POSITIVE;
+			if (value.equals("-")) return NEGATIVE;
+			else return UNKNOWN;
+		}
 	}
 	
 	/**

@@ -17,7 +17,7 @@ import org.apache.log4j.Logger;
  * This class contains multiple non-overlapping intervals on an arbitrary integer coordinate space.
  * Intervals are stored using red-black trees so O(log n) performance is guaranteed.
  */
-public class CompoundInterval implements Comparable<CompoundInterval> {
+public class CompoundInterval implements Comparable<CompoundInterval>, java.io.Serializable {
 
 	static Logger logger = Logger.getLogger(CompoundInterval.class.getName());
 	TreeSet<SingleInterval> blockTree= new TreeSet<SingleInterval>();
@@ -202,8 +202,9 @@ public class CompoundInterval implements Comparable<CompoundInterval> {
 			Iterator<SingleInterval> itr = blockTree.descendingIterator();
 			while (itr.hasNext()) {
 				SingleInterval curr = itr.next();
-				if (end <= curr.getStart()) {
+				if (end <= curr.getStart()) { //MG: changed <= to < since our intervals are closed/open so if end is equal to start the interval [s,s) is valid, it is a single point.
 					// interval is entirely after the new end point - remove it.
+					logger.info("Trying to set a short end "+end+" to interval which will remove the current block: " + curr);
 					itr.remove();
 				} else {
 					// extend the new last interval to the new end point

@@ -22,6 +22,8 @@ public class SequenceMotif {
 	
 	private Pattern motif;
 	private Pattern [] coreMotifs;
+	private String id;
+	private String consensusSequence;
 	
 	static {
 		symbolToPatternMap = new HashMap<Character, String>();
@@ -33,11 +35,11 @@ public class SequenceMotif {
 		
 		symbolToPatternMap.put('R',"[AG]");
 		symbolToPatternMap.put('Y',"[CTU]");
+		symbolToPatternMap.put('W',"[ATU]");
 		
 		symbolToPatternMap.put('M',"[AC]");
 		symbolToPatternMap.put('K',"[GTU]");
 		symbolToPatternMap.put('S',"[CG]");
-		symbolToPatternMap.put('M',"[ATU]");
 		
 		symbolToPatternMap.put('B',"[^A]");
 		symbolToPatternMap.put('D',"[^C]");
@@ -48,15 +50,58 @@ public class SequenceMotif {
 	}
 
 
+	public static int numPossibleKmers(String consensusSequence) {
+		int rtrn = 1;
+		for(int i = 0; i < consensusSequence.length(); i++) {
+			char c = consensusSequence.charAt(i);
+			switch(c) {
+			case 'A': break;
+			case 'C': break;
+			case 'T': break;
+			case 'G': break;
+			case 'U': break;
+			case 'R': rtrn *= 2; break;
+			case 'Y': rtrn *= 2; break;
+			case 'W': rtrn *= 2; break;
+			case 'M': rtrn *= 2; break;
+			case 'K': rtrn *= 2; break;
+			case 'S': rtrn *= 2; break;
+			case 'B': rtrn *= 3; break;
+			case 'D': rtrn *= 3; break;
+			case 'H': rtrn *= 3; break;
+			case 'V': rtrn *= 3; break;
+			case 'N': rtrn *= 4; break;
+			default: break;
+			}
+		}
+		return rtrn;
+	}
+	
 	public SequenceMotif(Pattern motif) {
 		super();
 		this.motif = motif;
+		id = null;
+		consensusSequence = null;
 	}
 	 
+	public SequenceMotif(String corePattern, String identifier) throws SearchException {
+		this(corePattern, 1, identifier);
+	}
+	
+	public SequenceMotif(String corePattern) throws SearchException {
+		this(corePattern, 1, null);
+	}
+	
 	public SequenceMotif(String corePattern, int minsuccessive) throws SearchException {
+		this(corePattern, minsuccessive, null);
+	}
+	
+	public SequenceMotif(String corePattern, int minsuccessive, String identifier) throws SearchException {
 		super();
+		id = identifier;
 		String [] patternList  = corePattern.split("-");
 		coreMotifs = new Pattern[patternList.length];
+		consensusSequence = corePattern;
 		
 		for(int j = 0; j < patternList.length; j++) {
 			StringBuffer patternStr = new StringBuffer();
@@ -87,6 +132,18 @@ public class SequenceMotif {
 		}
 	}
 	
+	public String getId() {
+		return id;
+	}
+	
+	public String getConsensusSequence() {
+		return consensusSequence;
+	}
+	
+	public int getNumPossibleKmers() {
+		return numPossibleKmers(consensusSequence);
+	}
+	
 	protected void setMotif(Pattern motif) { this.motif = motif;}
 	public Pattern getMotif() { return motif;}
 	
@@ -106,7 +163,25 @@ public class SequenceMotif {
 		return matches;
 	}
 	
+	@Override
+	public boolean equals(Object o) {
+		if(!o.getClass().equals(getClass())) return false;
+		SequenceMotif other = (SequenceMotif)o;
+		return hashCode() == other.hashCode();
+	}
 	
+	@Override
+	public String toString() {
+		if(id != null) {
+			return id + "_" + motif.toString();
+		}
+		return motif.toString();
+	}
+	
+	@Override
+	public int hashCode() {
+		return toString().hashCode();
+	}
 
 	/**
 	 * @param args
