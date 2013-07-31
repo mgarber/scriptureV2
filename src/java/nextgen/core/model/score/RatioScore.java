@@ -9,7 +9,7 @@ import org.apache.commons.math3.distribution.BinomialDistribution;
 
 public class RatioScore extends CountScore {
 	
-	public final static double RPKM_OFFSET = 0.001; // reads per Kilobase per Million
+	public static double RPKM_OFFSET = 0.001; // reads per Kilobase per Million
 	
 	// the following variables are for the denominator
 	private double dCount;               // use a double to allow for weighted read counting

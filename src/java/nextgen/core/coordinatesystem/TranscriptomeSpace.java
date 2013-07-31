@@ -554,6 +554,13 @@ protected class GeneTree {
 		//logger.info("TranscriptomeSpace " + region.getName() + " " + region.getChr() + ":" + region.getStart() + " " + region.getEnd() + " " + rtrn);
 		return rtrn;
 	}
+	
+	
+	@Override
+	public boolean hasChromosome(String chr) {
+		return chrNames.contains(chr);
+	}
+		
 
 	/**
 	 * Moves the annotation to a new start location using the coordinate space to decide on gaps

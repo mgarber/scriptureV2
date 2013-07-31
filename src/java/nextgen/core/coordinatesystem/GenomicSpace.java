@@ -112,13 +112,21 @@ public class GenomicSpace implements CoordinateSpace{
 	 * Returns an iterator on chromosome chr starting at start, ending at end, of size, windowSize with overlap between consecutive windows 
 	 */
 	public Iterator<Window> getWindowIterator(int windowSize, String chr,int start, int end,int overlap) {
-		Iterator<Window> rtrn = new WindowsIterator(chr, windowSize, start, end, overlap);
+		return getWindowIterator(windowSize, chr, start, end, overlap, false);
+	}
+	
+	public Iterator<Window> getWindowIterator(int windowSize, String chr,int start, int end, int overlap, boolean backward) {
+		Iterator<Window> rtrn = new WindowsIterator(chr, windowSize, start, end, overlap, backward);
 		return new FilterIterator<Window>(rtrn, new MaskFilter<Window>());
 	}
 	
 	@Override
 	public Iterator<? extends Window> getWindowIterator(Annotation window, int windowSize, int overlap) {
 		return getWindowIterator(windowSize, window.getChr(), window.getStart(), window.getEnd(), overlap);
+	}
+	
+	public Iterator<? extends Window> getWindowIterator(Annotation window, int windowSize, int overlap, boolean considerStrand) {
+		return getWindowIterator(windowSize, window.getChr(), window.getStart(), window.getEnd(), overlap, considerStrand && window.getStrand() == Annotation.Strand.NEGATIVE);
 	}
 
 	/**
@@ -209,9 +217,11 @@ public class GenomicSpace implements CoordinateSpace{
 
 		private String chr;
 		private int currPosition;
+		private int start;
 		private int windowSize;
 		private int step;	
 		private int end;
+		private boolean backward; 
 		
 		/**
 		 * Constructs an iterator on chromosome chr starting at start, ending at end, of size, windowSize with overlap between consecutive windows 
@@ -221,28 +231,47 @@ public class GenomicSpace implements CoordinateSpace{
 		 * @param overlap
 		 * @param end
 		 */
-		public WindowsIterator(String chr, int windowSize, int start, int end, int overlap){
+		public WindowsIterator(String chr, int windowSize, int start, int end, int overlap, boolean backward) {
 			if (overlap > windowSize) throw new IllegalArgumentException("Overlap cannot be greater than window size.");
+			if (overlap < 0) throw new IllegalArgumentException("Overlap cannot be less than 0");
+			
 			this.chr = chr;
-			this.currPosition = start;
 			this.windowSize = windowSize;
 			this.step = windowSize - overlap;
+			this.start = start;
 			this.end = end;
+			this.backward = backward;
+			
+			if (backward) {
+				this.currPosition = end;
+			} else {
+				this.currPosition = start;
+			}
+		}
+		
+		public WindowsIterator(String chr, int windowSize, int start, int end, int overlap) {
+			this(chr, windowSize, start, end, overlap, false);
 		}
 		
 		/**
 		 * Returns true if there is another window
 		 */
 		public boolean hasNext() {
-			return (this.end >= (this.currPosition+this.windowSize));
+			return (!backward && end >= (currPosition + windowSize)) || (backward && start <= (currPosition - windowSize));
 		}
 
 		/**
 		 * Returns the next window
 		 */
 		public Window next() {
-			Window w=new GenomeWindow(this.chr,this.currPosition,this.currPosition+this.windowSize);
-			this.currPosition = this.currPosition+this.step;
+			Window w;
+			if (backward) {
+				w = new GenomeWindow(chr, currPosition - windowSize, currPosition);
+				currPosition = currPosition - step;
+			} else {
+				w = new GenomeWindow(chr, currPosition, currPosition + windowSize);
+				currPosition = currPosition + step;
+			}
 			return w;
 		}
 

@@ -464,7 +464,9 @@ public class MaskedGenomicSpace implements CoordinateSpace{
 		throw new UnsupportedOperationException("TODO");
 	}
 
-
+	public boolean hasChromosome(String chr) {
+		return genes.containsKey(chr);
+	}
 	
 	
 }
