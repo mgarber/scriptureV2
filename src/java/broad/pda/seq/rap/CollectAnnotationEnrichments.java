@@ -23,6 +23,7 @@ import nextgen.core.annotation.*;
 import nextgen.core.annotation.filter.*;
 import nextgen.core.model.score.CountScore;
 import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.coordinatesystem.GenomicSpace;
 
 import broad.core.math.EmpiricalDistribution;
 
@@ -163,7 +164,8 @@ public class CollectAnnotationEnrichments extends GenomeCommandLineProgram {
 	protected void shufflePeaks(AnnotationList<Annotation> regions, AnnotationList<Annotation> peaks, String output) throws IOException {
 		for (int i = 1; i <= PERMUTATIONS; i++) {
 			String currOutput = output + "_" + i + ".bed";
-			ShuffleBED.shuffleAndWriteAnnotations(regions, getCoordinateSpace(), peaks, new File(currOutput), 1);
+			// Casts to genomic space
+			ShuffleBED.shuffleAndWriteAnnotations(regions, (GenomicSpace) getCoordinateSpace(), peaks, new File(currOutput), 1);
 		}
 	}
 	

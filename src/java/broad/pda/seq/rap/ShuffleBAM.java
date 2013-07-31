@@ -69,8 +69,8 @@ public class ShuffleBAM extends GenomeCommandLineProgram {
 		log.info("Setting up writer: " + permutedOutput);
 		final PairedEndWriter outputWriter = new PairedEndWriter(INPUT, permutedOutput);
 
-		// Reopen the input file in a model
-		getCoordinateSpace().setPercentMaskedAllowed(0.0);  // don't allow permuting reads to masked regions
+		// Reopen the input file in a model. Fails if not in genomic space.
+		((GenomicSpace) getCoordinateSpace()).setPercentMaskedAllowed(0.0);  // don't allow permuting reads to masked regions
 		AlignmentModel model = loadAlignmentModel(INPUT);
 
 		if (RANDOM_SEED != null) GenomicSpace.setSeed(RANDOM_SEED);

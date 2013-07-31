@@ -36,8 +36,11 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 	@Option(doc="Percent masked allowable per sliding window", optional=true)
 	public double PCT_MASKED_ALLOWED = 50.0;
 	
-	@Option(doc="Region to process (e.g. chr1, chr1:5000-50230).  Default (null) processes the entire genome", optional=true)
+	@Option(doc="Region to process (e.g. chr1, chr1:5000-50230) Default (null) processes the entire genome", optional=true)
 	public String REGION = null;
+	
+	@Option(doc="Gene to process (from ANNOTATION file")
+	public String GENE = null;
 	
 	@Option(doc="Maximum paired-end read fragment length to consider.", optional=true)
 	public Integer MAX_FRAGMENT_LENGTH = 10000;
@@ -45,7 +48,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 	@Option(doc="Minimum mapping quality for reads") 
 	public Integer MIN_MAPPING_QUALITY = 30;
 	
-	@Option(doc="Process in genomic space or transcriptome space")
+	@Option(doc="Specify genomic space or transcriptome space")
 	public String COORD_SPACE = "genomic";
 	
 	@Option(doc="File containing gene annotations (BED)")
@@ -79,8 +82,9 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		List<Annotation> regions = new ArrayList<Annotation>();
 
 		if (REGION != null) {
+			
 			if (coordinateSpace.hasChromosome(REGION)) {
-				regions.add(coordinateSpace.getReferenceAnnotation(REGION));
+				regions.add(coordinateSpace.getEntireChromosome(REGION));
 			} else {
 				try {
 					regions.add(new BasicAnnotation(REGION));
@@ -91,6 +95,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		} else {
 			regions.addAll(coordinateSpace.getReferenceAnnotations());
 		}
+		
 		return regions;
 	}
 	
@@ -118,6 +123,20 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 	public AnnotationList<Annotation> getRegionSet() {
 		AnnotationList<Annotation> annotations = new AnnotationList<Annotation>(coordinateSpace, getRegions());
 		return annotations;
+	}
+	
+	public Annotation getGenes() {
+		
+		if (GENE != null){
+			try {
+				return coordinateSpace.getReferenceAnnotation(GENE);
+			} catch (RuntimeException e) {
+				throw new IllegalArgumentException("Gene not in transcriptome");
+			}
+		} else {
+			return null;
+		}
+		
 	}
 
 	

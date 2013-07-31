@@ -540,6 +540,14 @@ protected class GeneTree {
 			return null;
 		}
 	}
+	
+	@Override
+	public Annotation getEntireChromosome(String chrName) {
+		if(!chrNames.contains(chrName)) {
+			throw new IllegalArgumentException("Chromosome name " + chrName + " not recognized.");
+		}
+		return new BasicAnnotation(chrName, 0, (int) getLength(chrName));
+	}
 
 	@Override
 	public int getSize(Annotation region) {

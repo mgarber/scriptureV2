@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 
 import nextgen.core.annotation.Annotation;
+import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.feature.GeneWindow;
 import nextgen.core.feature.Window;
@@ -155,4 +156,12 @@ public interface CoordinateSpace {
 	 * @return
 	 */
 	public boolean hasChromosome(String chr);
+	
+	/**
+	 * Get an annotation spanning an entire chromosome
+	 * @param chrName The chromosome name
+	 * @return Annotation consisting of the entire chromosome
+	 */
+	public Annotation getEntireChromosome(String chrName);
 }
+

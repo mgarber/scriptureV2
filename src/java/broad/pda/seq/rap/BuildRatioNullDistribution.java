@@ -176,8 +176,8 @@ public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
 			log.info("Setting up writer: " + permutedOutput);
 			final PairedEndWriter outputWriter = new PairedEndWriter(TARGET, permutedOutput);
 
-			// Reopen the input file in a model
-			getCoordinateSpace().setPercentMaskedAllowed(0.0);  // don't allow permuting reads to masked regions
+			// Reopen the input file in a model. Casts to genomic space.
+			((GenomicSpace) getCoordinateSpace()).setPercentMaskedAllowed(0.0);  // don't allow permuting reads to masked regions
 			AlignmentModel model = loadAlignmentModel(TARGET);
 			
 			if (RANDOM_SEED != null) GenomicSpace.setSeed(RANDOM_SEED);
@@ -198,8 +198,8 @@ public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
 		if (USE_INTERMEDIATES && new File(edOutput).exists()) {
 			log.info("Using existing empirical distribution file: " + edOutput);
 		} else {
-			// Now scan over the permuted data and calculate ratios
-			getCoordinateSpace().setPercentMaskedAllowed(PCT_MASKED_ALLOWED);  // reset pct masked allowed after changing above
+			// Now scan over the permuted data and calculate ratios. Casts to genomic space.
+			((GenomicSpace) getCoordinateSpace()).setPercentMaskedAllowed(PCT_MASKED_ALLOWED);  // reset pct masked allowed after changing above
 			AlignmentModel permuted = loadAlignmentModel(new File(permutedOutput));
 			AlignmentModel control = loadAlignmentModel(CONTROL);
 			WindowProcessor<RatioScore> processor = new RatioScore.Processor(permuted, control);
