@@ -355,11 +355,11 @@ public class BuildScriptureCoordinateSpace {
 
 		Map<String,Collection<Gene>> conn = null;
 		
-		while(somethingWasConnected || loop<10){
+		while(somethingWasConnected && loop<10){
 			somethingWasConnected =false;
 			loop++;
 			
-			logger.debug("Connected disconnected transcripts: Loop "+loop);
+			logger.info("Connected disconnected transcripts: Loop "+loop);
 			conn = new HashMap<String,Collection<Gene>>();
 			for(String chr:annotations.keySet()){
 				conn.put(chr, new TreeSet<Gene>());			
@@ -408,8 +408,9 @@ public class BuildScriptureCoordinateSpace {
 										//[3] : FPKM
 										//Calculate FPKM
 										fields[3] = fields[2]*((double)1000000.0)/model.getGlobalPairedFragments();
-										//logger.debug("For isoform : "+isoform.getName()+"\tNum of exons: "+isoform.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
+										logger.debug("For isoform : "+newConnected.getName()+"\tNum of exons: "+newConnected.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
 										newConnected.setBedScore(fields[3]);
+										logger.debug(newConnected.toBED());
 										newConnected.setExtraFields(fields);
 										newGenes.remove(gene);
 										newGenes.add(newConnected);
@@ -1362,37 +1363,17 @@ public class BuildScriptureCoordinateSpace {
 	 * @param assembly
 	 * @return
 	 */
-	private Annotation trimEnds(Annotation assembly,double pct){
+	private Annotation trimEnds(Assembly assembly,double pct){
 		
 		List<Double> counts = model.getCountsStrandedPerPosition(assembly);
 		double[] cntArr = l2a(counts);
 
 		Collections.sort(counts);		
 		double cutoff = Math.max(2, Statistics.quantile(counts, pct));
-/*		for(int i=0;i<assembly.size();i++){
-			System.out.print(cntArr[i]+" ");
-		}*/
 		int trimStart = MaximumContiguousSubsequence.contiguousStartSubSequenceOverMin(cntArr, cutoff);
 		int trimEnd   =  assembly.size() - MaximumContiguousSubsequence.contiguousEndSubSequenceOverMin(cntArr, cutoff);
 		logger.debug(assembly.getName()+" trimStart " + trimStart + " trimEnd " + trimEnd + ", transcript length " + assembly.size()+ " with cutoff "+cutoff);
 
-/*			int transcriptFirstExonEnd = assembly.getOrientation().equals(Strand.NEGATIVE) 
-					? assembly.getPositionAtReferenceCoordinate(assembly.getStart())
-					: assembly.getPositionAtReferenceCoordinate(assembly.getEnd()-1);
-
-			int transcriptLastExonStart = assembly.getOrientation().equals(Strand.NEGATIVE)
-						? assembly.getPositionAtReferenceCoordinate(assembly.getEnd()-1)
-						: assembly.getPositionAtReferenceCoordinate(assembly.getStart());
-				
-			logger.trace("first exon end in transcript " + transcriptFirstExonEnd + " last exon start " + transcriptLastExonStart);
-
-			if(trimStart > transcriptFirstExonEnd) {
-				trimStart = Math.max(0, transcriptFirstExonEnd - 50);
-			}	
-			if(trimEnd < transcriptLastExonStart) {
-				trimEnd = Math.min(align.getTranscriptLength(), transcriptLastExonStart + 50);
-			}	
-*/			
 		if(trimStart>trimEnd){
 			return assembly;
 		}
@@ -1403,15 +1384,55 @@ public class BuildScriptureCoordinateSpace {
 			logger.debug("Reset trimStart and TrimEnd to  " + trimStart + " - " + trimEnd);
 		}	
 			
-		Assembly newAssembly = new Assembly(assembly);
+		Annotation newAssembly = new Assembly(assembly);
 			
 		if(((trimEnd+trimStart) < assembly.size()) && trimStart<trimEnd && trimStart<assembly.size() && trimEnd<assembly.size()){
-			newAssembly.trim(trimStart, trimEnd);
+			
+			newAssembly = assembly.trim(trimStart, trimEnd);			
 			logger.debug("trimming ("+trimStart +" - "+ trimEnd+") gene was: " + assembly.toBED() + " and now is: " +newAssembly.toBED());
 		}
 		return newAssembly;
 	}
 	
+	/**
+	 * Returns the gene trimmed at both ends
+	 * @param gene
+	 * @return
+	 */
+	private Gene trimEnds(Gene gene,double pct){
+		
+		List<Double> counts = model.getCountsStrandedPerPosition(gene);
+		double[] cntArr = l2a(counts);
+
+		Collections.sort(counts);		
+		double cutoff = Math.max(2, Statistics.quantile(counts, pct));
+		int trimStart = MaximumContiguousSubsequence.contiguousStartSubSequenceOverMin(cntArr, cutoff);
+		int trimEnd   =  gene.size() - MaximumContiguousSubsequence.contiguousEndSubSequenceOverMin(cntArr, cutoff);
+		logger.debug(gene.getName()+" trimStart " + trimStart + " trimEnd " + trimEnd + ", transcript length " + gene.size()+ " with cutoff "+cutoff);
+
+		if(trimStart>trimEnd){
+			return gene;
+		}
+		if(gene.getOrientation().equals(Strand.NEGATIVE)){
+			int temp = trimStart;
+			trimStart = trimEnd;
+			trimEnd = temp;
+			logger.debug("Reset trimStart and TrimEnd to  " + trimStart + " - " + trimEnd);
+		}	
+			
+		Gene newGene = gene.copy();
+			
+		if(((trimEnd+trimStart) < gene.size()) && trimStart<trimEnd && trimStart<gene.size() && trimEnd<gene.size()){
+			
+			double score = gene.getBedScore();
+			String[] extras = gene.getExtraFields();
+			newGene = new Gene(gene.trim(trimStart, trimEnd));		
+			newGene.setBedScore(score);
+			newGene.setExtraFields(extras);
+			logger.debug("trimming ("+trimStart +" - "+ trimEnd+") gene was: " + gene.toBED() + " and now is: \n" +newGene.toBED());
+		}
+		return newGene;
+	}
 	/**
 	 * Helper function to removePrematureAssemblies
 	 * @param exon1
