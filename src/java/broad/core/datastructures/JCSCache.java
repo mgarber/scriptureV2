@@ -43,13 +43,13 @@ public class JCSCache {
 	
 //	private static final String DEFAULT_GROUP = "Default_JCS_Group";
 	private static final String DEFAULT_NAME = "Default_JCS_Name";
-	private static final int KEY_LENGTH = 10;
+	private static final int KEY_LENGTH = 9;
 
-	static Collection<Long> keys;
+	static Collection<Integer> keys;
 	private final Long maxLifeSeconds=7200L;
 	/** Maximum number of in-memory instances before sending items to disk. Default is 50,000. */
-	private Long defaultCapacity = 300000L;
-	IntervalTree<Long> keyTree;
+	private Long defaultCapacity = 400000L;
+	IntervalTree<Integer> keyTree;
 	PairedEndReader reader;
 	String cacheChr = null;
 	int cacheSize;
@@ -89,11 +89,11 @@ public class JCSCache {
 	public JCSCache(PairedEndReader reader,int cacheSize,JCSAlignmentModel m){
 		synchronized (JCSCache.class) {
 			this.reader=reader;
-			keyTree = new IntervalTree<Long>();
+			keyTree = new IntervalTree<Integer>();
 			
 			//SET THE DEFAULT CAPACITY
 			//EACH RECORD TAKES APPROX 348728 BYTES IN MEMORY
-			defaultCapacity = (long)(Runtime.getRuntime().maxMemory()/(2.0*175000));
+			//defaultCapacity = (long)(Runtime.getRuntime().maxMemory()/(2.0*175000));
 			Logger.getLogger("org.apache.jcs").setLevel(Level.OFF);
 			Runtime.getRuntime().addShutdownHook(JCSCache.shutdownThread);
 			
@@ -101,7 +101,7 @@ public class JCSCache {
 			this.model=m;
 			mkdirs(defaultDir);
 
-			keys = new HashSet<Long>();
+			keys = new HashSet<Integer>();
 			cacheName=JCSCache.DEFAULT_NAME+"_"+System.currentTimeMillis();
 			CompositeCacheManager ccm = CompositeCacheManager.getUnconfiguredInstance();
 			ccm.configure(initJcsProps(cacheName));
@@ -124,17 +124,17 @@ public class JCSCache {
 	 * @param length
 	 * @return
 	 */
-	public static Long generateRandom(int length) {
+	public static Integer generateRandom(int length) {
 	    Random random = new Random();
 	    char[] digits = new char[length];
 	    digits[0] = (char) (random.nextInt(9) + '1');
 	    for (int i = 1; i < length; i++) {
 	        digits[i] = (char) (random.nextInt(10) + '0');
 	    }
-	    if(keys.contains(Long.parseLong(new String(digits)))){
+	    if(keys.contains(Integer.parseInt(new String(digits)))){
 	    	return generateRandom(length);
 	    }
-	    return Long.parseLong(new String(digits));
+	    return Integer.parseInt(new String(digits));
 	}
 	/**
 	 * 
@@ -287,9 +287,9 @@ public class JCSCache {
 	}
 	
 	public class JCSNodeIterator implements CloseableIterator<AlignmentCount>{
-		Iterator<Node<Long>> iter;
+		Iterator<Node<Integer>> iter;
 
-		JCSNodeIterator (Iterator<Node<Long>> overlappers) {
+		JCSNodeIterator (Iterator<Node<Integer>> overlappers) {
 			iter=overlappers;
 		}
 
@@ -300,11 +300,11 @@ public class JCSCache {
 
 		@Override
 		public AlignmentCount next() {
-			Node<Long> keyNode=iter.next();
+			Node<Integer> keyNode=iter.next();
 			Collection<Alignment> reads = new HashSet<Alignment>();
 			boolean flag=true;
 			Alignment value=null;
-			for(Long key:keyNode.getContainedValues()){
+			for(Integer key:keyNode.getContainedValues()){
 			try{
 //				for(Object key1:JCS.getInstance(cacheName).getGroupKeys(groupName)){
 					//logger.info((String)key1);
@@ -407,7 +407,7 @@ public class JCSCache {
 	 * @return
 	 * @throws CacheException 
 	 */
-	private IntervalTree<Long> getIntervalTree(Window w, boolean fullyContained) throws CacheException {
+	private IntervalTree<Integer> getIntervalTree(Window w, boolean fullyContained) throws CacheException {
 		
 		//logger.info("Get interval tree");
 		//Assume update cache will not fail
@@ -433,8 +433,8 @@ public class JCSCache {
 			}
 		}*/
 		
-	 	IntervalTree<Long> tree=new IntervalTree<Long>();
-	 	keys = new HashSet<Long>();
+	 	IntervalTree<Integer> tree=new IntervalTree<Integer>();
+	 	keys = new HashSet<Integer>();
 //	 	groupName = this.DEFAULT_GROUP+w.getChr()+w.getStart();
 //	 	cacheName = DEFAULT_NAME+System.currentTimeMillis();
 //	 	cacheNames.add(cacheName);
@@ -450,15 +450,15 @@ public class JCSCache {
 				//String key = record.getReadName()+"-"+record.getAlignmentStart()+":"+record.getAlignmentEnd();
 				//logger.info(record.getName());
 				
-				Long key = generateRandom(KEY_LENGTH);
+				Integer key = generateRandom(KEY_LENGTH);
 
-				long start = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//				long start = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
 				JCS.getInstance(cacheName).put(key,record);
 			    keys.add(key);    
-			    long end = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-				if((end-start)!=0){
-					logger.info(end-start);
-				}
+//			    long end = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//				if((end-start)!=0){
+//					logger.info(end-start);
+//				}
 			    			
 				tree.put(record.getAlignmentStart(), record.getAlignmentEnd(), key);
 			}	
