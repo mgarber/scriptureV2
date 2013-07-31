@@ -30,10 +30,6 @@ public class SlideAndCount extends GenomeScoringProgram {
 	@Option(doc="Output file", shortName="O")
 	public File OUTPUT;
 
-	@Option(doc="Whether to force paired end behavior", optional=true)
-	public boolean PAIRED_END=false;
-	
-
 	/**
 	 * Stock main method.
 	 *

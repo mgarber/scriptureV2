@@ -54,7 +54,7 @@ public abstract class GenomeScoringProgram extends GenomeCommandLineProgram {
 			processor = new SumScore.Processor(target);
 		} else if(SCORE.equalsIgnoreCase("all")){
 			processor = new WindowAllScore.Processor((AlignmentModel)target, (AlignmentModel)control);
-		}else{
+		} else {
 			throw new IllegalArgumentException("Could not find scoring class for " + SCORE);
 		}
 		

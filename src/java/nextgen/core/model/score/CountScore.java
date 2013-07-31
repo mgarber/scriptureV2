@@ -162,14 +162,23 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 		}
 		
 		public CountScore processWindow(Annotation annotation, CountScore previousScore) {
-			//if the previous score is null or they don't overlap
-			if (previousScore==null || !annotation.overlaps(previousScore.getAnnotation())){
+			// This previousScore method is broken because getCountExcludingRegion filters out reads
+			// that overlap both the requested interval as well as the excluded interval (which should be counted)
+			// Also, it ends up using twice as many cache updates.  
+			// Fix these before re-applying. -JE
+			
+			return processWindow(annotation);
+			
+			/*
+			//if the previous score is null or they don't overlap by a significant amount (or at all)
+			if (previousScore==null || annotation.intersect(previousScore.getAnnotation()).length() <= annotation.size()/2){
 				//compute the score directly
 				return processWindow(annotation);
 			} 
 	
 			double newScore=computeCount(annotation, previousScore);
 			return new CountScore(previousScore, annotation, newScore);
+			*/
 		}
 		
 		/**
