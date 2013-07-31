@@ -6,6 +6,7 @@ import java.util.Collection;
 import org.apache.log4j.Logger;
 
 import net.sf.samtools.SAMRecord;
+import net.sf.samtools.SAMRecord.SAMTagAndValue;
 import nextgen.core.writers.PairedEndWriter;
 import broad.core.datastructures.Pair;
 
@@ -30,10 +31,17 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 			setValue1(set);
 		}
 		else{
-			Collection<SAMRecord> set=new ArrayList<SAMRecord>();
-			if(hasValue2()){set=getValue2();}
-			set.add(record);
-			setValue2(set);
+			if(record.getSecondOfPairFlag()){
+				Collection<SAMRecord> set=new ArrayList<SAMRecord>();
+				if(hasValue2()){
+					set=getValue2();
+				}
+				set.add(record);
+				setValue2(set);
+			}
+			else{
+				logger.error("Record has a problem with the first/second of pair flag");
+			}
 		}
 		updateNumHits(record);
 	}
@@ -42,6 +50,7 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 		//First check that we have both ends
 		if(hasValue1() && hasValue2()){
 			//if so, check that the size matches the expected numHits
+			
 			int size1=getValue1().size();
 			int size2=getValue2().size();
 			
@@ -52,7 +61,7 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 				return true;
 			}
 			else{
-				System.out.println("Size1="+size1+" ExpectedSize1="+expectedSize1+" Size2="+size2+" ExpectedSize2="+expectedSize2);
+//				System.out.println("Size1="+size1+" ExpectedSize1="+expectedSize1+" Size2="+size2+" ExpectedSize2="+expectedSize2);
 			}
 		}
 		
@@ -114,11 +123,31 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 		
 		if(nh!=null){
 			int num=new Integer(nh.toString());
-			if(record.getFirstOfPairFlag()){
-				numHits.setValue1(num);
+			//if the next hit is on a different chromosome
+			Object cc=record.getAttribute("CC");			
+			//IF NH > 1
+				// IF NEXT ALIGNMENT IS NOT ON THE SAME CHROMOSOME
+				//TODO: CHECK IF DISTANCE TO TOO FAR, THEN WRITE THIS ONE
+				// OR 
+				// IF NH>1 && cc==null meaning this is the last alignment in a multi-mapped read alignment
+			if(num>1 && ((cc!=null && !cc.toString().equals("="))||(cc==null))){
+				if(record.getFirstOfPairFlag()){
+					numHits.setValue1(getValue1().size());
+				}
+				else{
+					numHits.setValue2(getValue2().size());
+				}
 			}
+			// IF NH ==1
+			// OR
+			// IF NH>1 && NEXT ALIGNMENT IS ON THE SAME CHROMOSOME
 			else{
-				numHits.setValue2(num);
+				if(record.getFirstOfPairFlag()){
+					numHits.setValue1(num);
+				}
+				else{
+					numHits.setValue2(num);
+				}
 			}
 		}
 		else{
@@ -127,4 +156,18 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 		}
 	}
 	
+	public boolean valuesAreEmpty(){
+		boolean isEmpty=true;
+		if(this.hasValue1()){
+			if(!this.getValue1().isEmpty()){
+				return false;
+			}
+		}
+		if(this.hasValue2()){
+			if(!this.getValue2().isEmpty()){
+				return false;
+			}
+		}
+		return true;
+	}
 }
