@@ -120,24 +120,26 @@ public abstract class AbstractAnnotation implements Annotation {
 	 * Trims the annotation in a strand-specific manner,
 	 * that is start will end the genomic end on a negative annotation
 	 */
-	public void trim(int deltaStart, int deltaEnd) {
+	public Annotation trim(int deltaStart, int deltaEnd) {
 		
-		if(getStrand().equals(Strand.NEGATIVE)) {
+		Annotation annCopy= this.copy();
+		if(annCopy.getStrand().equals(Strand.NEGATIVE)) {
 			int tmpStart = deltaStart;
 			deltaStart = deltaEnd;
 			deltaEnd = tmpStart;
 		}
 		
 		//Ignore orientation because we already considered it above
-		setStart(getReferenceCoordinateAtPosition(deltaStart,true));
+		annCopy.setStart(getReferenceCoordinateAtPosition(deltaStart,true));
 		/*
 		 * PR added the -1 and +1 on 4/20/13
 		 * This deals with the situation where we are removing an entire exon
 		 * Need to get the reference coordinate of the end of the previous exon (instead of the beginning of the exon to remove) so the intron is not included,
 		 * then add +1 to include the final position of the previous exon
 		 */
-		setEnd(getReferenceCoordinateAtPosition(length() - deltaEnd - 1, true) + 1);
+		annCopy.setEnd(getReferenceCoordinateAtPosition(length() - deltaEnd - 1, true) + 1);
 		
+		return annCopy;
 	}
 	
 	public boolean fullyContains(Annotation other) {

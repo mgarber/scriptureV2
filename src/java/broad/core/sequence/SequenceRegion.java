@@ -406,8 +406,8 @@ public class SequenceRegion extends Sequence implements Annotation{
 		annotation.expand(deltaStart, deltaEnd);
 	}
 	@Override
-	public void trim(int deltaStart, int deltaEnd) {
-		annotation.trim(deltaStart, deltaEnd);
+	public Annotation trim(int deltaStart, int deltaEnd) {
+		return annotation.trim(deltaStart, deltaEnd);
 	}
 	@Override
 	public Annotation copy() {

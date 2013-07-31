@@ -182,7 +182,7 @@ public class RNAiPCRPrimerDesigner {
 	private Gene[] junctionsSpanning(PrimerPair primer, Gene gene, boolean verbose) throws Exception {
 		Collection<Integer> junctions=gene.getSpliceJunctionCoordinates();
 		Gene leftPrimer = gene.copy();
-		leftPrimer.trim(primer.getLeftPrimerPosition(), primer.getLeftPrimerPosition()+primer.getLeftPrimer().toCharArray().length);
+		leftPrimer = new Gene(leftPrimer.trim(primer.getLeftPrimerPosition(), primer.getLeftPrimerPosition()+primer.getLeftPrimer().toCharArray().length));
 		Gene rightPrimer=gene.copy();
 		rightPrimer.trim(primer.getRightPrimerPosition()-primer.getRightPrimer().toCharArray().length, primer.getRightPrimerPosition());
 		

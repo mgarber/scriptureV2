@@ -280,7 +280,7 @@ public class Gene extends BasicAnnotation {
 		
 	}
 	
-	private void setExtraFields(String[] extraData){
+	public void setExtraFields(String[] extraData){
 		String[] extraDataCpy= new String[extraData.length];
 		for (int i=0; i<extraData.length; i++)
 			extraDataCpy[i]=extraData[i];

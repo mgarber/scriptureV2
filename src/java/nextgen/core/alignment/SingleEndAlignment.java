@@ -102,7 +102,7 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment,jav
     
     private void writeObject(java.io.ObjectOutputStream out) throws IOException{
 
-   	logger.info("Writing to disk");
+   	//logger.info("Writing to disk");
     	out.writeObject(txnRead);
     	out.writeObject(splicedEdges);
     	out.writeBoolean(hasIndel);

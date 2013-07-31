@@ -209,7 +209,7 @@ public class GeneSetIntersect {
 						int randomEndOnTranscript = randomStartOnTranscript + overlapperLengthOnTranscript + 1;
 						Gene randomOverlap = gene.copy();
 						try {
-							randomOverlap.trim(randomStartOnTranscript, gene.getSize() - randomEndOnTranscript);
+							randomOverlap = new Gene(randomOverlap.trim(randomStartOnTranscript, gene.getSize() - randomEndOnTranscript));
 						} catch (IllegalArgumentException e) {
 							logger.warn("Caught exception when randomizing position of feature " + feature.getName() + " within gene " + gene.getName() + ". Skipping.");
 							continue;
