@@ -45,7 +45,7 @@ public final class TestAnnotationTrimming {
 				trimStart.setName(gene.getName() + "_trim_start_50");
 				trimEnd.setName(gene.getName() + "_trim_end_30");
 				trimBoth.setName(gene.getName() + "_trim_start_40_end_20");
-				trimStart.trim(50, 0);
+				trimStart = new Gene(trimStart.trim(50, 0));
 				trimEnd.trim(0, 30);
 				trimBoth.trim(40, 20);
 				w.write(trimStart.toBED() + "\n");
