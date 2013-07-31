@@ -49,7 +49,7 @@ public class SlideAndCount extends GenomeScoringProgram {
 			}
 			
 			List<Annotation> regions = getRegions();
-			log.info("Regions:" + regions);
+			//log.info("Regions:" + regions);
 			
 			BufferedWriter bw = new BufferedWriter(new FileWriter(OUTPUT,true));
 			WindowProcessor<? extends WindowScore> processor = getWindowProcessor();

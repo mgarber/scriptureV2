@@ -639,16 +639,26 @@ public class Gene extends BasicAnnotation {
 		return getWindows(windowSize, 1, 0);
 	}
 	
+	/**
+	 * Get collection of gene windows in gene
+	 * If window size is larger than gene, returns whole gene as window
+	 * @return Collection of gene windows in gene
+	 */
 	public Collection<GeneWindow> getWindows(int windowSize, int stepSize, int start) {
 		if(stepSize < 1) {
 			throw new IllegalArgumentException("Step size must be >= 1");
 		}
+		
 		Collection<GeneWindow> subGenes=new TreeSet<GeneWindow>();
-		for(int i=start; i< (length()+1)-windowSize; i=i+stepSize){
-			GeneWindow subGene=trimGene(i, i+windowSize);
-			if(subGene!=null){
-				subGenes.add(subGene);
-			}
+		if (windowSize > length()){
+			subGenes.add((GeneWindow) this);
+		} else {
+			for(int i=start; i< (length()+1)-windowSize; i=i+stepSize){
+				GeneWindow subGene=trimGene(i, i+windowSize);
+				if(subGene!=null){
+					subGenes.add(subGene);
+				}
+		}
 		}
 		return subGenes;
 	}

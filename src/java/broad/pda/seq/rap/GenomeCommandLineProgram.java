@@ -39,7 +39,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 	@Option(doc="Region to process (e.g. chr1, chr1:5000-50230) Default (null) processes the entire genome", optional=true)
 	public String REGION = null;
 	
-	@Option(doc="Gene to process (from ANNOTATION file")
+	@Option(doc="Gene to process (from ANNOTATION file", optional=true)
 	public String GENE = null;
 	
 	@Option(doc="Maximum paired-end read fragment length to consider.", optional=true)
@@ -138,7 +138,6 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		}
 		
 	}
-
 	
 	protected CoordinateSpace getCoordinateSpace() { return coordinateSpace; }
 	
@@ -152,7 +151,11 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		
 		IoUtil.assertFileIsReadable(bamFile);
 		AlignmentModel model = new AlignmentModel(bamFile.getAbsolutePath(), coordinateSpace, pairedEnd);
-		model.addFilter(new GenomicSpanFilter(MAX_FRAGMENT_LENGTH));
+		if (COORD_SPACE.equalsIgnoreCase("genomic")) {
+			model.addFilter(new GenomicSpanFilter(MAX_FRAGMENT_LENGTH));
+		} else if (COORD_SPACE.equalsIgnoreCase("transcriptome")) {
+			model.addFilter(new FragmentLengthFilter(coordinateSpace,MAX_FRAGMENT_LENGTH));
+		}
 		model.addFilter(new ChimeraFilter());
 		model.addFilter(new ProperPairFilter());
 		model.addFilter(new MappingQualityFilter(MIN_MAPPING_QUALITY));
