@@ -67,6 +67,7 @@ public class SlideAndCount extends GenomeScoringProgram {
 					bw.newLine();
 				}
 				itr.close();
+				
 			}
 			
 			bw.close();

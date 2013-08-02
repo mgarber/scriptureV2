@@ -99,6 +99,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		return regions;
 	}
 	
+	// Todo: make compatible with TranscriptomeSpace
 	public Map<String,Annotation> getRegionsMap() {
 		Map<String,Annotation> regions = new HashMap<String,Annotation>();
 

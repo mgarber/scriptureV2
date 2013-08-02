@@ -224,7 +224,11 @@ public class TranscriptomeSpace implements CoordinateSpace{
 			}
 			//else, see if there are still genes
 			else if(genes.hasNext()){
-				return true;
+				Gene nextGene=genes.next();
+				this.currentGeneWindows=makeWindows(nextGene, this.windowSize, this.step);
+				if(currentGeneWindows!=null && currentGeneWindows.hasNext()){
+					return true;
+				}
 			}
 			return false;
 		}

@@ -2,7 +2,7 @@
 
 <project name="lincRNA" default="CreateExecutableJarFileWithExternalLibrary">
 	<target name="CreateExecutableJarFileWithExternalLibrary">
-		<jar destfile="/Users/grossman/Scripts/SlideAndCount.jar" basedir="bin/">
+		<jar destfile="/Users/grossman/Scripts/SlideAndCount2.jar" basedir="bin/">
 			<zipfileset dir="" prefix="" />
 			<zipfileset src="${basedir}/lib/ATV-3.1.jar" />
 			<zipfileset src="${basedir}/lib/collections-generic-4.01.jar" />
