@@ -1,4 +1,4 @@
-package xp.test.DBI;
+package xp.core.DBI;
 
 import java.io.BufferedReader;
 import java.io.DataInputStream;
@@ -13,16 +13,14 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
-
-import org.apache.log4j.Logger;
-
-
-import broad.core.annotation.ShortBED;
 
 import net.sf.samtools.TabixReader;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.coordinatesystem.GenomicSpace;
+
+import org.apache.log4j.Logger;
+
+import broad.core.annotation.ShortBED;
 
 /**
  *  Created on 2013-3-4  

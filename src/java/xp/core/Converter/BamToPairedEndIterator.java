@@ -1,4 +1,4 @@
-package xp.test.Converter;
+package xp.core.Converter;
 
 import java.io.File;
 import java.util.Collection;

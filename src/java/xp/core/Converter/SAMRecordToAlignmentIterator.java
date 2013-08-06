@@ -1,4 +1,4 @@
-package xp.test.Converter;
+package xp.core.Converter;
 
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.util.CloseableIterator;

@@ -1,4 +1,4 @@
-package xp.test.Utils;
+package xp.core.Utils;
 import java.io.InputStream;
 import java.io.OutputStream;
 
@@ -8,7 +8,6 @@ import broad.core.annotation.ShortBED;
 import net.sf.samtools.util.BinaryCodec;
 import net.sf.samtools.util.RuntimeEOFException;
 import net.sf.samtools.util.SortingCollection;
-import nextgen.core.alignment.Alignment;
 
 public class ShortBEDCodec implements SortingCollection.Codec<ShortBED>
 {

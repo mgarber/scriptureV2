@@ -1,8 +1,7 @@
-package xp.test.DBI;
+package xp.core.DBI;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
 /**
  *  Created on 2013-3-4  

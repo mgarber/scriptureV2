@@ -1,17 +1,16 @@
-package xp.test.Utils;
+package xp.core.Utils;
 
 import java.io.File;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
-
-import org.apache.log4j.Logger;
-
-import broad.core.annotation.ShortBED;
 
 import net.sf.samtools.util.SortingCollection;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;
+
+import org.apache.log4j.Logger;
+
+import broad.core.annotation.ShortBED;
 
 /**
  *  Created on 2013-3-7  

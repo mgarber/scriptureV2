@@ -1,4 +1,4 @@
-package xp.test.Basic;
+package xp.core.Basic;
 
 import java.util.Arrays;
 

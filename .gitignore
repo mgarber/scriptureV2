@@ -1,5 +1,8 @@
 /bin
 /.DS_Store
+/build
+/dist
+snappy*
 
 #########################
 # Eclipse config files
@@ -10,4 +13,4 @@
 ##########################
 # Compiled classes
 ##########################
-.class
+*.class

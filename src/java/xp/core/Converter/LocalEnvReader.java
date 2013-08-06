@@ -1,15 +1,13 @@
-package xp.test.Converter;
+package xp.core.Converter;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 
 
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import xp.test.Basic.BedGraphMultiScore;
-import xp.test.Basic.FocusAndEnv;
-import xp.test.Utils.ShortBEDCodec;
+import xp.core.Basic.BedGraphMultiScore;
+import xp.core.Basic.FocusAndEnv;
 
 /**
  *  Created on 2013-3-9  

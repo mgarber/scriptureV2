@@ -1,4 +1,4 @@
-package xp.test.Utils;
+package xp.core.Utils;
 /**
  *  Created on 2013-3-7  
  */
@@ -6,13 +6,11 @@ package xp.test.Utils;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import org.apache.log4j.Logger;
-
-import broad.core.annotation.ShortBED;
-
 import net.sf.samtools.util.BinaryCodec;
 import net.sf.samtools.util.RuntimeEOFException;
 import net.sf.samtools.util.SortingCollection;
+
+import org.apache.log4j.Logger;
 public class JieCodec implements SortingCollection.Codec<JieCode>{
 	static Logger logger = Logger.getLogger(JieCodec.class.getName());
 	private final BinaryCodec binaryCodec = new BinaryCodec();

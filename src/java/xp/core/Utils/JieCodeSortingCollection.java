@@ -1,21 +1,17 @@
-package xp.test.Utils;
+package xp.core.Utils;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-
-
-import net.sf.samtools.SAMRecord;
 import net.sf.samtools.util.SortingCollection;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.coordinatesystem.GenomicSpace;
+
+import org.apache.log4j.Logger;
 
 /**
  *  Created on 2013-3-7  

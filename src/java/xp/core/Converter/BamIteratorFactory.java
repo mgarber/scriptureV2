@@ -1,29 +1,12 @@
-package xp.test.Converter;
+package xp.core.Converter;
 
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
+
+import nextgen.core.alignment.Alignment;
 
 import org.apache.log4j.Logger;
-
-import cern.colt.Arrays;
-
-import net.sf.picard.io.FastLineReader;
-import net.sf.samtools.SAMFileReader;
-import net.sf.samtools.SAMRecord;
-import net.sf.samtools.util.CloseableIterator;
-import nextgen.core.alignment.Alignment;
 
 /*
  *  Interface for iterate bam as single end or paired end  

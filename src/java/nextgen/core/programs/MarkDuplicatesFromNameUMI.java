@@ -5,16 +5,22 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-import java.lang.Math;
 
-import org.apache.commons.math3.stat.Frequency;
+import net.sf.picard.util.Log;
+import net.sf.samtools.BAMFileWriter;
+import net.sf.samtools.SAMFileHeader;
+import net.sf.samtools.SAMFileHeader.SortOrder;
+import net.sf.samtools.SAMFileReader;
+import net.sf.samtools.SAMProgramRecord;
+import net.sf.samtools.SAMRecord;
+import net.sf.samtools.SAMRecordIterator;
+
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 
@@ -23,15 +29,6 @@ import broad.core.datastructures.IntervalTree.Node;
 import broad.core.math.Statistics;
 import broad.core.util.CLUtil;
 import broad.core.util.CLUtil.ArgumentMap;
-import net.sf.picard.util.Log;
-import net.sf.samtools.BAMFileWriter;
-import net.sf.samtools.BAMIndexer;
-import net.sf.samtools.SAMFileHeader;
-import net.sf.samtools.SAMFileHeader.SortOrder;
-import net.sf.samtools.SAMFileReader;
-import net.sf.samtools.SAMProgramRecord;
-import net.sf.samtools.SAMRecord;
-import net.sf.samtools.SAMRecordIterator;
 
 /**
  * Utility to go through a sorted alignment file and mark
