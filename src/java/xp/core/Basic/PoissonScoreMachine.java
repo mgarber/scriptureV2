@@ -1,5 +1,5 @@
 
-package xp.test.Basic;
+package xp.core.Basic;
 
 import org.apache.log4j.Logger;
 import org.apache.commons.math3.distribution.PoissonDistribution;

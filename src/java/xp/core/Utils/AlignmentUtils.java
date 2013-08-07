@@ -1,4 +1,4 @@
-package xp.test.Utils;
+package xp.core.Utils;
 
 import java.io.File;
 import java.util.Collection;

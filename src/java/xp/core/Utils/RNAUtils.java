@@ -1,5 +1,5 @@
 
-package xp.test.Utils;
+package xp.core.Utils;
 
 import java.util.ArrayList;
 

@@ -1,4 +1,4 @@
-package xp.test.DBI;
+package xp.core.DBI;
 
 import java.util.Iterator;
 import java.util.List;

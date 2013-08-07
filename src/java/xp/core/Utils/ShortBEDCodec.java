@@ -1,4 +1,4 @@
-package xp.test.Utils;
+package xp.core.Utils;
 import java.io.InputStream;
 import java.io.OutputStream;
 

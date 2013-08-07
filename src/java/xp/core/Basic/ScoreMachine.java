@@ -1,5 +1,5 @@
 
-package xp.test.Basic;
+package xp.core.Basic;
 /**
  *  Created on 2013-4-1  
  */

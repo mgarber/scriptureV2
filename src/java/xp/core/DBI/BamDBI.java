@@ -1,4 +1,4 @@
-package xp.test.DBI;
+package xp.core.DBI;
 
 import java.io.File;
 import java.util.ArrayList;

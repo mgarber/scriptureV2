@@ -1,4 +1,4 @@
-package xp.test.command;
+package xp.core.command;
 
 import java.io.File;
 import java.io.FileWriter;
