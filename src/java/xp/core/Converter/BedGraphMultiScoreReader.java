@@ -5,11 +5,9 @@ import java.util.Iterator;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import xp.test.Basic.BedGraphMultiScore;
-import xp.test.Utils.JieCode;
-import xp.test.Utils.JieCodeSortingCollection;
-
-import broad.core.math.Distribution;
+import xp.core.Basic.BedGraphMultiScore;
+import xp.core.Utils.JieCode;
+import xp.core.Utils.JieCodeSortingCollection;
 
 
 /**

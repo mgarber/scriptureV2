@@ -2,7 +2,6 @@ package xp.core.Utils;
 
 import java.util.Comparator;
 
-import broad.core.annotation.ShortBED;
 
 /**
  *  Created on 2013-3-7  

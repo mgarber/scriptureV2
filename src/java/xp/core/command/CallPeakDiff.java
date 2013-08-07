@@ -18,10 +18,10 @@ import nextgen.core.coordinatesystem.GenomicSpace;
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.apache.log4j.Logger;
 
-import xp.test.Basic.Peak;
-import xp.test.Basic.PeakFactory;
-import xp.test.Basic.SkellamScoreMachine;
-import xp.test.Converter.BamIteratorFactory;
+import xp.core.Basic.Peak;
+import xp.core.Basic.PeakFactory;
+import xp.core.Basic.SkellamScoreMachine;
+import xp.core.Converter.BamIteratorFactory;
 //import xp.test.DBI.ShortBEDTabixDBI;
 
 

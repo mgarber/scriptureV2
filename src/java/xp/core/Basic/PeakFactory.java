@@ -9,9 +9,9 @@ import org.apache.log4j.Logger;
 
 import cern.colt.Arrays;
 
-import xp.test.Converter.BedGraphMultiScoreReader;
-import xp.test.Converter.LocalEnvReader;
-import xp.test.Utils.JieCodeSortingCollection;
+import xp.core.Converter.BedGraphMultiScoreReader;
+import xp.core.Converter.LocalEnvReader;
+import xp.core.Utils.JieCodeSortingCollection;
 
 import nextgen.core.annotation.Annotation;
 import nextgen.core.coordinatesystem.GenomicSpace;

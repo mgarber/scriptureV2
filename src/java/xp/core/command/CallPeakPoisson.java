@@ -15,12 +15,11 @@ import nextgen.core.coordinatesystem.GenomicSpace;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import xp.test.Basic.Peak;
-import xp.test.Basic.PeakFactory;
-import xp.test.Basic.PoissonScoreMachine;
-import xp.test.Basic.SkellamScoreMachine;
-import xp.test.Converter.BamIteratorFactory;
-import xp.test.DBI.ShortBEDTabixDBI;
+import xp.core.Basic.Peak;
+import xp.core.Basic.PeakFactory;
+import xp.core.Basic.PoissonScoreMachine;
+import xp.core.Converter.BamIteratorFactory;
+import xp.core.DBI.ShortBEDTabixDBI;
 
 /**
  * 2013-4-3

@@ -1,18 +1,15 @@
 package xp.core.DBI;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
-import xp.test.Converter.BamToSingleEndIterator;
-import xp.test.Converter.SAMRecordToAlignmentIterator;
-
 import net.sf.samtools.SAMFileReader;
 import net.sf.samtools.SAMRecord;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.coordinatesystem.GenomicSpace;
+import xp.core.Converter.SAMRecordToAlignmentIterator;
 
 /**
  *  Created on 2013-3-11  

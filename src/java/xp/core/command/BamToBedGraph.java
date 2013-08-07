@@ -9,10 +9,10 @@ import java.util.Iterator;
 
 import org.apache.log4j.Logger;
 
-import xp.test.Basic.BedGraphMultiScore;
-import xp.test.Converter.BamIteratorFactory;
-import xp.test.Converter.BedGraphMultiScoreReader;
-import xp.test.Utils.JieCodeSortingCollection;
+import xp.core.Basic.BedGraphMultiScore;
+import xp.core.Converter.BamIteratorFactory;
+import xp.core.Converter.BedGraphMultiScoreReader;
+import xp.core.Utils.JieCodeSortingCollection;
 
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
