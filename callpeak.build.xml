@@ -62,7 +62,7 @@
             <manifest>
                 <attribute name="Implementation-Version" value="0.02" />
                 <attribute name="Built-By" value="${user.name}" />
-                <attribute name="Main-Class" value="xp.test.command.CallPeakDiff"/>
+                <attribute name="Main-Class" value="xp.core.command.CallPeakDiff"/>
             </manifest>
 	    <fileset dir="${lib.dir}">
         	<include name="*.jar"/>
@@ -73,7 +73,7 @@
             <zipgroupfileset dir="lib" includes="*.jar"/>
             <manifest>
                  <attribute name="Implementation-Version" value="0.02" />
-                <attribute name="Main-Class" value="xp.test.command.CallPeak8"/>
+                <attribute name="Main-Class" value="xp.core.command.CallPeak8"/>
             </manifest>
         </jar>
 </target>
