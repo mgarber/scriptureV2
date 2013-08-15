@@ -458,21 +458,6 @@ public class AnnotationList<T extends Annotation> extends AbstractAnnotationColl
 		return 0;
 	}
 
-
-	@Override
-	public double getCountStranded(Annotation region, boolean fullyContained) {
-//		Predicate<? super T> filter = Predicates.and(new SameOrientationFilter(region));
-//		return getIteratorCount(new CloseableFilterIterator<T>(getOverlappingAnnotations(region, false), filter));
-		//TODO: Complete the method
-		return 0;
-	}
-	
-	@Override
-	public double getCountStranded(Annotation window){
-		return getCountStranded(window,false);
-	}
-
-
 	@Override
 	public double getCountStrandedExcludingRegion(Annotation region,
 			Annotation excluded) {
