@@ -639,7 +639,7 @@ public class Gene extends BasicAnnotation {
 		return getWindows(windowSize, 1, 0);
 	}
 	
-	public Collection<GeneWindow> getWindows(int windowSize, int stepSize, int start) {
+	public Collection<GeneWindow> getWindowsOld(int windowSize, int stepSize, int start) {
 		if(stepSize < 1) {
 			throw new IllegalArgumentException("Step size must be >= 1");
 		}
@@ -650,6 +650,65 @@ public class Gene extends BasicAnnotation {
 				subGenes.add(subGene);
 			}
 		}
+		return subGenes;
+	}
+
+	public Collection<GeneWindow> getWindows(int windowSize, int stepSize, int start) {
+		// Account for erroneous input by user
+		if(stepSize < 1) {
+			throw new IllegalArgumentException("Step size must be >= 1");
+		}
+		
+		// Initializes a collection of GeneWindow (or Genes) called subGenes which is a TreeSet
+		Collection<GeneWindow> subGenes = new TreeSet<GeneWindow>();
+		
+		// Our collection exons which is a generic implementation of Annotation is a collection of all exons
+		
+		Collection<? extends Annotation > exons = getBlocks();
+		
+		// Iterates through all exons in our collection exons
+		for(Annotation exon: exons) {
+			//logger.info("Exon: " + exon.toUCSC());
+			// If the exon is larger than the input window size
+			if(exon.getSize() > windowSize) {
+				logger.info("");
+				for(int i = exon.getStart(); i <= exon.getEnd() - windowSize; i++) {
+					GeneWindow subGene = new GeneWindow(new Gene(getChr(), i, i + windowSize));
+					subGene.addSourceAnnotation(this);
+					subGene.setOrientation(this.getOrientation());
+					// GeneWindow subGene = new Basic(getChr(), i, i + windowSize);
+					subGenes.add(subGene);
+				}
+			}
+			
+			for(int i = Math.max(exon.getEnd() - windowSize, exon.getStart()); i < exon.getEnd(); i++) {
+				//logger.info("Size: " + this.getSize() + " ExonSize: " + exon.getSize() + " " + i + " start: " + exon.getStart() + " end: " + exon.getEnd());
+				int relativeStart = getPositionAtReferenceCoordinate(i, true);
+				int size = relativeStart + windowSize;
+				logger.info("relStart: " + relativeStart);
+				logger.info("relStart+win: " + size + " getSize: " + this.getSize());
+				if(relativeStart + windowSize < this.getSize()) {
+					logger.info("if statement");
+					Gene exonGene =  new Gene(exon);
+					//GeneWindow subGene = this.trimAbsolute(i, i+windowSize);
+					GeneWindow subGene = this.trimGene(relativeStart, relativeStart + windowSize);
+					//GeneWindow subGene = this.trimGeneNew(exonGene, relativeStart, relativeStart+windowSize);
+					subGene.setOrientation(this.getOrientation());
+					subGenes.add(subGene);
+					//logger.info("" + subGene.toBED());
+				}
+			}	
+		}
+		
+		// Need full gene sequence, not just exons
+		/*for(Annotation exon: exons) {
+			// do intron windows
+			for(int i = exon.getEnd() - windowSize + 1; i < exon.getEnd() - windowSize; i++) {
+				 subGene = new Basic(getChr(), i, i + windowSize);
+				subGenes.add((GeneWindow) subGene);
+			}
+		}*/
+			
 		return subGenes;
 	}
 	
