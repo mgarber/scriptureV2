@@ -358,13 +358,12 @@ public class BuildScriptureCoordinateSpace {
 		while(somethingWasConnected && loop<10){
 			somethingWasConnected =false;
 			loop++;
-			
+ 
 			logger.info("Connected disconnected transcripts: Loop "+loop);
 			conn = new HashMap<String,Collection<Gene>>();
 			for(String chr:annotations.keySet()){
 				conn.put(chr, new TreeSet<Gene>());			
 			}
-			
 			for(String chr:annotations.keySet()){
 				//For all genes on this chromosome
 				logger.debug("Connecting, Processing "+chr);
@@ -414,8 +413,8 @@ public class BuildScriptureCoordinateSpace {
 										newConnected.setExtraFields(fields);
 										newGenes.remove(gene);
 										newGenes.add(newConnected);
-										conn.get(chr).remove(gene);
-										conn.get(chr).remove(other);
+										boolean there = conn.get(chr).remove(gene);
+										there = conn.get(chr).remove(other);
 										conn.get(chr).add(newConnected);
 									}
 								//}
@@ -962,7 +961,7 @@ public class BuildScriptureCoordinateSpace {
 									if(exon2.contains(intron1)){
 										//CHECK FOR COVERAGE
 										double intronCount = model.getIntronCounts(intron1);
-										double exonCount = (model.getCountStranded(new BasicAnnotation(exon2.getChr(), intron1.getStart(), intron1.getEnd(), exon2.getOrientation()), false)
+										double exonCount = (model.getCount(new BasicAnnotation(exon2.getChr(), intron1.getStart(), intron1.getEnd(), exon2.getOrientation()), false)
 																	/(double)(intron1.getEnd()-intron1.getStart()));
 										double ratioI = intronCount/(intronCount+exonCount);
 										double ratioE = exonCount/(intronCount+exonCount);
@@ -1096,9 +1095,9 @@ public class BuildScriptureCoordinateSpace {
 			//exon[0] is left of intron
 			//coverage to left of left exon
 			//Since it is one base, we dont need coverage
-			double leftScore = model.getCountStranded(new BasicAnnotation(exons[0].getChr(),exons[0].getEnd()-2,exons[0].getEnd()-1,overlapper.getOrientation()),false);
+			double leftScore = model.getCount(new BasicAnnotation(exons[0].getChr(),exons[0].getEnd()-2,exons[0].getEnd()-1,overlapper.getOrientation()),false);
 			//coverage to right of right exon
-			double rightScore = model.getCountStranded(new BasicAnnotation(exons[1].getChr(),exons[1].getStart()+1,exons[1].getStart()+2,overlapper.getOrientation()),false);
+			double rightScore = model.getCount(new BasicAnnotation(exons[1].getChr(),exons[1].getStart()+1,exons[1].getStart()+2,overlapper.getOrientation()),false);
 			
 			if(leftScore<rightScore){
 				if(leftScore<rightScore*coveragePercentThreshold){ 
@@ -1402,7 +1401,7 @@ public class BuildScriptureCoordinateSpace {
 	private Gene trimEnds(Gene gene,double pct){
 		
 		List<Double> counts = model.getCountsStrandedPerPosition(gene);
-		double[] cntArr = l2a(counts);
+		double[] cntArr = BuildScriptureCoordinateSpace.l2a(counts);
 
 		Collections.sort(counts);		
 		double cutoff = Math.max(2, Statistics.quantile(counts, pct));
@@ -1428,7 +1427,8 @@ public class BuildScriptureCoordinateSpace {
 			String[] extras = gene.getExtraFields();
 			newGene = new Gene(gene.trim(trimStart, trimEnd));		
 			newGene.setBedScore(score);
-			newGene.setExtraFields(extras);
+			if(extras!=null)
+				newGene.setExtraFields(extras);
 			logger.debug("trimming ("+trimStart +" - "+ trimEnd+") gene was: " + gene.toBED() + " and now is: \n" +newGene.toBED());
 		}
 		return newGene;
@@ -1468,8 +1468,8 @@ public class BuildScriptureCoordinateSpace {
 			exonBoundary = new BasicAnnotation(exon1.getChr(),intron2.getEnd()+1,intron2.getEnd()+2,exon1.getOrientation());
 			intronBoundary = new BasicAnnotation(intron2.getChr(),intron2.getEnd()-2,intron2.getEnd()-1,exon1.getOrientation());
 		}
-		double overlapScore = model.getCountStranded(intronBoundary,false);
-		double nonoverlapScore = model.getCountStranded(exonBoundary,false);
+		double overlapScore = model.getCount(intronBoundary,false);
+		double nonoverlapScore = model.getCount(exonBoundary,false);
 //		logger.error(overlap.toUCSC()+" overlap coverage: "+overlapScore+" against "+nonoverlapScore);
 		if(overlapScore>=nonoverlapScore*coveragePercentThreshold){
 			//logger.error(exon1.toUCSC()+" passes coverage test with intron "+ intron2.toUCSC());
@@ -2517,7 +2517,7 @@ public class BuildScriptureCoordinateSpace {
 	 * @param list
 	 * @return
 	 */
-	private double[] l2a(List<Double> list){
+	public static double[] l2a(List<Double> list){
 		double[] rtrn=new double[list.size()];
 	
 		int i=0;

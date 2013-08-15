@@ -1,24 +1,24 @@
 package nextgen.core.scripture.statistics;
 
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeSet;
 
+import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
+import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.general.CloseableFilterIterator;
 import nextgen.core.model.AlignmentModel;
@@ -30,12 +30,15 @@ import org.apache.commons.collections15.Predicate;
 import org.apache.log4j.Logger;
 import org.broad.igv.Globals;
 
+import broad.core.annotation.MaximumContiguousSubsequence;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.Pair;
 import broad.core.error.ParseException;
+import broad.core.math.Statistics;
 import broad.core.util.CLUtil;
 import broad.core.util.CLUtil.ArgumentMap;
 import broad.pda.annotation.BEDFileParser;
+import broad.pda.seq.segmentation.AlignmentDataModelStats;
 
 public class ConnectDisconnectedTranscripts {
 	
@@ -46,7 +49,7 @@ public class ConnectDisconnectedTranscripts {
 	private double medianInsertSize=300;
 	private static int DEFAULT_INSERT_SIZE = 500;
 	private static int DEFAULT_NUM_BINS = 100;
-	
+	private String outName;
 	static final String usage = "Usage: ConnectDisconnectedTranscripts -task doWork "+
 			"\n**************************************************************"+
 			"\n\t\tArguments"+
@@ -57,13 +60,13 @@ public class ConnectDisconnectedTranscripts {
 			"\n\t\t-strand <first/second : mate in the direction of transcription> "+
 			"\n\t\t-maxSize <Maximum insert size. Default=500bp> "+
 			"\n";
-
+	
 	public ConnectDisconnectedTranscripts(String annotationFile,String outputName,File bamFile,TranscriptionRead strand,int maxSize) throws IOException{
 		
 		annotations= BEDFileParser.loadDataByChr(new File(annotationFile));
 		model=new AlignmentModel(bamFile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		model.addFilter(new PairedAndProperFilter());
-		
+		outName = annotationFile;
 		//Compute insert size distribution
 		logger.info("Compute insert size distribution");
 		//Default number of bins =10
@@ -76,55 +79,103 @@ public class ConnectDisconnectedTranscripts {
 	
 	public void doWork(String outputName) throws IOException{
 	
-		Map<String,Collection<Gene>> conn = new HashMap<String,Collection<Gene>>();
-		for(String chr:annotations.keySet()){
-			//Set<Gene> considered = new HashSet<Gene>();
-			//For all genes on this chromosome
-			logger.info("Processing "+chr);
-			Collection<Gene> newGenes = new TreeSet<Gene>();
-			//MAKE AN INTERVAL TREE OF THE GENES on this chr
-			IntervalTree<Gene> tree = new IntervalTree<Gene>();
-			for(Gene g:annotations.get(chr)){
-				tree.put(g.getStart(), g.getEnd(), g);
+		boolean somethingWasConnected = true;
+
+		Map<String,Collection<Gene>> conn = null;
+		int loop=0;
+		int counter=0;
+		while(somethingWasConnected && loop<10){
+			somethingWasConnected =false;
+			loop++;
+			//Set counter for each loop
+			counter=0;
+			logger.info("Connected disconnected transcripts: Loop "+loop);
+			conn = new HashMap<String,Collection<Gene>>();
+			for(String chr:annotations.keySet()){
+				conn.put(chr, new TreeSet<Gene>());			
 			}
-			//For each transcript
-			//Iterate over all assemblies
-			Iterator<Gene> iter=tree.toCollection().iterator();
-			while(iter.hasNext()){
-				Gene gene=iter.next();
-				//For all assemblies downstream of this assembly in 10kB regions
-				Iterator<Gene> overlappers=tree.overlappingValueIterator(gene.getEnd(), gene.getEnd()+constant);
-				
-				newGenes.add(gene);
-				while(overlappers.hasNext()){
-					Gene other = overlappers.next();
-					if(isCandidate(gene,other)){
-						if(pairedEndReadSpansTranscripts(gene, other)){ 
-							if(secondTranscriptIsSingleExon(gene,other)){
-								/*if(!considered.contains(gene)){
-									considered.add(gene);
-								}
-								if(!considered.contains(other)){
-									considered.add(other);
-								}*/
-								logger.info("The genes "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC()+" must be connected.");
-								
-								//Connect the genes
-								Annotation connected = getConnectedTranscript(gene,other);
-								if(connected!=null){
-									newGenes.remove(gene);
-									newGenes.add(new Gene(connected));
-								}
+			
+			for(String chr:annotations.keySet()){
+				//For all genes on this chromosome
+				logger.debug("Connecting, Processing "+chr);
+				Collection<Gene> newGenes = new TreeSet<Gene>();
+				//MAKE AN INTERVAL TREE OF THE GENES on this chr
+				IntervalTree<Gene> tree = new IntervalTree<Gene>();
+				for(Gene g:annotations.get(chr)){
+					conn.get(chr).add(g);
+					tree.put(g.getStart(), g.getEnd(), g);
+					counter++;
+				}
+				//For each transcript
+				//Iterate over all reconstructions
+				Iterator<Gene> iter=tree.toCollection().iterator();
+				while(iter.hasNext()){
+					Gene gene=iter.next();
+					//For all assemblies downstream of this assembly in 10kB regions
+					Iterator<Gene> overlappers=tree.overlappingValueIterator(gene.getEnd(), gene.getEnd()+constant);
+					
+					newGenes.add(gene);
+					while(overlappers.hasNext()){
+						Gene other = overlappers.next();
+						if(isCandidate(gene,other)){
+							if(pairedEndReadSpansTranscripts(gene, other)){ 
+								//if(secondTranscriptIsSingleExon(gene,other)){
+									logger.debug("Attempt to connect "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC());
+									
+									//Connect the genes
+									Annotation connected = getConnectedTranscript(gene,other);
+									if(connected!=null){
+										somethingWasConnected = true;
+										Gene newConnected = new Gene(connected);
+										double[] scores = getScores(newConnected);
+										double[] fields = new double[4];
+										newConnected.setName(gene.getName()+"_"+other.getName());
+										//[0] : sum
+										fields[0] = scores[0];
+										//[1] : p-value
+										fields[1] = scores[1];
+										//[2] : FPK
+										fields[2] = (scores[0]*1000.0)/newConnected.getSize();
+										//[3] : FPKM
+										//Calculate FPKM
+										fields[3] = fields[2]*((double)1000000.0)/model.getGlobalPairedFragments();
+										logger.debug("For isoform : "+newConnected.getName()+"\tNum of exons: "+newConnected.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
+										newConnected.setBedScore(fields[3]);
+										logger.debug(newConnected.toBED());
+										newConnected.setExtraFields(fields);
+										newGenes.remove(gene);
+										newGenes.add(newConnected);
+										boolean there = conn.get(chr).remove(gene);
+										if(there){counter--;}
+										there = conn.get(chr).remove(other);
+										if(there){counter--;}
+										conn.get(chr).add(newConnected);
+										counter++;
+									}
+								//}
+							}
+							else{
+								//logger.info("The genes "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC()+" do not have paired reads");
 							}
 						}
-						else{
-							//logger.info("The genes "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC()+" do not have paired reads");
-						}
-					}
-				}				
+					}				
+				}
+				logger.info(chr+"\t"+counter);
+			}
+			annotations = conn;
+		}
+		
+		//FileWriter bw = new FileWriter(outName+".12connected.bed");
+		FileWriter bw = new FileWriter(outName+".connected.bed");
+		for(String name:conn.keySet()){
+			Iterator<Gene> ter = conn.get(name).iterator();
+			while(ter.hasNext()){
+				Gene isoform = ter.next();
+				Gene iso = new Gene(trimEnds(isoform,0.1));
+				bw.write(iso.toBED()+"\n");
 			}
 		}
-		BuildScriptureCoordinateSpace.write(outputName+".connected.bed",annotations);
+		bw.close();
 	}
 	
 	/**
@@ -186,36 +237,13 @@ public class ConnectDisconnectedTranscripts {
 	 */
 	private Annotation getConnectedTranscript(Gene gene,Gene other) throws IOException{
 		
-		Pair<Gene> orderedGenes = ConnectDisconnectedTranscripts.getOrderedAssembly(gene, other);
+		Pair<Gene> orderedGenes = getOrderedAssembly(gene, other);
 		Annotation connected = null;
 		/*
 		 * If the distance between the transcripts is less than the insert size,
 		 * paste through
 		 */
 		if(orderedGenes.getValue2().getStart()-orderedGenes.getValue1().getEnd() < medianInsertSize){
-//			List<Annotation> blocks = new ArrayList<Annotation>();
-			
-//			Annotation tojoin = null;
-			// getBlocks for first gene
-/*			for(Annotation b:orderedGenes.getValue1().getBlocks()){
-				//LAST EXON
-				if(b.equals(orderedGenes.getValue1().getLastExon())){
-					tojoin = b;
-				}
-				else
-					blocks.add(b);
-			}
-			// getBlocks for second gene
-			for(Annotation b:orderedGenes.getValue2().getBlocks()){
-				//FIRST EXON
-				if(b.equals(orderedGenes.getValue2().getFirstExon())){
-					tojoin.setEnd(b.getEnd());
-				}
-				else
-					blocks.add(b);
-			}
-			connected = new Gene(gene.getChr(), gene.getName()+"_"+other.getName(), gene.getOrientation(), blocks);*/
-			
 			Gene firstGene = orderedGenes.getValue1().copy();
 			firstGene.setEnd(orderedGenes.getValue2().getStart());
 			connected = firstGene.union(orderedGenes.getValue2());
@@ -290,6 +318,41 @@ public class ConnectDisconnectedTranscripts {
 		return false;
 	}
 	
+	/**
+	 * Returns paired end counts and scan p-value for the specified gene
+	 * @param gene
+	 * @return
+	 */
+	private double[] getScores(Annotation gene){
+		double[] scores = new double[2];
+		scores[0] = 0.0;
+		double globalPairedLambda = model.getGlobalPairedFragments()/model.getGlobalLength();
+		//Get all reads overlapping the transcript
+		CloseableIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(gene,true), new PairedAndProperFilter());
+		//For each read,
+		while(iter.hasNext()){					
+			Alignment read = iter.next();
+			boolean countRead = true;
+			for(Annotation mate:read.getReadAlignments(model.getCoordinateSpace())){
+				if(!BuildScriptureCoordinateSpace.compatible(gene,mate)){
+					//logger.debug("Read "+mate.toUCSC()+" is not compatible with isoform with "+isoform.getExons().length);
+					countRead=false;
+					break;
+				}
+			}
+			//For the assembly, we need to treat each read separately	
+			if(countRead){
+				scores[0] += read.getWeight();
+			}
+		}
+		iter.close();
+		//logger.debug("Count = "+scores[0]+" Int version "+new Double(scores[0]).intValue()+" global paired lambda = "+globalPairedLambda+" gene size = "+model.getCoordinateSpace().getSize(gene)+ " or "+gene.size()+" global length = "+model.getGlobalLength()+" global lambda = "+model.getGlobalLambda());
+		scores[1] = AlignmentDataModelStats.calculatePVal(new Double(scores[0]).intValue(), globalPairedLambda,gene.size(), model.getGlobalLength());
+		
+//		scores[1] = AlignmentDataModelStats.calculatePVal(new Double(scores[0]).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(gene), model.getGlobalLength());
+		
+		return scores;
+	}
 	public static void main (String [] args) throws ParseException, IOException {
 		
 		/*
@@ -316,5 +379,46 @@ public class ConnectDisconnectedTranscripts {
 		
 		new ConnectDisconnectedTranscripts(argMap.getInput(),argMap.getOutput(),new File(argMap.getMandatory("alignment")),strand,argMap.getInteger("maxSize", DEFAULT_INSERT_SIZE));
 		
+	}
+	
+	/**
+	 * Returns the gene trimmed at both ends
+	 * @param gene
+	 * @return
+	 */
+	private Gene trimEnds(Gene gene,double pct){
+		
+		List<Double> counts = model.getCountsStrandedPerPosition(gene);
+		double[] cntArr = BuildScriptureCoordinateSpace.l2a(counts);
+
+		Collections.sort(counts);		
+		double cutoff = Math.max(2, Statistics.quantile(counts, pct));
+		int trimStart = MaximumContiguousSubsequence.contiguousStartSubSequenceOverMin(cntArr, cutoff);
+		int trimEnd   =  gene.size() - MaximumContiguousSubsequence.contiguousEndSubSequenceOverMin(cntArr, cutoff);
+		logger.debug(gene.getName()+" trimStart " + trimStart + " trimEnd " + trimEnd + ", transcript length " + gene.size()+ " with cutoff "+cutoff);
+
+		if(trimStart>trimEnd){
+			return gene;
+		}
+		if(gene.getOrientation().equals(Strand.NEGATIVE)){
+			int temp = trimStart;
+			trimStart = trimEnd;
+			trimEnd = temp;
+			logger.debug("Reset trimStart and TrimEnd to  " + trimStart + " - " + trimEnd);
+		}	
+			
+		Gene newGene = gene.copy();
+			
+		if(((trimEnd+trimStart) < gene.size()) && trimStart<trimEnd && trimStart<gene.size() && trimEnd<gene.size()){
+			
+			double score = gene.getBedScore();
+			String[] extras = gene.getExtraFields();
+			newGene = new Gene(gene.trim(trimStart, trimEnd));		
+			newGene.setBedScore(score);
+			if(extras!=null)
+				newGene.setExtraFields(extras);
+			logger.debug("trimming ("+trimStart +" - "+ trimEnd+") gene was: " + gene.toBED() + " and now is: \n" +newGene.toBED());
+		}
+		return newGene;
 	}
 }
