@@ -150,6 +150,30 @@ public class ScanStatisticScore extends CountScore {
 		return fullyContainedNumberOfReads;
 	}
 	
+	/*
+	 * Returns an array of scores
+	 * [0] = count
+	 * [1] = RPKM
+	 * [2] = region total
+	 * [3] = total
+	 * [4] = scan p value
+	 * [5] = global lambda
+	 * [6] = local lambda
+	 * [7] = region length  
+	 */
+	public double[] getScores(){
+		double[] scores = new double[9];
+		scores[0] = getCount();
+		scores[1] = getRPKM();
+		scores[2] = getRPK();
+		scores[3] = getRegionTotal();
+		scores[4] = getTotal();
+		scores[5] = getScanPvalue();
+		scores[6] = getGlobalLambda();
+		scores[7] = getLocalLambda();
+		scores[8] = getRegionLength();
+		return scores;
+	}
 	
 	public String toString() {
 		return super.toString() + "\t" + getScanPvalue() + "\t" 

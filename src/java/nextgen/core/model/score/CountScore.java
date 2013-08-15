@@ -81,6 +81,10 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 		return asRPKM(count, total, getAnnotation().length()); 
 	}
 	
+	public double getRPK() { 
+		return count/(getAnnotation().length() / 1000.0); 
+	}
+	
 	public void setCount(double count) {
 		this.count = count;
 	}
