@@ -48,7 +48,7 @@ public class JCSCache {
 	static Collection<Integer> keys;
 	private final Long maxLifeSeconds=7200L;
 	/** Maximum number of in-memory instances before sending items to disk. Default is 50,000. */
-	private Long defaultCapacity = 400000L;
+	private Long defaultCapacity = 200000L;
 	IntervalTree<Integer> keyTree;
 	PairedEndReader reader;
 	String cacheChr = null;
@@ -95,17 +95,17 @@ public class JCSCache {
 			//EACH RECORD TAKES APPROX 348728 BYTES IN MEMORY
 			//defaultCapacity = (long)(Runtime.getRuntime().maxMemory()/(2.0*175000));
 			Logger.getLogger("org.apache.jcs").setLevel(Level.OFF);
-			Runtime.getRuntime().addShutdownHook(JCSCache.shutdownThread);
+			cacheName=JCSCache.DEFAULT_NAME+"_"+System.currentTimeMillis();
+			CompositeCacheManager ccm = CompositeCacheManager.getUnconfiguredInstance();
+			ccm.configure(initJcsProps(cacheName));
+			cacheNames.add(cacheName);
+//			Runtime.getRuntime().addShutdownHook(JCSCache.shutdownThread);
 			
 			this.cacheSize = cacheSize;
 			this.model=m;
 			mkdirs(defaultDir);
 
 			keys = new HashSet<Integer>();
-			cacheName=JCSCache.DEFAULT_NAME+"_"+System.currentTimeMillis();
-			CompositeCacheManager ccm = CompositeCacheManager.getUnconfiguredInstance();
-			ccm.configure(initJcsProps(cacheName));
-			
 			logger.info("Indexed disk cache written to: "+defaultDir);
 			logger.info("Holding "+defaultCapacity+" in In-memory cache");
 /*
@@ -320,14 +320,9 @@ public class JCSCache {
 					reads.add(read);
 					//logger.info("Read is read");
 				}
-				if(flag && read!=null){
-					flag=false;
-					value = read;
-				}
+				else{
 				
-/*				else{
-					
-					if(keys.contains(key)){
+/*					if(keys.contains(key)){
 						if(JCS.getInstance(cacheName).get(key)==null){
 							logger.info("Read is NULL BUT CONTAINS the key");
 						}
@@ -338,8 +333,12 @@ public class JCSCache {
 							else
 								logger.info("Read is NULL and its OKAY.");
 						}
-					}
-				}*/
+					}*/
+				}				
+				if(flag && read!=null){
+					flag=false;
+					value = read;
+				}
 			}catch(CacheException e){
 				try {
 					JCS.getInstance(cacheName).clear();
@@ -370,7 +369,7 @@ public class JCSCache {
 		int newStart=start;
 		int newEnd=end;
 
-		logger.info("Updating cache: " + chr + ":" + start + "-" + end + ". CacheSize=" + cacheSize);
+		logger.debug("Updating cache: " + chr + ":" + start + "-" + end + ". CacheSize=" + cacheSize);
 		// if window is larger than cache size 
 		//@skadri TODO: Isn't this checked in query() already?
 		// (this will happen in TranscriptomeSpace if a transcript is longer than the cache size)
@@ -387,7 +386,7 @@ public class JCSCache {
 					// Maybe we're scanning backwards?  So we'll fix the cache to the end of the window
 					newEnd = end;
 					newStart = end - this.cacheSize;
-					throw new IllegalStateException("JCSCache DEBUG");
+//					throw new IllegalStateException("Cache DEBUG");
 				}
 			}
 		}
@@ -401,7 +400,7 @@ public class JCSCache {
 
 		this.keyTree=getIntervalTree(update, fullyContained);
 		
-		logger.info("Cache updated to: " + cacheChr + ":" + cacheStart + "-" + cacheEnd);
+		logger.debug("Cache updated to: " + cacheChr + ":" + cacheStart + "-" + cacheEnd);
 	}
 	
 	/**
@@ -426,6 +425,8 @@ public class JCSCache {
 			dispose(cacheName);*/
 		
 		JCS.getInstance(cacheName).clear();
+		JCS.getInstance(cacheName).dispose();
+		
 /*		if(!keys.isEmpty()){
 			for(String k:keys){
 				try {
