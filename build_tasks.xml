@@ -189,6 +189,21 @@
         </jar>
     </target>
 	
+    <target name="crispr" depends="compile, unpack,copy.props">
+        <jar destfile="${dist.dir}crispr.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="nextgen.editing.CRISPRDesigner"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+	
 	
 	<!-- build the seq  analysis jar -->
     <target name="dge" depends="compile, unpack,copy.props">
