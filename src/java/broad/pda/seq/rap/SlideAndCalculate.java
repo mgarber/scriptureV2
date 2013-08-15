@@ -59,8 +59,13 @@ public class SlideAndCalculate extends GenomeScoringProgram {
 			Iterator<? extends WindowScore> itr = getWindowScoreIterator();
 			while (itr.hasNext()) {
 				WindowScore curr = itr.next();
-				bw.write(curr.toString());
-				bw.newLine();
+				
+				// Check to see if this window should be masked out using the given mask settings,
+				// which might be different from the mask settings in the input SlideAndCount BED file
+				if (getCoordinateSpace().isValidWindow(curr.getAnnotation())) {
+					bw.write(curr.toString());
+					bw.newLine();
+				}
 			}
 				
 			bw.close();
