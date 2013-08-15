@@ -383,12 +383,18 @@ protected class GeneTree {
 				for(Gene gene: iso){
 					//if start, end exceeds the gene length then skip
 					//if(start>=gene.getStart() && end<= gene.getEnd()){
+					/*GeneWindow newGene = gene.trimGeneNew(gene, region.getStart(), region.getEnd());
+					if(newGene != null && newGene.size() > 0) {
+						if(newGene.overlaps(region)) {
+							rtrn.add(newGene);
+						}
+					}*/ //Rushi Method
 						GeneWindow trimmed=gene.trimAbsolute(region.getStart(), region.getEnd());
 						if(trimmed!=null && trimmed.size() > 0){
 							if(trimmed.overlaps(region)){
 								rtrn.add(trimmed);
 							}
-						}
+						} //Old Method
 					//}
 					 //else{logger.error(g.getName()+" was null after trimming isoform " + gene.getName() + ":" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + " to absolute coordinates " + g.getChr() + ":" + region.getStart() + "-" + region.getEnd());}
 				}
