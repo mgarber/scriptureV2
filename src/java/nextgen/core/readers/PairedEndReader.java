@@ -199,7 +199,6 @@ public class PairedEndReader {
 		Alignment rtrn;
 		
 		try {
-
 			if (alignmentType == AlignmentType.PAIRED_END) {
 				if (record.getReadPairedFlag() && !record.getMateUnmappedFlag()) {   //revised to read single end data @zhuxp 
 					String name=record.getReadName();

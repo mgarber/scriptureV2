@@ -11,6 +11,7 @@ import net.sf.picard.cmdline.Option;
 import net.sf.picard.io.IoUtil;
 import net.sf.picard.util.Log;
 
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.coordinatesystem.GenomicSpace;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.AnnotationList;
@@ -41,6 +42,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 	public Integer MIN_MAPPING_QUALITY = 30;
 	
 	protected GenomicSpace coordinateSpace;
+
 	
 	
 	@Override
@@ -98,7 +100,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		return annotations;
 	}
 
-	
+
 	protected GenomicSpace getCoordinateSpace() { return coordinateSpace; }
 	
 	
