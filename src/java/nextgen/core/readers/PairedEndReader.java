@@ -74,6 +74,10 @@ public class PairedEndReader {
 		return (isPairedEndFormat != null) ? AlignmentType.PAIRED_END : AlignmentType.SINGLE_END;
 	}
 	
+	public AlignmentType getAlignmentType() { 
+		return getAlignmentType(this.header);
+	}
+	
 	public void setFragmentFlag(boolean fra){
 		fragment = fra;
 	}
@@ -317,7 +321,7 @@ public class PairedEndReader {
 		}
 		return rtrn;
 	}
-	
+
 	
 	/**
 	 * Returns {@code true} if the given SAM file is in paired end format (has the mateLine) attribute.
