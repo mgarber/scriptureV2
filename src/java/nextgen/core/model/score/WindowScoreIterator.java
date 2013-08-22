@@ -15,7 +15,9 @@ public class WindowScoreIterator<T extends WindowScore> implements CloseableIter
 	public WindowScoreIterator(Iterator<? extends Annotation> windowIterator, WindowProcessor<T> processor, Annotation region){
 		this.itr = windowIterator;
 		this.processor = processor;
-		processor.initRegion(region);
+		
+		// Don't bother initializing the region if the iterator is empty
+		if (itr.hasNext()) processor.initRegion(region);
 	}
 
 	@Override
