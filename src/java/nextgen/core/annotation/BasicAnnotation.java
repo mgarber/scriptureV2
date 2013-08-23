@@ -49,6 +49,7 @@ public class BasicAnnotation extends AbstractAnnotation implements java.io.Seria
 	}
 	
 	public BasicAnnotation(String referenceName, int start, int end, Strand orientation, String name) {
+		long startT = System.nanoTime();
 		score = 0;
 		setName(name);
 		setReferenceName(referenceName);
@@ -59,6 +60,12 @@ public class BasicAnnotation extends AbstractAnnotation implements java.io.Seria
 			e.printStackTrace();
 			throw new IllegalArgumentException(toBED());
 		}
+		long cTime = System.nanoTime() - startT;
+		cTime = Math.round(cTime/(double)1000000);
+		if(cTime > 50) {
+			logger.debug("Building BasicAnnotation took " + cTime);
+		}
+		
 	}
 	
 	public BasicAnnotation(String referenceName, Strand orientation, String name, Collection<? extends Annotation> blocks) {

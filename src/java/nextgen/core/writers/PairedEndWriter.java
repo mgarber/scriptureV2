@@ -4,6 +4,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -25,6 +27,7 @@ import org.apache.commons.io.output.NullOutputStream;
 import org.apache.log4j.Logger;
 
 import broad.core.datastructures.Pair;
+import broad.core.math.Statistics;
 
 public class PairedEndWriter {
 
@@ -100,18 +103,142 @@ public class PairedEndWriter {
 		this.convertInputToPairedEnd(TranscriptionRead.UNSTRANDED);
 	}
 
-	/**
-	 * Convert the bamFile provided in the constructor to paired end format.
-	 */
 	public void convertInputToPairedEnd(TranscriptionRead txnRead) {
 		SAMRecordIterator iter = reader.iterator();		
 		Map<String, AlignmentPair> tempCollection=new TreeMap<String, AlignmentPair>();
 		int numRead = 0;
 		int single = 0;
 		int paired = 0;
+		String prevChr=null;
+		int lastDistanceChecked=0;
+		int lastPurgeAt = 0;
+		long lastTime = System.currentTimeMillis();
+		long writeTime = 0;
+		long writeAllTime = 0;
+		long mapFinding = 0;
+		long pairMaking = 0;
+		long iterTime  = 0;
+		long removeTime = 0;
+		List<Double>  pairMakingTimes = new ArrayList<Double>(); 
+		Collection<String> cc = new ArrayList<String>();
+		while(iter.hasNext()) {
+			long  start = System.nanoTime();
+			SAMRecord record=iter.next();
+			iterTime = System.nanoTime() - start;
+			
+			String name=record.getReadName();
+			
+			if(prevChr==null){
+				prevChr=record.getReferenceName();
+			}
+			//If the read is unmapped, skip
+			if(record.getReadUnmappedFlag()) continue;
+			
+			//If the read is not paired or the mate is unmapped, write it as it is
+			if(!record.getReadPairedFlag() || record.getMateUnmappedFlag() || !passesDistanceChecks(record)){ //MG: if we check passes distance checks later, we never write them.
+				//mate unmapped so just write it
+				if(record.getReadPairedFlag()) {record.setMateUnmappedFlag(true);} //revised for single end @zhuxp
+				
+				//MG: The implementation of this was so verbose it was hard to understand what was being done. 8/6/13
+				//If first read is in direction of transcription change orientation of second read
+				if(txnRead.equals(TranscriptionRead.FIRST_OF_PAIR) && !record.getFirstOfPairFlag()){
+					record.setReadNegativeStrandFlag(!record.getReadNegativeStrandFlag());
+				}
+				//Second read is the transcription read change the orientation of the first read
+				else if(txnRead.equals(TranscriptionRead.SECOND_OF_PAIR) && record.getFirstOfPairFlag()){
+						record.setReadNegativeStrandFlag(!record.getReadNegativeStrandFlag());
+				}//UNSTRANDED: DO nothing
+				
+				//writer.addAlignment(record); MG: We need to be consistent how we write alignments
+				start = System.nanoTime();
+				addRecord(record);
+				writeTime += System.nanoTime() - start;
+				single++;
+			}
+			// read is paired && mate is mapped	
+			else{
+				//create or get the existing pair
+				
+				start = System.nanoTime();
+				AlignmentPair pair = tempCollection.get(name);
+				if(pair == null) {
+					pair = new AlignmentPair();
+					tempCollection.put(name, pair);	
+				}
+				
+				pair.add(record);
+				mapFinding += System.nanoTime() - start;
+				//MG: moved passesDistanceCheck to previous clause so here we only consider hopeful pairs
+								
+
+				if(pair.isComplete()){
+					paired++;
+					//Remove from collection
+					start = System.nanoTime();
+					tempCollection.remove(name);
+					removeTime += System.nanoTime() - start;
+					//Make paired line for each combo
+					
+					start = System.nanoTime();
+					Collection<SAMRecord> fragmentRecords = pair.makePairs();
+					long pmTime = System.nanoTime() - start;
+					pairMaking += pmTime;
+					pairMakingTimes.add((double)pmTime);
+					//write to output
+					long t =  Math.round(pmTime/(double)1000000);
+					if(t > 50) {
+						logger.debug("Making pairs for " + name + " took " + t + " and has " + fragmentRecords.size() + " frags ");
+					}
+					
+					start = System.nanoTime();
+					writeAll(fragmentRecords); //Buffering now.
+					writeAllTime += System.nanoTime() - start;
+				}
+			}	
+			if(!record.getReferenceName().equals(prevChr)){
+				
+				//PURGE TEMP COLLECTION
+				writeRemainder(tempCollection);
+				tempCollection=new TreeMap<String, AlignmentPair>();
+				prevChr = record.getReferenceName();
+				lastDistanceChecked=0;
+			}
+			//If the size of the tempCollection is more than 100,000 and the last distance checked was more than 100kB ago
+/*			if(tempCollection.size()>100000 && (record.getAlignmentStart()-lastDistanceChecked)>100000){
+				lastDistanceChecked = record.getAlignmentStart();
+				//Purge the single alignments that are too far away
+				tempCollection = purgeByDistance(tempCollection,record.getAlignmentEnd());
+				
+			}*/
+			numRead++;
+			if(numRead % 1000000 == 0) {
+				long t = System.currentTimeMillis();
+				logger.info("Processed " + numRead + " reads, this batch took: " + (t - lastTime) + " free mem: " + Runtime.getRuntime().freeMemory() + " tempCollection size : " + tempCollection.size()+" on "+record.getReferenceName()+" Single alignments : "+single+ " Paired alignments "+paired);
+				logger.info(String.format("Times: it: %d\tws: %d\twp: %d\tpm: %d\tmf: %d\tmr: %d", Math.round(iterTime/(double)1000000), Math.round(writeTime/(double)1000000),  Math.round(writeAllTime/(double)1000000),   Math.round(pairMaking/(double)1000000),   Math.round(mapFinding/(double)1000000),  Math.round(removeTime/(double)1000000)));
+				logger.info(String.format("Pairmaling stats max:%f\t mean:%f\tmin: %f\tmedian: %f " , Statistics.max(pairMakingTimes) , Statistics.mean(pairMakingTimes), Statistics.min(pairMakingTimes), Statistics.median(pairMakingTimes)));
+				iterTime = 0; writeTime = 0; writeAllTime = 0; pairMaking = 0; mapFinding = 0; removeTime = 0;
+				lastTime = t;
+			}
+		}
+		
+		//Write remainder
+		writeRemainder(tempCollection);
+		
+		close();
+	}
+	/**
+	 * Convert the bamFile provided in the constructor to paired end format.
+	 */
+	public void convertInputToPairedEndOld(TranscriptionRead txnRead) {
+		SAMRecordIterator iter = reader.iterator();		
+		Map<String, AlignmentPair> tempCollection=new LinkedHashMap<String, AlignmentPair>();
+		int numRead = 0;
+		int single = 0;
+		int paired = 0;
 		int temp = 0;
 		String prevChr=null;
 		int lastDistanceChecked=0;
+		int lastPurgeAt = 0;
 		
 		Collection<String> cc = new ArrayList<String>();
 		while(iter.hasNext()) {
@@ -123,44 +250,28 @@ public class PairedEndWriter {
 			}
 			//If the read is unmapped, skip
 			if(record.getReadUnmappedFlag()) continue;
+			
 			//If the read is not paired or the mate is unmapped, write it as it is
 			if(!record.getReadPairedFlag() || record.getMateUnmappedFlag()){
 				//mate unmapped so just write it
 				if(record.getReadPairedFlag()) {record.setMateUnmappedFlag(true);} //revised for single end @zhuxp
-				//If first read is in direction of trasncription
-				if(txnRead.equals(TranscriptionRead.FIRST_OF_PAIR)){
-					//This is the first read
-					if(record.getFirstOfPairFlag()){
-						//Orientation of fragment is same as that of read
-					}
-					//This is the other mate
-					//Reverse its orientation
-					else{
-						record.setReadNegativeStrandFlag(!record.getReadNegativeStrandFlag());
-					}
+				
+				//MG: The implementation of this was so verbose it was hard to understand what was being done. 8/6/13
+				//If first read is in direction of transcription change orientation of second read
+				if(txnRead.equals(TranscriptionRead.FIRST_OF_PAIR) && !record.getFirstOfPairFlag()){
+					record.setReadNegativeStrandFlag(!record.getReadNegativeStrandFlag());
 				}
-				//Second read is the transcription read
-				else if(txnRead.equals(TranscriptionRead.SECOND_OF_PAIR)){
-					//This is the first read
-					//Reverse orientation
-					if(record.getFirstOfPairFlag()){
+				//Second read is the transcription read change the orientation of the first read
+				else if(txnRead.equals(TranscriptionRead.SECOND_OF_PAIR) && record.getFirstOfPairFlag()){
 						record.setReadNegativeStrandFlag(!record.getReadNegativeStrandFlag());
-					}
-					//This is the other mate
-					else{
-						//NOTHING
-					}
-				}//UNSTRANDED
-				else{
-					//NOTHING
-				}
+				}//UNSTRANDED: DO nothing
+				
 				try {
 					writer.addAlignment(record);
 					single++;
-				} catch (Exception e) {
-					logger.error(e.getMessage());
-					logger.error("Skipping read " + name );
-					continue;
+				} finally {
+					//MG: I removed the catch, I think it is the wrong thing to do to keep going after a read could not be written to file.
+					//logger.error("Error writing read to file " + record.getSAMString() );
 				}
 			}
 			// read is paired && mate is mapped	
@@ -199,12 +310,13 @@ public class PairedEndWriter {
 				lastDistanceChecked=0;
 			}
 			//If the size of the tempCollection is more than 100,000 and the last distance checked was more than 100kB ago
-/*			if(tempCollection.size()>100000 && (record.getAlignmentStart()-lastDistanceChecked)>100000){
+			//TODO: Implement purging so that already available proper pairs are written out.
+			if((record.getAlignmentStart()-lastDistanceChecked) > maxAllowableInsert){
 				lastDistanceChecked = record.getAlignmentStart();
 				//Purge the single alignments that are too far away
 				tempCollection = purgeByDistance(tempCollection,record.getAlignmentEnd());
 				
-			}*/
+			}
 			numRead++;
 			if(numRead % 1000000 == 0) {
 				logger.info("Processed " + numRead + " reads, free mem: " + Runtime.getRuntime().freeMemory() + " tempCollection size : " + tempCollection.size()+" on "+record.getReferenceName()+" Single alignments : "+single+ " Paired alignments "+paired+" In temp : "+temp);
@@ -241,7 +353,9 @@ public class PairedEndWriter {
 	
 	
 	private void writeRemainder(Map<String, AlignmentPair> tempCollection) {
-		logger.warn("WARNING Remainder: "+tempCollection.size()+" writing as single end reads");
+		if(tempCollection.size() > 0) {
+			logger.warn("WARNING Remainder: "+tempCollection.size()+" writing as single end reads");
+		}
 		for(String name: tempCollection.keySet()){
 			Pair<Collection<SAMRecord>> pair=tempCollection.get(name);
 			Collection<SAMRecord> records;
@@ -278,7 +392,7 @@ public class PairedEndWriter {
 	 * Removes all pairs from the collection such that one of the mates is farther than the max insert size allowed
 	 * @param tempCollection
 	 */
-	private Map<String, AlignmentPair> purgeByDistance(Map<String, AlignmentPair> tempCollection,int currentPosition) {
+	private Map<String, AlignmentPair> purgeByDistanceOld(Map<String, AlignmentPair> tempCollection,int currentPosition) {
 		
 		Map<String, AlignmentPair> newCollection = new TreeMap<String, AlignmentPair>();
 		for(String key : tempCollection.keySet()){
@@ -310,13 +424,49 @@ public class PairedEndWriter {
 		return newCollection;
 	}
 
+	
+	/**
+	 * Removes all pairs from the collection such that one of the mates is farther than the max insert size allowed
+	 * TODO: Implement an inteligent way to deal with multiple hits
+	 * @param tempCollection
+	 */
+	private Collection<AlignmentPair> purgeByDistance(Map<String, AlignmentPair> tempCollection,int currentPosition) {
+		
+		ArrayList <AlignmentPair> toRemove = new ArrayList< AlignmentPair>();
+		Iterator<String> pairNameIt = tempCollection.keySet().iterator();
+		boolean done = false;
+		while(!done && pairNameIt.hasNext()){
+			String key = pairNameIt.next();
+			AlignmentPair pair=tempCollection.get(key);
+			boolean toAdd=true;
+			Iterator<SAMRecord> recordIter;
+			//For alignments where we are still waiting for the second one
+			if(!pair.hasValue1() || !pair.hasValue2()){
+				if(pair.hasValue1()){
+					recordIter=pair.getValue1().iterator();
+				}
+				else{recordIter=pair.getValue2().iterator();}
+				
+				//pair.removeRecordsFartherThan(currentPosition);
+				
+				while(recordIter.hasNext()) {
+					SAMRecord record = recordIter.next();
+					//if(we are farther than the current 
+					if((currentPosition-record.getAlignmentEnd()) > maxAllowableInsert){
+						recordIter.remove();
+						if(pair.valuesAreEmpty())
+							toAdd=false;
+					}
+				}
+			}
+			if(toAdd)
+				newCollection.put(key, pair);
+		}
+		return newCollection;
+	}
 
 	private void writeAll(Collection<SAMRecord> fragmentRecords) {
-		int numHits=fragmentRecords.size();
-				
 		for(SAMRecord fragment: fragmentRecords){
-			fragment.setAttribute("NH", numHits);
-			fragment.setMateUnmappedFlag(false);
 			addRecord(fragment);
 		} 
 	}
@@ -376,6 +526,10 @@ public class PairedEndWriter {
 		SAMFileReader reader2 = new SAMFileReader(new File(this.output));
 		BuildBamIndex.createIndex(reader2,transcriptomeBamIdxFile);
 		reader2.close();
+	}
+	
+	public static void main (String args []) {
+		
 	}
 	
 }

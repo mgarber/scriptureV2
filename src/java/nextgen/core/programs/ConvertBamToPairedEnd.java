@@ -30,9 +30,11 @@ public class ConvertBamToPairedEnd extends CommandLineProgram {
 	protected int doWork() {
 		
 		try {
+			long timeStart = System.currentTimeMillis();
 			PairedEndWriter writer = new PairedEndWriter(new File(INPUT));
 			writer.setMaxAllowableInsert(MAX_INSERT);
 			writer.convertInputToPairedEnd();
+			log.info("Total time; " + (System.currentTimeMillis() - timeStart));
 			
 		} catch (Exception e) {
 			log.error(e);
