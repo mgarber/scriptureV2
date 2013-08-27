@@ -1,6 +1,7 @@
 package broad.pda.samtools;
 
 import java.io.File;
+import java.io.FileWriter;
 
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
@@ -35,12 +36,16 @@ public class FilterPairedReadsByMAQ extends CommandLineProgram {
 	@Option(doc="If true, remove both reads if one of the pair does not pass the filter.")
 	public Boolean REMOVE_MATE = false;
 	
+	@Option(doc="Optional metrics file")
+	public File METRICS=null;
+	
 	@Option(shortName=StandardOptionDefinitions.SORT_ORDER_SHORT_NAME, doc="Sort order of output file")
 	public SAMFileHeader.SortOrder SORT_ORDER = SAMFileHeader.SortOrder.coordinate;
 	
 	private int passed = 0;
 	private int failed = 0;
 	private int passedAsPairs = 0;
+	private int total = 0;
 	
 	/**
 	 * Stock main method.
@@ -76,6 +81,8 @@ public class FilterPairedReadsByMAQ extends CommandLineProgram {
         		Pair<SAMRecord> pair = itr.next();
         		SAMRecord first = pair.getValue1();
         		SAMRecord second = pair.getValue2();
+        		
+        		total += 1;
         		
         		boolean acceptFirst = false;
         		boolean acceptSecond = false;
@@ -124,6 +131,13 @@ public class FilterPairedReadsByMAQ extends CommandLineProgram {
         	itr.close();
         	writer.close();
         	reader.close();
+        	
+        	if (METRICS != null) {
+        		FileWriter fw = new FileWriter(METRICS);
+        		fw.write("TOTAL_READS\tTOTAL_PAIRS\tREADS_ACCEPTED\tREADS_REMOVED\tREADS_ACCEPTED_AS_PAIRS\n");
+        		fw.write((total*2 + itr.getSingleReadsSkipped()) + "\t" + total + "\t" + passed + "\t" + failed + "\t" + passedAsPairs + "\n");
+        		fw.close();
+        	}
         	
         } catch (Exception e) {
         	log.error(e);

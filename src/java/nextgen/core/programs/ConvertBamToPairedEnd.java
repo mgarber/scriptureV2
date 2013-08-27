@@ -1,10 +1,12 @@
 package nextgen.core.programs;
 
 import java.io.File;
+
 import net.sf.picard.cmdline.CommandLineProgram;
 import net.sf.picard.cmdline.Option;
 import net.sf.picard.util.Log;
 
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.writers.PairedEndWriter;
 
 public class ConvertBamToPairedEnd extends CommandLineProgram {
@@ -13,8 +15,11 @@ public class ConvertBamToPairedEnd extends CommandLineProgram {
     @Option(doc="Input BAM file (default format)", shortName="I")
     String INPUT;
     
+    @Option(doc="Transcription read", shortName="STRAND")
+    TranscriptionRead TRANSCRIPTION_READ = TranscriptionRead.UNSTRANDED;
+    
     @Option(doc="Maximum insert length allowed")
-    Integer MAX_INSERT = 5000000;
+    Integer MAX_INSERT = 1000000;
     
 	/**
 	 * Stock main method.
@@ -35,7 +40,6 @@ public class ConvertBamToPairedEnd extends CommandLineProgram {
 			writer.setMaxAllowableInsert(MAX_INSERT);
 			writer.convertInputToPairedEnd();
 			log.info("Total time; " + (System.currentTimeMillis() - timeStart));
-			
 		} catch (Exception e) {
 			log.error(e);
 		}

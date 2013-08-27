@@ -74,6 +74,10 @@ public class PairedEndReader {
 		return (isPairedEndFormat != null) ? AlignmentType.PAIRED_END : AlignmentType.SINGLE_END;
 	}
 	
+	public AlignmentType getAlignmentType() { 
+		return getAlignmentType(this.header);
+	}
+	
 	public void setFragmentFlag(boolean fra){
 		fragment = fra;
 	}
@@ -201,7 +205,6 @@ public class PairedEndReader {
 		Alignment rtrn;
 		
 		try {
-
 			if (alignmentType == AlignmentType.PAIRED_END) {
 				if (record.getReadPairedFlag() && !record.getMateUnmappedFlag()) {   //revised to read single end data @zhuxp 
 					String name=record.getReadName();
@@ -319,7 +322,7 @@ public class PairedEndReader {
 		}
 		return rtrn;
 	}
-	
+
 	
 	/**
 	 * Returns {@code true} if the given SAM file is in paired end format (has the mateLine) attribute.

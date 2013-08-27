@@ -415,9 +415,18 @@ public class GenomicSpace implements CoordinateSpace{
 			return rtrn;
 		}
 		/*
-		 * Check that the fragment coordinates are contained within the coordinate space 
-		 * If not, adjust the fragment ends. 
+		 * Check that the fragment coordinates are contained within the coordinate space.
+		 * If fragment is entirely outside the coordinates, throw a warning
+		 * If one end of the fragment is outside the coordinates, adjust the fragment end.
 		 */
+		
+		if (start > chromosomeSizes.get(chr) || end < 0) {
+			logger.warn("Requested " + chr + ":" + start + "-" + end + " is entirely out of bounds. \n" + 
+					"Chromosome bounds: " + chr + ":0-" + chromosomeSizes.get(chr));
+			throw new AnnotationOutOfBoundsException("Requested " + chr + ":" + start + "-" + end + " is entirely out of bounds. \n" + 
+					"Chromosome bounds: " + chr + ":0-" + chromosomeSizes.get(chr));
+		}
+		
 		if(start<0)
 			start = 0;
 		if(end>this.chromosomeSizes.get(chr))
