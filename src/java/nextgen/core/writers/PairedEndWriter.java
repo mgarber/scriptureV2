@@ -56,7 +56,7 @@ public class PairedEndWriter {
 	private SAMFileReader reader;
 	private SAMFileHeader header;
 	private BAMRecordCodec testCodec;
-	private int maxAllowableInsert=100000;
+	private int maxAllowableInsert=500000;
 	
 	
 	/**
