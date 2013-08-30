@@ -35,6 +35,7 @@ import org.broad.igv.Globals;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.Pair;
 import broad.core.error.ParseException;
+import broad.core.math.ScanStatistics;
 import broad.core.util.CLUtil;
 import broad.core.util.CLUtil.ArgumentMap;
 import broad.pda.annotation.BEDFileParser;
@@ -157,7 +158,7 @@ public class CalculateSignificance {
 			}
 		}
 		iter.close();
-		scores[1] = AlignmentDataModelStats.calculatePVal(new Double(scores[0]).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(gene), model.getGlobalLength());
+		scores[1] = ScanStatistics.calculatePVal(new Double(scores[0]).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(gene), model.getGlobalLength());
 		
 		return scores;
 	}

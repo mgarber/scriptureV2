@@ -56,7 +56,7 @@ public class PairedEndWriter {
 	private SAMFileReader reader;
 	private SAMFileHeader header;
 	private BAMRecordCodec testCodec;
-	private int maxAllowableInsert=500000;
+	private int maxAllowableInsert=100000;
 	
 	
 	/**
@@ -187,7 +187,8 @@ public class PairedEndWriter {
 					//write to output
 					long t =  Math.round(pmTime/(double)1000000);
 					if(t > 50) {
-						logger.debug("Making pairs for " + name + " took " + t + " and has " + fragmentRecords.size() + " frags ");
+						logger.trace("Making pairs for " + name + " took " + t + " and has " + fragmentRecords.size() + " frags. Size of temp collection: " + tempCollection.size());
+						
 					}
 					
 					start = System.nanoTime();
@@ -204,18 +205,18 @@ public class PairedEndWriter {
 				lastDistanceChecked=0;
 			}
 			//If the size of the tempCollection is more than 100,000 and the last distance checked was more than 100kB ago
-/*			if(tempCollection.size()>100000 && (record.getAlignmentStart()-lastDistanceChecked)>100000){
+			if( (record.getAlignmentStart()-lastDistanceChecked)>maxAllowableInsert){
 				lastDistanceChecked = record.getAlignmentStart();
 				//Purge the single alignments that are too far away
 				tempCollection = purgeByDistance(tempCollection,record.getAlignmentEnd());
 				
-			}*/
+			}
 			numRead++;
-			if(numRead % 1000000 == 0) {
+			if(numRead % 1000000 == 0) {//TODO: Remove once performance issues are founda and fixed.
 				long t = System.currentTimeMillis();
-				logger.info("Processed " + numRead + " reads, this batch took: " + (t - lastTime) + " free mem: " + Runtime.getRuntime().freeMemory() + " tempCollection size : " + tempCollection.size()+" on "+record.getReferenceName()+" Single alignments : "+single+ " Paired alignments "+paired);
-				logger.info(String.format("Times: it: %d\tws: %d\twp: %d\tpm: %d\tmf: %d\tmr: %d", Math.round(iterTime/(double)1000000), Math.round(writeTime/(double)1000000),  Math.round(writeAllTime/(double)1000000),   Math.round(pairMaking/(double)1000000),   Math.round(mapFinding/(double)1000000),  Math.round(removeTime/(double)1000000)));
-				logger.info(String.format("Pairmaling stats max:%f\t mean:%f\tmin: %f\tmedian: %f " , Statistics.max(pairMakingTimes) , Statistics.mean(pairMakingTimes), Statistics.min(pairMakingTimes), Statistics.median(pairMakingTimes)));
+				logger.debug("Processed " + numRead + " reads, this batch took: " + (t - lastTime) + " free mem: " + Runtime.getRuntime().freeMemory() + " tempCollection size : " + tempCollection.size()+" on "+record.getReferenceName()+" Single alignments : "+single+ " Paired alignments "+paired);
+				logger.debug(String.format("Times: it: %d\tws: %d\twp: %d\tpm: %d\tmf: %d\tmr: %d", Math.round(iterTime/(double)1000000), Math.round(writeTime/(double)1000000),  Math.round(writeAllTime/(double)1000000),   Math.round(pairMaking/(double)1000000),   Math.round(mapFinding/(double)1000000),  Math.round(removeTime/(double)1000000)));
+				logger.debug(String.format("Pairmaling stats max:%f\t mean:%f\tmin: %f\tmedian: %f " , Statistics.max(pairMakingTimes) , Statistics.mean(pairMakingTimes), Statistics.min(pairMakingTimes), Statistics.median(pairMakingTimes)));
 				iterTime = 0; writeTime = 0; writeAllTime = 0; pairMaking = 0; mapFinding = 0; removeTime = 0;
 				lastTime = t;
 			}
@@ -311,15 +312,16 @@ public class PairedEndWriter {
 			}
 			//If the size of the tempCollection is more than 100,000 and the last distance checked was more than 100kB ago
 			//TODO: Implement purging so that already available proper pairs are written out.
+			/*
 			if((record.getAlignmentStart()-lastDistanceChecked) > maxAllowableInsert){
 				lastDistanceChecked = record.getAlignmentStart();
 				//Purge the single alignments that are too far away
 				tempCollection = purgeByDistance(tempCollection,record.getAlignmentEnd());
 				
-			}
+			}*/
 			numRead++;
 			if(numRead % 1000000 == 0) {
-				logger.info("Processed " + numRead + " reads, free mem: " + Runtime.getRuntime().freeMemory() + " tempCollection size : " + tempCollection.size()+" on "+record.getReferenceName()+" Single alignments : "+single+ " Paired alignments "+paired+" In temp : "+temp);
+				logger.debug("Processed " + numRead + " reads, free mem: " + Runtime.getRuntime().freeMemory() + " tempCollection size : " + tempCollection.size()+" on "+record.getReferenceName()+" Single alignments : "+single+ " Paired alignments "+paired+" In temp : "+temp);
 			}
 		}
 		
@@ -392,7 +394,7 @@ public class PairedEndWriter {
 	 * Removes all pairs from the collection such that one of the mates is farther than the max insert size allowed
 	 * @param tempCollection
 	 */
-	private Map<String, AlignmentPair> purgeByDistanceOld(Map<String, AlignmentPair> tempCollection,int currentPosition) {
+	private Map<String, AlignmentPair> purgeByDistance(Map<String, AlignmentPair> tempCollection,int currentPosition) {
 		
 		Map<String, AlignmentPair> newCollection = new TreeMap<String, AlignmentPair>();
 		for(String key : tempCollection.keySet()){
@@ -425,45 +427,7 @@ public class PairedEndWriter {
 	}
 
 	
-	/**
-	 * Removes all pairs from the collection such that one of the mates is farther than the max insert size allowed
-	 * TODO: Implement an inteligent way to deal with multiple hits
-	 * @param tempCollection
-	 */
-	private Collection<AlignmentPair> purgeByDistance(Map<String, AlignmentPair> tempCollection,int currentPosition) {
-		
-		ArrayList <AlignmentPair> toRemove = new ArrayList< AlignmentPair>();
-		Iterator<String> pairNameIt = tempCollection.keySet().iterator();
-		boolean done = false;
-		while(!done && pairNameIt.hasNext()){
-			String key = pairNameIt.next();
-			AlignmentPair pair=tempCollection.get(key);
-			boolean toAdd=true;
-			Iterator<SAMRecord> recordIter;
-			//For alignments where we are still waiting for the second one
-			if(!pair.hasValue1() || !pair.hasValue2()){
-				if(pair.hasValue1()){
-					recordIter=pair.getValue1().iterator();
-				}
-				else{recordIter=pair.getValue2().iterator();}
-				
-				//pair.removeRecordsFartherThan(currentPosition);
-				
-				while(recordIter.hasNext()) {
-					SAMRecord record = recordIter.next();
-					//if(we are farther than the current 
-					if((currentPosition-record.getAlignmentEnd()) > maxAllowableInsert){
-						recordIter.remove();
-						if(pair.valuesAreEmpty())
-							toAdd=false;
-					}
-				}
-			}
-			if(toAdd)
-				newCollection.put(key, pair);
-		}
-		return newCollection;
-	}
+
 
 	private void writeAll(Collection<SAMRecord> fragmentRecords) {
 		for(SAMRecord fragment: fragmentRecords){
