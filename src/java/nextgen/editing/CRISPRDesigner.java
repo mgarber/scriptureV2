@@ -298,7 +298,7 @@ public class CRISPRDesigner {
 
 	private static String runBowtie(String bowtie, String bowtieBuild, String fastaFile) throws IOException, InterruptedException {
 		String samTmpFile = fastaFile+".bowtie2.sam";
-		String bowtieCmd = bowtie + " --local -f -k 8 --very-sensitive -L 9 -N 1 " +  bowtieBuild + " -U  " + fastaFile + "  " +  samTmpFile ;
+		String bowtieCmd = bowtie + " --local -f -k 10  --very-sensitive-local -L 9 -N 1 " +  bowtieBuild + " -U  " + fastaFile + "  " +  samTmpFile ;
 		logger.debug("starting bowtie: " + bowtieCmd);
 		Process p = Runtime.getRuntime().exec(bowtieCmd);
 		

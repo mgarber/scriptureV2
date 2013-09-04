@@ -42,6 +42,7 @@ import broad.core.annotation.MaximumContiguousSubsequence;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.math.EmpiricalDistribution;
+import broad.core.math.ScanStatistics;
 import broad.core.math.Statistics;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
@@ -1403,7 +1404,7 @@ public class ContinuousDataAlignmentModel{
 	}
 
 	public static double calculatePVal(int k, double lambda, double w, double T){
-		return AlignmentDataModelStats.calculatePVal(k, lambda, w, T);
+		return ScanStatistics.calculatePVal(k, lambda, w, T);
 	}
 
 	private int calculateCriticalValue(int maxLength, double w, double T, double alpha, double lambda){
@@ -1418,7 +1419,7 @@ public class ContinuousDataAlignmentModel{
 	}
 
 	private static double calculateApproximatePVal(int k, double lambda, double w, double T, double alpha){
-		return AlignmentDataModelStats.calculateApproximatePVal(k, lambda, w, T, alpha);
+		return ScanStatistics.calculateApproximatePVal(k, lambda, w, T, alpha);
 	}
 
 	/**
