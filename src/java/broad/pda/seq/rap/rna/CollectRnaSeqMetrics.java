@@ -14,6 +14,7 @@ import net.sf.samtools.SAMRecord;
 import nextgen.core.alignment.*;
 
 import nextgen.core.annotation.*;
+import nextgen.core.annotation.filter.FullyContainedFilter;
 import nextgen.core.exception.RuntimeIOException;
 import nextgen.core.model.AlignmentModel;
 
@@ -27,14 +28,17 @@ public class CollectRnaSeqMetrics extends net.sf.picard.analysis.CollectRnaSeqMe
             "For RAP, provide a EXCLUDE_REGION specifying the bounds of the target RNA.  Metrics will be calculated excluding this region.";
 
 
-    @Option(doc="Region to exclude from the calculations.  Reads will be counted in this area and output to a separate file.")
-    public String EXCLUDE_REGION=null;
+    @Option(doc="BED file containing regions to exclude from the calculations.  Reads will be counted in this area and output to a separate file.")
+    public File EXCLUDE_BED=null;
 	
 	@Option(doc="File to write count of reads for excluded region")
 	public File EXCLUDE_REGION_FILE=null;
+	
+	@Option(doc="Buffer around excluded region to also exclude")
+	public Integer BUFFER = 1000;
 
 	
-	private Annotation excludedRegion = null;
+	private AnnotationList<Annotation> excludedRegions = null;
 	private int excludedCount = 0;
 	private int excludedCountAntisense = 0;
 	
@@ -47,15 +51,22 @@ public class CollectRnaSeqMetrics extends net.sf.picard.analysis.CollectRnaSeqMe
     @Override
     protected void setup(final SAMFileHeader header, final File samFile) {
     	super.setup(header, samFile);
-    	if (EXCLUDE_REGION != null) excludedRegion = new BasicAnnotation(EXCLUDE_REGION);
+    	if (EXCLUDE_BED != null) {
+    		try {
+    			excludedRegions = AnnotationFileReader.load(EXCLUDE_BED, Annotation.class, new BasicAnnotation.Factory());
+    		} catch (IOException e) {
+    			throw new RuntimeIOException(e);
+    		}
+    	}
     }
     
     @Override
     protected void acceptRead(final SAMRecord rec, final ReferenceSequence refSeq) {
     	Alignment read = new SingleEndAlignment(rec);
-    	if (excludedRegion.overlaps(read)) {
-    		if (excludedRegion.getStrand() == read.getStrand() && !rec.getFirstOfPairFlag() ||
-    			excludedRegion.getStrand() != read.getStrand() && rec.getFirstOfPairFlag()) {
+    	Annotation closest = excludedRegions.getClosest(read);
+    	if (closest != null && closest.overlaps(read, BUFFER)) {
+    		if (closest.getStrand() == read.getStrand() && !rec.getFirstOfPairFlag() ||
+    				closest.getStrand() != read.getStrand() && rec.getFirstOfPairFlag()) {
     			++excludedCount;
     		} else {
     			++excludedCountAntisense;
@@ -73,7 +84,7 @@ public class CollectRnaSeqMetrics extends net.sf.picard.analysis.CollectRnaSeqMe
     		// Script will fail to find the R file ... skip
     		logger.warn("Cannot create transcript coverage file ... call the original Picard JAR to do that.");
     	}
-    	if (EXCLUDE_REGION_FILE == null && excludedRegion != null) {
+    	if (EXCLUDE_REGION_FILE == null && excludedRegions != null) {
     		System.out.println("Found " + (excludedCount + excludedCountAntisense) + " reads mapping to given region; these were excluded from the analysis.");
     	} else if (EXCLUDE_REGION_FILE != null) {
     		try {
