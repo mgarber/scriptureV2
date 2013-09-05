@@ -117,9 +117,9 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 		long ta2 = 	Math.round(a2Time/(double)1000000);
 		long tFrg = Math.round(frgTime/(double)1000000);
 		
-		if(ta1 + ta2 + tFrg > 50) {
-			logger.info(String.format("Times: a1: %d\ta2: %d\tfrg: %d", ta1, ta2, tFrg));
-		}
+		//if(ta1 + ta2 + tFrg > 50) {
+		//	logger.info(String.format("Times: a1: %d\ta2: %d\tfrg: %d", ta1, ta2, tFrg));
+		//}
 		return rtrn;
 	}
 
