@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeoutException;
 
-import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.pipeline.util.LSFUtils;
 
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;
@@ -733,7 +733,7 @@ public final class PcrTailDesigner {
 			
 			// Submit the job
 			try {
-				int exitCode = PipelineUtils.bsubSmallProcess(Runtime.getRuntime(), jobID , cmmd , "TmpInitialPrimers_" + this.projectName + "/bsub_output_" + jobID);
+				int exitCode = LSFUtils.bsubSmallProcess(Runtime.getRuntime(), jobID , cmmd , "TmpInitialPrimers_" + this.projectName + "/bsub_output_" + jobID);
 			} catch (InterruptedException e) {
 				System.err.println("Caught InterruptedException when trying to submit job " + jobID);
 				e.printStackTrace();
@@ -749,7 +749,7 @@ public final class PcrTailDesigner {
 		// Throw exception if more than 10% of jobs failed
 		System.out.println("Waiting for jobs to finish.");
 		try {
-			PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+			LSFUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
 			System.out.println("Done creating initial primer temp files.\n");
 			
 			// Read all the primers back in from the files
@@ -967,7 +967,7 @@ public final class PcrTailDesigner {
 				
 			// Submit the job
 			try {
-				int exitCode = PipelineUtils.bsubSmallProcess(Runtime.getRuntime(), jobID , cmmd , "TmpSecondPrimers_" + this.projectName + "/bsub_output_" + jobID);
+				int exitCode = LSFUtils.bsubSmallProcess(Runtime.getRuntime(), jobID , cmmd , "TmpSecondPrimers_" + this.projectName + "/bsub_output_" + jobID);
 			} catch (InterruptedException e) {
 				System.err.println("Caught InterruptedException when trying to submit job " + jobID);
 				e.printStackTrace();
@@ -984,7 +984,7 @@ public final class PcrTailDesigner {
 		// This is enough because we originally made 10x the required number of outer primers
 		System.out.println("Waiting for jobs to finish.");
 		try {
-			ArrayList<String> stillRunning = PipelineUtils.waitForEnoughJobs(jobIDs, jobIDs.size() / 2, Runtime.getRuntime());
+			ArrayList<String> stillRunning = LSFUtils.waitForEnoughJobs(jobIDs, jobIDs.size() / 2, Runtime.getRuntime());
 			System.out.println("Done creating second subprimer temp files.\n");
 			// Read all the primers back in from the files and add to secondPrimerPairs
 			System.out.println("Reading second primers back in from temp files.");
@@ -1000,7 +1000,7 @@ public final class PcrTailDesigner {
 					newPrimers += this.secondPrimerPairs.get(p).size();
 				}
 			}
-			PipelineUtils.bkillAll(stillRunning, Runtime.getRuntime());
+			LSFUtils.bkillAll(stillRunning, Runtime.getRuntime());
 			System.out.println("Done reading second primers. Added " + newPrimers + " new extended primers.");
 		} catch (IllegalArgumentException e) {
 			System.out.println("Not enough jobs were successful.");
@@ -1200,7 +1200,7 @@ public final class PcrTailDesigner {
 				
 					// Submit the job
 					try {
-						int exitCode = PipelineUtils.bsubSmallProcess(Runtime.getRuntime(), jobID , cmmd , "TmpThirdPrimers_" + this.projectName + "/bsub_output_" + jobID);
+						int exitCode = LSFUtils.bsubSmallProcess(Runtime.getRuntime(), jobID , cmmd , "TmpThirdPrimers_" + this.projectName + "/bsub_output_" + jobID);
 					} catch (InterruptedException e) {
 						System.err.println("Caught InterruptedException when trying to submit job " + jobID);
 						e.printStackTrace();
@@ -1219,7 +1219,7 @@ public final class PcrTailDesigner {
 		// Wait for half of jobs to finish
 		System.out.println("Waiting for jobs to finish.");
 		try {
-			ArrayList<String> stillRunning = PipelineUtils.waitForEnoughJobs(jobIDs, jobIDs.size() / 2, Runtime.getRuntime());
+			ArrayList<String> stillRunning = LSFUtils.waitForEnoughJobs(jobIDs, jobIDs.size() / 2, Runtime.getRuntime());
 			System.out.println("Done creating third subprimer temp files.\n");
 			// Read all the primers back in from the files and add to thirdPrimerPairs
 			System.out.println("Reading third primers back in from temp files.");
@@ -1247,7 +1247,7 @@ public final class PcrTailDesigner {
 					}
 				}
 			}
-			PipelineUtils.bkillAll(stillRunning, Runtime.getRuntime());
+			LSFUtils.bkillAll(stillRunning, Runtime.getRuntime());
 			System.out.println("Done reading third primers. Added " + newPrimers + " new extended primers.");
 		} catch (IllegalArgumentException e) {
 			System.out.println("Not enough jobs were successful.");

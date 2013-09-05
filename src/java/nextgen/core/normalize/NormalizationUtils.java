@@ -11,7 +11,7 @@ import org.apache.log4j.Logger;
 import broad.pda.annotation.BEDFileParser;
 
 import nextgen.core.annotation.Gene;
-import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.pipeline.util.LSFUtils;
 import nextgen.core.writers.WigWriter;
 
 /**
@@ -87,9 +87,9 @@ public class NormalizationUtils {
 		String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 		String bsubOut = "make_bigwig_" + jobID + ".bsub";
 		logger.info("Running command " + cmmd);
-		PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOut, "hour", 4);
+		LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOut, "hour", 4);
 		logger.info("Waiting for job to finish...");
-		PipelineUtils.waitForJobs(jobID, Runtime.getRuntime());
+		LSFUtils.waitForJobs(jobID, Runtime.getRuntime());
 		logger.info("Done writing bigwig to file " + bw + ".");
 	}
 	

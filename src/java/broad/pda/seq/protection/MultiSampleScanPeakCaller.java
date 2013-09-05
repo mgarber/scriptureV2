@@ -37,7 +37,7 @@ import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
-import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.pipeline.util.LSFUtils;
 import nextgen.core.utils.AlignmentUtils;
 import nextgen.core.utils.AnnotationUtils;
 
@@ -434,7 +434,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				cmmds.put(jobID, cmmd);
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, outDir + "/" + jobID + ".bsub", "week", memRequestGb);
+				LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, outDir + "/" + jobID + ".bsub", "week", memRequestGb);
 
 			}
 		}
@@ -443,7 +443,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		while(!allJobsReservedHeapSpace) {
 			logger.info("");
 			logger.info("Waiting for all jobs to start...");
-			PipelineUtils.waitForAllJobsToStart(jobIDs, Runtime.getRuntime());
+			LSFUtils.waitForAllJobsToStart(jobIDs, Runtime.getRuntime());
 			logger.info("All jobs have started.");
 			Thread.sleep(5000);
 			ArrayList<String> jobsThatFailedHeapSpace = new ArrayList<String>();
@@ -451,7 +451,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				String out = outDir + "/" + jobID + ".bsub";
 				File outFile = new File(out);
 				if(outFile.exists()) {
-					if(PipelineUtils.jobFailedCouldNotReserveHeapSpace(out)) {
+					if(LSFUtils.jobFailedCouldNotReserveHeapSpace(out)) {
 						jobsThatFailedHeapSpace.add(jobID);
 					}
 				}
@@ -467,7 +467,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				jobIDs.add(newJobID);
 				cmmds.put(newJobID, cmmd);
 				logger.info("LSF job ID is " + newJobID + ".");
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), newJobID, cmmd, outDir + "/" + newJobID + ".bsub", "week", 32);
+				LSFUtils.bsubProcess(Runtime.getRuntime(), newJobID, cmmd, outDir + "/" + newJobID + ".bsub", "week", 32);
 				jobIDs.remove(jobID);
 				jobIDs.add(newJobID);
 			}
@@ -475,7 +475,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		
 		logger.info("");
 		logger.info("Waiting for jobs to finish...");
-		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
 		
 		logger.info("\nAll jobs finished.\n");
 		

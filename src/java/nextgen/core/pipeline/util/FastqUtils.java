@@ -96,7 +96,7 @@ public class FastqUtils {
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				jobIDs.add(jobID);
 				logger.info("LSF job ID is " + jobID + ".");
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "week", 4);
+				LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "week", 4);
 			} else {
 				logger.warn("Temp clipped file " + outTmpFile + " already exists. Not rerunning fastx_clipper. Starting from temp file.");
 			}
@@ -124,7 +124,7 @@ public class FastqUtils {
 						String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 						jobIDs.add(jobID);
 						logger.info("LSF job ID is " + jobID + ".");
-						PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "week", 4);
+						LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "week", 4);
 					} else {
 						logger.warn("Temp clipped file " + outTmpFile + " already exists. Not rerunning fastx_clipper. Starting from temp file.");
 					}
@@ -133,7 +133,7 @@ public class FastqUtils {
 		}
 		
 		logger.info("Waiting for fastx_clipper jobs to finish...");
-		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
 		
 		logger.info("Done running fastx_clipper.");
 		

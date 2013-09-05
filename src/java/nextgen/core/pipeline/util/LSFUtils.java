@@ -1,13 +1,11 @@
 package nextgen.core.pipeline.util;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -15,9 +13,9 @@ import org.apache.log4j.Logger;
 
 import broad.core.parser.StringParser;
 
-public class PipelineUtils {
+public class LSFUtils {
 
-	private static Logger logger = Logger.getLogger(PipelineUtils.class.getName());
+	private static Logger logger = Logger.getLogger(LSFUtils.class.getName());
 	static int waitTime=60000; //1 minute
 	
 	public static int bsubProcess(Runtime run, String command) throws IOException, InterruptedException {
@@ -148,7 +146,7 @@ public class PipelineUtils {
 			if(verbose) System.err.println("Checking status: "+running+" jobs still running");
 		}
 		System.err.println("done");
-		PipelineUtils.checkForLSFFailures(jobID, run);
+		LSFUtils.checkForLSFFailures(jobID, run);
 	}
 	
 	
@@ -229,7 +227,7 @@ public class PipelineUtils {
 		    	BufferedReader out = new BufferedReader(new InputStreamReader(blatProc.getInputStream()));
 		    	int r = parseReply(out);
 		    	try {
-		    		PipelineUtils.checkForLSFFailures(jobID, run);
+		    		LSFUtils.checkForLSFFailures(jobID, run);
 		    	} catch (IllegalArgumentException e) {
 		    		failedJobs++;
 		    	}
@@ -282,7 +280,7 @@ public class PipelineUtils {
 		    	BufferedReader out = new BufferedReader(new InputStreamReader(blatProc.getInputStream()));
 		    	int r = parseReply(out);
 		    	try {
-		    		PipelineUtils.checkForLSFFailures(jobID, run);
+		    		LSFUtils.checkForLSFFailures(jobID, run);
 		    		successfulJobs++;
 		    		if(successfulJobs >= numJobs) {
 		    			// Enough jobs have completed successfully

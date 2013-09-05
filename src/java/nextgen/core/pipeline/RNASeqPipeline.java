@@ -24,7 +24,7 @@ import nextgen.core.pipeline.util.AlignmentUtils;
 import nextgen.core.pipeline.util.BamUtils;
 import nextgen.core.pipeline.util.FastaUtils;
 import nextgen.core.pipeline.util.FastqUtils;
-import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.pipeline.util.LSFUtils;
 import nextgen.core.readFilters.FirstOfPairFilter;
 import nextgen.core.readFilters.ProperPairFilter;
 import nextgen.core.readFilters.SecondOfPairFilter;
@@ -582,7 +582,7 @@ public class RNASeqPipeline {
 			
 		}
 		
-		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
 		
 		logger.info("");
 		logger.info("Done aligning to rRNAs. Updating current fastq files to filtered files.");
@@ -705,7 +705,7 @@ public class RNASeqPipeline {
 			
 		}
 		
-		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
 		
 		logger.info("");
 		logger.info("Done aligning to transcripts. Converting sam to bam files.");
@@ -1150,10 +1150,10 @@ public class RNASeqPipeline {
 			convertJobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
 			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, dir + "/sam_to_fastq_" + jobID + ".bsub", "hour", 16);
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, dir + "/sam_to_fastq_" + jobID + ".bsub", "hour", 16);
 		}
 		logger.info("Waiting for SamToFastq jobs to finish...");
-		PipelineUtils.waitForAllJobs(convertJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(convertJobIDs, Runtime.getRuntime());
 		return unmappedFastq1;
 
 	}
@@ -1226,12 +1226,12 @@ public class RNASeqPipeline {
 			logger.info("LSF job ID is " + jobID + ".");
 			// Submit job
 			String bsubFile = outdir + "/novoalign_" + jobID + ".bsub";
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubFile, "week", 8);
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubFile, "week", 8);
 			novoBsubFiles.put(sample,bsubFile);
 		}
 		// Wait for novoalign jobs to finish
 		logger.info("Waiting for novoalign jobs to finish...");
-		PipelineUtils.waitForAllJobs(novoJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(novoJobIDs, Runtime.getRuntime());
 		logger.info("All samples done aligning unmapped reads with novoalign.");
 		// Parse bsub output to sam files
 		logger.info("");
@@ -1305,9 +1305,9 @@ public class RNASeqPipeline {
 		} else {
 			logger.info("Running command: " + getHeaderCmmd);
 			logger.info("LSF job ID is " + getHeaderJobID + ".");
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), getHeaderJobID, getHeaderCmmd, NOVOALIGN_DIRECTORY + "/get_sam_header_" + getHeaderJobID + ".bsub", "hour", 1);
+			LSFUtils.bsubProcess(Runtime.getRuntime(), getHeaderJobID, getHeaderCmmd, NOVOALIGN_DIRECTORY + "/get_sam_header_" + getHeaderJobID + ".bsub", "hour", 1);
 			logger.info("Waiting for samtools view to finish...");
-			PipelineUtils.waitForJobs(getHeaderJobID, Runtime.getRuntime());
+			LSFUtils.waitForJobs(getHeaderJobID, Runtime.getRuntime());
 			// Change sort order to unsorted
 			FileReader r = new FileReader(tmpHeader);
 			BufferedReader b = new BufferedReader(r);
@@ -1396,11 +1396,11 @@ public class RNASeqPipeline {
 			mergeJobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
 			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, MERGED_TOPHAT_NOVOALIGN_DIRECTORY + "/merge_bams_" + jobID + ".bsub", "hour", 1);
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, MERGED_TOPHAT_NOVOALIGN_DIRECTORY + "/merge_bams_" + jobID + ".bsub", "hour", 1);
 		}
 		// Wait for jobs to finish
 		logger.info("Waiting for MergeSamFiles jobs to finish...");
-		PipelineUtils.waitForAllJobs(mergeJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(mergeJobIDs, Runtime.getRuntime());
 	}
 	
 	/**
@@ -1590,10 +1590,10 @@ public class RNASeqPipeline {
 			reorderJobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
 			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/reorder_bam_" + jobID + ".bsub", "week", 16);
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/reorder_bam_" + jobID + ".bsub", "week", 16);
 		}
 		logger.info("Waiting for picard jobs to finish...");
-		PipelineUtils.waitForAllJobs(reorderJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(reorderJobIDs, Runtime.getRuntime());
 		// Replace bam files with reordered files
 		for(String sample : sampleNames) {
 			String mvcmmd = "mv " + reordered.get(sample) + " " + currentBamFiles.get(sample);
@@ -1621,7 +1621,7 @@ public class RNASeqPipeline {
 			Collection<String> gJobIDs = BamUtils.writeGenomicSpaceStats(currentBamFiles, chrSizeFile, alignmentGlobalStatsJar, currentBamDir);
 			jobIDs.addAll(gJobIDs);
 		}
-		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
 		logger.info("Done writing all global alignment stats.");
 	}
 	
@@ -1697,10 +1697,10 @@ public class RNASeqPipeline {
 			jobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
 			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/merge_bam_files_" + jobID + ".bsub", "week", 8);			
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/merge_bam_files_" + jobID + ".bsub", "week", 8);			
 		}
 		logger.info("Waiting for picard jobs to finish...");
-		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
 		
 		// Update current bam files and sample names
 		currentBamFiles.putAll(mergedFiles);
@@ -1864,7 +1864,7 @@ public class RNASeqPipeline {
 				pmJobIDs.add(jobID);
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, picardMetricsDir + "/picard_alignment_summary_metrics_" + jobID + ".bsub", "hour", 4);
+				LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, picardMetricsDir + "/picard_alignment_summary_metrics_" + jobID + ".bsub", "hour", 4);
 			}
 			
 			// Run insert size metrics
@@ -1882,7 +1882,7 @@ public class RNASeqPipeline {
 				pmJobIDs.add(jobID);
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, picardMetricsDir + "/picard_insert_size_metrics_" + jobID + ".bsub", "hour", 4);
+				LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, picardMetricsDir + "/picard_insert_size_metrics_" + jobID + ".bsub", "hour", 4);
 			}
 			
 			// Run RNA-seq metrics
@@ -1906,14 +1906,14 @@ public class RNASeqPipeline {
 				pmJobIDs.add(jobID);
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, picardMetricsDir + "/picard_rnaseq_metrics_" + jobID + ".bsub", "hour", 4);
+				LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, picardMetricsDir + "/picard_rnaseq_metrics_" + jobID + ".bsub", "hour", 4);
 			}
 		}
 		
 		// Wait for jobs to finish
 		logger.info("Waiting for Picard metrics jobs to finish...");
 		try {
-			PipelineUtils.waitForAllJobs(pmJobIDs, Runtime.getRuntime());
+			LSFUtils.waitForAllJobs(pmJobIDs, Runtime.getRuntime());
 		} catch(IllegalArgumentException e) {
 			logger.info("");
 			logger.warn("Caught exception; not all Picard metrics jobs completed successfully.");

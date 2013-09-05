@@ -17,7 +17,7 @@ import nextgen.core.alignment.Alignment;
 import nextgen.core.model.score.*;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.writers.PairedEndWriter;
-import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.pipeline.util.LSFUtils;
 import nextgen.core.readFilters.*;
 import nextgen.core.annotation.AnnotationCollection;
 
@@ -59,7 +59,7 @@ public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
 	
 	
 	private Runtime run = Runtime.getRuntime();
-	private String jobID = PipelineUtils.getJobID();
+	private String jobID = LSFUtils.getJobID();
 
 	/**
 	 * Stock main method.
@@ -121,9 +121,9 @@ public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
 			
 						//	 " WINDOW=" + WINDOW + " OVERLAP=" + OVERLAP + " INPUT=" + INPUT + " OUTPUT=" + outfile + " REGION=" + REGION + " MASK_FILE=" + MASK_FILE + " MAX_FRAGMENT_LENGTH=" + MAX_FRAGMENT_LENGTH + " SIZES=" + SIZES;
 			String bsubOutput = outfile + ".bsub";
-			PipelineUtils.bsubProcess(run, jobID, command, bsubOutput, QUEUE);
+			LSFUtils.bsubProcess(run, jobID, command, bsubOutput, QUEUE);
 		}
-		PipelineUtils.waitForJobs(jobID, run, false);
+		LSFUtils.waitForJobs(jobID, run, false);
 	}
 
 	

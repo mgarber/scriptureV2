@@ -95,7 +95,7 @@ public class BamUtils {
 			jobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
 			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutputDir + "/compute_genomic_space_stats_" + jobID + ".bsub", "week", 32);		
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutputDir + "/compute_genomic_space_stats_" + jobID + ".bsub", "week", 32);		
 		}
 		return jobIDs;
 	}
@@ -167,7 +167,7 @@ public class BamUtils {
 			jobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
 			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutDir + "/compute_transcriptome_space_stats_" + jobID + ".bsub", "week", 32);		
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutDir + "/compute_transcriptome_space_stats_" + jobID + ".bsub", "week", 32);		
 		}
 		return jobIDs;
 	}
@@ -242,14 +242,14 @@ public class BamUtils {
 			tdfJobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
 			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutDir + "/make_tdf_" + jobID + ".bsub", "hour", 1);
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutDir + "/make_tdf_" + jobID + ".bsub", "hour", 1);
 		}
 		if(tdfJobIDs.isEmpty()) return;
 		logger.info("Waiting for igvtools jobs to finish...");
 		logger.info("Note: igvtools count always exits with code -1 even though it worked, so disregard failure notifications from LSF.");
 		// Igvtools count always ends by crashing even though it worked, so catch the exception and check if files were really created
 		try {
-			PipelineUtils.waitForAllJobs(tdfJobIDs, Runtime.getRuntime());
+			LSFUtils.waitForAllJobs(tdfJobIDs, Runtime.getRuntime());
 		} catch(IllegalArgumentException e) {
 			boolean ok = true;
 			String errMsg = "";
@@ -354,11 +354,11 @@ public class BamUtils {
 			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 			cbJobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutputDirs.get(sample) + "/sam_to_bam_" + jobID + ".bsub", "hour", 1);
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutputDirs.get(sample) + "/sam_to_bam_" + jobID + ".bsub", "hour", 1);
 		}
 		// Wait for jobs to finish
 		logger.info("Waiting for samtools view jobs to finish...");
-		PipelineUtils.waitForAllJobs(cbJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(cbJobIDs, Runtime.getRuntime());
 	}
 
 	/**
@@ -454,11 +454,11 @@ public class BamUtils {
 			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 			sbJobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutputDirs.get(sample) + "/sort_bam_" + jobID + ".bsub", "hour", 4);
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutputDirs.get(sample) + "/sort_bam_" + jobID + ".bsub", "hour", 4);
 		}
 		// Wait for jobs to finish
 		logger.info("Waiting for SortSam jobs to finish...");
-		PipelineUtils.waitForAllJobs(sbJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(sbJobIDs, Runtime.getRuntime());
 	}
 
 	/**
@@ -540,7 +540,7 @@ public class BamUtils {
 					wigJobIDs.add(jobID);
 					logger.info("LSF job ID is " + jobID + ".");
 					// Submit job
-					PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/write_wig_normalized_" + sample + "_" + chr + "_" + jobID + ".bsub", "week", 16);
+					LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/write_wig_normalized_" + sample + "_" + chr + "_" + jobID + ".bsub", "week", 16);
 				}
 			}
 			normalizedWigFiles.put(sample, normalizedWigFilesByChr);
@@ -562,14 +562,14 @@ public class BamUtils {
 					wigJobIDs.add(jobID);
 					logger.info("LSF job ID is " + jobID + ".");
 					// Submit job
-					PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/write_wig_unnormalized_" + sample + "_" + chr + "_" + jobID + ".bsub", "week", 16);
+					LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/write_wig_unnormalized_" + sample + "_" + chr + "_" + jobID + ".bsub", "week", 16);
 				}
 			}
 			unnormalizedWigFiles.put(sample, unnormalizedWigFilesByChr);
 		}
 		logger.info("");
 		logger.info("Waiting for wig writer jobs to finish...");
-		PipelineUtils.waitForAllJobs(wigJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(wigJobIDs, Runtime.getRuntime());
 		logger.info("");
 		logger.info("Combining normalized chromosome wig files...");
 		for(String sample : normalizedWigFiles.keySet()) {
@@ -627,7 +627,7 @@ public class BamUtils {
 			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 			bigwigJobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_normalized_" + jobID + ".bsub", "hour", 4);
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_normalized_" + jobID + ".bsub", "hour", 4);
 		}
 		// Submit jobs for unnormalized files
 		for(String sample : fullUnnormalizedBigwigFiles.keySet()) {
@@ -645,10 +645,10 @@ public class BamUtils {
 			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 			bigwigJobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_unnormalized_" + jobID + ".bsub", "hour", 4);
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_unnormalized_" + jobID + ".bsub", "hour", 4);
 		}
 		logger.info("Waiting for wigToBigWig jobs to finish...");
-		PipelineUtils.waitForAllJobs(bigwigJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(bigwigJobIDs, Runtime.getRuntime());
 
 	}
 	
@@ -739,7 +739,7 @@ public class BamUtils {
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				bigwigJobIDs.add(jobID);
 				logger.info("LSF job ID is " + jobID + ".");
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
+				LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
 			}
 			
 			// Write midpoint wig file
@@ -768,7 +768,7 @@ public class BamUtils {
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				bigwigJobIDs.add(jobID);
 				logger.info("LSF job ID is " + jobID + ".");
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
+				LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
 			}
 
 			
@@ -800,7 +800,7 @@ public class BamUtils {
 					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 					bigwigJobIDs.add(jobID);
 					logger.info("LSF job ID is " + jobID + ".");
-					PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
+					LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
 				}
 			}
 		
@@ -809,7 +809,7 @@ public class BamUtils {
 
 		logger.info("");
 		logger.info("Waiting for wigToBigWig jobs to finish...");
-		PipelineUtils.waitForAllJobs(bigwigJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(bigwigJobIDs, Runtime.getRuntime());
 		
 	}
 
