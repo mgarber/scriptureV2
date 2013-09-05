@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.pipeline.util.LSFUtils;
 
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;
@@ -81,8 +81,8 @@ public final class ArrayDesignerInSilicoPcrTest {
 		String cmmd = "/seq/mguttman/scripts/isPCR/isPcr " + this.probeFile + " " + this.tempIsPcrPrimerInput + " " + outfile;
 		
 		// Submit the job
-		int exitCode = PipelineUtils.bsubSmallProcess(Runtime.getRuntime(), jobID , cmmd , "bsub_output_ispcr_test");
-		PipelineUtils.waitForJobs(jobID, Runtime.getRuntime(), 10, false);
+		int exitCode = LSFUtils.bsubSmallProcess(Runtime.getRuntime(), jobID , cmmd , "bsub_output_ispcr_test");
+		LSFUtils.waitForJobs(jobID, Runtime.getRuntime(), 10, false);
 		
 		boolean foundNonSpecificMatch = false;
 		boolean noMatches = false;

@@ -175,8 +175,8 @@ public class AlignmentUtils {
 		String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 		String output = bsubOutputDir + "/make_bowtie_index_" + jobID + ".bsub";
 		@SuppressWarnings("unused")
-		int prc = PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
-		PipelineUtils.waitForJobs(jobID, Runtime.getRuntime());
+		int prc = LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
+		LSFUtils.waitForJobs(jobID, Runtime.getRuntime());
 		logger.info("Done creating bowtie2 index for file " + fastaFile);
 	}
 	
@@ -266,7 +266,7 @@ public class AlignmentUtils {
 		String output = bsubOutDir + "/run_bowtie_" + jobID + ".bsub";
 		logger.info("Writing bsub output to file " + output);
 		@SuppressWarnings("unused")
-		int prc = PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
+		int prc = LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
 		logger.info("Job ID is " + jobID);
 		return jobID;
 		
@@ -471,11 +471,11 @@ public class AlignmentUtils {
 			tophatJobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
 			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, tophatCmmd, outdir + "/tophat_" + jobID + ".bsub", queueName, 16);
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, tophatCmmd, outdir + "/tophat_" + jobID + ".bsub", queueName, 16);
 		}
 		// Wait for tophat jobs to finish
 		logger.info("Waiting for tophat jobs to finish...");
-		PipelineUtils.waitForAllJobs(tophatJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(tophatJobIDs, Runtime.getRuntime());
 		logger.info("All samples done aligning to genome.");
 		
 		// Move all tophat bam files to one directory
@@ -591,10 +591,10 @@ public class AlignmentUtils {
 			indexJobIDs.add(jobID);
 			logger.info("LSF job ID is " + jobID + ".");
 			// Submit job
-			PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, indexfile.getParent() + "/index_bam_" + jobID + ".bsub", "hour", 1);
+			LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, indexfile.getParent() + "/index_bam_" + jobID + ".bsub", "hour", 1);
 		}
 		logger.info("Waiting for samtools jobs to finish...");
-		PipelineUtils.waitForAllJobs(indexJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(indexJobIDs, Runtime.getRuntime());
 	}
 
 	

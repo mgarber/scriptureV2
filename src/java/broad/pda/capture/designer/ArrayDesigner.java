@@ -20,7 +20,7 @@ import java.util.NoSuchElementException;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.pipeline.util.LSFUtils;
 
 import broad.core.motif.SearchException;
 import broad.core.parser.CommandLineParser;
@@ -1913,9 +1913,9 @@ public final class ArrayDesigner {
 			try {
 				// Get more memory if there is more than 1 isoform or more than 4 tiling paths
 				if(this.sequencesBySpeciesGene.get(speciesgene).size() > 1 || this.numTilingPaths > 4) {
-					int exitCode = PipelineUtils.bsubMediumProcess(Runtime.getRuntime(), jobID , cmmd , "TmpGeneAndIsoformProbes/bsub_output_" + speciesgene.toString());
+					int exitCode = LSFUtils.bsubMediumProcess(Runtime.getRuntime(), jobID , cmmd , "TmpGeneAndIsoformProbes/bsub_output_" + speciesgene.toString());
 				} else {
-					int exitCode = PipelineUtils.bsubSmallProcess(Runtime.getRuntime(), jobID , cmmd , "TmpGeneAndIsoformProbes/bsub_output_" + speciesgene.toString());
+					int exitCode = LSFUtils.bsubSmallProcess(Runtime.getRuntime(), jobID , cmmd , "TmpGeneAndIsoformProbes/bsub_output_" + speciesgene.toString());
 				}
 				jobIDs.add(jobID);
 				numSubmitted++;
@@ -1933,7 +1933,7 @@ public final class ArrayDesigner {
 		// DOESN'T SEEM TO BE WORKING FOR SOME REASON
 		// FOR NOW, JUST KILL AND RESTART. EXISTING OUTPUT WILL BE READ BACK IN.
 		System.out.println("Waiting for last job to finish...");
-		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
 		
 		System.out.println("Done creating gene probe temp files.\n");
 		

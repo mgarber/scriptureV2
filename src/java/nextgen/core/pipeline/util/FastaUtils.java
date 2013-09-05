@@ -43,9 +43,9 @@ public class FastaUtils {
 		logger.info("Running samtools command: " + cmmd);
 		String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 		logger.info("LSF job ID is " + jobID + ".");
-		PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutDir + "/index_fasta_" + jobID + ".bsub", "hour", 4);
+		LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutDir + "/index_fasta_" + jobID + ".bsub", "hour", 4);
 		logger.info("Waiting for samtools faidx job to finish...");
-		PipelineUtils.waitForJobs(jobID, Runtime.getRuntime());
+		LSFUtils.waitForJobs(jobID, Runtime.getRuntime());
 	}
 	
 	/**

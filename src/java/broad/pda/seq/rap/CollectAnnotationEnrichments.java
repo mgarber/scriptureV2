@@ -22,7 +22,7 @@ import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.annotation.*;
 import nextgen.core.annotation.filter.*;
 import nextgen.core.model.score.CountScore;
-import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.pipeline.util.LSFUtils;
 
 import broad.core.math.EmpiricalDistribution;
 
@@ -170,7 +170,7 @@ public class CollectAnnotationEnrichments extends GenomeCommandLineProgram {
 	
 	protected void submitJobs(SortedMap<String,File> annotationMap) throws IOException, InterruptedException {
 		Runtime run = Runtime.getRuntime();
-		String jobID = PipelineUtils.getJobID();
+		String jobID = LSFUtils.getJobID();
 		
 		for (String key : annotationMap.keySet()) {
 			String command = "-M 4 -P RAP java -Xmx2g -cp " +
@@ -185,11 +185,11 @@ public class CollectAnnotationEnrichments extends GenomeCommandLineProgram {
 			command += " PERMUTE=false QUEUE=null ANNOTATIONS=" + annotationMap.get(key).getAbsolutePath();
 			command += " ANNOTATION_BASE=" + key.substring(0,key.lastIndexOf('.')+1);
 			String bsub = OUTPUT.getAbsolutePath() + "." + key + ".bsub";
-			PipelineUtils.bsubProcess(run, jobID, command, bsub, QUEUE);
+			LSFUtils.bsubProcess(run, jobID, command, bsub, QUEUE);
 		}
 		
 		try {
-			PipelineUtils.waitForJobs(jobID, run, false);
+			LSFUtils.waitForJobs(jobID, run, false);
 		} catch (IllegalArgumentException e) {
 			log.error("One or more jobs failed. Proceeding anyway.");
 		}

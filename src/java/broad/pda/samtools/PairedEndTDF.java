@@ -19,7 +19,7 @@ import net.sf.samtools.SAMFileWriter;
 import net.sf.samtools.SAMFileWriterFactory;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMRecordIterator;
-import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.pipeline.util.LSFUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -108,7 +108,7 @@ public class PairedEndTDF  extends CommandLineProgram {
 			System.out.println(command);
 
 			Runtime run=Runtime.getRuntime();
-			PipelineUtils.bsubProcess(run, command);
+			LSFUtils.bsubProcess(run, command);
 			
 			if (!KEEP_INTERMEDIATE) tmpBam.delete();
 			

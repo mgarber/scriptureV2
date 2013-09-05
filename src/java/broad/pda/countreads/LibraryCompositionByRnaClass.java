@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import nextgen.core.pipeline.util.AlignmentUtils;
-import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.pipeline.util.LSFUtils;
 
 import org.apache.log4j.Logger;
 
@@ -261,7 +261,7 @@ public class LibraryCompositionByRnaClass {
 		}
 		// Wait for bowtie2 jobs to finish
 		this.logger.info("Waiting for jobs to finish...");
-		PipelineUtils.waitForAllJobs(transcriptomeJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(transcriptomeJobIDs, Runtime.getRuntime());
 		this.logger.info("Done aligning to transcriptome.");
 				
 		// Align unmapped reads for each sample to genome
@@ -294,7 +294,7 @@ public class LibraryCompositionByRnaClass {
 		
 		// Wait for bowtie2 jobs to finish
 		this.logger.info("Waiting for jobs to finish...");
-		PipelineUtils.waitForAllJobs(genomeJobIDs, Runtime.getRuntime());
+		LSFUtils.waitForAllJobs(genomeJobIDs, Runtime.getRuntime());
 		this.logger.info("Done aligning unmapped reads to genome.");
 		
 		// Count classes for each sample
