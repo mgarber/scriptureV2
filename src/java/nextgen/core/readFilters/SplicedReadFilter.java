@@ -22,5 +22,10 @@ public class SplicedReadFilter implements Predicate<Alignment>{
 		}
 		return false;
 	}
+
+	@Override
+	public int hashCode() {
+		throw new UnsupportedOperationException("Class should override hashCode() because it overrides equals()");
+	}
 	
 }
