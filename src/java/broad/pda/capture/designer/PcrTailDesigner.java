@@ -292,7 +292,7 @@ public final class PcrTailDesigner {
 	 * @return Primer pair with less than max primer penalty
 	 * @throws IOException
 	 */
-	public static PrimerPair getOneInitialPrimerPair(int primerLength) throws IOException {
+	public static PrimerPair getOneSyntheticPrimerPair(int primerLength) throws IOException {
 		// Repeat until a suitable primer pair is found
 		while(true) {
 			String seq = Sequence.generateRandomSequence(5000);
@@ -325,7 +325,7 @@ public final class PcrTailDesigner {
 		// Write primer data to file to be read in by another method
 		FileWriter writer = new FileWriter(outFile);
 		for(int i=0; i < numToWrite; i++) {
-			PrimerPair primer = getOneInitialPrimerPair(primerLength);
+			PrimerPair primer = getOneSyntheticPrimerPair(primerLength);
 			// The primer pair ID is the name of the outfile
 			String data = filename;
 			data += " ";
