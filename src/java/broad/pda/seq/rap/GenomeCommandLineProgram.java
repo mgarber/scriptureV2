@@ -23,7 +23,12 @@ import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.readFilters.*;
 
-
+/**
+ * @author engreitz
+ * Class used to run various analyses on sequencing data alignments in genomic or transcriptome space.
+ * Automatically filters improper pairs, chimeric reads and PCR duplicates
+ * 
+ */
 public abstract class GenomeCommandLineProgram extends CommandLineProgram {
     private static final Log log = Log.getInstance(GenomeCommandLineProgram.class);
     
@@ -39,7 +44,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 	@Option(doc="Region to process (e.g. chr1, chr1:5000-50230) Default (null) processes the entire genome", optional=true)
 	public String REGION = null;
 	
-	@Option(doc="Gene to process (from ANNOTATION file", optional=true)
+	@Option(doc="Specify region by gene name (from ANNOTATION file)", optional=true)
 	public String GENE = null;
 	
 	@Option(doc="Maximum paired-end read fragment length to consider.", optional=true)
@@ -84,7 +89,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		if (REGION != null) {
 			
 			if (coordinateSpace.hasChromosome(REGION)) {
-				regions.add(coordinateSpace.getEntireChromosome(REGION));
+				regions.add(coordinateSpace.getReferenceAnnotation(REGION));
 			} else {
 				try {
 					regions.add(new BasicAnnotation(REGION));
@@ -92,14 +97,16 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 					throw new IllegalArgumentException("REGION is improperly formatted");
 				}
 			}
-		} else {
+		} else if (GENE != null) {
+			regions.add(getGenes());
+		}
+		else {
 			regions.addAll(coordinateSpace.getReferenceAnnotations());
 		}
 		
 		return regions;
 	}
 	
-	// Todo: make compatible with TranscriptomeSpace
 	public Map<String,Annotation> getRegionsMap() {
 		Map<String,Annotation> regions = new HashMap<String,Annotation>();
 
@@ -137,7 +144,6 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		} else {
 			return null;
 		}
-		
 	}
 	
 	protected CoordinateSpace getCoordinateSpace() { return coordinateSpace; }
@@ -158,8 +164,10 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 			model.addFilter(new FragmentLengthFilter(coordinateSpace,MAX_FRAGMENT_LENGTH));
 		}
 		model.addFilter(new ChimeraFilter());
+		model.addFilter(new DuplicateFilter());
 		model.addFilter(new ProperPairFilter());
 		model.addFilter(new MappingQualityFilter(MIN_MAPPING_QUALITY));
+	
 		// TODO need to modify PairedEndWriter to save information about the other read
 		return model;
 	}
