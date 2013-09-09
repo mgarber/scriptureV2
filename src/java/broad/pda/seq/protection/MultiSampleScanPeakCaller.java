@@ -40,6 +40,7 @@ import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.pipeline.util.PipelineUtils;
 import nextgen.core.utils.AlignmentUtils;
 import nextgen.core.utils.AnnotationUtils;
+import nextgen.core.feature.GeneWindow;
 
 /**
  * @author prussell
@@ -51,7 +52,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	protected Map<String, Collection<Gene>> genes;
 	private Map<Gene, Map<Annotation, Double>> tStatisticWindowScores;
 	private Map<SampleData, Map<Gene, Map<Annotation, Double>>> singleSampleWindowEnrichmentOverGene;
-	private Map<SampleData, Map<Gene, Collection<Annotation>>> singleSampleScanPeaks;
+	private Map<SampleData, Map<Gene, Collection<Gene>>> singleSampleScanPeaks;
 	protected GenomeSpaceSampleData expressionData;
 	protected ArrayList<SampleData> controlSamples;
 	protected ArrayList<SampleData> signalSamples;
@@ -328,14 +329,14 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private void initializeScoreMaps() {
 		tStatisticWindowScores = new TreeMap<Gene, Map<Annotation, Double>>();
 		singleSampleWindowEnrichmentOverGene = new HashMap<SampleData, Map<Gene, Map<Annotation, Double>>>();
-		singleSampleScanPeaks = new HashMap<SampleData, Map<Gene, Collection<Annotation>>>();
+		singleSampleScanPeaks = new HashMap<SampleData, Map<Gene, Collection<Gene>>>();
 		for(SampleData sample : allSamples) {
 			if(!singleSampleWindowEnrichmentOverGene.containsKey(sample)) {
 				Map<Gene, Map<Annotation, Double>> m = new TreeMap<Gene, Map<Annotation, Double>>();
 				singleSampleWindowEnrichmentOverGene.put(sample, m);
 			}
 			if(!singleSampleScanPeaks.containsKey(sample)) {
-				Map<Gene, Collection<Annotation>> m = new TreeMap<Gene, Collection<Annotation>>();
+				Map<Gene, Collection<Gene>> m = new TreeMap<Gene, Collection<Gene>>();
 				singleSampleScanPeaks.put(sample, m);
 			}
 		}
@@ -558,15 +559,16 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				}
 			}
 			for(Gene gene : genes.get(chr)) {
-				Collection<Annotation> peaks = getSingleSampleScanPeaks(sample, gene);
+				Collection<Gene> peaks = getSingleSampleScanPeaks(sample, gene);
 				for(Annotation window : peaks) {
+					GeneWindow geneWindow = new GeneWindow(window); 
 					int r = RGB_RED_UNKNOWN;
 					int g = RGB_GREEN_UNKNOWN;
 					int b = RGB_BLUE_UNKNOWN;
 					if(window.getOrientation().equals(Strand.UNKNOWN)) {
 						String name = window.getName();
 						name += "_STRAND_UNKNOWN";
-						window.setName(name);						
+						geneWindow.setName(name);						
 					}
 					if(window.getOrientation().equals(gene.getOrientation()) && !window.getOrientation().equals(Strand.UNKNOWN)) {
 						r = RGB_RED_WITH_GENE;
@@ -576,12 +578,13 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 					if(!window.getOrientation().equals(gene.getOrientation()) && !window.getOrientation().equals(Strand.UNKNOWN)) {
 						String name = window.getName();
 						name += "_STRAND_AGAINST_GENE";
-						window.setName(name);
+						geneWindow.setName(name);
 						r = RGB_RED_AGAINST_GENE;
 						g = RGB_GREEN_AGAINST_GENE;
 						b = RGB_BLUE_AGAINST_GENE;
 					}
-					w.write(window.toBED(r, g, b) + "\n");
+					geneWindow.setBedScore(window.getScore());
+					w.write(geneWindow.toBED(r, g, b) + "\n");
 				}
 			}
 		}
@@ -596,7 +599,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @return Significant scan peaks
 	 * @throws IOException 
 	 */
-	public Collection<Annotation> getSingleSampleScanPeaks(SampleData sample, Gene gene) throws IOException {
+	public Collection<Gene> getSingleSampleScanPeaks(SampleData sample, Gene gene) throws IOException {
 		if(singleSampleScanPeaks.get(sample).containsKey(gene)) {
 			return singleSampleScanPeaks.get(sample).get(gene);
 		}
@@ -613,12 +616,13 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private void identifySingleSampleScanPeaks(SampleData sample, Gene gene, FileWriter rejectFileWriterExpression) throws IOException {
 		
 		TreeSet<Annotation> finalPeaks = new TreeSet<Annotation>();
+		TreeSet<Gene> rtrnPeaks = new TreeSet<Gene>();
 		TranscriptomeSpaceAlignmentModel data = sample.getData();
 		
 		// If gene is not expressed, skip
 		if(!isExpressed(gene)) {
 			logger.info("Gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ") not expressed in expression dataset.");
-			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
+			singleSampleScanPeaks.get(sample).put(gene, rtrnPeaks);
 			rejectFileWriterExpression.write(gene.toBED() + "\n");
 			return;
 		}
@@ -630,7 +634,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		
 		// If no significant windows return
 		if(scanSignificantWindows.isEmpty()) {
-			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
+			singleSampleScanPeaks.get(sample).put(gene, rtrnPeaks);
 			return;
 		}
 		
@@ -664,8 +668,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		int geneSize = coord.getSize(gene);
 		
 		// Add finishing touches to peaks
-		for(Annotation window : finalPeaks) {
+		for(Annotation peak : finalPeaks) {
 			
+			Gene window = new Gene(peak);
 			// Name peaks
 			window.setName(gene.getName() + ":" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
 			
@@ -673,25 +678,35 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			double enrichment = sample.getEnrichmentOverGene(gene, window);
 			double windowCount = sample.scoreWindow(gene, window).getCount();
 			double windowAvgCoverage = sample.scoreWindow(gene, window).getAverageCoverage(data);
+			double pval = sample.scoreWindow(gene, window).getScanPvalue();
+			
+			double[] extraFields = new double[6];
+			extraFields[0] = windowCount;
+			extraFields[1] = windowAvgCoverage;
+			extraFields[2] = geneCount;
+			extraFields[3] = geneAvgCoverage;
+			extraFields[4] = (double) geneSize;
+			extraFields[5] = pval;
 			
 			logger.debug("FINAL_PEAK\t" + gene.getName());
 			logger.debug("FINAL_PEAK\t" + window.toBED());
-			logger.debug("FINAL_PEAK\tname=" + window.getName());
-			logger.debug("FINAL_PEAK\twindow_count=" + windowCount);
-			logger.debug("FINAL_PEAK\twindow_size=" + coord.getSize(window));
-			logger.debug("FINAL_PEAK\twindow_avg_coverage=" + windowAvgCoverage);
-			logger.debug("FINAL_PEAK\tgene_count=" + geneCount);
-			logger.debug("FINAL_PEAK\tgene_size=" + geneSize);
-			logger.debug("FINAL_PEAK\tgene_avg_coverage=" + geneAvgCoverage);
-			logger.debug("FINAL_PEAK\tenrichment_over_transcript=" + enrichment);
-			logger.debug("FINAL_PEAK\tscore=" + window.getScore());
-			logger.debug("FINAL_PEAK\torientation=" + window.getOrientation().toString());
+			//logger.debug("FINAL_PEAK\tname=" + window.getName());
+			//logger.debug("FINAL_PEAK\twindow_count=" + windowCount);
+			//logger.debug("FINAL_PEAK\twindow_size=" + coord.getSize(window));
+			//logger.debug("FINAL_PEAK\twindow_avg_coverage=" + windowAvgCoverage);
+			//logger.debug("FINAL_PEAK\tgene_count=" + geneCount);
+			//logger.debug("FINAL_PEAK\tgene_size=" + geneSize);
+			//logger.debug("FINAL_PEAK\tgene_avg_coverage=" + geneAvgCoverage);
+			//logger.debug("FINAL_PEAK\tenrichment_over_transcript=" + enrichment);
+			//logger.debug("FINAL_PEAK\tscore=" + window.getScore());
+			//logger.debug("FINAL_PEAK\torientation=" + window.getOrientation().toString());
 			
 			window.setScore(enrichment);
+			window.setExtraFields(extraFields);
 
 		}
 		
-		singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
+		singleSampleScanPeaks.get(sample).put(gene, rtrnPeaks);
 	}
 	
 	private TreeSet<Annotation> findScanSignificantWindows(SampleData sample, Gene gene, FileWriter windowCountRejectFileWriter, FileWriter rejectFileWriterAllFragments, FileWriter rejectFileWriterFragmentLengthFilter) throws IOException {
@@ -706,31 +721,31 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			}
 			double pval = score.getScanPvalue();
 			if(pval < peakWindowScanPvalCutoff) {
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + gene.getName());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + window.toBED());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_length=" + score.getGlobalLength());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_count=" + score.getTotal());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + score.getGlobalLambda());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\twindow_size=" + score.getCoordinateSpace().getSize(window));
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\twindow_count=" + score.getCount());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tpval=" + score.getScanPvalue());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + gene.getName());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + window.toBED());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_length=" + score.getGlobalLength());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_count=" + score.getTotal());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + score.getGlobalLambda());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\twindow_size=" + score.getCoordinateSpace().getSize(window));
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\twindow_count=" + score.getCount());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tpval=" + score.getScanPvalue());
 				ScanStatisticScore fragmentLengthFilterScore = sample.scoreWindowWithFragmentLengthFilter(gene, window);
 				double pval2 = fragmentLengthFilterScore.getScanPvalue();
 				if(pval2 < peakWindowScanPvalCutoff) {
-					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_length=" + fragmentLengthFilterScore.getGlobalLength());
-					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_count=" + fragmentLengthFilterScore.getTotal());
-					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + fragmentLengthFilterScore.getGlobalLambda());
-					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_size=" + fragmentLengthFilterScore.getCoordinateSpace().getSize(window));
-					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_count=" + fragmentLengthFilterScore.getCount());
-					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tpval=" + fragmentLengthFilterScore.getScanPvalue());				
+					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_length=" + fragmentLengthFilterScore.getGlobalLength());
+					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_count=" + fragmentLengthFilterScore.getTotal());
+					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + fragmentLengthFilterScore.getGlobalLambda());
+					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_size=" + fragmentLengthFilterScore.getCoordinateSpace().getSize(window));
+					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_count=" + fragmentLengthFilterScore.getCount());
+					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tpval=" + fragmentLengthFilterScore.getScanPvalue());				
 					rtrn.add(window);
 				} else {
-					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_length=" + fragmentLengthFilterScore.getGlobalLength());
-					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_count=" + fragmentLengthFilterScore.getTotal());
-					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + fragmentLengthFilterScore.getGlobalLambda());
-					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_size=" + fragmentLengthFilterScore.getCoordinateSpace().getSize(window));
-					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_count=" + fragmentLengthFilterScore.getCount());
-					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tpval=" + fragmentLengthFilterScore.getScanPvalue());				
+					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_length=" + fragmentLengthFilterScore.getGlobalLength());
+					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_count=" + fragmentLengthFilterScore.getTotal());
+					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + fragmentLengthFilterScore.getGlobalLambda());
+					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_size=" + fragmentLengthFilterScore.getCoordinateSpace().getSize(window));
+					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_count=" + fragmentLengthFilterScore.getCount());
+					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tpval=" + fragmentLengthFilterScore.getScanPvalue());				
 					rejectFileWriterFragmentLengthFilter.write(window.toBED() + "\n");
 				}
 			} else {
@@ -746,7 +761,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			List<Double> coverageData = data.getPositionCountList(new Gene(window));
 			Annotation trimmed = SampleData.trimMaxContiguous(window, coverageData, trimQuantile);
 			rtrn.add(trimmed);
-			logger.debug("MERGED_TRIMMED_WINDOW\t" + window.toBED());
+			//logger.debug("MERGED_TRIMMED_WINDOW\t" + window.toBED());
 		}
 		return rtrn;
 	}
@@ -757,14 +772,14 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			ScanStatisticScore score = sample.scoreWindow(gene, window);
 			double p = score.getScanPvalue();
 			if(p < peakWindowScanPvalCutoff) {
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + gene.getName());
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + window.toBED());
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_length=" + score.getGlobalLength());
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_count=" + score.getTotal());
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_lambda=" + score.getGlobalLambda());
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_size=" + score.getCoordinateSpace().getSize(window));
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_count=" + score.getCount());
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tpval=" + score.getScanPvalue());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + gene.getName());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + window.toBED());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_length=" + score.getGlobalLength());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_count=" + score.getTotal());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_lambda=" + score.getGlobalLambda());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_size=" + score.getCoordinateSpace().getSize(window));
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_count=" + score.getCount());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tpval=" + score.getScanPvalue());
 				rtrn.add(window);
 			} else {
 				rejectFileWriter.write(window.toBED() + "\n");
@@ -791,11 +806,11 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			}
 			double mostCommonPct = (double) largestReplicate / (double) total;
 			if(mostCommonPct > maxPctMostCommonRead) {
-				logger.debug("TOO_MANY_DUPLICATE_READS\t" + mostCommon + "\t" + mostCommonPct + " duplicates");
+				//logger.debug("TOO_MANY_DUPLICATE_READS\t" + mostCommon + "\t" + mostCommonPct + " duplicates");
 				rejectFileWriter.write(window.toBED() + "\n");
 				continue;
 			}
-			logger.debug("NUMBER_OF_DUPLICATE_READS_OK\t" + mostCommon + "\t" +  mostCommonPct + " duplicates");
+			//logger.debug("NUMBER_OF_DUPLICATE_READS_OK\t" + mostCommon + "\t" +  mostCommonPct + " duplicates");
 			rtrn.add(window);
 		}
 		return rtrn;
@@ -807,16 +822,16 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			Strand orientation = AlignmentUtils.assignOrientationToWindow(sample.getOriginalBamFile(), window, sample.firstReadTranscriptionStrand(), 0.9);
 			window.setOrientation(orientation);
 			if(orientation.equals(gene.getOrientation())) {
-				logger.debug("STRAND_OK\t" + gene.toBED());
-				logger.debug("STRAND_OK\t" + window.toBED());
+				//logger.debug("STRAND_OK\t" + gene.toBED());
+				//logger.debug("STRAND_OK\t" + window.toBED());
 				rtrn.add(window);
 			} else if(orientation.equals(Strand.UNKNOWN)) {
-				logger.debug("STRAND_UNKNOWN_SKIPPING\t" + gene.toBED());
-				logger.debug("STRAND_UNKNOWN_SKIPPING\t" + window.toBED());				
+				//logger.debug("STRAND_UNKNOWN_SKIPPING\t" + gene.toBED());
+				//logger.debug("STRAND_UNKNOWN_SKIPPING\t" + window.toBED());				
 				rejectFileWriter.write(window.toBED() + "\n");
 			} else {
-				logger.debug("WRONG_STRAND_SKIPPING\t" + gene.toBED());
-				logger.debug("WRONG_STRAND_SKIPPING\t" + window.toBED());				
+				//logger.debug("WRONG_STRAND_SKIPPING\t" + gene.toBED());
+				//logger.debug("WRONG_STRAND_SKIPPING\t" + window.toBED());				
 				rejectFileWriter.write(window.toBED() + "\n");
 			}
 		}
@@ -897,7 +912,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			for(Annotation window : scores.keySet()) {
 				double windowAvgCoverage = scores.get(window).getAverageCoverage(sample.getData());
 				double enrichment = windowAvgCoverage / geneAvgCoverage;
-				//logger.info(sample.getSampleName() + "\t" + gene.getName() + "\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\tavg_coverage=" + windowAvgCoverage + "\twindow_enrichment=" + enrichment);
+				logger.info(sample.getSampleName() + "\t" + gene.getName() + "\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\tavg_coverage=" + windowAvgCoverage + "\twindow_enrichment=" + enrichment);
 				sampleWindowEnrichments.put(window, Double.valueOf(enrichment));
 			}
 			singleSampleWindowEnrichmentOverGene.get(sample).put(gene, sampleWindowEnrichments);
@@ -1026,7 +1041,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		peakTree.addAll(peaks);
 		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(peakTree);
 		for(Annotation window : mergedWindows) {
-			logger.debug("MERGED_WINDOW\t" + window.toBED());
+			//logger.debug("MERGED_WINDOW\t" + window.toBED());
 		}
 		return mergedWindows;
 	}
