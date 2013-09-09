@@ -370,6 +370,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		} else {
 			CloseableIterator<AlignmentCount> iter=getOverlappingReadCounts(window, fullyContained);
 			double result = getCount(iter);
+			iter.close();
 			return result;
 		}
 	}
