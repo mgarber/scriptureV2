@@ -560,7 +560,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			}
 			for(Gene gene : genes.get(chr)) {
 				Collection<Gene> peaks = getSingleSampleScanPeaks(sample, gene);
-				for(Annotation window : peaks) {
+				for(Gene window : peaks) {
 					GeneWindow geneWindow = new GeneWindow(window); 
 					int r = RGB_RED_UNKNOWN;
 					int g = RGB_GREEN_UNKNOWN;
@@ -584,7 +584,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 						b = RGB_BLUE_AGAINST_GENE;
 					}
 					geneWindow.setBedScore(window.getScore());
-					w.write(geneWindow.toBED(r, g, b) + "\n");
+					w.write(geneWindow.toBED(true, r, g, b) + "\n");
 				}
 			}
 		}
@@ -703,6 +703,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			
 			window.setScore(enrichment);
 			window.setExtraFields(extraFields);
+			
+			rtrnPeaks.add(window);
 
 		}
 		
