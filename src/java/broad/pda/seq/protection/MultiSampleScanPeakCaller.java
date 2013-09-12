@@ -34,10 +34,12 @@ import nextgen.core.annotation.Gene;
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
+import nextgen.core.job.Job;
+import nextgen.core.job.JobUtils;
+import nextgen.core.job.LSFJob;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
-import nextgen.core.pipeline.util.LSFUtils;
 import nextgen.core.utils.AlignmentUtils;
 import nextgen.core.utils.AnnotationUtils;
 
@@ -409,7 +411,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		}
 		
 		String jar = commandLineBatchJar(commandArgs);
-		ArrayList<String> jobIDs = new ArrayList<String>();
+		ArrayList<Job> jobs = new ArrayList<Job>();
 		String outDir = commandLineOutDir(commandArgs);
 		File o = new File(outDir);
 		@SuppressWarnings("unused")
@@ -430,52 +432,20 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				String cmmd = "java -jar -Xmx" + xmx + "g -Xms" + xms + "g -Xmn" + xmn + "g " + jar + " " + args;
 				logger.info("Running command: " + cmmd);
 				String jobID = sample.getSampleName() + "_" + chr + "_" + Long.valueOf(System.currentTimeMillis()).toString();
-				jobIDs.add(jobID);
+				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, outDir + "/" + jobID + ".bsub", "week", memRequestGb);
+				jobs.add(job);
 				cmmds.put(jobID, cmmd);
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
-				LSFUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, outDir + "/" + jobID + ".bsub", "week", memRequestGb);
+				job.submit();
 
 			}
 		}
 
-		boolean allJobsReservedHeapSpace = false;
-		while(!allJobsReservedHeapSpace) {
-			logger.info("");
-			logger.info("Waiting for all jobs to start...");
-			LSFUtils.waitForAllJobsToStart(jobIDs, Runtime.getRuntime());
-			logger.info("All jobs have started.");
-			Thread.sleep(5000);
-			ArrayList<String> jobsThatFailedHeapSpace = new ArrayList<String>();
-			for(String jobID : jobIDs) {
-				String out = outDir + "/" + jobID + ".bsub";
-				File outFile = new File(out);
-				if(outFile.exists()) {
-					if(LSFUtils.jobFailedCouldNotReserveHeapSpace(out)) {
-						jobsThatFailedHeapSpace.add(jobID);
-					}
-				}
-			}
-			if(jobsThatFailedHeapSpace.isEmpty()) {
-				allJobsReservedHeapSpace = true;
-				continue;
-			}
-			for(String jobID : jobsThatFailedHeapSpace) {
-				String cmmd = cmmds.get(jobID);
-				logger.info("Resubmitting command because heap space reservation failed: " + cmmd);
-				String newJobID = jobID + "_" + Long.valueOf(System.currentTimeMillis()).toString();
-				jobIDs.add(newJobID);
-				cmmds.put(newJobID, cmmd);
-				logger.info("LSF job ID is " + newJobID + ".");
-				LSFUtils.bsubProcess(Runtime.getRuntime(), newJobID, cmmd, outDir + "/" + newJobID + ".bsub", "week", 32);
-				jobIDs.remove(jobID);
-				jobIDs.add(newJobID);
-			}
-		}
 		
 		logger.info("");
 		logger.info("Waiting for jobs to finish...");
-		LSFUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+		JobUtils.waitForAll(jobs);
 		
 		logger.info("\nAll jobs finished.\n");
 		

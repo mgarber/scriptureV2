@@ -1,4 +1,4 @@
-qpackage nextgen.core.scripture;
+package nextgen.core.scripture;
 
 
 import java.util.ArrayList;
