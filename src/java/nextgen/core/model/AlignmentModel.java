@@ -357,6 +357,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		// Check to see if user is requesting a count of the whole chromosome, which we may have stored.
 		// Make sure not to just call this function in getChrLambda!  otherwise infinite loop
 		Annotation refAnnotation = null;
+		CloseableIterator<AlignmentCount> iter = null;
 		try {
 			refAnnotation = coordinateSpace.getReferenceAnnotation(window.getChr());
 		} catch (IllegalArgumentException e) {
@@ -368,7 +369,12 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			if(!this.hasGlobalStats) computeGlobalStats();
 			return refSequenceCounts.get(window.getChr());
 		} else {
-			CloseableIterator<AlignmentCount> iter=getOverlappingReadCounts(window, fullyContained);
+			try{
+				iter=getOverlappingReadCounts(window, fullyContained);
+			} catch (IllegalStateException e) {
+				logger.warn("getCount failing on window " + window.toBED());
+				return 0.0;
+			}
 			double result = getCount(iter);
 			iter.close();
 			return result;
@@ -414,7 +420,9 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 */
 	public double getCount() {
 		CloseableIterator<AlignmentCount> iter=this.cache.getReads();
-		return getCount(iter);
+		double rtrn = getCount(iter);
+		iter.close();
+		return rtrn;
 	}
 	
 	

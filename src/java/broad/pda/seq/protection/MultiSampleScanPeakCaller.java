@@ -70,7 +70,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private static boolean DEFAULT_FIRST_READ_TRANSCRIPTION_STRAND = false;
 	private static double DEFAULT_PEAK_MAX_PCT_DUPLICATES = 0.5;
 	private static boolean DEFAULT_FILTER_BY_STRAND = true;
+	private static boolean DEFAULT_EXTRA_FIELDS = false;
 	private boolean filterByStrand;
+	private boolean extraFields;
 	protected int numControls;
 	protected int numSignals;
 	protected int numSamples;
@@ -160,6 +162,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		firstReadTranscriptionStrand = DEFAULT_FIRST_READ_TRANSCRIPTION_STRAND;
 		peakCutoffMaxReplicatePct = DEFAULT_PEAK_MAX_PCT_DUPLICATES;
 		filterByStrand = DEFAULT_FILTER_BY_STRAND;
+		extraFields = DEFAULT_EXTRA_FIELDS;
 		
 		
 	}
@@ -211,6 +214,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		setFirstReadTranscriptionStrand(other.firstReadTranscriptionStrand);
 		setExpressionScanPvalueCutoff(other.expressionData.getExpressionScanPvalueCutoff());
 		setFilterByStrand(other.filterByStrand);
+		setExtraFields(other.extraFields);
 	}
 	
 	/**
@@ -219,6 +223,14 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 */
 	public void setFilterByStrand(boolean useStrandFilter) {
 		filterByStrand = useStrandFilter;
+	}
+	
+	/**
+	 * Set whether to use strand information in reads to filter peaks
+	 * @param useStrandFilter Whether to apply strand filter
+	 */
+	public void setExtraFields(boolean useExtraFields) {
+		extraFields = useExtraFields;
 	}
 	
 	/**
@@ -584,7 +596,11 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 						b = RGB_BLUE_AGAINST_GENE;
 					}
 					geneWindow.setBedScore(window.getScore());
-					w.write(geneWindow.toBED(true, r, g, b) + "\n");
+					if (extraFields) {
+						w.write(geneWindow.toBED(true, r, g, b) + "\n");
+					} else {
+						w.write(geneWindow.toBED(r, g, b) + "\n");
+					}
 				}
 			}
 		}
@@ -1192,6 +1208,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		p.addBooleanArg("-ft", "First read is transcription strand", false, DEFAULT_FIRST_READ_TRANSCRIPTION_STRAND);
 		p.addDoubleArg("-r", "Cutoff for percentage of reads in peak coming from the most common replicate fragment", false, DEFAULT_PEAK_MAX_PCT_DUPLICATES);
 		p.addBooleanArg("-sf", "Apply strand filter using read strand info", false, DEFAULT_FILTER_BY_STRAND);
+		p.addBooleanArg("-ef", "Print additional info in BED file", false, DEFAULT_EXTRA_FIELDS);
 		p.parse(commandArgs);
 		return p;
 	}
@@ -1210,7 +1227,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		boolean firstReadIsTranscriptionStrand = p.getBooleanArg("-ft");
 		double maxPctMostCommonReplicatePerPeak = p.getDoubleArg("-r");
 		boolean useStrandFilter = p.getBooleanArg("-sf");
-		
+		boolean extraFields =  p.getBooleanArg("-ef");
 		
 		MultiSampleScanPeakCaller m = new MultiSampleScanPeakCaller(sampleListFile, bedFile, chrSizeFile, windowSize, stepSize);
 		m.setExpressionScanPvalueCutoff(expressionScanPvalCutoff);
@@ -1220,6 +1237,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		m.setPeakWindowCountCutoff(windowCountCutoff);
 		m.setPeakWindowScanPvalCutoff(scanPvalCutoff);
 		m.setFilterByStrand(useStrandFilter);
+		m.setExtraFields(extraFields);
 		
 		return m;
 		 
