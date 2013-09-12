@@ -89,6 +89,11 @@ public class RNASeqPipeline {
 	Map<String,String> currentBamFiles;
 		
 	/**
+	 * Scheduler e.g. LSF or SGE
+	 */
+	Scheduler scheduler;
+	
+	/**
 	 * The directory containing the current bam files
 	 */
 	String currentBamDir;
@@ -128,6 +133,7 @@ public class RNASeqPipeline {
 
 		configFile = getConfigFile(configFileName);
 		fastqReadIdPairNumberDelimiter = configFile.getSingleValueField(sectionBasicOptions, optionFastqReadNumberDelimiter);
+		scheduler = Scheduler.fromString(configFile.getSingleValueField(sectionScheduler, optionScheduler));
 		
 		//If this flag is false, then the expected input file formats are different
 		boolean runBasic = false;
@@ -170,7 +176,7 @@ public class RNASeqPipeline {
 				String adapter1 = configFile.getSingleValueField(sectionBasicOptions, optionRead1Adapter);
 				String adapter2 = null;
 				if(configFile.hasOption(sectionBasicOptions, optionRead2Adapter)) adapter2 = configFile.getSingleValueField(sectionBasicOptions, optionRead2Adapter);
-				Map<String, ArrayList<String>> clippedFqs = FastqUtils.clipAdapters(fastxDir, currentLeftFqs, currentRightFqs, adapter1, adapter2, fastqReadIdPairNumberDelimiter, getScheduler());
+				Map<String, ArrayList<String>> clippedFqs = FastqUtils.clipAdapters(fastxDir, currentLeftFqs, currentRightFqs, adapter1, adapter2, fastqReadIdPairNumberDelimiter, scheduler);
 				// Update current fastq files
 				for(String sample : clippedFqs.keySet()) {
 					currentLeftFqs.put(sample, clippedFqs.get(sample).get(0));
@@ -234,19 +240,6 @@ public class RNASeqPipeline {
 			
 		}
 	}
-	
-	private String getScheduler() {
-		return configFile.getSingleValueField(sectionScheduler, optionScheduler);
-	}
-	
-	private boolean schedulerIsLSF() {
-		return getScheduler().equals("LSF");
-	}
-	
-	private boolean schedulerIsSGE() {
-		return getScheduler().equals("SGE");
-	}
-
 	
 	/**
 	 * Returns true if the config file contains one or more basic commands
@@ -459,7 +452,7 @@ public class RNASeqPipeline {
 			bowtie2options.put(value.asString(1), value.getLastFields(2));
 		}
 		Map<String, Integer> totalReadCounts = lcrc.getTotalReadCounts();
-		Map<String, Map<String, Integer>> classCounts = lcrc.alignAndGetCounts(samtoolsExecutable, bowtie2Executable, bowtie2options, bowtie2BuildExecutable, rnaClassDir, getScheduler());
+		Map<String, Map<String, Integer>> classCounts = lcrc.alignAndGetCounts(samtoolsExecutable, bowtie2Executable, bowtie2options, bowtie2BuildExecutable, rnaClassDir, scheduler);
 		
 		logger.info("Writing table of counts to file " + countFileName);
 		logger.info("Writing table of percentages to file " + pctFileName);
@@ -538,7 +531,7 @@ public class RNASeqPipeline {
 		logger.info("Filtering ribosomal RNA by removing reads that map to sequences in " + rRnaFasta);
 		
 		// Make bowtie2 index for ribosomal RNA
-		AlignmentUtils.makeBowtie2Index(rRnaFasta, outIndex, bowtieBuild, FILTER_RRNA_DIRECTORY, getScheduler());
+		AlignmentUtils.makeBowtie2Index(rRnaFasta, outIndex, bowtieBuild, FILTER_RRNA_DIRECTORY, scheduler);
 		
 		// Establish output file names
 		Map<String, String> outRibosomalMap = new TreeMap<String, String>();
@@ -587,7 +580,7 @@ public class RNASeqPipeline {
 			for(ConfigFileOptionValue value : configFile.getOptionValues(sectionBasicOptions, optionBowtie2Option)) {
 				bowtie2options.put(value.asString(1), value.getLastFields(2));
 			}
-			Job job = AlignmentUtils.runBowtie2(outIndex, bowtie2options, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, outRibosomal, paired ? outFilteredPairedArg : outFilteredUnpaired, bowtie, FILTER_RRNA_DIRECTORY, paired, getScheduler());
+			Job job = AlignmentUtils.runBowtie2(outIndex, bowtie2options, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, outRibosomal, paired ? outFilteredPairedArg : outFilteredUnpaired, bowtie, FILTER_RRNA_DIRECTORY, paired, scheduler);
 			jobs.add(job);
 			
 		}
@@ -664,7 +657,7 @@ public class RNASeqPipeline {
 		}
 		
 		// Make bowtie2 index for transcripts
-		AlignmentUtils.makeBowtie2Index(fasta, outIndex, bowtieBuild, ALIGN_TO_TRANSCRIPTS_DIRECTORY, getScheduler());
+		AlignmentUtils.makeBowtie2Index(fasta, outIndex, bowtieBuild, ALIGN_TO_TRANSCRIPTS_DIRECTORY, scheduler);
 		
 		// Establish output file names
 		ArrayList<Job> jobs = new ArrayList<Job>();
@@ -710,7 +703,7 @@ public class RNASeqPipeline {
 			}
 			
 			// Align to transcripts
-			Job job = AlignmentUtils.runBowtie2(outIndex, bowtie2options, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, sam, null, bowtie, ALIGN_TO_TRANSCRIPTS_DIRECTORY, paired, getScheduler());
+			Job job = AlignmentUtils.runBowtie2(outIndex, bowtie2options, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, sam, null, bowtie, ALIGN_TO_TRANSCRIPTS_DIRECTORY, paired, scheduler);
 			jobs.add(job);
 			
 		}
@@ -721,12 +714,12 @@ public class RNASeqPipeline {
 		logger.info("Done aligning to transcripts. Converting sam to bam files.");
 		Map<String, String> bsubDir = new TreeMap<String, String>();
 		for(String sample : sampleNames) bsubDir.put(sample, ALIGN_TO_TRANSCRIPTS_DIRECTORY);
-		BamUtils.samToBam(samOutput, unsortedBamOutput, sortedBamOutput, bsubDir, samtools, getScheduler());
+		BamUtils.samToBam(samOutput, unsortedBamOutput, sortedBamOutput, bsubDir, samtools, scheduler);
 		
 		logger.info("");
 		logger.info("Done converting sam to bam files. Delete sam files to save storage.");
 		logger.info("Sorting bam files.");
-		BamUtils.sortBamFiles(unsortedBamOutput, sortedBamOutput, bsubDir, sortedBamOutput, picardJarDir, getScheduler());
+		BamUtils.sortBamFiles(unsortedBamOutput, sortedBamOutput, bsubDir, sortedBamOutput, picardJarDir, scheduler);
 		// Delete unsorted bam files
 		for(String sample : sampleNames) {
 			File unsorted = new File(unsortedBamOutput.get(sample));
@@ -736,7 +729,7 @@ public class RNASeqPipeline {
 		
 		logger.info("");
 		logger.info("Done sorting bam files. Indexing sorted bam files.");
-		AlignmentUtils.indexBamFiles(sortedBamOutput, samtools, getScheduler());
+		AlignmentUtils.indexBamFiles(sortedBamOutput, samtools, scheduler);
 				
 		logger.info("");
 		logger.info("Getting median fragment sizes per transcript.");
@@ -808,7 +801,7 @@ public class RNASeqPipeline {
 		if(indexedFastaFile.exists()) {
 			logger.warn("Fasta index " + indexedFasta + " already exists. Not remaking fasta index.");
 		} else {
-			FastaUtils.indexFastaFile(fasta, samtools, ALIGN_TO_TRANSCRIPTS_DIRECTORY);
+			FastaUtils.indexFastaFile(fasta, samtools, ALIGN_TO_TRANSCRIPTS_DIRECTORY, scheduler);
 			logger.info("Done indexing fasta file.");
 		}
 		logger.info("Making tdf files.");
@@ -817,7 +810,7 @@ public class RNASeqPipeline {
 			throw new IllegalArgumentException("In order to make tdf, must provide config file option " + optionIgvToolsExecutable.getName());
 		}
 		
-		BamUtils.makeTdfs(peBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable));
+		BamUtils.makeTdfs(peBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable), scheduler);
 		
 		// Make wig and bigwig files of fragment ends
 		logger.info("");
@@ -895,7 +888,7 @@ public class RNASeqPipeline {
 		}
 		
 		// Run tophat
-		currentBamFiles.putAll(AlignmentUtils.runTophat(tophat, samtools, sampleNames, leftFqs, rightFqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, queueName, TOPHAT_DIRECTORY, getScheduler()));
+		currentBamFiles.putAll(AlignmentUtils.runTophat(tophat, samtools, sampleNames, leftFqs, rightFqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, queueName, TOPHAT_DIRECTORY, scheduler));
 		// Update current bam directory
 		currentBamDir = TOPHAT_DIRECTORY;
 		logger.info("Done running tophat.");
@@ -968,13 +961,13 @@ public class RNASeqPipeline {
 			// Convert novoalign sam files to bam format
 			logger.info("");
 			logger.info("Converting novoalign sam files to bam format...");
-			BamUtils.samToBam(novoSamOutput, novoBamOutput, novoBamFinalPath, novoDirsPerSample, samtools, getScheduler());
+			BamUtils.samToBam(novoSamOutput, novoBamOutput, novoBamFinalPath, novoDirsPerSample, samtools, scheduler);
 			logger.info("All samples done converting to bam format.");
 			
 			// Sort the bam files
 			logger.info("");
 			logger.info("Sorting novoalign bam files...");
-			BamUtils.sortBamFiles(novoBamOutput, novoSortedBam, novoDirsPerSample, novoBamFinalPath, picardJarDir, getScheduler());
+			BamUtils.sortBamFiles(novoBamOutput, novoSortedBam, novoDirsPerSample, novoBamFinalPath, picardJarDir, scheduler);
 			logger.info("All bam files sorted.");
 			
 			// Move all novoalign bam files to one directory
@@ -1048,7 +1041,7 @@ public class RNASeqPipeline {
 		if(configFile.hasOption(sectionBasicOptions, optionIgvToolsExecutable)) {
 			logger.info("");
 			logger.info("Making tdf files for bam files...");
-			BamUtils.makeTdfs(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionGenomeAssemblyName), configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable));
+			BamUtils.makeTdfs(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionGenomeAssemblyName), configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable), scheduler);
 			logger.info("All tdf files created.");
 		}
 		
@@ -1156,15 +1149,17 @@ public class RNASeqPipeline {
 			// Complete command
 			cmmd += " FASTQ=" + fastq1;
 			logger.info("Running Picard command: " + cmmd);
-			if(schedulerIsLSF()) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, dir + "/sam_to_fastq_" + jobID + ".bsub", "hour", 16);
 				job.submit();
 				convertJobs.add(job);
-			} else {
-				throw new IllegalArgumentException("Scheduler " + getScheduler() + " not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
 		}
 		logger.info("Waiting for SamToFastq jobs to finish...");
@@ -1236,7 +1231,8 @@ public class RNASeqPipeline {
 			if(!tophat2) cmmd += " " + unmappedFastq.get(sample)[1];
 			logger.info("Writing novoalign output for sample " + sample + " to directory " + outdir + ".");
 			logger.info("Running novoalign command: " + cmmd);
-			if(schedulerIsLSF()) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
@@ -1245,8 +1241,9 @@ public class RNASeqPipeline {
 				job.submit();
 				novoJobs.add(job);
 				novoBsubFiles.put(sample,bsubFile);
-			} else {
-				throw new IllegalArgumentException("Scheduler " + getScheduler() + " not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
 		}
 		// Wait for novoalign jobs to finish
@@ -1324,14 +1321,16 @@ public class RNASeqPipeline {
 			logger.warn("Header file " + tophatHeader + " already exists. Not remaking header.");
 		} else {
 			logger.info("Running command: " + getHeaderCmmd);
-			if(schedulerIsLSF()) {
+			switch(scheduler) {
+			case LSF:
 				logger.info("LSF job ID is " + getHeaderJobID + ".");
 				LSFJob job = new LSFJob(Runtime.getRuntime(), getHeaderJobID, getHeaderCmmd, NOVOALIGN_DIRECTORY + "/get_sam_header_" + getHeaderJobID + ".bsub", "hour", 1);
 				job.submit();
 				logger.info("Waiting for samtools view to finish...");
 				job.waitFor();
-			} else {
-				throw new IllegalArgumentException("Scheduler " + getScheduler() + " not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
 			// Change sort order to unsorted
 			FileReader r = new FileReader(tmpHeader);
@@ -1417,14 +1416,16 @@ public class RNASeqPipeline {
 			// Use Picard program MergeSamFiles
 			String cmmd = "java -jar " + picardJarDir + "/MergeSamFiles.jar INPUT=" + tophatBam + " INPUT=" + novoBam + " OUTPUT=" + mergedBam;
 			logger.info("Running Picard command: " + cmmd);
-			if(schedulerIsLSF()) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, MERGED_TOPHAT_NOVOALIGN_DIRECTORY + "/merge_bams_" + jobID + ".bsub", "hour", 1);
 				mergeJobs.add(job);
-			} else {
-				throw new IllegalArgumentException("Scheduler " + getScheduler() + " not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
 		}
 		// Wait for jobs to finish
@@ -1466,7 +1467,7 @@ public class RNASeqPipeline {
 	 * @throws InterruptedException
 	 */
 	private void indexCurrentBams(String samtools) throws IOException, InterruptedException {
-		AlignmentUtils.indexBamFiles(currentBamFiles, samtools, getScheduler());
+		AlignmentUtils.indexBamFiles(currentBamFiles, samtools, scheduler);
 	}
 	
 	
@@ -1489,7 +1490,7 @@ public class RNASeqPipeline {
 		String wigToBigWig = configFile.getSingleValueField(sectionBasicOptions, optionWigToBigWigExecutable);
 		String wigWriter = configFile.getSingleValueField(sectionBasicOptions, optionWigWriterJar);
 		
-		BamUtils.writeWigPositionCount(bamFiles, bamDir, geneBedFile, refFasta, wigToBigWig, wigWriter, getScheduler());
+		BamUtils.writeWigPositionCount(bamFiles, bamDir, geneBedFile, refFasta, wigToBigWig, wigWriter, scheduler);
 		
 	}
 	
@@ -1507,7 +1508,7 @@ public class RNASeqPipeline {
 			throw new IllegalArgumentException("In order to write wig file, must specify " + optionWigToBigWigExecutable.getName() + " in config file.");
 		}
 		String wigToBigWig = configFile.getSingleValueField(sectionBasicOptions, optionWigToBigWigExecutable);
-		BamUtils.writeWigFragmentEndsAndMidpoints(bamFiles, pairedData, bamDir, refFasta, geneBedFile, wigToBigWig, getScheduler());
+		BamUtils.writeWigFragmentEndsAndMidpoints(bamFiles, pairedData, bamDir, refFasta, geneBedFile, wigToBigWig, scheduler);
 	}
 	
 	
@@ -1615,14 +1616,16 @@ public class RNASeqPipeline {
 			reordered.put(sample, bam + ".reordered");
 			String cmmd = "java -jar " + picardDir + "/ReorderSam.jar I=" + bam + " O=" + reordered.get(sample) + " R=" + configFile.getSingleValue(sectionBasicOptions, optionGenomeFasta);
 			logger.info("Running picard command: " + cmmd);
-			if(schedulerIsLSF()) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/reorder_bam_" + jobID + ".bsub", "week", 16);
 				reorderJobs.add(job);
-			} else {
-				throw new IllegalArgumentException("Scheduler " + getScheduler() + " not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
 		}
 		logger.info("Waiting for picard jobs to finish...");
@@ -1647,11 +1650,11 @@ public class RNASeqPipeline {
 		logger.info("Writing global stats for alignments...");
 		ArrayList<Job> jobs = new ArrayList<Job>();
 		if(bedFile != null) {
-			Collection<Job> tJobs = BamUtils.writeTranscriptomeSpaceStats(currentBamFiles, bedFile, alignmentGlobalStatsJar, currentBamDir, getScheduler());
+			Collection<Job> tJobs = BamUtils.writeTranscriptomeSpaceStats(currentBamFiles, bedFile, alignmentGlobalStatsJar, currentBamDir, scheduler);
 			jobs.addAll(tJobs);
 		}
 		if(chrSizeFile != null) {
-			Collection<Job> gJobs = BamUtils.writeGenomicSpaceStats(currentBamFiles, chrSizeFile, alignmentGlobalStatsJar, currentBamDir, getScheduler());
+			Collection<Job> gJobs = BamUtils.writeGenomicSpaceStats(currentBamFiles, chrSizeFile, alignmentGlobalStatsJar, currentBamDir, scheduler);
 			jobs.addAll(gJobs);
 		}
 		JobUtils.waitForAll(jobs);
@@ -1726,15 +1729,17 @@ public class RNASeqPipeline {
 			String output = "OUTPUT=" + mergedFiles.get(mergedName);
 			String cmmd = "java -jar " + picardJarDir + "/MergeSamFiles.jar " + inputs + " " + output + " ASSUME_SORTED=true MERGE_SEQUENCE_DICTIONARIES=true";
 			logger.info("Running picard command: " + cmmd);
-			if(schedulerIsLSF()) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/merge_bam_files_" + jobID + ".bsub", "week", 8);	
 				job.submit();
 				jobs.add(job);
-			} else {
-				throw new IllegalArgumentException("Scheduler " + getScheduler() + " is not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " is not supported.");
 			}
 		}
 		logger.info("Waiting for picard jobs to finish...");
@@ -1898,15 +1903,17 @@ public class RNASeqPipeline {
 				cmmd += " OUTPUT=" + asMetrics;
 				cmmd += " REFERENCE_SEQUENCE=" + genomeFasta;
 				logger.info("Running Picard command: " + cmmd);
-				if(schedulerIsLSF()) {
+				switch(scheduler) {
+				case LSF:
 					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 					logger.info("LSF job ID is " + jobID + ".");
 					// Submit job
 					LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, picardMetricsDir + "/picard_alignment_summary_metrics_" + jobID + ".bsub", "hour", 4);
 					job.submit();
 					pmJobs.add(job);
-				} else {
-					throw new IllegalArgumentException("Scheduler " + getScheduler() + " is not supported.");
+					break;
+				default:
+					throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " is not supported.");
 				}
 			}
 			
@@ -1921,14 +1928,16 @@ public class RNASeqPipeline {
 				cmmd += " REFERENCE_SEQUENCE=" + genomeFasta;
 				cmmd += " HISTOGRAM_FILE=" + isHistogram;
 				logger.info("Running Picard command: " + cmmd);
-				if(schedulerIsLSF()) {
+				switch(scheduler) {
+				case LSF:
 					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 					logger.info("LSF job ID is " + jobID + ".");
 					// Submit job
 					LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, picardMetricsDir + "/picard_insert_size_metrics_" + jobID + ".bsub", "hour", 4);
 					pmJobs.add(job);
-				} else {
-					throw new IllegalArgumentException("Scheduler " + getScheduler() + " is not supported.");
+					break;
+				default:
+					throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " is not supported.");
 				}
 			}
 			
@@ -1949,15 +1958,16 @@ public class RNASeqPipeline {
 				if(ribIntervals != null) cmmd += " RIBOSOMAL_INTERVALS=" + ribIntervals;
 				cmmd += " STRAND_SPECIFICITY=" + strandSpecificity;
 				logger.info("Running Picard command: " + cmmd);
-				if(schedulerIsLSF()) {
+				switch(scheduler) {
+				case LSF:
 					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 					logger.info("LSF job ID is " + jobID + ".");
 					// Submit job
 					LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, picardMetricsDir + "/picard_rnaseq_metrics_" + jobID + ".bsub", "hour", 4);
 					job.submit();
 					pmJobs.add(job);
-				} else {
-					throw new IllegalArgumentException("Scheduler " + getScheduler() + " is not supported.");
+				default:
+					throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " is not supported.");
 				}
 			}
 		}
@@ -2154,12 +2164,12 @@ public class RNASeqPipeline {
 	 * Config file options and sections 
 	 */
 	
-	private static ConfigFileSection sectionScheduler = new ConfigFileSection("sheduler", true);
+	private static ConfigFileSection sectionScheduler = new ConfigFileSection("scheduler", true);
 	private static ConfigFileSection sectionCommands = new ConfigFileSection("commands", true);
 	private static ConfigFileSection sectionSpecies = new ConfigFileSection("species", false);
 	private static ConfigFileSection sectionBasicOptions = new ConfigFileSection("basic_options", true);
 	
-	private static ConfigFileOption optionScheduler = new ConfigFileOption("SCHEDULER", 2, false, false, true);
+	private static ConfigFileOption optionScheduler = new ConfigFileOption("scheduler", 2, false, false, true);
 	private static ConfigFileOption optionSplitTrimBarcodes = new ConfigFileOption("SPLIT_TRIM_BARCODES", 1, false, false, false);
 	private static ConfigFileOption optionTrimAdapters = new ConfigFileOption("TRIM_ADAPTERS", 1, false, false, false);
 	private static ConfigFileOption optionComputeLibraryStats = new ConfigFileOption("LIBRARY_STATS", 1, false, false, false);

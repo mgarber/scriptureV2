@@ -17,6 +17,7 @@ import java.util.TreeMap;
 import nextgen.core.job.Job;
 import nextgen.core.job.JobUtils;
 import nextgen.core.job.LSFJob;
+import nextgen.core.pipeline.Scheduler;
 import nextgen.core.pipeline.util.AlignmentUtils;
 
 import org.apache.log4j.Logger;
@@ -179,11 +180,12 @@ public class LibraryCompositionByRnaClass {
 	 * @param bowtie2options 
 	 * @param bowtie2BuildExecutable Bowtie2-build executable file
 	 * @param logDir Output directory for logs and alignments
+	 * @param scheduler Scheduler
 	 * @return Map from sample name to class name to count
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	public Map<String, Map<String, Integer>> alignAndGetCounts(String samtoolsExecutable, String bowtie2Executable, Map<String, String> bowtie2options, String bowtie2BuildExecutable, String logDir, String scheduler) throws IOException, InterruptedException {
+	public Map<String, Map<String, Integer>> alignAndGetCounts(String samtoolsExecutable, String bowtie2Executable, Map<String, String> bowtie2options, String bowtie2BuildExecutable, String logDir, Scheduler scheduler) throws IOException, InterruptedException {
 		
 		File dir = new File(logDir);
 		boolean madeDir = dir.mkdir();
