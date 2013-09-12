@@ -116,6 +116,7 @@ public abstract class AnnotationReader <T extends GenomicAnnotation> {
 				}
 				//System.out.println(line.replace("\t", "-TAB-"));
 				String [] lineSplit = line.split("\t");
+				//System.err.println("Creating " + line);
 				T annotation = factory.create(lineSplit);
 				
 				if(! filter.accept(annotation)) {

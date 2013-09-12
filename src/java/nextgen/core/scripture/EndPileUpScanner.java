@@ -84,6 +84,15 @@ public class EndPileUpScanner {
 		}
 	}
 	
+	public void writeFirstPositionWigs (File alignmentFile, String outPrefix) {
+		
+		
+		
+		
+	
+		
+	}
+	
 	public void assign5pPeaksToGenes(String outputName) throws IOException{
 		//Output files
 		BufferedWriter bwP = new BufferedWriter(new FileWriter(outputName+".plus.wig"));

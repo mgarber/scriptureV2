@@ -549,6 +549,32 @@ public class MatrixWithHeaders {
 		return new MatrixWithHeaders(this, passingRows, getColumnNames());
 	}
 	
+	public MatrixWithHeaders filterValuesSmallerThanUsingColumn(int colIdx, double minValue) {
+		List<String> passingRows = new ArrayList<String>();
+		Set<String> rows = rowIndexMap.keySet();
+		for(String row : rows) {
+			if(get(row,colIdx) > minValue) {
+				passingRows.add(row);
+			}
+		}
+		
+		return new MatrixWithHeaders(this, passingRows, getColumnNames());
+	}
+	
+	public MatrixWithHeaders filterValuesRangeUsingColumn(int colIdx, double minVal, double maxVal) {
+		List<String> passingRows = new ArrayList<String>();
+		Set<String> rows = rowIndexMap.keySet();
+		for(String row : rows) {
+			double cell = get(row,colIdx);
+			if(cell > minVal && cell < maxVal ) {
+				passingRows.add(row);
+			}
+		}
+		
+		return new MatrixWithHeaders(this, passingRows, getColumnNames());
+	}
+
+	
 	/**
 	 * returns true if the column has a nonzero value
 	 */
@@ -1899,6 +1925,8 @@ public MatrixWithHeaders multiplyColumnsWithConstants(Map<String,Double> constan
 	}
 	return resultMat;
 }
+
+
 
 
 
