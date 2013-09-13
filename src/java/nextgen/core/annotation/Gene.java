@@ -198,7 +198,7 @@ public class Gene extends BasicAnnotation {
 	
 	public Gene(Gene gene) {
 		this(gene.getChr(), gene.getName(), gene.getOrientation(), gene.getExonSet(), gene.getCDSStart(), gene.getCDSEnd());
-				
+		this.bedScore=gene.getScore();
 		initFromGene(gene);
 			
 	}

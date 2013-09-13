@@ -550,7 +550,7 @@ protected class GeneTree {
 		if(!chrNames.contains(chrName)) {
 			throw new IllegalArgumentException("Chromosome name " + chrName + " not recognized.");
 		}
-		return new BasicAnnotation(chrName, 0, (int) getLength(chrName));
+		return geneTree.getGenesByName().get(chrName);
 	}
 
 	@Override

@@ -16,6 +16,7 @@ import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
 import broad.pda.annotation.BEDFileParser;
 
+import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.Gene;
 
 /**
@@ -82,8 +83,33 @@ public class FastaExtendPeaks {
 		
 	}
 	
+	/**
+	 * Load sequences and annotations
+	 * @param chrsByName Chromosomes by name
+	 * @param bedFile Genes in bed format
+	 * @throws IOException
+	 */
+	public FastaExtendPeaks(Map<String, Sequence> chrsByName, String bedFile) throws IOException {
+		
+		logger.info("Loading genes from file " + bedFile + "...");
+		
+		genes = BEDFileParser.loadDataByChr(new File(bedFile));
+		int numGenes = 0;
+		for(String chr : genes.keySet()) {
+			numGenes += genes.get(chr).size();
+		}
+		logger.info("Loaded " + numGenes + " genes.");
+		
+		chromosomes = chrsByName;
+		
+	}
+	
 	public FastaExtendPeaks(Map<String, Sequence> chrsByName, String bedFile, String peakFile) throws IOException {
 		this(chrsByName,bedFile,peakFile,DEFAULT_WINDOW_SIZE);
+	}
+	
+	public FastaExtendPeaks(String genomeFasta, String bedFile) throws IOException {
+		this(FastaSequenceIO.getChrSequencesFromFasta(genomeFasta), bedFile);
 	}
 
 	/**
@@ -97,7 +123,6 @@ public class FastaExtendPeaks {
 			
 			for (Gene peak : peaks.get(chr)){
 				String[] parts = peak.getName().split(":");
-				logger.info(parts[0] + "  " + parts);
 				String geneName = parts[0];
 				if (!genesByName.containsKey(geneName)){
 					throw new IllegalArgumentException("Peak " + geneName + " not in gene file.");
@@ -105,15 +130,25 @@ public class FastaExtendPeaks {
 				Gene gene = genesByName.get(geneName);
 				Gene newPeak = null;
 				int midPoint = gene.genomicToTranscriptPosition(peak.getMidpointGenomicCoords());
+				if (gene.getOrientation().equals(Strand.NEGATIVE)) {
+					midPoint = gene.length() - midPoint;
+				}
 				if (midPoint > windowSize/2 & midPoint < gene.length()-windowSize/2){
 					newPeak = gene.trimGene(midPoint-windowSize/2, midPoint+windowSize/2);
+					logger.info("1");
 				} else if (midPoint > windowSize/2 & gene.length() > windowSize){
 					newPeak = gene.trimGene(gene.length()-windowSize, gene.length());
+					logger.info("2");
 				} else if (midPoint < gene.length()-windowSize/2 & gene.length() > windowSize){
 					newPeak = gene.trimGene(0, windowSize);
+					logger.info("3");
 				} 
-				logger.debug("NEW_PEAK\tlength=" + newPeak.length());
-				logger.debug("NEW_PEAK\tcoords=" + newPeak.toBED());
+				logger.info("MIDPOINT\t" + midPoint);
+				logger.info("STRAND\t" + gene.getOrientation());
+				logger.info("ORIGINAL_PEAK\tcoords=" + peak.toBED());
+				logger.info("GENE\tcoords=" + gene.toBED());
+				logger.info("NEW_PEAK\tcoords=" + newPeak.toBED());
+				logger.info("OVERLAP\t" + gene.getOverlap(newPeak));
 				
 				if (newPeak != null){
 					newPeak.setName(peak.getName());
@@ -152,9 +187,14 @@ public class FastaExtendPeaks {
 		FastaSequenceIO fsio = new FastaSequenceIO();
 		for(String chr : genesToWrite.keySet()) {
 			for(Gene gene : genesToWrite.get(chr)) {
-				Sequence seq = getGeneSequence(gene);
-				seq.setId(gene.getName());
-				fsio.write(seq, b);
+				try {
+					Sequence seq = getGeneSequence(gene);
+					seq.setId(gene.getName());
+					seq.uppercase();
+					fsio.write(seq, b);
+				} catch (NullPointerException e) {
+					logger.warn("Null pointer: " + gene.toBED());
+				}
 			}
 		}
 		b.close();
@@ -176,7 +216,7 @@ public class FastaExtendPeaks {
 	public static void main(String[] args) throws IOException {
 		
 		CommandLineParser p = new CommandLineParser();
-		p.addStringArg("-b", "Bed file of genes", true);
+		p.addStringArg("-b", "Bed file of genes",false,null);
 		p.addStringArg("-p", "Bed file of peaks", true);
 		p.addStringArg("-f", "Fasta file of chromosomes", true);
 		p.addIntArg("-w", "Fixed peak size", false, 120);
@@ -188,10 +228,14 @@ public class FastaExtendPeaks {
 		String outFile = p.getStringArg("-o");
 		int windowSize = p.getIntArg("-w");
 		
-		FastaExtendPeaks f = new FastaExtendPeaks(fastaFile, bedFile, peakFile, windowSize);
-		f.setExtendedPeaks();
-		f.writeFasta(f.extendedPeaks,outFile);
-
+		if (bedFile != null) {
+			FastaExtendPeaks f = new FastaExtendPeaks(fastaFile, bedFile, peakFile, windowSize);
+			f.setExtendedPeaks();
+			f.writeFasta(f.extendedPeaks,outFile);
+		} else {
+			FastaExtendPeaks f = new FastaExtendPeaks(fastaFile,peakFile);
+			f.writeFasta(f.genes, outFile);
+		}
 	}
 	
 }
