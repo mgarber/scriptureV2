@@ -81,7 +81,7 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	int cacheSize=500000;
 	private boolean hasGlobalStats = false;
 	private SortedMap<String, Double> refSequenceCounts=new TreeMap<String, Double>();
-
+	private TranscriptionRead strand;
 	/**
 	 * Build with a BAM file
 	 * Populate the alignment collection
@@ -108,37 +108,8 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 */
 	public JCSAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead) {
 
-		this.bamFile=bamFile;
-		
-		if (readOrCreatePairedEndBam) {
-			this.bamFile = PairedEndReader.getOrCreatePairedEndFile(bamFile,transcriptionRead);
-			String file = PairedEndReader.getPairedEndFile(bamFile);
-			if (file == null) {
-				file = PairedEndWriter.getDefaultFile(bamFile);
-				PairedEndWriter writer = new PairedEndWriter(new File(this.bamFile), file);
-				writer.convertInputToPairedEnd(transcriptionRead);
-			}
-			this.bamFile = file;
-		} else {
-			this.bamFile = bamFile;
-		}
-				
-		// Establish the data alignment model like previously
-		this.reader = new PairedEndReader(new File(this.bamFile),transcriptionRead);
-		
-		//If the passed coordinate space is null then make a Genomic Space
-		if(coordinateSpace==null){
-			//create a new GenomicSpace using the sizes in the BAM File
-			coordinateSpace=new GenomicSpace(reader.getRefSequenceLengths());
-		}
-		// Set the coordinate space
-		this.coordinateSpace=coordinateSpace;
-		
-		// Initialize the cache
-		this.cache=new JCSCache(this.reader,this.cacheSize,this);
-		
-		// Initialize the readFilters
-		this.readFilters.addAll(readFilters);
+		//By default, load as fragments
+		this(bamFile,coordinateSpace,readFilters,readOrCreatePairedEndBam,transcriptionRead,true);
 				
 	}
 	
@@ -152,7 +123,7 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	public JCSAlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead,boolean fragment) {
 
 		this.bamFile=bamFile;
-		
+		strand = transcriptionRead;
 		if (readOrCreatePairedEndBam) {
 			this.bamFile = PairedEndReader.getOrCreatePairedEndFile(bamFile,transcriptionRead);
 			String file = PairedEndReader.getPairedEndFile(bamFile);
@@ -388,34 +359,6 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	}
 	
 	/**
-	 * Use the coordinate space to decide what is an overlapping read using strandedness
-	 * @param window
-	 * @param fullyContained
-	 * @return
-	 */
-	public double getCountStranded(Annotation window, boolean fullyContained) {
-		// Check to see if user is requesting a count of the whole chromosome, which we may have stored.
-		// Make sure not to just call this function in getChrLambda!  otherwise infinite loop
-		Annotation refAnnotation = null;
-		try {
-			refAnnotation = coordinateSpace.getReferenceAnnotation(window.getChr());
-		} catch (IllegalArgumentException e) {
-			logger.warn("Coordinate space does not contain reference " + window.getChr() + " ... getCount() returning 0.");
-			return 0.0;
-		}
-		if (refAnnotation != null && window.equals(refAnnotation)) {
-			//logger.info("getting saved chr count");
-			if(!this.hasGlobalStats) computeGlobalStats();
-			return refSequenceCounts.get(window.getChr());
-		} else {
-			CloseableIterator<AlignmentCount> iter=getOverlappingReadCountsStranded(window, fullyContained);
-			double result = getCount(iter);
-			return result;
-		}
-	}
-
-	
-	/**
 	 * Use the coordinate space to decide what is an overlapping read
 	 * Gets the count over the entire genome
 	 * @return
@@ -572,24 +515,23 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return rtrn;
 	}
 
-	
 	/**
 	 * Return the reads that overlap with this region in coordinate space
+	 * If the Alignment model has a strand which is NOT unstranded, then returns stranded counts
 	 */
 	public CloseableIterator<AlignmentCount> getOverlappingReadCounts(Annotation region, boolean fullyContained) {
 		//get Alignments over the whole region
-		return this.cache.query(region, fullyContained, this.coordinateSpace);
+		if(strand.equals(TranscriptionRead.UNSTRANDED)){
+			return this.cache.query(region, fullyContained, this.coordinateSpace);
+		}
+		else{
+			//get Alignments over the whole region
+			Predicate<Alignment> filter=new SameOrientationFilter(region);
+			return new WrapAlignmentCountIterator(new CloseableFilterIterator<Alignment>(new UnpackingIterator(this.cache.query(region, fullyContained, this.coordinateSpace)), filter));
+		}		
 	}
 	
-	/**
-	 * Return the reads that overlap with this region in coordinate space
-	 */
-	public CloseableIterator<AlignmentCount> getOverlappingReadCountsStranded(Annotation region, boolean fullyContained) {
-		//get Alignments over the whole region
-		Predicate<Alignment> filter=new SameOrientationFilter(region);
-		return new WrapAlignmentCountIterator(new CloseableFilterIterator<Alignment>(new UnpackingIterator(this.cache.query(region, fullyContained, this.coordinateSpace)), filter));
-	}
-	
+
 	/**
 	 * Return the reads that overlap with this region in coordinate space
 	 */
@@ -1475,21 +1417,17 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		Iterator<Window> winIter = sp.getWindowIterator(1, 0);
 		int i=0;
 		while(winIter.hasNext()){
-			rtrn.add(i,getCountStranded(winIter.next(), false));
+			rtrn.add(i,getCount(winIter.next(), false));
 			i++;
 		}
 		return rtrn;
 	}
 
-	@Override
-	public double getCountStranded(Annotation region) {
-		return getCountStranded(region,false);
-	}
 
 	@Override
 	public double getCountStrandedExcludingRegion(Annotation region,
 			Annotation excluded) {
-		CloseableIterator<AlignmentCount> iter=getOverlappingReadCountsStranded(region,false);
+		CloseableIterator<AlignmentCount> iter=getOverlappingReadCounts(region,false);
 		double result = getCount(iter, excluded);
 		return result;
 	}

@@ -25,6 +25,7 @@ import broad.core.annotation.MaximumContiguousSubsequence;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.datastructures.Pair;
+import broad.core.math.ScanStatistics;
 import broad.core.math.Statistics;
 import broad.core.util.CLUtil;
 import broad.core.util.CollapseByIntersection;
@@ -355,16 +356,15 @@ public class BuildScriptureCoordinateSpace {
 
 		Map<String,Collection<Gene>> conn = null;
 		
-		while(somethingWasConnected || loop<10){
+		while(somethingWasConnected && loop<10){
 			somethingWasConnected =false;
 			loop++;
-			
-			logger.debug("Connected disconnected transcripts: Loop "+loop);
+ 
+			logger.info("Connected disconnected transcripts: Loop "+loop);
 			conn = new HashMap<String,Collection<Gene>>();
 			for(String chr:annotations.keySet()){
 				conn.put(chr, new TreeSet<Gene>());			
 			}
-			
 			for(String chr:annotations.keySet()){
 				//For all genes on this chromosome
 				logger.debug("Connecting, Processing "+chr);
@@ -408,13 +408,14 @@ public class BuildScriptureCoordinateSpace {
 										//[3] : FPKM
 										//Calculate FPKM
 										fields[3] = fields[2]*((double)1000000.0)/model.getGlobalPairedFragments();
-										//logger.debug("For isoform : "+isoform.getName()+"\tNum of exons: "+isoform.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
+										logger.debug("For isoform : "+newConnected.getName()+"\tNum of exons: "+newConnected.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
 										newConnected.setBedScore(fields[3]);
+										logger.debug(newConnected.toBED());
 										newConnected.setExtraFields(fields);
 										newGenes.remove(gene);
 										newGenes.add(newConnected);
-										conn.get(chr).remove(gene);
-										conn.get(chr).remove(other);
+										boolean there = conn.get(chr).remove(gene);
+										there = conn.get(chr).remove(other);
 										conn.get(chr).add(newConnected);
 									}
 								//}
@@ -885,7 +886,7 @@ public class BuildScriptureCoordinateSpace {
 		}
 		iter.close();
 		//logger.debug("Count = "+scores[0]+" Int version "+new Double(scores[0]).intValue()+" global paired lambda = "+globalPairedLambda+" gene size = "+model.getCoordinateSpace().getSize(gene)+ " or "+gene.size()+" global length = "+model.getGlobalLength()+" global lambda = "+model.getGlobalLambda());
-		scores[1] = AlignmentDataModelStats.calculatePVal(new Double(scores[0]).intValue(), globalPairedLambda,gene.size(), model.getGlobalLength());
+		scores[1] = ScanStatistics.calculatePVal(new Double(scores[0]).intValue(), globalPairedLambda,gene.size(), model.getGlobalLength());
 		
 //		scores[1] = AlignmentDataModelStats.calculatePVal(new Double(scores[0]).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(gene), model.getGlobalLength());
 		
@@ -961,7 +962,7 @@ public class BuildScriptureCoordinateSpace {
 									if(exon2.contains(intron1)){
 										//CHECK FOR COVERAGE
 										double intronCount = model.getIntronCounts(intron1);
-										double exonCount = (model.getCountStranded(new BasicAnnotation(exon2.getChr(), intron1.getStart(), intron1.getEnd(), exon2.getOrientation()), false)
+										double exonCount = (model.getCount(new BasicAnnotation(exon2.getChr(), intron1.getStart(), intron1.getEnd(), exon2.getOrientation()), false)
 																	/(double)(intron1.getEnd()-intron1.getStart()));
 										double ratioI = intronCount/(intronCount+exonCount);
 										double ratioE = exonCount/(intronCount+exonCount);
@@ -1095,9 +1096,9 @@ public class BuildScriptureCoordinateSpace {
 			//exon[0] is left of intron
 			//coverage to left of left exon
 			//Since it is one base, we dont need coverage
-			double leftScore = model.getCountStranded(new BasicAnnotation(exons[0].getChr(),exons[0].getEnd()-2,exons[0].getEnd()-1,overlapper.getOrientation()),false);
+			double leftScore = model.getCount(new BasicAnnotation(exons[0].getChr(),exons[0].getEnd()-2,exons[0].getEnd()-1,overlapper.getOrientation()),false);
 			//coverage to right of right exon
-			double rightScore = model.getCountStranded(new BasicAnnotation(exons[1].getChr(),exons[1].getStart()+1,exons[1].getStart()+2,overlapper.getOrientation()),false);
+			double rightScore = model.getCount(new BasicAnnotation(exons[1].getChr(),exons[1].getStart()+1,exons[1].getStart()+2,overlapper.getOrientation()),false);
 			
 			if(leftScore<rightScore){
 				if(leftScore<rightScore*coveragePercentThreshold){ 
@@ -1362,37 +1363,17 @@ public class BuildScriptureCoordinateSpace {
 	 * @param assembly
 	 * @return
 	 */
-	private Annotation trimEnds(Annotation assembly,double pct){
+	private Annotation trimEnds(Assembly assembly,double pct){
 		
 		List<Double> counts = model.getCountsStrandedPerPosition(assembly);
 		double[] cntArr = l2a(counts);
 
 		Collections.sort(counts);		
 		double cutoff = Math.max(2, Statistics.quantile(counts, pct));
-/*		for(int i=0;i<assembly.size();i++){
-			System.out.print(cntArr[i]+" ");
-		}*/
 		int trimStart = MaximumContiguousSubsequence.contiguousStartSubSequenceOverMin(cntArr, cutoff);
 		int trimEnd   =  assembly.size() - MaximumContiguousSubsequence.contiguousEndSubSequenceOverMin(cntArr, cutoff);
 		logger.debug(assembly.getName()+" trimStart " + trimStart + " trimEnd " + trimEnd + ", transcript length " + assembly.size()+ " with cutoff "+cutoff);
 
-/*			int transcriptFirstExonEnd = assembly.getOrientation().equals(Strand.NEGATIVE) 
-					? assembly.getPositionAtReferenceCoordinate(assembly.getStart())
-					: assembly.getPositionAtReferenceCoordinate(assembly.getEnd()-1);
-
-			int transcriptLastExonStart = assembly.getOrientation().equals(Strand.NEGATIVE)
-						? assembly.getPositionAtReferenceCoordinate(assembly.getEnd()-1)
-						: assembly.getPositionAtReferenceCoordinate(assembly.getStart());
-				
-			logger.trace("first exon end in transcript " + transcriptFirstExonEnd + " last exon start " + transcriptLastExonStart);
-
-			if(trimStart > transcriptFirstExonEnd) {
-				trimStart = Math.max(0, transcriptFirstExonEnd - 50);
-			}	
-			if(trimEnd < transcriptLastExonStart) {
-				trimEnd = Math.min(align.getTranscriptLength(), transcriptLastExonStart + 50);
-			}	
-*/			
 		if(trimStart>trimEnd){
 			return assembly;
 		}
@@ -1403,15 +1384,56 @@ public class BuildScriptureCoordinateSpace {
 			logger.debug("Reset trimStart and TrimEnd to  " + trimStart + " - " + trimEnd);
 		}	
 			
-		Assembly newAssembly = new Assembly(assembly);
+		Annotation newAssembly = new Assembly(assembly);
 			
 		if(((trimEnd+trimStart) < assembly.size()) && trimStart<trimEnd && trimStart<assembly.size() && trimEnd<assembly.size()){
-			newAssembly.trim(trimStart, trimEnd);
+			
+			newAssembly = assembly.trim(trimStart, trimEnd);			
 			logger.debug("trimming ("+trimStart +" - "+ trimEnd+") gene was: " + assembly.toBED() + " and now is: " +newAssembly.toBED());
 		}
 		return newAssembly;
 	}
 	
+	/**
+	 * Returns the gene trimmed at both ends
+	 * @param gene
+	 * @return
+	 */
+	private Gene trimEnds(Gene gene,double pct){
+		
+		List<Double> counts = model.getCountsStrandedPerPosition(gene);
+		double[] cntArr = BuildScriptureCoordinateSpace.l2a(counts);
+
+		Collections.sort(counts);		
+		double cutoff = Math.max(2, Statistics.quantile(counts, pct));
+		int trimStart = MaximumContiguousSubsequence.contiguousStartSubSequenceOverMin(cntArr, cutoff);
+		int trimEnd   =  gene.size() - MaximumContiguousSubsequence.contiguousEndSubSequenceOverMin(cntArr, cutoff);
+		logger.debug(gene.getName()+" trimStart " + trimStart + " trimEnd " + trimEnd + ", transcript length " + gene.size()+ " with cutoff "+cutoff);
+
+		if(trimStart>trimEnd){
+			return gene;
+		}
+		if(gene.getOrientation().equals(Strand.NEGATIVE)){
+			int temp = trimStart;
+			trimStart = trimEnd;
+			trimEnd = temp;
+			logger.debug("Reset trimStart and TrimEnd to  " + trimStart + " - " + trimEnd);
+		}	
+			
+		Gene newGene = gene.copy();
+			
+		if(((trimEnd+trimStart) < gene.size()) && trimStart<trimEnd && trimStart<gene.size() && trimEnd<gene.size()){
+			
+			double score = gene.getBedScore();
+			String[] extras = gene.getExtraFields();
+			newGene = new Gene(gene.trim(trimStart, trimEnd));		
+			newGene.setBedScore(score);
+			if(extras!=null)
+				newGene.setExtraFields(extras);
+			logger.debug("trimming ("+trimStart +" - "+ trimEnd+") gene was: " + gene.toBED() + " and now is: \n" +newGene.toBED());
+		}
+		return newGene;
+	}
 	/**
 	 * Helper function to removePrematureAssemblies
 	 * @param exon1
@@ -1447,8 +1469,8 @@ public class BuildScriptureCoordinateSpace {
 			exonBoundary = new BasicAnnotation(exon1.getChr(),intron2.getEnd()+1,intron2.getEnd()+2,exon1.getOrientation());
 			intronBoundary = new BasicAnnotation(intron2.getChr(),intron2.getEnd()-2,intron2.getEnd()-1,exon1.getOrientation());
 		}
-		double overlapScore = model.getCountStranded(intronBoundary,false);
-		double nonoverlapScore = model.getCountStranded(exonBoundary,false);
+		double overlapScore = model.getCount(intronBoundary,false);
+		double nonoverlapScore = model.getCount(exonBoundary,false);
 //		logger.error(overlap.toUCSC()+" overlap coverage: "+overlapScore+" against "+nonoverlapScore);
 		if(overlapScore>=nonoverlapScore*coveragePercentThreshold){
 			//logger.error(exon1.toUCSC()+" passes coverage test with intron "+ intron2.toUCSC());
@@ -2496,7 +2518,7 @@ public class BuildScriptureCoordinateSpace {
 	 * @param list
 	 * @return
 	 */
-	private double[] l2a(List<Double> list){
+	public static double[] l2a(List<Double> list){
 		double[] rtrn=new double[list.size()];
 	
 		int i=0;

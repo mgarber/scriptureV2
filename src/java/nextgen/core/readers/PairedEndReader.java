@@ -74,6 +74,10 @@ public class PairedEndReader {
 		return (isPairedEndFormat != null) ? AlignmentType.PAIRED_END : AlignmentType.SINGLE_END;
 	}
 	
+	public AlignmentType getAlignmentType() { 
+		return getAlignmentType(this.header);
+	}
+	
 	public void setFragmentFlag(boolean fra){
 		fragment = fra;
 	}
@@ -175,8 +179,10 @@ public class PairedEndReader {
 		private void advance() {
 			if (!itr.hasNext()) mNextRecord = null;  // VERY IMPORTANT.  Otherwise infinite loop
 			while (itr.hasNext()) {
-				mNextRecord = samRecordToAlignment(itr.next(),strand,fragment);
-				if (mNextRecord != null) break;
+				SAMRecord r = itr.next();
+				mNextRecord = samRecordToAlignment(r,strand,fragment);
+				if (mNextRecord != null) {break;} 
+				else {log.debug("samRecordToAlignment returned null for this record" + r.getSAMString()  );}
 			}
         }
 		
@@ -199,7 +205,6 @@ public class PairedEndReader {
 		Alignment rtrn;
 		
 		try {
-
 			if (alignmentType == AlignmentType.PAIRED_END) {
 				if (record.getReadPairedFlag() && !record.getMateUnmappedFlag()) {   //revised to read single end data @zhuxp 
 					String name=record.getReadName();
@@ -279,9 +284,8 @@ public class PairedEndReader {
 				rtrn = new SingleEndAlignment(record, record.getReadPairedFlag() && record.getFirstOfPairFlag());
 				//rtrn=new SingleEndAlignment(record);
 			}
-		} catch (RuntimeException e) {
+		} finally {
 			log.error("Failed on SAMRecord: " + record.toString());
-			throw e;
 		}
 
 		return rtrn;
@@ -318,7 +322,7 @@ public class PairedEndReader {
 		}
 		return rtrn;
 	}
-	
+
 	
 	/**
 	 * Returns {@code true} if the given SAM file is in paired end format (has the mateLine) attribute.

@@ -8,6 +8,7 @@ import java.io.PrintStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -21,9 +22,12 @@ import net.sf.picard.util.Log;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.annotation.*;
 import nextgen.core.annotation.filter.*;
-import nextgen.core.model.score.CountScore;
-import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.GenomicSpace;
+import nextgen.core.job.Job;
+import nextgen.core.job.JobUtils;
+import nextgen.core.job.LSFJob;
+import nextgen.core.model.score.CountScore;
 
 import broad.core.math.EmpiricalDistribution;
 
@@ -172,7 +176,8 @@ public class CollectAnnotationEnrichments extends GenomeCommandLineProgram {
 	
 	protected void submitJobs(SortedMap<String,File> annotationMap) throws IOException, InterruptedException {
 		Runtime run = Runtime.getRuntime();
-		String jobID = PipelineUtils.getJobID();
+		String jobID = LSFJob.generateJobID();
+		Collection<Job> jobs = new ArrayList<Job>();
 		
 		for (String key : annotationMap.keySet()) {
 			String command = "-M 4 -P RAP java -Xmx2g -cp " +
@@ -187,14 +192,16 @@ public class CollectAnnotationEnrichments extends GenomeCommandLineProgram {
 			command += " PERMUTE=false QUEUE=null ANNOTATIONS=" + annotationMap.get(key).getAbsolutePath();
 			command += " ANNOTATION_BASE=" + key.substring(0,key.lastIndexOf('.')+1);
 			String bsub = OUTPUT.getAbsolutePath() + "." + key + ".bsub";
-			PipelineUtils.bsubProcess(run, jobID, command, bsub, QUEUE);
+			LSFJob job = new LSFJob(run, jobID, command, bsub, QUEUE);
+			jobs.add(job);
+			job.submit();
 		}
 		
-		try {
-			PipelineUtils.waitForJobs(jobID, run, false);
-		} catch (IllegalArgumentException e) {
+		JobUtils.waitForAll(jobs);
+		if(!JobUtils.allSucceeded(jobs)) {
 			log.error("One or more jobs failed. Proceeding anyway.");
 		}
+		
 	}
 	
 	

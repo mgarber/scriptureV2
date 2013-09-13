@@ -4,6 +4,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 
 import broad.core.annotation.ShortBEDReader;
@@ -17,6 +18,7 @@ import nextgen.core.annotation.AnnotationFileReader;
 import nextgen.core.annotation.AnnotationList;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.filter.FullyContainedFilter;
+import nextgen.core.coordinatesystem.*;
 import nextgen.core.model.score.WindowProcessor;
 import nextgen.core.model.score.WindowScore;
 import nextgen.core.model.score.WindowScoreIterator;
@@ -51,7 +53,12 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 	@Option(doc="Set to true to generate one-sided diagrams")
 	public boolean SYMMETRIC=false;
 	
-
+	@Option(doc="Eliminate windows in the inner and middle subregions that are outside the boundaries of the annotation")
+	public boolean CLIP_AT_BOUNDARIES=true;
+	
+	
+	private int regionCounter = 0;
+	
 	/**
 	 * Stock main method.
 	 *
@@ -59,6 +66,11 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 	 */
 	public static void main(final String[] args) {
 		System.exit(new PlotAggregateRegions().instanceMain(args));
+	}
+	
+	protected void loadCoordinateSpace() {
+		// load coordinate space without masking; apply masking manually later
+		coordinateSpace = new GenomicSpace(SIZES);
 	}
 	
 	@Override
@@ -69,15 +81,36 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 			AnnotationList<Annotation> targets = AnnotationFileReader.load(ANNOTATION_FILE, Annotation.class, new BasicAnnotation.Factory(), getCoordinateSpace(), new FullyContainedFilter(regions));
 			log.info("Loaded " + targets.size() + " annotations.");
 			
-			BufferedWriter bw = new BufferedWriter(new FileWriter(OUTPUT,true));
+			BufferedWriter bw = new BufferedWriter(new FileWriter(OUTPUT));
 			WindowProcessor<? extends WindowScore> processor = getWindowProcessor();
+			GenomicSpace maskedSpace = new GenomicSpace(SIZES, MASK_FILE, PCT_MASKED_ALLOWED);
 			
 			for (Annotation region : regions) {
 				log.info("Starting: " + region.toUCSC());
 				
-				PlotRegions subregions = generateSubregions(region);
-				
-				
+				Iterator<Annotation> itr = targets.getOverlappingAnnotations(region);
+				while (itr.hasNext()) {
+					
+					Annotation target = itr.next();
+					PlotRegions subregions = generateSubregions(target);
+					regionCounter += 1;
+
+					Integer counter = 0;
+					if (SYMMETRIC) {
+						counter = scanAndPrint(target, subregions.beginOuter, "outer", processor, maskedSpace, bw, counter, false);
+						counter = scanAndPrint(target, subregions.beginInner, "inner", processor, maskedSpace, bw, counter, true);
+						counter = scanAndPrint(target, subregions.middle, "middle", processor, maskedSpace, bw, counter, true);
+						counter = 0; // reset counter since the end is symmetric to the beginning
+						counter = scanAndPrint(target, subregions.endOuter, "outer", processor, maskedSpace, bw, counter, false);
+						counter = scanAndPrint(target, subregions.endInner, "inner", processor, maskedSpace, bw, counter, true);
+					} else {
+						counter = scanAndPrint(target, subregions.beginOuter, "beginOuter", processor, maskedSpace, bw, counter, false);
+						counter = scanAndPrint(target, subregions.beginInner, "beginInner", processor, maskedSpace, bw, counter, true);
+						counter = scanAndPrint(target, subregions.middle, "middle", processor, maskedSpace, bw, counter, true);
+						counter = scanAndPrint(target, subregions.endInner, "endInner", processor, maskedSpace, bw, counter, true);
+						counter = scanAndPrint(target, subregions.endOuter, "endOuter", processor, maskedSpace, bw, counter, false);
+					}
+				}
 			}
 			
 			bw.close();
@@ -85,11 +118,18 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 			
 		} catch (Exception e) {
 			log.error(e);
+			System.exit(1);
 		}
 		
 		return 0;
 	}
 	
+	/**
+	 * Generate subregions to scan based on the given region.
+	 * @param region
+	 * @return
+	 * @throws IOException
+	 */
 	public PlotRegions generateSubregions(Annotation region) throws IOException {
 		PlotRegions subregions;
 		
@@ -127,8 +167,46 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 	}
 	
 	
-	private void scanAndPrint(Annotation subregion, String name, BufferedWriter bw) {
-		
+	/**
+	 * Scan a subregion and print to a file
+	 * @param subregion
+	 * @param name
+	 * @param processor
+	 * @param maskedSpace
+	 * @param bw
+	 * @param counter Keeps track of the relative base from the beginning of the subregions.
+	 * @throws IOException
+	 */
+	private int scanAndPrint(final Annotation target, Annotation subregion, final String name, WindowProcessor<? extends WindowScore> processor, final GenomicSpace maskedSpace, BufferedWriter bw, Integer counter, boolean clip) throws IOException {
+		Iterator<? extends Annotation> windowIterator = getCoordinateSpace().getWindowIterator(subregion, WINDOW, OVERLAP);
+		WindowScoreIterator<? extends WindowScore> itr = new WindowScoreIterator(windowIterator, processor, subregion);
+		while (itr.hasNext()) {
+			
+			try {
+				WindowScore ws = itr.next();
+
+				// Allow window if it is not masked
+				if (maskedSpace.isValidWindow(ws.getAnnotation())) {
+
+
+					// Accept windows only if they do not pass outside boundaries of the target
+					if (!clip || !CLIP_AT_BOUNDARIES || target.contains(ws.getAnnotation())) {
+
+						String regionName = target.getName();
+						if (regionName.equals("")) regionName = regionCounter + "";
+						// Write the subregion name, location, and the result
+						bw.write(regionName + "\t" + name + "\t" + counter + "\t" + ws.toString() + "\n");
+					}
+
+				}
+			} catch (AnnotationOutOfBoundsException e) {
+				// this is okay .. just skip this window
+			}
+			
+			// Advance counter even if window is skipped
+			counter += (WINDOW - OVERLAP);
+		}
+		return counter;
 	}
 	
 	

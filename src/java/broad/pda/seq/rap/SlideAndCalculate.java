@@ -32,6 +32,9 @@ public class SlideAndCalculate extends GenomeScoringProgram {
 	@Option(doc="Output file", shortName="O")
 	public File OUTPUT;
 
+	@Option(doc="Delta factor to add to RPKM before calculating ratios", shortName="RPKM")
+	public Double RPKM_RATIO_OFFSET = RatioScore.RPKM_OFFSET;
+	
 
 	/**
 	 * Stock main method.
@@ -50,12 +53,19 @@ public class SlideAndCalculate extends GenomeScoringProgram {
 				OUTPUT.delete();
 			}
 
+			RatioScore.RPKM_OFFSET = RPKM_RATIO_OFFSET;
+			
 			BufferedWriter bw = new BufferedWriter(new FileWriter(OUTPUT,true));
 			Iterator<? extends WindowScore> itr = getWindowScoreIterator();
 			while (itr.hasNext()) {
 				WindowScore curr = itr.next();
-				bw.write(curr.toString());
-				bw.newLine();
+				
+				// Check to see if this window should be masked out using the given mask settings,
+				// which might be different from the mask settings in the input SlideAndCount BED file
+				if (getCoordinateSpace().isValidWindow(curr.getAnnotation())) {
+					bw.write(curr.toString());
+					bw.newLine();
+				}
 			}
 				
 			bw.close();
@@ -67,7 +77,6 @@ public class SlideAndCalculate extends GenomeScoringProgram {
 		return 0;
 	}
 	
-
 	public Iterator<? extends WindowScore> getWindowScoreIterator() throws IOException {
 		Iterator<? extends WindowScore> itr;
 		CloseableIterator<CountScore> target = TabbedReader.read(TARGET, CountScore.class, new CountScore.Factory());

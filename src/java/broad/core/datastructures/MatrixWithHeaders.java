@@ -1875,7 +1875,30 @@ public MatrixWithHeaders multiplyColumnsWithConstants(double[] constants){
 }
 
 
+/**
+ * @author skadri
+ * Multiplies each column with a separate constant. That is, given a vector (dimension same as number of columns) multiplies all rows of column with same constant 
+ * @return
+ */
+public MatrixWithHeaders multiplyColumnsWithConstants(Map<String,Double> constants){
+	
+	MatrixWithHeaders resultMat = new MatrixWithHeaders(this.getRowNames(),this.getColumnNames());
+	if(resultMat.columnDimension() != constants.keySet().size()) {
+		throw new IllegalArgumentException ("Trying to multiply non compatible matrix and vector. Columns on matrix " + resultMat.columnDimension() + " Vector Dimensions on right " + constants.size());
+	}
+	else{
 
+		for(int j=0;j<resultMat.columnDimension();j++){
+			double constant = constants.get(resultMat.getColoumnName(j));
+			for(int i=0;i<resultMat.rowDimension();i++){
+				double value = constant*this.get(i, j);
+				//System.out.println(constants.get(resultMat.getColoumnName(j))+" * "+ this.get(i, j));
+				resultMat.set(i, j, value);
+			}
+		}
+	}
+	return resultMat;
+}
 
 
 

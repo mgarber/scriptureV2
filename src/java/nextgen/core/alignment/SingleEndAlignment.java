@@ -51,13 +51,26 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment,jav
     public SingleEndAlignment(SAMRecord read) {
     	super(read.getReferenceName(), read.getAlignmentStart()-1, read.getAlignmentStart()); //This is a dummy setup
     	parseCigar(read.getCigarString(), read.getReferenceName(), read.getAlignmentStart()-1);
+    	long startT = System.nanoTime();
     	setName(read.getReadName());
-    	
+		long cTime = System.nanoTime() - startT;
+		cTime = Math.round(cTime/(double)1000000);
+		if(cTime > 50) {
+			logger.debug("parse set read name  took " + cTime);
+		}
+		
+		startT = System.nanoTime();
     	if (read.getReadNegativeStrandFlag()) 
     		setOrientation(Strand.NEGATIVE);
     	else
     		setOrientation(Strand.POSITIVE);
-    	
+		cTime = System.nanoTime() - startT;
+		cTime = Math.round(cTime/(double)1000000);
+		if(cTime > 50) {
+			logger.debug("Set orientation took " + cTime);
+		}
+
+    	startT = System.nanoTime();
     	try {
     		record = (SAMRecord) read.clone();
     	} catch (CloneNotSupportedException e) {
@@ -66,6 +79,11 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment,jav
     	}
     	//record=new WrapSamRecord(read);
     	assert(read.getAlignmentEnd() == getEnd()); // sanity check
+		cTime = System.nanoTime() - startT;
+		cTime = Math.round(cTime/(double)1000000);
+		if(cTime > 50) {
+			logger.debug("Cloning object took " + cTime);
+		}
     }
     
      /**
@@ -102,7 +120,7 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment,jav
     
     private void writeObject(java.io.ObjectOutputStream out) throws IOException{
 
-   	logger.info("Writing to disk");
+   	//logger.info("Writing to disk");
     	out.writeObject(txnRead);
     	out.writeObject(splicedEdges);
     	out.writeBoolean(hasIndel);
@@ -132,7 +150,7 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment,jav
     //Cigar string is used to populate the alignment blocks and read length fields
     private void parseCigar(String cigarString, String chr, int start) {
     	Cigar cigar = TextCigarCodec.getSingleton().decode(cigarString);
-			
+    	long startT = System.nanoTime();	
     	this.splicedEdges=new TreeSet<Annotation>();
     	this.hasIndel=false;
 		List<CigarElement> elements=cigar.getCigarElements();
@@ -145,16 +163,28 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment,jav
 			
 			//then lets create a block from this
 			if(op.equals(CigarOperator.MATCH_OR_MISMATCH)){
+				long startT2 = System.nanoTime();
 				int blockStart=currentOffset;
 				int blockEnd=blockStart+length;
 				addBlocks(new BasicAnnotation(chr, blockStart, blockEnd));
 				currentOffset=blockEnd;
+				long cTime = System.nanoTime() - startT2;
+				cTime = Math.round(cTime/(double)1000000);
+				if(cTime > 50) {
+					logger.debug("parseCigar match or missmatch took " + cTime + " for cigar " + cigarString);
+				}
 			}
 			else if(op.equals(CigarOperator.N)){
+				long startT2 = System.nanoTime();
 				int blockStart=currentOffset;
 				int blockEnd=blockStart+length;
 				splicedEdges.add(new BasicAnnotation(chr, blockStart, blockEnd));
 				currentOffset=blockEnd;
+				long cTime = System.nanoTime() - startT2;
+				cTime = Math.round(cTime/(double)1000000);
+				if(cTime > 50) {
+					logger.debug("parseCigar splice edges took " + cTime + " for cigar " + cigarString);
+				}
 			}
 			else if(op.equals(CigarOperator.INSERTION) ||  op.equals(CigarOperator.H) || op.equals(CigarOperator.DELETION)|| op.equals(CigarOperator.SKIPPED_REGION)){
 				currentOffset+=length;
@@ -165,6 +195,11 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment,jav
 				//logger.warn("We arent accounting for Cigar operator "+op.toString()+" so we are skipping read "+this.getChr()+" "+this.getAlignmentStart()+" "+this.getAlignmentEnd()+" "+cigarString+" "+this.getReadName());
 			}
 			
+		}
+		long cTime = System.nanoTime() - startT;
+		cTime = Math.round(cTime/(double)1000000);
+		if(cTime > 50) {
+			logger.debug("parseCigar took " + cTime + " for cigar " + cigarString);
 		}
 		
 	}

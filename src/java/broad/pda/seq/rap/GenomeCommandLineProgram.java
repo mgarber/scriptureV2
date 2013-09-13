@@ -60,6 +60,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 	public String ANNOTATION = "/seq/lincRNA/Shari/Annotations/RefSeq_LincV3_ChromatinWithNames_nonrandom_collapsed_overlappers.bed";
 	
 	protected CoordinateSpace coordinateSpace;
+
 	
 	
 	@Override
@@ -73,7 +74,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		return super.customCommandLineValidation();
 	}
 	
-	private void loadCoordinateSpace() throws IOException {
+	protected void loadCoordinateSpace() throws IOException {
 		
 		if (COORD_SPACE.equalsIgnoreCase("genomic")){
 			coordinateSpace = new GenomicSpace(SIZES, MASK_FILE, PCT_MASKED_ALLOWED);
@@ -132,7 +133,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		AnnotationList<Annotation> annotations = new AnnotationList<Annotation>(coordinateSpace, getRegions());
 		return annotations;
 	}
-	
+
 	public Annotation getGenes() {
 		
 		if (GENE != null){
@@ -148,6 +149,13 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 	
 	protected CoordinateSpace getCoordinateSpace() { return coordinateSpace; }
 	
+	public Boolean isGenomicSpace() {
+		if (COORD_SPACE.equalsIgnoreCase("genomic")) {
+			return true;
+		} else {
+			return false;
+		}
+	}
 	
 	public AlignmentModel loadAlignmentModel(File bamFile) {
 		return loadAlignmentModel(bamFile, true);

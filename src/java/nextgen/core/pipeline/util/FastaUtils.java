@@ -6,6 +6,9 @@ import java.io.IOException;
 import java.util.Collection;
 
 
+import nextgen.core.job.LSFJob;
+import nextgen.core.pipeline.Scheduler;
+
 import org.apache.log4j.Logger;
 
 import broad.core.sequence.FastaSequenceIO;
@@ -23,11 +26,12 @@ public class FastaUtils {
 	 * Index a fasta file using samtools faidx and write bsub output file to working directory
 	 * @param fastaFileName The fasta file to index
 	 * @param samtoolsExecutable Path to samtools executable
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	public static void indexFastaFile(String fastaFileName, String samtoolsExecutable) throws IOException, InterruptedException {
-		indexFastaFile(fastaFileName, samtoolsExecutable, ".");
+	public static void indexFastaFile(String fastaFileName, String samtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException {
+		indexFastaFile(fastaFileName, samtoolsExecutable, ".", scheduler);
 	}
 	
 	/**
@@ -35,17 +39,25 @@ public class FastaUtils {
 	 * @param fastaFileName The fasta file to index
 	 * @param samtoolsExecutable Path to samtools executable
 	 * @param bsubOutDir Directory to write bsub output to
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	public static void indexFastaFile(String fastaFileName, String samtoolsExecutable, String bsubOutDir) throws IOException, InterruptedException {
+	public static void indexFastaFile(String fastaFileName, String samtoolsExecutable, String bsubOutDir, Scheduler scheduler) throws IOException, InterruptedException {
 		String cmmd = samtoolsExecutable + " faidx " + fastaFileName;
 		logger.info("Running samtools command: " + cmmd);
-		String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-		logger.info("LSF job ID is " + jobID + ".");
-		PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bsubOutDir + "/index_fasta_" + jobID + ".bsub", "hour", 4);
-		logger.info("Waiting for samtools faidx job to finish...");
-		PipelineUtils.waitForJobs(jobID, Runtime.getRuntime());
+		switch(scheduler) {
+		case LSF:
+			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+			logger.info("LSF job ID is " + jobID + ".");
+			LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bsubOutDir + "/index_fasta_" + jobID + ".bsub", "hour", 4);
+			job.submit();
+			logger.info("Waiting for samtools faidx job to finish...");
+			job.waitFor();
+			break;
+		default:
+			throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
+		}
 	}
 	
 	/**

@@ -642,8 +642,8 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 			annotation.expand(deltaStart, deltaEnd);
 		}
 
-		public void trim(int deltaStart, int deltaEnd) {
-			annotation.trim(deltaStart, deltaEnd);
+		public Annotation trim(int deltaStart, int deltaEnd) {
+			return annotation.trim(deltaStart, deltaEnd);
 		}
 
 		public void shift(int delta) {

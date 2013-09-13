@@ -10,6 +10,11 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import nextgen.core.job.Job;
+import nextgen.core.job.JobUtils;
+import nextgen.core.job.LSFJob;
+import nextgen.core.pipeline.Scheduler;
+
 import org.apache.log4j.Logger;
 
 import broad.core.parser.StringParser;
@@ -31,16 +36,17 @@ public class FastqUtils {
 	 * @param adapter1 Sequencing adapter for read 1
 	 * @param adapter2 Sequencing adapter for read 2
 	 * @param fastqReadIdPairNumberDelimiter Delimiter between read name and read number (1 or 2)
+	 * @param scheduler Scheduler
 	 * @return Collection of clipped fastq file(s). The list is either the clipped read1 file if reads are unpaired, or clipped read1 and clipped read2 if reads paired
 	 * @throws InterruptedException 
 	 * @throws IOException 
 	 */
-	public static ArrayList<String> clipAdapters(String fastxDir, String sampleName, String leftFastq, String rightFastq, String adapter1, String adapter2, String fastqReadIdPairNumberDelimiter) throws IOException, InterruptedException {
+	public static ArrayList<String> clipAdapters(String fastxDir, String sampleName, String leftFastq, String rightFastq, String adapter1, String adapter2, String fastqReadIdPairNumberDelimiter, Scheduler scheduler) throws IOException, InterruptedException {
 		Map<String, String> leftFastqs = new TreeMap<String, String>();
 		Map<String, String> rightFastqs = new TreeMap<String, String>();
 		leftFastqs.put(sampleName, leftFastq);
 		rightFastqs.put(sampleName, rightFastq);
-		return clipAdapters(fastxDir, leftFastqs, rightFastqs, adapter1, adapter2, fastqReadIdPairNumberDelimiter).values().iterator().next();
+		return clipAdapters(fastxDir, leftFastqs, rightFastqs, adapter1, adapter2, fastqReadIdPairNumberDelimiter, scheduler).values().iterator().next();
 	}
 	
 	
@@ -52,11 +58,12 @@ public class FastqUtils {
 	 * @param adapter1 Sequencing adapter for read 1
 	 * @param adapter2 Sequencing adapter for read 2
 	 * @param fastqReadIdPairNumberDelimiter Delimiter between read name and read number (1 or 2)
+	 * @param scheduler Scheduler
 	 * @return Map of sample name to clipped fastq file(s). The list is either the clipped read1 file if reads are unpaired, or clipped read1 and clipped read2 if reads paired
 	 * @throws InterruptedException 
 	 * @throws IOException 
 	 */
-	public static Map<String, ArrayList<String>> clipAdapters(String fastxDir, Map<String, String> leftFastqs, Map<String, String> rightFastqs, String adapter1, String adapter2, String fastqReadIdPairNumberDelimiter) throws IOException, InterruptedException {
+	public static Map<String, ArrayList<String>> clipAdapters(String fastxDir, Map<String, String> leftFastqs, Map<String, String> rightFastqs, String adapter1, String adapter2, String fastqReadIdPairNumberDelimiter, Scheduler scheduler) throws IOException, InterruptedException {
 		
 		Map<String, ArrayList<String>> rtrn = new TreeMap<String, ArrayList<String>>();
 		
@@ -67,7 +74,7 @@ public class FastqUtils {
 		Map<String, String> outTmpFilesRight = new TreeMap<String, String>();
 		Map<String, String> outClippedFilesRight = new TreeMap<String, String>();
 		
-		ArrayList<String> jobIDs = new ArrayList<String>();
+		ArrayList<Job> jobs = new ArrayList<Job>();
 		
 		// Clip left fastq files
 		for(String sampleName : leftFastqs.keySet()) {
@@ -93,10 +100,17 @@ public class FastqUtils {
 					cmmd += outClippedFile;
 				}
 				logger.info("Running fastx command: " + cmmd);
-				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-				jobIDs.add(jobID);
-				logger.info("LSF job ID is " + jobID + ".");
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "week", 4);
+				switch(scheduler) {
+				case LSF:
+					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+					logger.info("LSF job ID is " + jobID + ".");
+					LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "week", 4);
+					job.submit();
+					jobs.add(job);
+					break;
+				default:
+					throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
+				}
 			} else {
 				logger.warn("Temp clipped file " + outTmpFile + " already exists. Not rerunning fastx_clipper. Starting from temp file.");
 			}
@@ -121,10 +135,17 @@ public class FastqUtils {
 						// Use fastx program fastx_clipper
 						String cmmd = fastxDir + "/fastx_clipper -a " + adapter2 + " -Q 33 -n -i " + inFile + " -o " + outTmpFile;
 						logger.info("Running fastx command: " + cmmd);
-						String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-						jobIDs.add(jobID);
-						logger.info("LSF job ID is " + jobID + ".");
-						PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "week", 4);
+						switch(scheduler) {
+						case LSF:
+							String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+							logger.info("LSF job ID is " + jobID + ".");
+							LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, "fastx_clipper_" + jobID + ".bsub", "week", 4);
+							job.submit();
+							jobs.add(job);
+							break;
+						default:
+							throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
+						}
 					} else {
 						logger.warn("Temp clipped file " + outTmpFile + " already exists. Not rerunning fastx_clipper. Starting from temp file.");
 					}
@@ -133,7 +154,7 @@ public class FastqUtils {
 		}
 		
 		logger.info("Waiting for fastx_clipper jobs to finish...");
-		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+		JobUtils.waitForAll(jobs);
 		
 		logger.info("Done running fastx_clipper.");
 		

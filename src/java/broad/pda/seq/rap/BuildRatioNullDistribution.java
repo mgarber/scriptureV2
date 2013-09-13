@@ -2,6 +2,8 @@ package broad.pda.seq.rap;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import broad.core.math.EmpiricalDistribution;
@@ -11,13 +13,15 @@ import net.sf.picard.cmdline.Usage;
 import net.sf.picard.util.Log;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.coordinatesystem.GenomicSpace;
+import nextgen.core.job.Job;
+import nextgen.core.job.JobUtils;
+import nextgen.core.job.LSFJob;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.WindowScoreIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.model.score.*;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.writers.PairedEndWriter;
-import nextgen.core.pipeline.util.PipelineUtils;
 import nextgen.core.readFilters.*;
 
 public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
@@ -58,7 +62,7 @@ public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
 	
 	
 	private Runtime run = Runtime.getRuntime();
-	private String jobID = PipelineUtils.getJobID();
+	private String jobID = LSFJob.generateJobID();
 
 	/**
 	 * Stock main method.
@@ -103,6 +107,7 @@ public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
 	 * @throws InterruptedException
 	 */
 	private void submitJobs() throws IOException, InterruptedException {
+		Collection<Job> jobs = new ArrayList<Job>();
 		for (int i = 0; i < PERMUTATIONS; i++) {
 
 			String command = "-M 4 -P RAP java -Xmx4g -cp " + 
@@ -120,9 +125,11 @@ public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
 			
 						//	 " WINDOW=" + WINDOW + " OVERLAP=" + OVERLAP + " INPUT=" + INPUT + " OUTPUT=" + outfile + " REGION=" + REGION + " MASK_FILE=" + MASK_FILE + " MAX_FRAGMENT_LENGTH=" + MAX_FRAGMENT_LENGTH + " SIZES=" + SIZES;
 			String bsubOutput = outfile + ".bsub";
-			PipelineUtils.bsubProcess(run, jobID, command, bsubOutput, QUEUE);
+			LSFJob job = new LSFJob(run, jobID, command, bsubOutput, QUEUE);
+			jobs.add(job);
+			job.submit();
 		}
-		PipelineUtils.waitForJobs(jobID, run, false);
+		JobUtils.waitForAll(jobs);
 	}
 
 	

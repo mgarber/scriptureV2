@@ -163,5 +163,12 @@ public interface CoordinateSpace {
 	 * @return Annotation consisting of the entire chromosome
 	 */
 	public Annotation getEntireChromosome(String chrName);
+	
+	/**
+	 * Check if window in coordinate space and not masked
+	 * @param window
+	 * @return
+	 */
+	public boolean isValidWindow(Annotation window);
 }
 

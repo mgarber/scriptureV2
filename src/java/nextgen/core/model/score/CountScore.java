@@ -81,6 +81,10 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 		return asRPKM(count, total, getAnnotation().length()); 
 	}
 	
+	public double getRPK() { 
+		return count/(getAnnotation().length() / 1000.0); 
+	}
+	
 	public void setCount(double count) {
 		this.count = count;
 	}
@@ -135,6 +139,13 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 
 	
 	
+	@Override
+	public int hashCode() {
+		throw new UnsupportedOperationException("Class should implement hashCode() because it overrides equals()");
+	}
+
+
+
 	public static class Processor extends WindowProcessor.AbstractProcessor<CountScore> {
 		protected AnnotationCollection<? extends Annotation> model;
 		protected double regionTotal = DEFAULT_REGION_TOTAL;

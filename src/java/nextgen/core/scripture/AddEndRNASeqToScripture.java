@@ -39,11 +39,7 @@ import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.feature.Window;
-import nextgen.core.general.CloseableFilterIterator;
 import nextgen.core.model.AlignmentModel;
-import nextgen.core.model.AlignmentModel.AlignmentCount;
-import nextgen.core.model.score.ScanStatisticScore;
-import nextgen.core.readFilters.SplicedReadFilter;
 
 public class AddEndRNASeqToScripture {
 	
@@ -56,10 +52,13 @@ public class AddEndRNASeqToScripture {
 	private int windowSize;
 	private int extension;
 	Map<String,Collection<Gene>> annotations;
+	Map<String,Collection<Gene>> complete;
 	private TranscriptionRead strand;
 	private static int DEFAULT_EXTENSION = 0;
 	private static int DEFAULT_WINDOW_SIZE = 2;
 	Map<String, IntervalTree<Gene>> intervalTrees;
+	private double THRESHOLD = 7.0;
+	private static final double DEFAULT_THRESHOLD = 7.0;
 	
 	static final String usage = "Usage: AddEndRNASeqToScripture -task <task name> "+
 			"\n**************************************************************"+
@@ -216,7 +215,7 @@ public class AddEndRNASeqToScripture {
 				//For each isoform calculate coverage
 				double avg=0.0;
 				for(Gene isoform:isoformMap.getIsoformsForGene(gene)){
-					avg+=new ScanStatisticScore(model,isoform).getAverageCoverage(model);
+//					avg+=new ScanStatisticScore(model,isoform).getAverageCoverage(model);
 				}
 				avg = avg/(double)isoformMap.getNumOfIsoformsForGene(gene);
 				bwCov.write(isoformMap.getNumOfIsoformsForGene(gene)+"\t"+avg+"\n");
@@ -236,32 +235,6 @@ public class AddEndRNASeqToScripture {
 			}
 		}
 		
-			//While there is an annotated RefSeqGeneWithIsoforms in Interval tree to analyze
-			//while(annotation_iter.hasNext()){
-/*			for(Annotation gene: annotations.get(chr)){
-				Gene gene = annotation_iter.next();
-				
-				if(gene.numBlocks()==1){
-					singleExonGenes++;
-					//Get number of isoforms
-					int cnt = 0;
-					if(singleIsoforms.containsKey(gene.getIsoforms().size())){
-						cnt = singleIsoforms.get(gene.getIsoforms().size());
-					}	
-					cnt++;
-					singleIsoforms.put(gene.getIsoforms().size(), cnt);
-				}
-				else{
-					 multiExonGenes++;
-					 int cnt = 0;
-					 if(multiIsoforms.containsKey(gene.getIsoforms().size())){
-							cnt = multiIsoforms.get(gene.getIsoforms().size());
-					}	
-					cnt++;
-					multiIsoforms.put(gene.getIsoforms().size(), cnt);
-				}
-			}
-		}*/
 		bw.write("Single Exon genes: "+singleExonGenes+"\n");
 		bw.write("Multiple Exon genes: "+multiExonGenes+"\n");
 		bw.write("\nSingle Exon genes: \n");
@@ -287,10 +260,12 @@ public class AddEndRNASeqToScripture {
 		BufferedWriter bw5pBed = new BufferedWriter(new FileWriter(outputName+".peaks.5p.bed"));
 		BufferedWriter bw3p = new BufferedWriter(new FileWriter(outputName+".peaks.3p"));
 		BufferedWriter bw3pBed = new BufferedWriter(new FileWriter(outputName+".peaks.3p.bed"));
+		BufferedWriter bwComplete = new BufferedWriter(new FileWriter(outputName+".complete.bed"));
 		
 		Map<Gene,List<Annotation>> geneTo5pPeakMap = new HashMap<Gene,List<Annotation>>();
 		Map<Gene,List<Annotation>> geneTo3pPeakMap = new HashMap<Gene,List<Annotation>>();
 		int count = 0;
+		complete = new TreeMap<String,Collection<Gene>>();
 		//For each chromosome in the annotation set
 		for(String chr:annotations.keySet()){
 			
@@ -303,6 +278,7 @@ public class AddEndRNASeqToScripture {
 			int num5pPartialMult = 0;
 			int num3pPartialMult = 0;
 			logger.info("Processing "+chr);
+			complete.put(chr, new TreeSet<Gene>());
 			//If 5' or 3' end RNA-seq does not have data for it, dont run
 			if(model5p.getRefSequenceLambda(chr)==0.0 
 					|| model3p.getRefSequenceLambda(chr)==0.0){
@@ -340,7 +316,6 @@ public class AddEndRNASeqToScripture {
 					else{
 						start = bestExtension;
 					}
-					//logger.info("Start = "+start+" End = "+end);
 					Gene ge = gene.copy();
 					//EXPAND IS A STRAND-INDEPENDENT FUNCTION
 					ge.expand(start, end);
@@ -353,6 +328,13 @@ public class AddEndRNASeqToScripture {
 					
 					double[] nulls5p = get5pNullDistribution(ge,space);
 					
+					if(nulls5p[2]<11){
+						THRESHOLD=15;
+						
+					}
+					else{
+						THRESHOLD = DEFAULT_THRESHOLD;
+					}
 					start = 0;
 					end =0;
 					bestExtension = getDistanceToClosestSameOrientation3pGene(gene);
@@ -378,42 +360,6 @@ public class AddEndRNASeqToScripture {
 					space = new TranscriptomeSpace(chrToGenesMap);
 					
 					double[] nulls3p = get3pNullDistribution(gs,space);
-					//logger.info("5p null : "+nulls5p[0]+" "+nulls5p[1]);
-					//logger.info("3p null : "+nulls3p[0]+" "+nulls3p[1]);
-/*					Collection<double[]> nulls = new ArrayList<double[]>();
-					//Compute nulls for each isoform transcript
-					for(Gene isoform:gene.getIsoforms()){
-						double[] rtrn = get5pNullDistribution(isoform);
-						if(rtrn[0]>0.0 || rtrn[1]>0.0)
-							nulls.add(rtrn);
-					}
-					
-					//For each isoform,
-					for(Gene isoform:gene.getIsoforms()){
-*/
-//						Collection<Annotation> peaks = new ArrayList<Annotation>();
-						//Compute the z-score and take the minimum of the z-scores
-//						Iterator<? extends Window> witer = model5p.getCoordinateSpace().getWindowIterator(windowSize, chr, isoform.getStart(), isoform.getEnd(), 0);
-						//Iterator<? extends Window> witer = model5p.getCoordinateSpace().getWindowIterator(windowSize, chr, gene.getStart(), gene.getEnd(), 0);
-						
-						/*
-						 * ITERATE IN THE TRANSCRIPTOME SPACE ONLY
-						 */
-/*						int start = 0;
-						int end =0;
-						//logger.info("Gene "+gene.toBED());
-						//logger.info("Start: "+start+" End: "+end);
-						if(gene.isNegativeStrand()){
-							end = extension;
-						}
-						else{
-							start = extension;
-						}
-						//logger.info("Start: "+start+" End: "+end);
-						Gene ge = gene.copy();
-						//EXPAND IS A STRAND-INDEPENDENT FUNCTION
-						ge.expand(start, end);*/
-						//logger.info("After expansion Gene "+ge.toBED());
 						/*
 						 * RE-DEFINE COORDINATE SPACE
 						 */
@@ -437,14 +383,10 @@ public class AddEndRNASeqToScripture {
 							 * 5P 
 							 */
 							double windowCount5p = get5pWindowCount(window,gene.getOrientation());
-//							if(windowCount5p>0)
-//								logger.info(window.toUCSC()+" "+windowCount5p);
-							//Get the z-score of each window
-//							double zscore = getMinimumZScore(windowCount,nulls,window.getSize());
 							double zscore5p = Statistics.zScore(windowCount5p, nulls5p[0],nulls5p[1],window.getSize());
 							//Associate the high z-scores with gene
 							//If window is significant
-							if(zscore5p>=7){
+							if(zscore5p>=THRESHOLD){
 								//if flag=false, that is, no peak found before this(?)
 								if(!flag5p){
 									has5pPeak=true;
@@ -504,20 +446,12 @@ public class AddEndRNASeqToScripture {
  						/**
  						 * 3P 
  						 */
-/* 						start = 0;
-						end =0;
-						if(gene.isNegativeStrand()){
-							start = extension;
-							//logger.info("Start: "+start+" End: "+end);
-						}
-						else{
-							end = extension;
-						}
-						//logger.info("3p: Start: "+start+" End: "+end);
-						Gene gs = gene.copy();
-						//EXPAND IS A STRAND-INDEPENDENT FUNCTION
-						gs.expand(start, end);*/
-						//logger.info("After 3p expansion "+gs.toBED());
+ 						if(nulls3p[2]<11){
+ 							THRESHOLD=15;
+ 						}
+ 						else{
+ 							THRESHOLD = DEFAULT_THRESHOLD;
+ 						}
  						chrToGenesMap = new HashMap<String,Collection<Gene>>();
 						g = new ArrayList<Gene>();
 						g.add(gs);
@@ -545,7 +479,7 @@ public class AddEndRNASeqToScripture {
 //							if(windowCount3p>0)
 //								logger.info(window.toUCSC()+" Count = "+windowCount3p+" zscore = "+zscore3p);
 							//If window is significant
-							if(zscore3p>=7){
+							if(zscore3p>=THRESHOLD){
 								//if flag=false, that is, no peak found before this(?)
 								if(!flag3p){
 									has3pPeak=true;
@@ -604,8 +538,12 @@ public class AddEndRNASeqToScripture {
  						
  						if(gene.getBlocks().size()==1){
 	 						if(has5pPeak){
-	 							if(has3pPeak)
+	 							if(has3pPeak){
 	 								numFullSing++;
+	 								bwComplete.write(gene.toBED()+"\n");
+	 								logger.info(gene.getName()+" is complete");
+	 								complete.get(chr).add(gene);
+	 							}
 	 							else
 	 								//5p but no 3p
 	 								num5pPartialSing++;
@@ -619,8 +557,12 @@ public class AddEndRNASeqToScripture {
  						}
  						else{
  							if(has5pPeak){
-	 							if(has3pPeak)
+	 							if(has3pPeak){
 	 								numFullMult++;
+	 								bwComplete.write(gene.toBED()+"\n");
+	 								logger.info(gene.getName()+" is complete");
+	 								complete.get(chr).add(gene);
+	 							}
 	 							else
 	 								//5p but no 3p
 	 								num5pPartialMult++;
@@ -652,6 +594,7 @@ public class AddEndRNASeqToScripture {
 		bw3p.close();
 		bw5pBed.close();
 		bw3pBed.close();
+		bwComplete.close();
 		
 		Map<Gene,List<Double>> mapp = trimAndExtendBestIsoform(geneTo5pPeakMap,geneTo3pPeakMap,outputName);
 		trimAndExtendAllIsoforms(geneTo5pPeakMap,geneTo3pPeakMap,outputName,mapp);
@@ -676,6 +619,9 @@ public class AddEndRNASeqToScripture {
 		int extend5p = 0;
 		int trim3p = 0;
 		int extend3p=0;
+		//ONLY TRIM COMPLETE TRANSCRIPTS
+		//annotations = complete;
+		
 		//For each chromosome in the annotation set
 		for(String chr:annotations.keySet()){
 			//For each gene
@@ -849,6 +795,8 @@ public class AddEndRNASeqToScripture {
 		int extend5p = 0;
 		int trim3p = 0;
 		int extend3p=0;
+		//ONLY TRIM COMPLETE TRANSCRIPTS
+		//annotations = complete;
 		//For each chromosome in the annotation set
 		for(String chr:annotations.keySet()){
 			//For each gene
@@ -1060,11 +1008,12 @@ public class AddEndRNASeqToScripture {
 	 * @param annotation
 	 * @return 	[0]: mean
 	 * 			[1]: variance
+	 * 			[2]: highest pileup
 	 */
 	private double[] get5pNullDistribution(Gene annotation,CoordinateSpace space){
 		
 		List<Double> values = new ArrayList<Double>();
-				
+		double max = Double.MIN_VALUE;
 		Iterator<? extends Window> giter = space.getWindowIterator(annotation, windowSize, 0);
 		//For each window
 		while(giter.hasNext()){
@@ -1084,20 +1033,25 @@ public class AddEndRNASeqToScripture {
 				}
 				readiter.close();
 			}
-			if(windowCount>0.0){
+//			if(windowCount>0.0){
 				values.add(windowCount);
-			}
+				if(windowCount>max){
+					max = windowCount;
+				}
+//			}
 		}
-		double[] rtrn = new double[2];
+		double[] rtrn = new double[3];
 		if(values.size()>0){
 			//rtrn[0] = Statistics.mean(values);
 			//rtrn[0] = Statistics.median(values);
 			rtrn[0] = Statistics.geometricMean(l2a(values));
 			rtrn[1] = Statistics.variance(values);
+			rtrn[2] = max;
 		}
 		else{ 
 			rtrn[0] = 0.0;
 			rtrn[1] = 0.0;
+			rtrn[2] = 0.0;
 		}
 		return rtrn;
 	}
@@ -1107,11 +1061,12 @@ public class AddEndRNASeqToScripture {
 	 * @param annotation
 	 * @return 	[0]: mean
 	 * 			[1]: variance
+	 * 			[2]: highest pileup
 	 */
 	private double[] get3pNullDistribution(Gene annotation,CoordinateSpace space){
 		
 		List<Double> values = new ArrayList<Double>();
-				
+		double max = Double.MIN_VALUE;
 		Iterator<? extends Window> giter = space.getWindowIterator(annotation, windowSize, 0);
 		//For each window
 		while(giter.hasNext()){
@@ -1133,20 +1088,25 @@ public class AddEndRNASeqToScripture {
 				}
 				readiter.close();
 			}
-			if(windowCount>0.0){
+//			if(windowCount>0.0){
 				values.add(windowCount);
-			}
+				if(windowCount>max){
+					max = windowCount;
+				}
+//			}
 		}
-		double[] rtrn = new double[2];
+		double[] rtrn = new double[3];
 		if(values.size()>0){
 			//rtrn[0] = Statistics.mean(values);
 			//rtrn[0] = Statistics.median(values);
 			rtrn[0] = Statistics.geometricMean(l2a(values));
 			rtrn[1] = Statistics.variance(values);
+			rtrn[2] = max;
 		}
 		else{ 
 			rtrn[0] = 0.0;
 			rtrn[1] = 0.0;
+			rtrn[2] = 0.0;
 		}
 		return rtrn;
 	}
@@ -1453,7 +1413,23 @@ public class AddEndRNASeqToScripture {
 		return rtrn;
 	}
 	
-	/*static String usage=" args[0]=bam file \n\t args[1]=annotation file \n\t args[2]: Output name"
-			+"\n\t args[3]= window size \n\t args[4] transcription strand";*/
+	private class NullDistribution{
+		
+		double[] distribution;
+		int highestPileup;
+		
+		NullDistribution(double[] d,int h){
+			distribution = d;
+			highestPileup = h;
+		}
+		
+		public double[] getDistribution(){
+			return distribution;
+		}
+		
+		public int getHighestPileup(){
+			return highestPileup;
+		}
+	}
 	
 }

@@ -500,7 +500,7 @@ public class SampleData {
 			    deltaStart = deltaEnd;
 			    deltaEnd = tmpStart;
 			}
-			window.trim(deltaStart, deltaEnd);
+			window = window.trim(deltaStart, deltaEnd);
 		}
 		
 		logger.debug("TRIMMED_WINDOW\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
