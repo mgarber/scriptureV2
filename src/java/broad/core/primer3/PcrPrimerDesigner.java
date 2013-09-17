@@ -320,11 +320,11 @@ public class PcrPrimerDesigner  {
 	}*/
 	
 	//TODO should add all junctions as sequence regions
-	public static Set<PrimerPair> designJenPrimers(Sequence chr, Gene gene, boolean repeatMask, int numDesigns)throws Exception{
+	public static Set<PrimerPair> designJenPrimers(Sequence chr, Gene gene, boolean repeatMask, int numDesigns, String pathPrimer3core)throws Exception{
 		
 		Primer3Configuration best = Primer3ConfigurationFactory.getJenRTPCRConfiguration();
 		
-		Primer3IO p3io = new Primer3IO();
+		Primer3IO p3io = new Primer3IO(pathPrimer3core);
 		p3io.startPrimer3Communications();
 				
 		Sequence mRNA=new Sequence(gene.getName());
@@ -622,14 +622,14 @@ public class PcrPrimerDesigner  {
 	}
 
 
-	public static Collection<PrimerPair> designIntronPrimers(Sequence chr, Gene gene, boolean repeatMask, String sequencePrimer, String sequencePrimerRevComp, int numDesigns, int min3, int min5) throws Exception {
+	public static Collection<PrimerPair> designIntronPrimers(Sequence chr, Gene gene, boolean repeatMask, String sequencePrimer, String sequencePrimerRevComp, int numDesigns, int min3, int min5, String pathPrimer3core) throws Exception {
 		Primer3Configuration best = Primer3ConfigurationFactory.getJenRTPCRConfiguration();
 		
 		if(numDesigns>0){best.setPrimerNumReturn(numDesigns);}
 		if(min3>0){best.setPrimerMin3PrimeOverlapOfJunction(min3);}
 		if(min5>0){best.setPrimerMin5PrimeOverlapOfJunction(min5);}
 		
-		Primer3IO p3io = new Primer3IO();
+		Primer3IO p3io = new Primer3IO(pathPrimer3core);
 		p3io.startPrimer3Communications();
 				
 		Sequence mRNA=new Sequence(gene.getName());
@@ -655,10 +655,10 @@ public class PcrPrimerDesigner  {
 	}
 	
 	
-	public static Collection<PrimerPair> designRACEPrimers(Sequence mRNA, String leftPrimer, String rightPrimer) throws Exception {
+	public static Collection<PrimerPair> designRACEPrimers(Sequence mRNA, String leftPrimer, String rightPrimer, String pathPrimer3core) throws Exception {
 		Primer3Configuration best = Primer3ConfigurationFactory.getJenRTPCRConfiguration();
 				
-		Primer3IO p3io = new Primer3IO();
+		Primer3IO p3io = new Primer3IO(pathPrimer3core);
 		p3io.startPrimer3Communications();
 			
 		//ArrayList<Integer> splicePositions=gene.getSpliceJunctionCoordinates();
@@ -678,13 +678,13 @@ public class PcrPrimerDesigner  {
 		return pp;
 	}
 
-	public static Collection<PrimerPair> designPCRPrimers(Sequence chr, Gene gene, boolean repeatMask,	int numDesigns, boolean crossJunction) throws Exception {
+	public static Collection<PrimerPair> designPCRPrimers(Sequence chr, Gene gene, boolean repeatMask,	int numDesigns, boolean crossJunction, String pathPrimer3core) throws Exception {
 		Primer3Configuration best = Primer3ConfigurationFactory.getJenRTPCRConfiguration();
 		
 		if(numDesigns>0){best.setPrimerNumReturn(numDesigns);}
 		if(!crossJunction){repeatMask=true;}		
 		
-		Primer3IO p3io = new Primer3IO();
+		Primer3IO p3io = new Primer3IO(pathPrimer3core);
 		p3io.startPrimer3Communications();
 			
 		
@@ -718,12 +718,12 @@ public class PcrPrimerDesigner  {
 		return rtrn;
 	}
 	
-	public static Collection<PrimerPair> designPCRPrimers(Sequence chr, Gene gene, boolean repeatMask,	int numDesigns,  SequenceRegionCoordinates target) throws Exception {
+	public static Collection<PrimerPair> designPCRPrimers(Sequence chr, Gene gene, boolean repeatMask,	int numDesigns,  SequenceRegionCoordinates target, String pathPrimer3core) throws Exception {
 		Primer3Configuration best = Primer3ConfigurationFactory.getJenRTPCRConfiguration();
 		
 		if(numDesigns>0){best.setPrimerNumReturn(numDesigns);}	
 		
-		Primer3IO p3io = new Primer3IO();
+		Primer3IO p3io = new Primer3IO(pathPrimer3core);
 		p3io.startPrimer3Communications();		
 				
 		Sequence mRNA=new Sequence(gene.getName());
@@ -746,13 +746,13 @@ public class PcrPrimerDesigner  {
 		return rtrn;
 	}
 	
-	public static Collection<PrimerPair> designCloningPrimers(Sequence geneSequence, int numDesigns, SequenceRegionCoordinates target) throws Exception {
+	public static Collection<PrimerPair> designCloningPrimers(Sequence geneSequence, int numDesigns, SequenceRegionCoordinates target, String pathPrimer3core) throws Exception {
 		Primer3Configuration best = Primer3ConfigurationFactory.getLongRangePCRConfiguration();
 		
 		//if(numDesigns>0){best.setPrimerNumReturn(numDesigns);}
 		
 		
-		Primer3IO p3io = new Primer3IO();
+		Primer3IO p3io = new Primer3IO(pathPrimer3core);
 		p3io.startPrimer3Communications();
 			
 				
@@ -786,16 +786,16 @@ public class PcrPrimerDesigner  {
 		return rtrn;
 	}
 	
-	public static Collection<PrimerPair> designCloningPrimers(Sequence geneSequence, int numDesigns) throws Exception {
-		return designCloningPrimers(geneSequence, numDesigns, null);
+	public static Collection<PrimerPair> designCloningPrimers(Sequence geneSequence, int numDesigns, String pathPrimer3core) throws Exception {
+		return designCloningPrimers(geneSequence, numDesigns, null, pathPrimer3core);
 	}
 
-	public static Collection<PrimerPair> designSyntheticPrimers(String seq, int numDesigns) throws IOException {
+	public static Collection<PrimerPair> designSyntheticPrimers(String seq, int numDesigns, String pathPrimer3core) throws IOException {
 		Primer3Configuration best = Primer3ConfigurationFactory.getSyntheticConfiguration();
 		
 		if(numDesigns>0){best.setPrimerNumReturn(numDesigns);}
 				
-		Primer3IO p3io = new Primer3IO();
+		Primer3IO p3io = new Primer3IO(pathPrimer3core);
 		p3io.startPrimer3Communications();
 			
 		
@@ -820,7 +820,7 @@ public class PcrPrimerDesigner  {
 		return rtrn;
 	}
 	
-	public static Collection<PrimerPair> designSyntheticPrimers(String seq, int numDesigns, int primerSize, int seqSize) throws IOException {
+	public static Collection<PrimerPair> designSyntheticPrimers(String seq, int numDesigns, int primerSize, int seqSize, String pathPrimer3core) throws IOException {
 		Primer3Configuration best = Primer3ConfigurationFactory.getSyntheticConfiguration();
 		best.minPrimerSize = primerSize;
 		best.maxPrimerSize = primerSize;
@@ -830,7 +830,7 @@ public class PcrPrimerDesigner  {
 		
 		if(numDesigns>0){best.setPrimerNumReturn(numDesigns);}
 				
-		Primer3IO p3io = new Primer3IO();
+		Primer3IO p3io = new Primer3IO(pathPrimer3core);
 		p3io.startPrimer3Communications();
 			
 		
@@ -856,12 +856,12 @@ public class PcrPrimerDesigner  {
 	}
 
 
-	public static Collection<PrimerPair> designSyntheticPrimers(String seq, String sequencePrimer, String sequencePrimerRevComp, int numDesigns) throws Exception {
+	public static Collection<PrimerPair> designSyntheticPrimers(String seq, String sequencePrimer, String sequencePrimerRevComp, int numDesigns, String pathPrimer3core) throws Exception {
 		Primer3Configuration best = Primer3ConfigurationFactory.getSyntheticConfiguration2();
 		
 		if(numDesigns>0){best.setPrimerNumReturn(numDesigns);}
 				
-		Primer3IO p3io = new Primer3IO();
+		Primer3IO p3io = new Primer3IO(pathPrimer3core);
 		p3io.startPrimer3Communications();
 			
 		Sequence mRNA=new Sequence("Primer");
@@ -895,6 +895,7 @@ public class PcrPrimerDesigner  {
 		p.addIntArg("-pd", "For plasmid deletion, max total number of plasmid positions not in PCR product", false, 100);
 		p.addBooleanArg("-rc", "Design primers against antisense strand", true);
 		p.addStringArg("-o", "outfile", true);
+		p.addStringArg("-p3c", "primer3core executable", true);
 		
 		p.parse(args);
 		
@@ -904,6 +905,8 @@ public class PcrPrimerDesigner  {
 		String outfile = p.getStringArg("-o");
 		boolean rc = p.getBooleanArg("-rc");
 		int plasmidMissingPositions = p.getIntArg("-pd");
+		String primer3core = p.getStringArg("-p3c");
+		
 		
 		boolean configOk = false;
 		for(int i=0; i<CONFIG_NAMES.length; i++) {
@@ -978,7 +981,7 @@ public class PcrPrimerDesigner  {
 		// If plasmids, will get separate configuration for each plasmid
 		if(config.equals("plasmid_deletion")) primer3config = null;
 
-		Primer3IO p3io = new Primer3IO();
+		Primer3IO p3io = new Primer3IO(primer3core);
 		p3io.startPrimer3Communications();
 		
 		// output file
