@@ -17,8 +17,14 @@ public class BinomialEnrichmentScore extends CountScore {
 	private double sampleRegionCount;
 	private double ctrlRegionCount; //Total bases in gene/region/chrom in control
 	
-	public BinomialEnrichmentScore(AlignmentModel sample, AlignmentModel ctrl, Annotation a) {
-		super(sample, a);
+	/**
+	 * Binomial score for windows
+	 * P-Value statistics are stored here
+	 * "Region" refers to an arbitrary region being scanned, like a gene, or a chromosome, or some subset of the whole coordinate space
+	 */
+
+	public BinomialEnrichmentScore(AlignmentModel sample, AlignmentModel ctrl, Annotation a, boolean fullyContained) {
+		super(sample, a, fullyContained);
 		sampleCoordSpace = sample.getCoordinateSpace();
 		ctrlCoordSpace = ctrl.getCoordinateSpace();
 		
@@ -26,9 +32,9 @@ public class BinomialEnrichmentScore extends CountScore {
 			throw new IllegalArgumentException("Sample coordinate space must match control coordinate space");
 		}
 		
-		setCtrlCount(ctrl.getCount(a));
-		setCtrlRegionCount(ctrl.getCount(a));
-		setSampleRegionCount(sample.getCount(a));
+		setCtrlCount(ctrl.getCount(a,fullyContained));
+		setCtrlRegionCount(ctrl.getCount(a,fullyContained));
+		setSampleRegionCount(sample.getCount(a,fullyContained));
 	
 		try {
 			setPvalue(calculatePVal(getSampleCount(), getCtrlCount(), getSampleRegionCount(), getCtrlRegionCount()));
@@ -41,28 +47,37 @@ public class BinomialEnrichmentScore extends CountScore {
 	public BinomialEnrichmentScore(AlignmentModel sample, Annotation a) {
 		this(sample, sample, a);
 	}
-
+	
+	public BinomialEnrichmentScore(AlignmentModel sample, AlignmentModel ctrl, Annotation a) {
+		this(sample,ctrl,a,false);
+	}
+	
+	
 	public BinomialEnrichmentScore(AlignmentModel sample, AlignmentModel ctrl, Annotation a, double sampleRegCount, double ctrlRegCount) {
-		this(sample,ctrl,a);
+		this(sample,ctrl,a,sampleRegCount,ctrlRegCount,false);
+	}
+
+	public BinomialEnrichmentScore(AlignmentModel sample, AlignmentModel ctrl, Annotation a, double sampleRegCount, double ctrlRegCount, boolean fullyContained) {
+		this(sample,ctrl,a,fullyContained);
 		setSampleRegionCount(sampleRegCount);
 		setCtrlRegionCount(ctrlRegCount);
 		setPvalue(calculatePVal(getSampleCount(), getCtrlCount(), getSampleRegionCount(), getCtrlRegionCount()));
 		
-		getAnnotation().setScore(getScanPvalue());
+		getAnnotation().setScore(getPvalue());
 	}
 	
-	public BinomialEnrichmentScore(AlignmentModel sample, AlignmentModel sample, Annotation annotation, BinomialEnrichmentScore previousScore, double newSampleCount,double newCtrlCount) {
-		super(previousScore, annotation, newScore); //Set the new score without computing
+	public BinomialEnrichmentScore(AlignmentModel sample, AlignmentModel ctrl, Annotation annotation, BinomialEnrichmentScore previousScore, double newSampleCount,double newCtrlCount) {
+		super(previousScore, annotation, newSampleCount); //Set the new score without computing
 		sampleCoordSpace = sample.getCoordinateSpace();
-		setRegionLength(previousScore.getRegionLength());
-		setRegionTotal(previousScore.getRegionTotal());
-		setGlobalLength(model.getGlobalLength());
+		ctrlCount = newCtrlCount;
+		this.sampleRegionCount = previousScore.getSampleRegionCount();
+		this.ctrlRegionCount = previousScore.getCtrlRegionCount();
 		try {
-			setScanPvalue(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(annotation), model.getGlobalLength()));
+			setPvalue(calculatePVal(new Double(getSampleCount()), new Double(getCtrlCount()), sampleRegionCount, ctrlRegionCount));
 		} catch(Exception e) {
 			logger.info("Could not set scan P value for annotation " + annotation.getName());
 		}
-		getAnnotation().setScore(getScanPvalue());
+		getAnnotation().setScore(getPvalue());
 	}
 	
 	/**
@@ -73,13 +88,18 @@ public class BinomialEnrichmentScore extends CountScore {
 	 * @return				Binomial P(X>a)
 	 */
 	public double calculatePVal(double a, double b, double sampleRegionCounts, double ctrlRegionCounts) {
-		
-		double p = sampleRegionCounts/ctrlRegionCounts;
+		if (a+b<=2) {return 1;}
+		double p = sampleRegionCounts/(sampleRegionCounts+ctrlRegionCounts);
+		if (p==0) {return 1;}
 		long n = (long) (a + b);
 		Binomial C = new Binomial(n,p);
 		double pval = 1 - C.cdf(a);
 		return pval;
 
+	}
+	
+	public void refreshPvalue() {
+		setPvalue(calculatePVal(getCount(),ctrlCount,sampleRegionCount,ctrlRegionCount));
 	}
 	
 	public static class Processor extends WindowProcessor.AbstractProcessor<BinomialEnrichmentScore> {
@@ -89,9 +109,14 @@ public class BinomialEnrichmentScore extends CountScore {
 		protected double ctrlRegionCount = DEFAULT_REGION_TOTAL;
 		private boolean fullyContainedReads;
 		
-		public Processor(AlignmentModel sample, AlignmentModel ctrl) {
+		public Processor(AlignmentModel sample, AlignmentModel ctrl, boolean fullyContained) {
 			this.sample = sample;
 			this.ctrl = ctrl;
+			this.fullyContainedReads = fullyContained;
+		}
+		
+		public Processor(AlignmentModel sample, AlignmentModel ctrl) {
+			this(sample,ctrl,false);
 		}
 		
 		public Processor(AlignmentModel sample) {
@@ -107,7 +132,7 @@ public class BinomialEnrichmentScore extends CountScore {
 		}
 		
 		public BinomialEnrichmentScore processWindow(Annotation a){
-			return new BinomialEnrichmentScore(sample, ctrl, a, sampleRegionCount, ctrlRegionCount);
+			return new BinomialEnrichmentScore(sample, ctrl, a, sampleRegionCount, ctrlRegionCount, fullyContainedReads);
 		}
 		
 		/**
@@ -116,12 +141,20 @@ public class BinomialEnrichmentScore extends CountScore {
 		 * @param previousScore The WindowScore before
 		 * @return the count of the current window
 		 */
-		private double computeCount(Annotation nextRegion, CountScore previousScore) {
+		private double computeSampleCount(Annotation nextRegion, BinomialEnrichmentScore previousScore) {
 			//else, get the minus region scores and the plus value scores
 			//This is not so simple because we'll need to use the fully contained regions
 			double subtractVal=sample.getCountExcludingRegion(previousScore.getAnnotation().minus(nextRegion), nextRegion);
 			double addVal=sample.getCountExcludingRegion(nextRegion.minus(previousScore.getAnnotation()), previousScore.getAnnotation());
-			return (previousScore.getCount()-subtractVal)+addVal;
+			return (previousScore.getSampleCount()-subtractVal)+addVal;
+		}
+		
+		private double computeCtrlCount(Annotation nextRegion, BinomialEnrichmentScore previousScore) {
+			//else, get the minus region scores and the plus value scores
+			//This is not so simple because we'll need to use the fully contained regions
+			double subtractVal=ctrl.getCountExcludingRegion(previousScore.getAnnotation().minus(nextRegion), nextRegion);
+			double addVal=ctrl.getCountExcludingRegion(nextRegion.minus(previousScore.getAnnotation()), previousScore.getAnnotation());
+			return (previousScore.getCtrlCount()-subtractVal)+addVal;
 		}
 		
 		@Override
@@ -132,22 +165,11 @@ public class BinomialEnrichmentScore extends CountScore {
 				return processWindow(annotation);
 			}
 				
-			double newScore=computeCount(annotation, previousScore);
-			return new BinomialEnrichmentScore(sample, annotation, previousScore, newScore);
+			double newSampleCount=computeSampleCount(annotation, previousScore);
+			double newCtrlCount=computeCtrlCount(annotation, previousScore);
+			return new BinomialEnrichmentScore(sample, ctrl, annotation, previousScore, newSampleCount, newCtrlCount);
 			}
 		
-	}
-	
-	public double getAverageCoverage(AlignmentModel data, CoordinateSpace coordSpace) { 
-		int regionSize = coordSpace.getSize(annotation);
-		CloseableIterator<Alignment> readsIter = data.getOverlappingReads(getAnnotation(), false);
-		int basesInReads = 0;
-		while(readsIter.hasNext()) {
-			Alignment read = readsIter.next();
-			basesInReads += read.getOverlap(annotation);
-		}
-		double avgCoverage = (double) basesInReads / (double)regionSize;
-		return avgCoverage;
 	}
 	
 	public void setPvalue(double scanPvalue) { this.Pvalue = scanPvalue; }
