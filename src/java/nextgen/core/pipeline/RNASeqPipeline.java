@@ -30,6 +30,7 @@ import nextgen.core.writers.PairedEndWriter;
 
 import org.apache.log4j.Logger;
 import org.broad.igv.Globals;
+import org.ggf.drmaa.DrmaaException;
 
 import broad.core.error.ParseException;
 import broad.core.parser.CommandLineParser;
@@ -89,7 +90,7 @@ public class RNASeqPipeline {
 	Map<String,String> currentBamFiles;
 		
 	/**
-	 * Scheduler e.g. LSF or SGE
+	 * Scheduler e.g. LSF or OGS
 	 */
 	Scheduler scheduler;
 	
@@ -124,8 +125,9 @@ public class RNASeqPipeline {
 	 * @throws IOException
 	 * @throws ParseException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public RNASeqPipeline(String inputListFile,String configFileName) throws IOException, ParseException, InterruptedException {
+	public RNASeqPipeline(String inputListFile,String configFileName) throws IOException, ParseException, InterruptedException, DrmaaException {
 		
 		Globals.setHeadless(true);
 		logger.info("Using Version R4.4");
@@ -390,8 +392,9 @@ public class RNASeqPipeline {
 	 * @author prussell
 	 * @throws IOException 
 	 * @throws InterruptedException 
+	 * @throws DrmaaException 
 	 */
-	private void quantifyRNAClasses() throws IOException, InterruptedException{
+	private void quantifyRNAClasses() throws IOException, InterruptedException, DrmaaException{
 		
 		logger.info("");
 		logger.info("Quantifying RNA classes...");
@@ -503,8 +506,9 @@ public class RNASeqPipeline {
 	 * @author prussell
 	 * @throws InterruptedException 
 	 * @throws IOException 
+	 * @throws DrmaaException 
 	 */
-	private void filterrRNA() throws IOException, InterruptedException{
+	private void filterrRNA() throws IOException, InterruptedException, DrmaaException{
 		
 		// Establish paths and software locations
 		File outDirFile = new File(FILTER_RRNA_DIRECTORY);
@@ -607,7 +611,7 @@ public class RNASeqPipeline {
 		logger.info("Delete sam files to save disk space. Keep fastq files for future pipeline runs.");
 	}
 	
-	private void alignToTranscripts() throws IOException, InterruptedException{
+	private void alignToTranscripts() throws IOException, InterruptedException, DrmaaException{
 		
 		// Establish paths and software locations
 		File outDirFile = new File(ALIGN_TO_TRANSCRIPTS_DIRECTORY);
@@ -835,8 +839,9 @@ public class RNASeqPipeline {
 	 * @author prussell
 	 * @throws InterruptedException 
 	 * @throws IOException 
+	 * @throws DrmaaException 
 	 */
-	private void alignToGenome() throws IOException, InterruptedException{
+	private void alignToGenome() throws IOException, InterruptedException, DrmaaException{
 		
 		logger.info("");
 		logger.info("Aligning to genome...");
@@ -1094,8 +1099,9 @@ public class RNASeqPipeline {
 	 * @return Map associating sample name with unmapped fastq files for read1 and read2. Read2 file is null if tophat2 was used.
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	private Map<String, String[]> unmappedToFastq(Map<String, String> tophatDirsPerSample, String picardJarDir, boolean version2) throws IOException, InterruptedException {
+	private Map<String, String[]> unmappedToFastq(Map<String, String> tophatDirsPerSample, String picardJarDir, boolean version2) throws IOException, InterruptedException, DrmaaException {
 		Map<String, String[]> rtrn = new TreeMap<String, String[]>();
 		if(version2) {
 			// Convert the unmapped.bam files to fastq format and get file names
@@ -1126,8 +1132,9 @@ public class RNASeqPipeline {
 	 * @param picardJarDir Directory containing Picard jar files
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */	
-	private Map<String, String> unmappedFastqTophat2(Map<String, String> tophatDirsPerSample, String picardJarDir) throws IOException, InterruptedException {
+	private Map<String, String> unmappedFastqTophat2(Map<String, String> tophatDirsPerSample, String picardJarDir) throws IOException, InterruptedException, DrmaaException {
 		ArrayList<Job> convertJobs = new ArrayList<Job>();
 		// Store names of fastq files
 		Map<String, String> unmappedFastq1 = new TreeMap<String,String>();
@@ -1179,8 +1186,9 @@ public class RNASeqPipeline {
 	 * @param unmappedFastq Unmapped reads by sample name
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	private void runNovoalignOnUnmappedReads(Map<String, String> tophatOptions, String novoindex, String novoalign, Map<String, String> novoDirsPerSample, Map<String, String> novoSamOutput, Map<String, String> novoBamFinalPath, Map<String, String[]> unmappedFastq, boolean tophat2) throws IOException, InterruptedException {
+	private void runNovoalignOnUnmappedReads(Map<String, String> tophatOptions, String novoindex, String novoalign, Map<String, String> novoDirsPerSample, Map<String, String> novoSamOutput, Map<String, String> novoBamFinalPath, Map<String, String[]> unmappedFastq, boolean tophat2) throws IOException, InterruptedException, DrmaaException {
 		// Get novoalign options
 		Map<String, String> novoalignOptions = new TreeMap<String, String>();
 		for(ConfigFileOptionValue value : configFile.getOptionValues(sectionBasicOptions, optionNovoalignOption)) {
@@ -1397,8 +1405,9 @@ public class RNASeqPipeline {
 	 * @param picardJarDir Directory containing Picard jar files
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	private void mergeTophatNovoalign(Map<String, String> tophatBamFinalPath, Map<String, String> novoBamFinalPath, String picardJarDir) throws IOException, InterruptedException {
+	private void mergeTophatNovoalign(Map<String, String> tophatBamFinalPath, Map<String, String> novoBamFinalPath, String picardJarDir) throws IOException, InterruptedException, DrmaaException {
 		File mergedDir = new File(MERGED_TOPHAT_NOVOALIGN_DIRECTORY);
 		@SuppressWarnings("unused")
 		boolean madeMergedDir = mergedDir.mkdir();
@@ -1465,8 +1474,9 @@ public class RNASeqPipeline {
 	 * @param samtools Samtools executable
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	private void indexCurrentBams(String samtools) throws IOException, InterruptedException {
+	private void indexCurrentBams(String samtools) throws IOException, InterruptedException, DrmaaException {
 		AlignmentUtils.indexBamFiles(currentBamFiles, samtools, scheduler);
 	}
 	
@@ -1479,8 +1489,9 @@ public class RNASeqPipeline {
 	 * @param refFasta Reference fasta file
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	private void writeWigPositionCount(Map<String, String> bamFiles, String bamDir, String geneBedFile, String refFasta) throws IOException, InterruptedException {
+	private void writeWigPositionCount(Map<String, String> bamFiles, String bamDir, String geneBedFile, String refFasta) throws IOException, InterruptedException, DrmaaException {
 		if(!configFile.hasOption(sectionBasicOptions, optionWigToBigWigExecutable)) {
 			throw new IllegalArgumentException("In order to write wig file, must specify " + optionWigToBigWigExecutable.getName() + " in config file.");
 		}
@@ -1502,8 +1513,9 @@ public class RNASeqPipeline {
 	 * @param geneBedFile Bed file of genes to count reads in or null if using genomic space
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	private void writeWigFragmentEndsAndMidpoints(Map<String, String> bamFiles, String bamDir, String refFasta, String geneBedFile) throws IOException, InterruptedException {
+	private void writeWigFragmentEndsAndMidpoints(Map<String, String> bamFiles, String bamDir, String refFasta, String geneBedFile) throws IOException, InterruptedException, DrmaaException {
 		if(!configFile.hasOption(sectionBasicOptions, optionWigToBigWigExecutable)) {
 			throw new IllegalArgumentException("In order to write wig file, must specify " + optionWigToBigWigExecutable.getName() + " in config file.");
 		}
@@ -1607,8 +1619,9 @@ public class RNASeqPipeline {
 	 * @param picardDir Directory containing Picard jar files
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	private void reorderCurrentBams(String picardDir) throws IOException, InterruptedException {
+	private void reorderCurrentBams(String picardDir) throws IOException, InterruptedException, DrmaaException {
 		ArrayList<Job> reorderJobs = new ArrayList<Job>();
 		Map<String, String> reordered = new TreeMap<String, String>();
 		for(String sample : sampleNames) {
@@ -1645,8 +1658,9 @@ public class RNASeqPipeline {
 	 * @param chrSizeFile Chromosome size file for genomic space stats. To skip, pass null.
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	private void writeAlignmentGlobalStats(String alignmentGlobalStatsJar, String bedFile, String chrSizeFile) throws IOException, InterruptedException {
+	private void writeAlignmentGlobalStats(String alignmentGlobalStatsJar, String bedFile, String chrSizeFile) throws IOException, InterruptedException, DrmaaException {
 		logger.info("Writing global stats for alignments...");
 		ArrayList<Job> jobs = new ArrayList<Job>();
 		if(bedFile != null) {
@@ -1670,8 +1684,9 @@ public class RNASeqPipeline {
 	 * @param picardJarDir Directory containing Picard executables
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	private void mergeBamFiles(String picardJarDir) throws IOException, InterruptedException {
+	private void mergeBamFiles(String picardJarDir) throws IOException, InterruptedException, DrmaaException {
 		Map<String, Collection<String>> setsToMerge = new TreeMap<String, Collection<String>>();
 		if(configFile.hasOption(sectionBasicOptions, optionSamplesToMerge)) {
 			for(ConfigFileOptionValue value : configFile.getOptionValues(sectionBasicOptions, optionSamplesToMerge)) {
@@ -1864,9 +1879,10 @@ public class RNASeqPipeline {
 	 * @param picardMetricsDir Directory to write metrics to
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
 	@SuppressWarnings("unused")
-	private void collectPicardMetricsCurrentBams(String picardExecutableDir) throws IOException, InterruptedException {
+	private void collectPicardMetricsCurrentBams(String picardExecutableDir) throws IOException, InterruptedException, DrmaaException {
 		String picardMetricsDir = currentBamDir + "/picard_metrics";
 		logger.info("Writing all Picard metrics in directory " + picardMetricsDir + "....");
 		File picardMetricsDirFile = new File(picardMetricsDir);
@@ -2113,7 +2129,7 @@ public class RNASeqPipeline {
 		return rtrn;
 	}
 
-	public static void main (String [] args) throws IOException, ParseException, InterruptedException{
+	public static void main (String [] args) throws IOException, ParseException, InterruptedException, DrmaaException{
 		
 		CommandLineParser p = new CommandLineParser();
 		p.setProgramDescription("\n*** Configurable pipeline for RNA-seq read processing and analysis ***");

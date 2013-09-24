@@ -20,6 +20,7 @@ import java.util.TreeSet;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.ggf.drmaa.DrmaaException;
 
 import broad.core.math.MathUtil;
 import broad.core.math.Statistics;
@@ -380,21 +381,21 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	}
 	
 	@SuppressWarnings("unused")
-	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs) throws IOException, InterruptedException {
+	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs) throws IOException, InterruptedException, DrmaaException {
 		batchWriteSingleSampleScanPeaksAllSamples(commandArgs, null, DEFAULT_BATCH_MEM_REQUEST);
 	}
 	
 	@SuppressWarnings("unused")
-	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, String chrListFile) throws IOException, InterruptedException {
+	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, String chrListFile) throws IOException, InterruptedException, DrmaaException {
 		batchWriteSingleSampleScanPeaksAllSamples(commandArgs, chrListFile, DEFAULT_BATCH_MEM_REQUEST);
 	}
 	
 	@SuppressWarnings("unused")
-	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, int memRequestGb) throws IOException, InterruptedException {
+	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, int memRequestGb) throws IOException, InterruptedException, DrmaaException {
 		batchWriteSingleSampleScanPeaksAllSamples(commandArgs, null, memRequestGb);
 	}
 	
-	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, String chrListFile, int memRequestGb) throws IOException, InterruptedException {
+	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, String chrListFile, int memRequestGb) throws IOException, InterruptedException, DrmaaException {
 		
 		logger.info("");
 		logger.info("\nBatching out peak calling by sample and chromosome...\n");
@@ -1251,8 +1252,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @param args
 	 * @throws IOException 
 	 * @throws InterruptedException 
+	 * @throws DrmaaException 
 	 */
-	public static void main(String[] args) throws IOException, InterruptedException {
+	public static void main(String[] args) throws IOException, InterruptedException, DrmaaException {
 
 		MultiSampleScanPeakCaller m = createFromCommandArgs(args);
 		

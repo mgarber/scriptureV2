@@ -37,6 +37,7 @@ import org.apache.commons.math3.stat.descriptive.*;
 import org.apache.commons.math3.stat.descriptive.moment.*;
 import org.apache.commons.math3.stat.descriptive.rank.*;
 import org.apache.commons.io.IOUtils;
+import org.ggf.drmaa.DrmaaException;
 
 public class CollectAnnotationEnrichments extends GenomeCommandLineProgram {
     private static final Log log = Log.getInstance(RatioPermutationPeakCaller.class);
@@ -174,7 +175,7 @@ public class CollectAnnotationEnrichments extends GenomeCommandLineProgram {
 	}
 	
 	
-	protected void submitJobs(SortedMap<String,File> annotationMap) throws IOException, InterruptedException {
+	protected void submitJobs(SortedMap<String,File> annotationMap) throws IOException, InterruptedException, DrmaaException {
 		Runtime run = Runtime.getRuntime();
 		String jobID = LSFJob.generateJobID();
 		Collection<Job> jobs = new ArrayList<Job>();
