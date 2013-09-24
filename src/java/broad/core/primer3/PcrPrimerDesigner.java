@@ -820,6 +820,81 @@ public class PcrPrimerDesigner  {
 		return rtrn;
 	}
 	
+	
+	/**
+	 * Design primers using primer3
+	 * @param config Primer3 configuration
+	 * @param seq Sequence
+	 * @param pathPrimer3core primer3core executable
+	 * @return Collection of primers
+	 * @throws IOException
+	 */
+	public static Collection<PrimerPair> designPrimers(Primer3Configuration config, String seq, String pathPrimer3core) throws IOException {
+		Sequence sequence = new Sequence("");
+		sequence.setSequenceBases(seq);
+		return designPrimers(config, sequence, pathPrimer3core);
+	}
+	
+	/**
+	 * Design primers using primer3
+	 * @param config Primer3 configuration
+	 * @param seq Sequence
+	 * @param pathPrimer3core primer3core executable
+	 * @return Collection of primers
+	 * @throws IOException
+	 */
+	public static Collection<PrimerPair> designPrimers(Primer3Configuration config, Sequence seq, String pathPrimer3core) throws IOException {
+		Primer3IO p3io = new Primer3IO(pathPrimer3core);
+		p3io.startPrimer3Communications();
+		Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(seq);	
+		p3sit.setPrimerSequenceId(seq.getId());
+		Collection<PrimerPair> pp = p3io.findPrimerPair(p3sit, config);
+		p3io.endPrimer3Communications();
+		TreeSet<PrimerPair> rtrn=new TreeSet<PrimerPair>();
+		for(PrimerPair pair: pp){
+			if(pair.getLeftPrimer()!=null && pair.getRightPrimer()!=null){rtrn.add(pair);}
+		}
+		return rtrn;
+	}
+	
+	/**
+	 * Design primers using primer3 and get the one with the lowest penalty
+	 * @param config Primer3 configuration
+	 * @param seq Sequence
+	 * @param pathPrimer3core primer3core executable
+	 * @return Primer with lowest penalty, or null if there are no primers
+	 * @throws IOException
+	 */
+	public static PrimerPair designBestPrimer(Primer3Configuration config, String seq, String pathPrimer3core) throws IOException {
+		Sequence sequence = new Sequence("");
+		sequence.setSequenceBases(seq);
+		return designBestPrimer(config, sequence, pathPrimer3core);
+	}
+	
+	/**
+	 * Design primers using primer3 and get the one with the lowest penalty
+	 * @param config Primer3 configuration
+	 * @param seq Sequence
+	 * @param pathPrimer3core primer3core executable
+	 * @return Primer with lowest penalty, or null if there are no primers
+	 * @throws IOException
+	 */
+	public static PrimerPair designBestPrimer(Primer3Configuration config, Sequence seq, String pathPrimer3core) throws IOException {
+		Collection<PrimerPair> allPrimers = designPrimers(config, seq, pathPrimer3core);
+		if(allPrimers.isEmpty()) {
+			return null;
+		}
+		float minPenalty = Float.MAX_VALUE;
+		PrimerPair bestPrimer = null;
+		for(PrimerPair primer : allPrimers) {
+			if(primer.getPrimerPairPenalty() < minPenalty) {
+				minPenalty = primer.getPrimerPairPenalty();
+				bestPrimer = primer;
+			}
+		}
+		return bestPrimer;
+	}
+	
 	public static Collection<PrimerPair> designSyntheticPrimers(String seq, int numDesigns, int primerSize, int seqSize, String pathPrimer3core) throws IOException {
 		Primer3Configuration best = Primer3ConfigurationFactory.getSyntheticConfiguration();
 		best.minPrimerSize = primerSize;
@@ -884,7 +959,12 @@ public class PcrPrimerDesigner  {
 		return rtrn;
 	}
 	
-	private static final String[] CONFIG_NAMES = {"synthetic","qPCR","RAPqPCR","plasmid_deletion"};
+	private static final String SYNTHETIC_CONFIG_NAME = "synthetic";
+	private static final String QPCR_CONFIG_NAME = "qPCR";
+	private static final String RAP_QPCR_CONFIG_NAME = "RAPqPCR";
+	private static final String DELETION_PLASMID_CONFIG_NAME = "deletion_plasmid";
+	
+	private static final String[] CONFIG_NAMES = {SYNTHETIC_CONFIG_NAME,QPCR_CONFIG_NAME,RAP_QPCR_CONFIG_NAME,DELETION_PLASMID_CONFIG_NAME};
 	
 	public static void main(String[] args) throws IOException {
 		
@@ -975,11 +1055,11 @@ public class PcrPrimerDesigner  {
 		// set up primer3
 		Primer3Configuration primer3config = new Primer3Configuration();
 		
-		if(config.equals("synthetic")) primer3config = Primer3ConfigurationFactory.getSyntheticConfiguration();
-		if(config.equals("RAPqPCR")) primer3config = Primer3ConfigurationFactory.getRAPqPCRConfiguration();
-		if(config.equals("qPCR")) primer3config = Primer3ConfigurationFactory.getQpcrConfiguration();
+		if(config.equals(SYNTHETIC_CONFIG_NAME)) primer3config = Primer3ConfigurationFactory.getSyntheticConfiguration();
+		if(config.equals(RAP_QPCR_CONFIG_NAME)) primer3config = Primer3ConfigurationFactory.getRAPqPCRConfiguration();
+		if(config.equals(QPCR_CONFIG_NAME)) primer3config = Primer3ConfigurationFactory.getQpcrConfiguration();
 		// If plasmids, will get separate configuration for each plasmid
-		if(config.equals("plasmid_deletion")) primer3config = null;
+		if(config.equals(DELETION_PLASMID_CONFIG_NAME)) primer3config = null;
 
 		Primer3IO p3io = new Primer3IO(primer3core);
 		p3io.startPrimer3Communications();
@@ -991,7 +1071,7 @@ public class PcrPrimerDesigner  {
 		for(Sequence seq : seqs) {
 			
 			// If plasmid, get primer3 configuration with optimal product size equal to sequence length
-			if(config.equals("plasmid_deletion")) primer3config = Primer3ConfigurationFactory.getPlasmidDeletionConfiguration(seq.getLength(), seq.getLength() - plasmidMissingPositions, seq.getLength());
+			if(config.equals(DELETION_PLASMID_CONFIG_NAME)) primer3config = Primer3ConfigurationFactory.getDeletionPlasmidConfiguration(seq.getLength(), seq.getLength() - plasmidMissingPositions, seq.getLength());
 			
 			Primer3SequenceInputTags p3sit = new Primer3SequenceInputTags(seq);	
 			p3sit.setPrimerSequenceId(seq.getId());
