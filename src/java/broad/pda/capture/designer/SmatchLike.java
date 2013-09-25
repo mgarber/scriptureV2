@@ -1,5 +1,4 @@
-package nextgen.core.alignment;
-
+package broad.pda.capture.designer;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -15,8 +14,6 @@ import java.util.TreeSet;
 import broad.core.math.CombinationGenerator;
 import broad.core.motif.SearchException;
 import broad.core.motif.SequenceMotif;
-import broad.core.primer3.ComputeOriginalScore;
-import broad.core.primer3.HairpinKmer;
 import broad.core.primer3.PrimerPair;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;

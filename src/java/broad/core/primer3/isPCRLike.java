@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
-import nextgen.core.alignment.SmatchLike;
-
 
 import broad.core.datastructures.Pair;
 import broad.core.motif.SearchException;
@@ -15,6 +13,7 @@ import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
 import broad.core.sequence.SequenceRegion;
 import broad.pda.datastructures.Alignments;
+import broad.pda.capture.designer.SmatchLike;
 
 public class isPCRLike {
 

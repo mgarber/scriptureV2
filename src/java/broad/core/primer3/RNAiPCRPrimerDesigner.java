@@ -12,6 +12,7 @@ import broad.core.sequence.Sequence;
 import broad.core.sequence.SequenceRegion;
 import broad.pda.annotation.BEDFileParser;
 import broad.pda.rnai.ExtractSequence;
+import broad.pda.capture.designer.ComputeMIRScore;
 
 
 public class RNAiPCRPrimerDesigner {
@@ -21,47 +22,47 @@ public class RNAiPCRPrimerDesigner {
 	int min3;
 	int min5;
 	
-	public RNAiPCRPrimerDesigner(Map<String, Collection<Gene>> alignmentsByChr, String sequenceDirectory, String save, boolean repeatMask, int numDesigns, int min3, int min5, String pathPrimer3core)throws Exception{
+	public RNAiPCRPrimerDesigner(Map<String, Collection<Gene>> alignmentsByChr, String sequenceDirectory, String save, boolean repeatMask, int numDesigns, int min3, int min5)throws Exception{
 		this.min3=min3;
 		this.min5=min5;
 		this.numDesigns=numDesigns;
 		this.repeatMask=repeatMask;
-		Map<Gene, Collection<PrimerPair>>[] splicedPrimers=this.designConsecutivePrimers(alignmentsByChr, sequenceDirectory, true, pathPrimer3core);
-		Map<Gene, Collection<PrimerPair>> crossJunctionPrimers=this.designBestPrimers(alignmentsByChr, sequenceDirectory, true, pathPrimer3core);
-		Map<Gene, Collection<PrimerPair>> withinExonPrimers=this.designBestPrimers(alignmentsByChr, sequenceDirectory, false, pathPrimer3core);
+		Map<Gene, Collection<PrimerPair>>[] splicedPrimers=this.designConsecutivePrimers(alignmentsByChr, sequenceDirectory, true);
+		Map<Gene, Collection<PrimerPair>> crossJunctionPrimers=this.designBestPrimers(alignmentsByChr, sequenceDirectory, true);
+		Map<Gene, Collection<PrimerPair>> withinExonPrimers=this.designBestPrimers(alignmentsByChr, sequenceDirectory, false);
 		//Map<RefSeqGene, Collection<PrimerPair>> filteredPrimers=filterByCrossingJunction(splicedPrimers);
 		write(save, splicedPrimers);
 		write(save, crossJunctionPrimers, "Standard");
 		write(save, withinExonPrimers, "Within");
 	}
 	
-	private Map<Gene, Collection<PrimerPair>> designBestPrimers(Map<String, Collection<Gene>> alignmentsByChr, String sequenceDirectory, boolean crossJunction, String pathPrimer3core) throws Exception {
+	private Map<Gene, Collection<PrimerPair>> designBestPrimers(Map<String, Collection<Gene>> alignmentsByChr, String sequenceDirectory, boolean crossJunction) throws Exception {
 		Map<Gene, Collection<PrimerPair>> rtrn=new TreeMap();
 		
 		for(String chr: alignmentsByChr.keySet()){
 			//System.err.println("working on " +chr+" ...");
 			String sequenceFile=sequenceDirectory+"/"+chr.replaceAll("chr", "").trim()+"/"+chr+".fa";
 			Sequence chrom = ExtractSequence.getFirstSequence(sequenceFile);
-			Map<Gene, Collection<PrimerPair>> map=designBestPrimers(chrom, alignmentsByChr.get(chr), crossJunction, pathPrimer3core);
+			Map<Gene, Collection<PrimerPair>> map=designBestPrimers(chrom, alignmentsByChr.get(chr), crossJunction);
 			rtrn.putAll(map);
 		}
 		
 		return rtrn;
 	}
 
-	private Map<Gene, Collection<PrimerPair>> designBestPrimers(Sequence chrom,	Collection<Gene> genes, boolean crossJunction, String pathPrimer3core) throws Exception {
+	private Map<Gene, Collection<PrimerPair>> designBestPrimers(Sequence chrom,	Collection<Gene> genes, boolean crossJunction) throws Exception {
 		Map<Gene, Collection<PrimerPair>> rtrn=new TreeMap<Gene, Collection<PrimerPair>>();
 		
 		for(Gene gene: genes){
-			Collection<PrimerPair> primers=designBestPrimers(gene, chrom, crossJunction, pathPrimer3core);
+			Collection<PrimerPair> primers=designBestPrimers(gene, chrom, crossJunction);
 			rtrn.put(gene, primers);
 		}
 		
 		return rtrn;
 	}
 
-	private Collection<PrimerPair> designBestPrimers(Gene gene, Sequence chrom, boolean crossJunction, String pathPrimer3core) throws Exception {
-		return PcrPrimerDesigner.designPCRPrimers(chrom, gene, repeatMask, numDesigns, crossJunction, pathPrimer3core);
+	private Collection<PrimerPair> designBestPrimers(Gene gene, Sequence chrom, boolean crossJunction) throws Exception {
+		return PcrPrimerDesigner.designPCRPrimers(chrom, gene, repeatMask, numDesigns, crossJunction);
 	}
 
 	private Map<Gene, Collection<PrimerPair>> filterByCrossingJunction(Map<Gene, Collection<PrimerPair>> splicedPrimers) throws Exception {
@@ -117,7 +118,7 @@ public class RNAiPCRPrimerDesigner {
 		return left || right;
 	}
 
-	private Map<Gene, Collection<PrimerPair>>[] designConsecutivePrimers(Map<String, Collection<Gene>> alignmentsByChr, String sequenceDirectory, boolean spliced, String pathPrimer3core)throws Exception{
+	private Map<Gene, Collection<PrimerPair>>[] designConsecutivePrimers(Map<String, Collection<Gene>> alignmentsByChr, String sequenceDirectory, boolean spliced)throws Exception{
 		Map<Gene, Collection<PrimerPair>> singles=new TreeMap();
 		Map<Gene, Collection<PrimerPair>> doubles=new TreeMap();
 		
@@ -125,7 +126,7 @@ public class RNAiPCRPrimerDesigner {
 			//System.err.println("working on " +chr+" ...");
 			String sequenceFile=sequenceDirectory+"/"+chr.replaceAll("chr", "").trim()+"/"+chr+".fa";
 			Sequence chrom = ExtractSequence.getFirstSequence(sequenceFile);
-			Map[] map=designPrimers(chrom, alignmentsByChr.get(chr), spliced, pathPrimer3core);
+			Map[] map=designPrimers(chrom, alignmentsByChr.get(chr), spliced);
 			singles.putAll(map[0]);
 			doubles.putAll(map[1]);
 		}
@@ -197,14 +198,14 @@ public class RNAiPCRPrimerDesigner {
 		return array;
 	}
 
-	private Map[] designPrimers(Sequence chrom, Collection<Gene> genes, boolean spliced, String pathPrimer3core)throws Exception{
+	private Map[] designPrimers(Sequence chrom, Collection<Gene> genes, boolean spliced)throws Exception{
 		Map<Gene, Collection> singles=new TreeMap();
 		Map<Gene, Collection> doubles=new TreeMap();
 		for(Gene gene: genes){
 			try{
 			//System.err.println("currently on gene "+gene.getName());
 			if(gene.getNumExons()>1){
-				Collection<PrimerPair>[] pairs=designPrimers(chrom, gene, spliced, pathPrimer3core);
+				Collection<PrimerPair>[] pairs=designPrimers(chrom, gene, spliced);
 				singles.put(gene, pairs[0]);
 				doubles.put(gene, pairs[1]);
 			}
@@ -215,11 +216,11 @@ public class RNAiPCRPrimerDesigner {
 		return rtrn;
 	}
 	
-	private Collection<PrimerPair>[] designPrimers(Sequence chrom, Gene gene, boolean spliced, String pathPrimer3core)throws Exception{
+	private Collection<PrimerPair>[] designPrimers(Sequence chrom, Gene gene, boolean spliced)throws Exception{
 		TreeSet<PrimerPair> both=new TreeSet();
 		TreeSet<PrimerPair> singles=new TreeSet();
 		
-		Collection<PrimerPair> primers=PcrPrimerDesigner.designIntronPrimers(chrom, gene, repeatMask, null, null, numDesigns*4, min3, min5, pathPrimer3core);
+		Collection<PrimerPair> primers=PcrPrimerDesigner.designIntronPrimers(chrom, gene, repeatMask, null, null, numDesigns*4, min3, min5);
 		
 		/**Try to find primers with 2 junctions spanned**/
 		for(PrimerPair primer: primers){
@@ -228,14 +229,14 @@ public class RNAiPCRPrimerDesigner {
 				else if(primerPositions[0].getNumExons()>1){
 					//fix left primer and find right primer
 					singles.add(primer);
-					Collection<PrimerPair> newPrimers=PcrPrimerDesigner.designIntronPrimers(chrom, gene, repeatMask, primer.getLeftPrimer(), null, numDesigns, min3, min5, pathPrimer3core);
+					Collection<PrimerPair> newPrimers=PcrPrimerDesigner.designIntronPrimers(chrom, gene, repeatMask, primer.getLeftPrimer(), null, numDesigns, min3, min5);
 					newPrimers=getBoth(newPrimers, gene);
 					both.addAll(newPrimers);
 				}
 				else if(primerPositions[1].getNumExons()>1){
 					//fix right primer and find left
 					singles.add(primer);
-					Collection<PrimerPair> newPrimers=PcrPrimerDesigner.designIntronPrimers(chrom, gene, repeatMask, null, primer.getRightPrimer(), numDesigns, min3, min5, pathPrimer3core);
+					Collection<PrimerPair> newPrimers=PcrPrimerDesigner.designIntronPrimers(chrom, gene, repeatMask, null, primer.getRightPrimer(), numDesigns, min3, min5);
 					newPrimers=getBoth(newPrimers, gene);
 					both.addAll(newPrimers);
 				}
@@ -289,17 +290,16 @@ public class RNAiPCRPrimerDesigner {
 			Map<String, Collection<Gene>> alignments=BEDFileParser.loadDataByChr(new File(args[0]));
 			String seqDir=args[1];
 			String save=args[2];
-			String primer3core = args[3];
 			boolean repeatMask=true;
 			int numDesigns=5;
 			int min3=4;
 			int min5=7;
 			
-			if(args.length>4){repeatMask=new Boolean(args[4]);}
-			if(args.length>5){numDesigns=new Integer(args[5]);}
-			if(args.length>6){min3=new Integer(args[6]);}
-			if(args.length>7){min5=new Integer(args[7]);}
-			new RNAiPCRPrimerDesigner(alignments, seqDir, save, repeatMask, numDesigns, min3, min5, primer3core);
+			if(args.length>3){repeatMask=new Boolean(args[3]);}
+			if(args.length>4){numDesigns=new Integer(args[4]);}
+			if(args.length>5){min3=new Integer(args[5]);}
+			if(args.length>6){min5=new Integer(args[6]);}
+			new RNAiPCRPrimerDesigner(alignments, seqDir, save, repeatMask, numDesigns, min3, min5);
 		}
 		else{System.err.println(usage);}
 	}

@@ -28,9 +28,6 @@ public class StringParser {
 		tokens = s.split(whitespaceDelimiter);
 	}
 	
-	/**
-	 * 
-	 */
 	public void clear() {
 		tokens = null;
 	}

@@ -468,13 +468,5 @@ public class MaskedGenomicSpace implements CoordinateSpace{
 		return genes.containsKey(chr);
 	}
 	
-	@Override
-	public Annotation getEntireChromosome(String chrName) {
-		throw new UnsupportedOperationException("TODO");
-	}
 	
-	@Override
-	public boolean isValidWindow(Annotation window) {
-		return gappedSpace.isValidWindow(window);
-	}
 }

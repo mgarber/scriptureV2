@@ -30,6 +30,8 @@ public class LSFJob implements Job {
 	
 	/**
 	 * @param jobID Job ID
+	 * @param command Command
+	 * @param outputFile LSF output file
 	 */
 	public LSFJob(String jobID) {
 		this(jobID, null, null, 4);
@@ -134,7 +136,6 @@ public class LSFJob implements Job {
 	
 	@Override
 	public void submit() throws IOException, InterruptedException {
-		@SuppressWarnings("unused")
 		int exitVal = bsubProcess(runtime, jobId, cmmd, outFile, queue, memory);
 	}
 
@@ -179,11 +180,6 @@ public class LSFJob implements Job {
 	}
 
 	@Override
-	public boolean isSuspended() throws IOException, InterruptedException {
-		return lsfStatus().contains("SUSP");
-	}
-
-	@Override
 	public boolean failed() throws IOException {
 		Process proc = runtime.exec("bjobs -a -J "+jobId);
 		BufferedReader out = new BufferedReader(new InputStreamReader(proc.getInputStream()));
@@ -215,17 +211,14 @@ public class LSFJob implements Job {
 	}
 	
 	
-	/**
-	 * @return A unique job ID based on system time
-	 */
 	public static String generateJobID() {
 		String jobID="U"+System.nanoTime();
 		return jobID;
 	}
 
 	private static int parseReply(BufferedReader lsfOut) throws IOException {
-		@SuppressWarnings("unused")
 		String line = null;
+		String [] lineInfo = null;
 		int i=0;
 		while((line = lsfOut.readLine()) != null) {i++;}
 		return i;
@@ -255,6 +248,21 @@ public class LSFJob implements Job {
 			System.err.println(nextLine);
 		}
 		System.err.println();
+	}
+
+
+	private static int bsubProcess(Runtime run, String jobID, String[] commands, String output) throws IOException, InterruptedException {
+		return bsubProcess(run, jobID, commands, output, "week");
+	}
+
+	private static int bsubProcess(Runtime run, String jobID, String[] commands, String output, String queue) throws IOException, InterruptedException {
+		String fullCommand="bsub -R rusage[mem=5] -q "+queue+" -J "+jobID+ " -o "+output;
+		
+		fullCommand+=" "+commands[0];
+		for(int i=1; i<commands.length; i++){fullCommand+="; "+commands[i];}
+		
+		System.out.println(fullCommand);
+		return bsubProcess(run, fullCommand);
 	}
 
 

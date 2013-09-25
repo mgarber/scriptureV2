@@ -19,7 +19,6 @@ import nextgen.core.annotation.Gene;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.WindowProcessor;
 import nextgen.core.model.score.WindowScoreIterator;
-import nextgen.core.coordinatesystem.GenomicSpace;
 
 public class SkellamKLPeakCaller extends GenomeCommandLineProgram {
 
@@ -70,8 +69,8 @@ public class SkellamKLPeakCaller extends GenomeCommandLineProgram {
 		//Get all the regions to be scores
 		Map<String,Annotation> regions = getRegionsMap();
 		
-		// Get the coordinate space. Fails if not genomic space. To do: allow transcriptome space.
-		((GenomicSpace) getCoordinateSpace()).setPercentMaskedAllowed(PCT_MASKED_ALLOWED);
+		// Get the coordinate space
+		getCoordinateSpace().setPercentMaskedAllowed(PCT_MASKED_ALLOWED);
 		AlignmentModel rap = loadAlignmentModel(TARGET);
 		AlignmentModel background = loadAlignmentModel(BACKGROUND);
 

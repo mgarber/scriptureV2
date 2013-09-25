@@ -31,7 +31,7 @@ public class SlideAndCalculate extends GenomeScoringProgram {
 
 	@Option(doc="Output file", shortName="O")
 	public File OUTPUT;
-
+	
 	@Option(doc="Delta factor to add to RPKM before calculating ratios", shortName="RPKM")
 	public Double RPKM_RATIO_OFFSET = RatioScore.RPKM_OFFSET;
 	
@@ -52,9 +52,9 @@ public class SlideAndCalculate extends GenomeScoringProgram {
 			if (OUTPUT.exists()) {
 				OUTPUT.delete();
 			}
-
-			RatioScore.RPKM_OFFSET = RPKM_RATIO_OFFSET;
 			
+			RatioScore.RPKM_OFFSET = RPKM_RATIO_OFFSET;
+
 			BufferedWriter bw = new BufferedWriter(new FileWriter(OUTPUT,true));
 			Iterator<? extends WindowScore> itr = getWindowScoreIterator();
 			while (itr.hasNext()) {
@@ -77,6 +77,7 @@ public class SlideAndCalculate extends GenomeScoringProgram {
 		return 0;
 	}
 	
+
 	public Iterator<? extends WindowScore> getWindowScoreIterator() throws IOException {
 		Iterator<? extends WindowScore> itr;
 		CloseableIterator<CountScore> target = TabbedReader.read(TARGET, CountScore.class, new CountScore.Factory());

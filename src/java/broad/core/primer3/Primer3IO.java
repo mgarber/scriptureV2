@@ -15,21 +15,20 @@ import java.util.TreeMap;
 
 public class Primer3IO {
 	//private static final String PRIMER3_CMD = "/seq/mgarber/tools/primer3-1.1.1/src/primer3_core";
+	private static final String PRIMER3_CMD = "/seq/mguttman/scripts/Primer3/primer3-2.2.1-alpha/src/primer3_core";
 	
 	
 	Process primer3Proc;
 	BufferedReader primer3StdOut;
 	BufferedReader primer3StdErr;
 	BufferedWriter primer3StdIn;
-	private String pathPrimer3core;
 
-	public Primer3IO(String primer3corePath) {
+	public Primer3IO() {
 		super();
-		pathPrimer3core = primer3corePath;
 	}
 
 	public void startPrimer3Communications() throws IOException {
-		primer3Proc = Runtime.getRuntime().exec(pathPrimer3core);
+		primer3Proc = Runtime.getRuntime().exec(PRIMER3_CMD);
 		primer3StdIn = new BufferedWriter(new OutputStreamWriter(primer3Proc.getOutputStream()));
 		primer3StdOut = new BufferedReader(new InputStreamReader(primer3Proc.getInputStream()));
 		primer3StdErr = new BufferedReader(new InputStreamReader(primer3Proc.getErrorStream()));

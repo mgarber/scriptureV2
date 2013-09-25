@@ -198,7 +198,7 @@ public class Gene extends BasicAnnotation {
 	
 	public Gene(Gene gene) {
 		this(gene.getChr(), gene.getName(), gene.getOrientation(), gene.getExonSet(), gene.getCDSStart(), gene.getCDSEnd());
-		this.bedScore=gene.getScore();
+				
 		initFromGene(gene);
 			
 	}
@@ -644,15 +644,11 @@ public class Gene extends BasicAnnotation {
 			throw new IllegalArgumentException("Step size must be >= 1");
 		}
 		Collection<GeneWindow> subGenes=new TreeSet<GeneWindow>();
-		if (windowSize > length()){
-			subGenes.add((GeneWindow) this);
-		} else {
-			for(int i=start; i< (length()+1)-windowSize; i=i+stepSize){
-				GeneWindow subGene=trimGene(i, i+windowSize);
-				if(subGene!=null){
-					subGenes.add(subGene);
-				}
-		}
+		for(int i=start; i< (length()+1)-windowSize; i=i+stepSize){
+			GeneWindow subGene=trimGene(i, i+windowSize);
+			if(subGene!=null){
+				subGenes.add(subGene);
+			}
 		}
 		return subGenes;
 	}

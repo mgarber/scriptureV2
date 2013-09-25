@@ -1,5 +1,4 @@
-package broad.core.primer3;
-
+package broad.pda.capture.designer;
 
 import java.io.IOException;
 import java.util.Collection;

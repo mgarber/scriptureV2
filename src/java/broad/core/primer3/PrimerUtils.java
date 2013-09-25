@@ -1,15 +1,9 @@
 package broad.core.primer3;
 
-import java.io.IOException;
-import java.util.Collection;
-
 import broad.core.annotation.MaximumContiguousSubsequence;
-import broad.core.sequence.Sequence;
 import jaligner.Alignment;
 
 public class PrimerUtils {
-	
-	private static final float MAX_PRIMER_PENALTY = (float)0.05;
 
 	public static double computeTM(String seq){
 		//Tm = 64.9C + 41C x (number of Gs and Cs in the primer  16.4)/N
@@ -114,29 +108,6 @@ public class PrimerUtils {
 	
 	public static double computeMaxTM(Alignment align){
 		return Math.max(computeTM(align), computeTM2(align));
-	}
-
-	/**
-	 * Get one primer pair
-	 * @param primerLength Primer length
-	 * @param pathPrimer3core primer3core executable
-	 * @return Primer pair with less than max primer penalty
-	 * @throws IOException
-	 */
-	public static PrimerPair getOneSyntheticPrimerPair(int primerLength, String pathPrimer3core) throws IOException {
-		// Repeat until a suitable primer pair is found
-		while(true) {
-			String seq = Sequence.generateRandomSequence(5000);
-			// Only ask for one primer pair
-			Collection<PrimerPair> primers = PcrPrimerDesigner.designSyntheticPrimers(seq, 1, primerLength, 5000, pathPrimer3core);
-			// A primer pair was found
-			if(primers != null && !primers.isEmpty()) {
-				PrimerPair primer = primers.iterator().next();
-				if(primer.getPrimerPairPenalty() <= MAX_PRIMER_PENALTY) {
-					return primer;
-				}
-			}
-		}
 	}
 	
 }

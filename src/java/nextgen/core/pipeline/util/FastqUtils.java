@@ -16,7 +16,6 @@ import nextgen.core.job.LSFJob;
 import nextgen.core.pipeline.Scheduler;
 
 import org.apache.log4j.Logger;
-import org.ggf.drmaa.DrmaaException;
 
 import broad.core.parser.StringParser;
 
@@ -41,9 +40,8 @@ public class FastqUtils {
 	 * @return Collection of clipped fastq file(s). The list is either the clipped read1 file if reads are unpaired, or clipped read1 and clipped read2 if reads paired
 	 * @throws InterruptedException 
 	 * @throws IOException 
-	 * @throws DrmaaException 
 	 */
-	public static ArrayList<String> clipAdapters(String fastxDir, String sampleName, String leftFastq, String rightFastq, String adapter1, String adapter2, String fastqReadIdPairNumberDelimiter, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static ArrayList<String> clipAdapters(String fastxDir, String sampleName, String leftFastq, String rightFastq, String adapter1, String adapter2, String fastqReadIdPairNumberDelimiter, Scheduler scheduler) throws IOException, InterruptedException {
 		Map<String, String> leftFastqs = new TreeMap<String, String>();
 		Map<String, String> rightFastqs = new TreeMap<String, String>();
 		leftFastqs.put(sampleName, leftFastq);
@@ -64,9 +62,8 @@ public class FastqUtils {
 	 * @return Map of sample name to clipped fastq file(s). The list is either the clipped read1 file if reads are unpaired, or clipped read1 and clipped read2 if reads paired
 	 * @throws InterruptedException 
 	 * @throws IOException 
-	 * @throws DrmaaException 
 	 */
-	public static Map<String, ArrayList<String>> clipAdapters(String fastxDir, Map<String, String> leftFastqs, Map<String, String> rightFastqs, String adapter1, String adapter2, String fastqReadIdPairNumberDelimiter, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static Map<String, ArrayList<String>> clipAdapters(String fastxDir, Map<String, String> leftFastqs, Map<String, String> rightFastqs, String adapter1, String adapter2, String fastqReadIdPairNumberDelimiter, Scheduler scheduler) throws IOException, InterruptedException {
 		
 		Map<String, ArrayList<String>> rtrn = new TreeMap<String, ArrayList<String>>();
 		

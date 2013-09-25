@@ -21,7 +21,6 @@ import nextgen.core.readFilters.SecondOfPairFilter;
 import nextgen.core.writers.WigWriter;
 
 import org.apache.log4j.Logger;
-import org.ggf.drmaa.DrmaaException;
 
 import broad.pda.annotation.BEDFileParser;
 
@@ -204,9 +203,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void makeTdfs(String bamFile, String sampleName, String assemblyFasta, String igvtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void makeTdfs(String bamFile, String sampleName, String assemblyFasta, String igvtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException {
 		makeTdfs(bamFile, sampleName, ".", assemblyFasta, igvtoolsExecutable, scheduler);
 	}
 	
@@ -218,9 +216,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void makeTdfs(Map<String, String> bamFilesBySampleName, String assemblyFasta, String igvtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void makeTdfs(Map<String, String> bamFilesBySampleName, String assemblyFasta, String igvtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException {
 		makeTdfs(bamFilesBySampleName, ".", assemblyFasta, igvtoolsExecutable, scheduler);
 	}
 	
@@ -234,9 +231,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void makeTdfs(String bamFile, String sampleName, String bsubOutDir, String assemblyFasta, String igvtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void makeTdfs(String bamFile, String sampleName, String bsubOutDir, String assemblyFasta, String igvtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException {
 		Map<String, String> bamFiles = new TreeMap<String, String>();
 		bamFiles.put(sampleName, bamFile);
 		makeTdfs(bamFiles, bsubOutDir, assemblyFasta, igvtoolsExecutable, scheduler);
@@ -251,9 +247,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void makeTdfs(Map<String, String> bamFilesBySampleName, String bsubOutDir, String assemblyFasta, String igvtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void makeTdfs(Map<String, String> bamFilesBySampleName, String bsubOutDir, String assemblyFasta, String igvtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException {
 		ArrayList<Job> tdfJobs = new ArrayList<Job>();
 		Map<String, String> outTdf = new TreeMap<String, String>();
 		for(String sample : bamFilesBySampleName.keySet()) {
@@ -317,9 +312,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void samToBam(String sampleName, String samFile, String bamFile, String finalBamFile, String samtools, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void samToBam(String sampleName, String samFile, String bamFile, String finalBamFile, String samtools, Scheduler scheduler) throws IOException, InterruptedException {
 		samToBam(sampleName, samFile, bamFile, finalBamFile, ".", samtools, scheduler);
 	}
 	
@@ -332,9 +326,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void samToBam(Map<String, String> samFiles, Map<String, String> bamFiles, Map<String, String> bsubOutputDirs, String samtools, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void samToBam(Map<String, String> samFiles, Map<String, String> bamFiles, Map<String, String> bsubOutputDirs, String samtools, Scheduler scheduler) throws IOException, InterruptedException {
 		samToBam(samFiles, bamFiles, null, bsubOutputDirs, samtools, scheduler);
 	}
 	
@@ -349,9 +342,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void samToBam(String sampleName, String samFile, String bamFile, String finalBamFile, String bsubOutputDir, String samtools, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void samToBam(String sampleName, String samFile, String bamFile, String finalBamFile, String bsubOutputDir, String samtools, Scheduler scheduler) throws IOException, InterruptedException {
 		Map<String, String> bamFiles = new TreeMap<String, String>();
 		bamFiles.put(sampleName, bamFile);
 		Map<String, String> samFiles = new TreeMap<String, String>();
@@ -374,9 +366,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void samToBam(Map<String, String> samFiles, Map<String, String> bamFiles, Map<String, String> finalBamFiles, Map<String, String> bsubOutputDirs, String samtools, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void samToBam(Map<String, String> samFiles, Map<String, String> bamFiles, Map<String, String> finalBamFiles, Map<String, String> bsubOutputDirs, String samtools, Scheduler scheduler) throws IOException, InterruptedException {
 		ArrayList<Job> cbJobs = new ArrayList<Job>();
 		for(String sample : samFiles.keySet()) {
 			File bam = new File(bamFiles.get(sample));
@@ -423,9 +414,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void sortBamFile(String sampleName, String unsortedBam, String sortedBam, String finalBam, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void sortBamFile(String sampleName, String unsortedBam, String sortedBam, String finalBam, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException {
 		sortBamFile(sampleName, unsortedBam, sortedBam, ".", finalBam, picardJarDir, scheduler);
 	}
 	
@@ -438,9 +428,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, Map<String, String> finalBams, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, Map<String, String> finalBams, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException {
 		sortBamFiles(unsortedBams, sortedBams, ".", finalBams, picardJarDir, scheduler);
 	}
 	
@@ -454,9 +443,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, String bsubOutputDir, Map<String, String> finalBams, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, String bsubOutputDir, Map<String, String> finalBams, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException {
 		Map<String, String> outDirs = new TreeMap<String, String>();
 		for(String sample : unsortedBams.keySet()) {
 			outDirs.put(sample, bsubOutputDir);
@@ -475,9 +463,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void sortBamFile(String sampleName, String unsortedBam, String sortedBam, String bsubOutputDir, String finalBam, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void sortBamFile(String sampleName, String unsortedBam, String sortedBam, String bsubOutputDir, String finalBam, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException {
 		Map<String, String> unsortedBams = new TreeMap<String, String>();
 		unsortedBams.put(sampleName, unsortedBam);
 		Map<String, String> sortedBams = new TreeMap<String, String>();
@@ -500,9 +487,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, Map<String, String> bsubOutputDirs, Map<String, String> finalBams, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, Map<String, String> bsubOutputDirs, Map<String, String> finalBams, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException {
 		ArrayList<Job> sbJobs = new ArrayList<Job>();
 		for(String sample : unsortedBams.keySet()) {
 			File finalBam = new File(finalBams.get(sample));
@@ -542,9 +528,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void writeWigPositionCount(String bamFile, String sampleName, String bamDir, String geneBedFile, String refFasta, String wigToBigWigExecutable, String wigWriterJar, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void writeWigPositionCount(String bamFile, String sampleName, String bamDir, String geneBedFile, String refFasta, String wigToBigWigExecutable, String wigWriterJar, Scheduler scheduler) throws IOException, InterruptedException {
 		Map<String, String> bamFiles = new TreeMap<String, String>();
 		bamFiles.put(sampleName, bamFile);
 		writeWigPositionCount(bamFiles, bamDir, geneBedFile, refFasta, wigToBigWigExecutable, wigWriterJar, scheduler);
@@ -561,9 +546,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void writeWigPositionCount(Map<String, String> bamFiles, String bamDir, String geneBedFile, String refFasta, String wigToBigWigExecutable, String wigWriterJar, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void writeWigPositionCount(Map<String, String> bamFiles, String bamDir, String geneBedFile, String refFasta, String wigToBigWigExecutable, String wigWriterJar, Scheduler scheduler) throws IOException, InterruptedException {
 		Map<String, Collection<Gene>> genes = BEDFileParser.loadDataByChr(new File(geneBedFile));
 		Collection<String> chrNames = genes.keySet();
 		Map<String, Map<String, String>> normalizedWigFiles = new TreeMap<String, Map<String, String>>();
@@ -764,9 +748,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void writeWigFragmentEndsAndMidpoints(String sampleName, String bamFile, boolean pairedData, String bamDir, String refFasta, String geneBedFile, String wigToBigWigExecutable, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void writeWigFragmentEndsAndMidpoints(String sampleName, String bamFile, boolean pairedData, String bamDir, String refFasta, String geneBedFile, String wigToBigWigExecutable, Scheduler scheduler) throws IOException, InterruptedException {
 		Map<String, String> bamFiles = new TreeMap<String, String>();
 		bamFiles.put(sampleName, bamFile);
 		Map<String, Boolean> paired = new TreeMap<String, Boolean>();
@@ -786,9 +769,8 @@ public class BamUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void writeWigFragmentEndsAndMidpoints(Map<String, String> bamFiles, Map<String, Boolean> pairedData, String bamDir, String refFasta, String geneBedFile, String wigToBigWigExecutable, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void writeWigFragmentEndsAndMidpoints(Map<String, String> bamFiles, Map<String, Boolean> pairedData, String bamDir, String refFasta, String geneBedFile, String wigToBigWigExecutable, Scheduler scheduler) throws IOException, InterruptedException {
 		
 		Map<String, String> read1endWig = new TreeMap<String, String>();
 		Map<String, String> read2endWig = new TreeMap<String, String>();

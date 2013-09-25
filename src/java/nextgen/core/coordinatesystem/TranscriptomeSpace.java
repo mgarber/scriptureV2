@@ -224,11 +224,7 @@ public class TranscriptomeSpace implements CoordinateSpace{
 			}
 			//else, see if there are still genes
 			else if(genes.hasNext()){
-				Gene nextGene=genes.next();
-				this.currentGeneWindows=makeWindows(nextGene, this.windowSize, this.step);
-				if(currentGeneWindows!=null && currentGeneWindows.hasNext()){
-					return true;
-				}
+				return true;
 			}
 			return false;
 		}
@@ -550,14 +546,6 @@ protected class GeneTree {
 			return null;
 		}
 	}
-	
-	@Override
-	public Annotation getEntireChromosome(String chrName) {
-		if(!chrNames.contains(chrName)) {
-			throw new IllegalArgumentException("Chromosome name " + chrName + " not recognized.");
-		}
-		return geneTree.getGenesByName().get(chrName);
-	}
 
 	@Override
 	public int getSize(Annotation region) {
@@ -603,16 +591,6 @@ protected class GeneTree {
 	@Override
 	public Collection<String> getChromosomeNames() {
 		return chrNames;
-	}
-	
-	@Override
-	public boolean isValidWindow(Annotation a) {
-		if(!chrNames.contains(a.getChr())){
-			logger.error(a.getChr()+" is not in the genomic space");
-			return false;
-		} else {
-			return true;
-		}
 	}
 	
 }

@@ -19,7 +19,7 @@ public class SlideAndCount extends GenomeScoringProgram {
     private static final Log log = Log.getInstance(SlideAndCount.class);
 	
     @Usage
-    public String USAGE = "Slides across the genome and counts reads (or calculates ratios for two models).";
+    public String USAGE = "Slides across the genome and counts reads (or calculates ratios for two models).  This is currently written for Genomic Space analyses but should be modified to allow other coordinate systems.";
    
 	@Option(doc="Window size")
 	public Integer WINDOW = null;
@@ -49,15 +49,12 @@ public class SlideAndCount extends GenomeScoringProgram {
 			}
 			
 			List<Annotation> regions = getRegions();
-			//log.info("Regions:" + regions);
-			
+
 			BufferedWriter bw = new BufferedWriter(new FileWriter(OUTPUT,true));
 			WindowProcessor<? extends WindowScore> processor = getWindowProcessor();
 					
 			for (Annotation region : regions) {
-				log.info(region);
 				log.info("Starting: " + region.toUCSC());
-				
 				Iterator<? extends Annotation> windowIterator = getCoordinateSpace().getWindowIterator(region, WINDOW, OVERLAP);
 				WindowScoreIterator<? extends WindowScore> itr = new WindowScoreIterator(windowIterator, processor, region);
 				
@@ -67,7 +64,6 @@ public class SlideAndCount extends GenomeScoringProgram {
 					bw.newLine();
 				}
 				itr.close();
-				
 			}
 			
 			bw.close();

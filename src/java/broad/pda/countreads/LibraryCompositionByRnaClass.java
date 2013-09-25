@@ -21,7 +21,6 @@ import nextgen.core.pipeline.Scheduler;
 import nextgen.core.pipeline.util.AlignmentUtils;
 
 import org.apache.log4j.Logger;
-import org.ggf.drmaa.DrmaaException;
 
 import broad.core.parser.StringParser;
 import broad.core.sequence.FastaSequenceIO;
@@ -185,9 +184,8 @@ public class LibraryCompositionByRnaClass {
 	 * @return Map from sample name to class name to count
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public Map<String, Map<String, Integer>> alignAndGetCounts(String samtoolsExecutable, String bowtie2Executable, Map<String, String> bowtie2options, String bowtie2BuildExecutable, String logDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public Map<String, Map<String, Integer>> alignAndGetCounts(String samtoolsExecutable, String bowtie2Executable, Map<String, String> bowtie2options, String bowtie2BuildExecutable, String logDir, Scheduler scheduler) throws IOException, InterruptedException {
 		
 		File dir = new File(logDir);
 		boolean madeDir = dir.mkdir();

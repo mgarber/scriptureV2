@@ -19,7 +19,6 @@ import nextgen.core.job.LSFJob;
 import nextgen.core.pipeline.Scheduler;
 
 import org.apache.log4j.Logger;
-import org.ggf.drmaa.DrmaaException;
 
 import broad.core.parser.StringParser;
 
@@ -309,9 +308,8 @@ public class AlignmentUtils {
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Collection<String> sampleNames, Map<String, String> leftFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Collection<String> sampleNames, Map<String, String> leftFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException {
 		return runTophat(tophatExecutable, samtools, sampleNames, leftFastqs, null, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, queueName, outputDir, scheduler);
 	}
 
@@ -346,9 +344,8 @@ public class AlignmentUtils {
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, Scheduler scheduler) throws IOException, InterruptedException {
 		return runTophat(tophatExecutable, samtools, leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, ".", scheduler);
 	}
 	
@@ -368,9 +365,8 @@ public class AlignmentUtils {
 	 * @return Bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static String runTophat(String tophatExecutable, String samtools, String sampleName, String leftFastq, String rightFastq, Map<String, String> tophatOptions, String tophatDir, String finalTophatBam, String genomeIndex, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static String runTophat(String tophatExecutable, String samtools, String sampleName, String leftFastq, String rightFastq, Map<String, String> tophatOptions, String tophatDir, String finalTophatBam, String genomeIndex, String outputDir, Scheduler scheduler) throws IOException, InterruptedException {
 		return runTophat(tophatExecutable, samtools, sampleName, leftFastq, rightFastq, tophatOptions, tophatDir, finalTophatBam, genomeIndex, "week", outputDir, scheduler);
 	}
 	
@@ -389,9 +385,8 @@ public class AlignmentUtils {
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String outputDir, Scheduler scheduler) throws IOException, InterruptedException {
 		return runTophat(tophatExecutable, samtools, leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, "week", outputDir, scheduler);
 	}
 	
@@ -411,9 +406,8 @@ public class AlignmentUtils {
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException {
 		return runTophat(tophatExecutable, samtools, leftFastqs.keySet(), leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, queueName, outputDir, scheduler);
 	}
 	
@@ -434,9 +428,8 @@ public class AlignmentUtils {
 	 * @return Bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static String runTophat(String tophatExecutable, String samtools, String sampleName, String leftFastq, String rightFastq, Map<String, String> tophatOptions, String tophatDir, String finalTophatBam, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static String runTophat(String tophatExecutable, String samtools, String sampleName, String leftFastq, String rightFastq, Map<String, String> tophatOptions, String tophatDir, String finalTophatBam, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException {
 		Collection<String> sampleNames = new ArrayList<String>();
 		sampleNames.add(sampleName);
 		Map<String, String> leftFastqs = new TreeMap<String, String>();
@@ -467,9 +460,8 @@ public class AlignmentUtils {
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Collection<String> sampleNames, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Collection<String> sampleNames, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException {
 		
 		Map<String, String> rtrn = new TreeMap<String, String>();
 		
@@ -619,9 +611,8 @@ public class AlignmentUtils {
 	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
-	 * @throws DrmaaException 
 	 */
-	public static void indexBamFiles(Map<String, String> bamFiles, String samtools, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static void indexBamFiles(Map<String, String> bamFiles, String samtools, Scheduler scheduler) throws IOException, InterruptedException {
 		ArrayList<Job> indexJobs = new ArrayList<Job>();
 		for(String sample : bamFiles.keySet()) {
 			String bam = bamFiles.get(sample);

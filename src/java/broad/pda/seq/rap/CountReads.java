@@ -15,7 +15,6 @@ import nextgen.core.annotation.filter.FullyContainedFilter;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.*;
 
-// test comment
 public class CountReads extends GenomeScoringProgram {
     private static final Log log = Log.getInstance(CountReads.class);
 

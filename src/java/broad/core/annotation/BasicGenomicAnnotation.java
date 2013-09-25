@@ -16,7 +16,7 @@ public class BasicGenomicAnnotation extends BasicLightweightAnnotation implement
 	private int fivePrimerBuffer;
 	private int threePrimerBuffer;
 	private String id;
-	//This is a hack to speed up sequential search and operations that involve a list
+	//This is a hack to speed up sequencial search and operations that involve a list
 	int lastBreakInIndex = 0;
 	
 	
