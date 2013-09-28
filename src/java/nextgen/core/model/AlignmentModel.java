@@ -29,12 +29,14 @@ import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
 import nextgen.core.general.CloseableFilterIterator;
 import nextgen.core.model.score.WindowScore;
-import nextgen.core.readFilters.*;
+import nextgen.core.readFilters.PairedAndProperFilter;
+import nextgen.core.readFilters.SameOrientationFilter;
+import nextgen.core.readFilters.SplicedReadFilter;
 import nextgen.core.readers.PairedEndReader;
 import nextgen.core.writers.PairedEndWriter;
 import nextgen.core.exception.RuntimeIOException;
 import org.apache.commons.collections15.Predicate;
-import nextgen.core.general.Predicates;
+
 import nextgen.core.model.score.WindowProcessor;
 import nextgen.core.model.score.CountScore;
 import nextgen.core.model.score.WindowScoreIterator;
@@ -320,6 +322,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		// Check to see if user is requesting a count of the whole chromosome, which we may have stored.
 		// Make sure not to just call this function in getChrLambda!  otherwise infinite loop
 		Annotation refAnnotation = null;
+		CloseableIterator<AlignmentCount> iter = null;
 		try {
 			refAnnotation = coordinateSpace.getReferenceAnnotation(window.getChr());
 		} catch (IllegalArgumentException e) {
@@ -331,8 +334,14 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			if(!this.hasGlobalStats) computeGlobalStats();
 			return refSequenceCounts.get(window.getChr());
 		} else {
-			CloseableIterator<AlignmentCount> iter=getOverlappingReadCounts(window, fullyContained);
+			try{
+				iter=getOverlappingReadCounts(window, fullyContained);
+			} catch (IllegalStateException e) {
+				logger.warn("getCount failing on window " + window.toBED());
+				return 0.0;
+			}
 			double result = getCount(iter);
+			iter.close();
 			return result;
 		}
 	}
@@ -344,7 +353,9 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 */
 	public double getCount() {
 		CloseableIterator<AlignmentCount> iter=this.cache.getReads();
-		return getCount(iter);
+		double rtrn = getCount(iter);
+		iter.close();
+		return rtrn;
 	}
 	
 	
@@ -509,7 +520,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		if(strand.equals(TranscriptionRead.UNSTRANDED)){
 			return this.cache.query(region, fullyContained, this.coordinateSpace);
 		}
-		else {
+		else{
 			//get Alignments over the whole region
 			Predicate<Alignment> filter=new SameOrientationFilter(region);
 			return new WrapAlignmentCountIterator(new CloseableFilterIterator<Alignment>(new UnpackingIterator(this.cache.query(region, fullyContained, this.coordinateSpace)), filter));

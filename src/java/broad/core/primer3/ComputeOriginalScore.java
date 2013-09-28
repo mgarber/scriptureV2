@@ -1,4 +1,5 @@
-package broad.pda.capture.designer;
+package broad.core.primer3;
+
 
 import java.io.*;
 import java.util.*;

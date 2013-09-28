@@ -7,8 +7,6 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
-import com.mysql.jdbc.StringUtils;
-
 import broad.core.annotation.ShortBEDReader;
 
 import net.sf.picard.cmdline.Option;
@@ -70,7 +68,6 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 		System.exit(new PlotAggregateRegions().instanceMain(args));
 	}
 	
-	@Override
 	protected void loadCoordinateSpace() {
 		// load coordinate space without masking; apply masking manually later
 		coordinateSpace = new GenomicSpace(SIZES);
@@ -181,7 +178,7 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 	 * @throws IOException
 	 */
 	private int scanAndPrint(final Annotation target, Annotation subregion, final String name, WindowProcessor<? extends WindowScore> processor, final GenomicSpace maskedSpace, BufferedWriter bw, Integer counter, boolean clip) throws IOException {
-		Iterator<? extends Annotation> windowIterator = getCoordinateSpace().getWindowIterator(subregion, WINDOW, OVERLAP, true);
+		Iterator<? extends Annotation> windowIterator = getCoordinateSpace().getWindowIterator(subregion, WINDOW, OVERLAP);
 		WindowScoreIterator<? extends WindowScore> itr = new WindowScoreIterator(windowIterator, processor, subregion);
 		while (itr.hasNext()) {
 			

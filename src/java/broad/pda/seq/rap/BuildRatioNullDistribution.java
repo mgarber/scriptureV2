@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.ggf.drmaa.DrmaaException;
+
 import broad.core.math.EmpiricalDistribution;
 
 import net.sf.picard.cmdline.Option;
@@ -23,7 +25,6 @@ import nextgen.core.model.score.*;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.writers.PairedEndWriter;
 import nextgen.core.readFilters.*;
-import nextgen.core.annotation.AnnotationCollection;
 
 public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
     private static final Log log = Log.getInstance(BuildRatioNullDistribution.class);
@@ -82,8 +83,8 @@ public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
 			
 			if (QUEUE != null) {
 				// Load INPUT and CONTROL files to set up pebam and GlobalStats to avoid concurrent writing in the submitted jobs
-				AnnotationCollection<? extends Alignment> input = loadAlignmentModel(TARGET);
-				AnnotationCollection<? extends Alignment> control = loadAlignmentModel(CONTROL);
+				AlignmentModel input = loadAlignmentModel(TARGET);
+				AlignmentModel control = loadAlignmentModel(CONTROL);
 				control.getGlobalCount();  // init global stats
 				
 				submitJobs();
@@ -106,8 +107,9 @@ public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
 	 * Submit one job per permutation
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	private void submitJobs() throws IOException, InterruptedException {
+	private void submitJobs() throws IOException, InterruptedException, DrmaaException {
 		Collection<Job> jobs = new ArrayList<Job>();
 		for (int i = 0; i < PERMUTATIONS; i++) {
 
@@ -184,9 +186,9 @@ public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
 			log.info("Setting up writer: " + permutedOutput);
 			final PairedEndWriter outputWriter = new PairedEndWriter(TARGET, permutedOutput);
 
-			// Reopen the input file in a model
-			getCoordinateSpace().setPercentMaskedAllowed(0.0);  // don't allow permuting reads to masked regions
-			AnnotationCollection<Alignment> model = loadAlignmentModel(TARGET);
+			// Reopen the input file in a model. Casts to genomic space.
+			((GenomicSpace) getCoordinateSpace()).setPercentMaskedAllowed(0.0);  // don't allow permuting reads to masked regions
+			AlignmentModel model = loadAlignmentModel(TARGET);
 			
 			if (RANDOM_SEED != null) GenomicSpace.setSeed(RANDOM_SEED);
 			
@@ -206,10 +208,10 @@ public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
 		if (USE_INTERMEDIATES && new File(edOutput).exists()) {
 			log.info("Using existing empirical distribution file: " + edOutput);
 		} else {
-			// Now scan over the permuted data and calculate ratios
-			getCoordinateSpace().setPercentMaskedAllowed(PCT_MASKED_ALLOWED);  // reset pct masked allowed after changing above
-			AnnotationCollection<? extends Alignment> permuted = loadAlignmentModel(new File(permutedOutput));
-			AnnotationCollection<? extends Alignment> control = loadAlignmentModel(CONTROL);
+			// Now scan over the permuted data and calculate ratios. Casts to genomic space.
+			((GenomicSpace) getCoordinateSpace()).setPercentMaskedAllowed(PCT_MASKED_ALLOWED);  // reset pct masked allowed after changing above
+			AlignmentModel permuted = loadAlignmentModel(new File(permutedOutput));
+			AlignmentModel control = loadAlignmentModel(CONTROL);
 			WindowProcessor<RatioScore> processor = new RatioScore.Processor(permuted, control);
 
 			EmpiricalDistribution ed = getEmptyEmpiricalDistribution();
