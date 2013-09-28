@@ -3,7 +3,6 @@ package broad.pda.seq.rap;
 import java.io.File;
 
 import net.sf.picard.cmdline.Option;
-import net.sf.picard.util.Log;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.*;
 import nextgen.core.annotation.*;
@@ -54,7 +53,7 @@ public abstract class GenomeScoringProgram extends GenomeCommandLineProgram {
 			processor = new SumScore.Processor(target);
 		} else if(SCORE.equalsIgnoreCase("all")){
 			processor = new WindowAllScore.Processor((AlignmentModel)target, (AlignmentModel)control);
-		} else {
+		}else{
 			throw new IllegalArgumentException("Could not find scoring class for " + SCORE);
 		}
 		

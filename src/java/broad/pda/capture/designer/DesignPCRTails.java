@@ -422,6 +422,8 @@ public class DesignPCRTails {
 	private Collection<PrimerPair> designPCRTails(int numPCRTails) throws IOException {
 		Collection<PrimerPair> rtrn=new TreeSet<PrimerPair>();
 		
+		
+		/*  This is giving error
 		for(int i=0; i<numPCRTails; i++){
 			//System.err.println("Designing tail "+i);
 			//generate random sequences
@@ -433,7 +435,7 @@ public class DesignPCRTails {
 				PrimerPair primer=primers.iterator().next();
 				rtrn.add(primer);
 			}
-		}
+		}*/
 	
 		return rtrn;
 	}
@@ -442,13 +444,14 @@ public class DesignPCRTails {
 		String leftPrimer=args[0];
 		String rightPrimer=args[1];
 		
+		/*
 		String seq=(leftPrimer)+Sequence.generateRandomSequence(500)+Sequence.reverseSequence(rightPrimer);
 		System.err.println(seq);
 		Collection<PrimerPair> primers=PcrPrimerDesigner.designSyntheticPrimers(seq, leftPrimer, rightPrimer, 1);
 		if(primers!=null && !primers.isEmpty()){
 			PrimerPair primer=primers.iterator().next();
 			System.err.println(primer.getPrimerPairPenalty()+" "+primer.getLeftPrimerTM()+" "+primer.getRightPrimerTM());
-		}
+		}*/
 		
 		System.err.println(Sequence.reverseSequence("AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT"));
 	}

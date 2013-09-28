@@ -131,7 +131,7 @@ public class ConfigFile {
 	
 	private ConfigFileSection getSection(String sectionName, boolean validate) {
 		if(validate && !allowableSectionsByName.containsKey(sectionName)) {
-			crashWithHelpMenu("Section " + sectionName + " not recognized.");
+			exitWithMessageAndHelpMenu("Section " + sectionName + " not recognized.");
 		}
 		return allowableSectionsByName.get(sectionName);
 	}
@@ -172,7 +172,7 @@ public class ConfigFile {
 					currentSectionOptions.clear();
 					ConfigFileSection section = allowableSectionsByName.get(currentSectionName.get(0));
 					if(optionsFromFile.containsKey(section)) {
-						crashWithHelpMenu("Section is specified more than once: " + section.getName());
+						exitWithMessageAndHelpMenu("Section is specified more than once: " + section.getName());
 					}
 					currentSectionName.clear();
 					currentSectionName.add(newSectionName);
@@ -187,7 +187,7 @@ public class ConfigFile {
 			}
 			if(currentSectionName.isEmpty()) {
 				// This is an option line but there was no section header
-				crashWithHelpMenu("First line of file must be section header.");
+				exitWithMessageAndHelpMenu("First line of file must be section header.");
 			}
 			// Make option and value from line
 			String optionName = s.asString(0);
@@ -198,7 +198,7 @@ public class ConfigFile {
 				currentSectionOptions.put(option, tmpCol);
 			} else {
 				if(!option.isRepeatable()) {
-					crashWithHelpMenu("Option " + optionName + " in section " + section.getName() + " is not repeatable.");
+					exitWithMessageAndHelpMenu("Option " + optionName + " in section " + section.getName() + " is not repeatable.");
 				}
 			}
 			// Store option and value
@@ -212,7 +212,7 @@ public class ConfigFile {
 			currentSectionOptions.clear();
 			ConfigFileSection section = allowableSectionsByName.get(currentSectionName.get(0));
 			if(optionsFromFile.containsKey(section)) {
-				crashWithHelpMenu("Section is specified more than once: " + section.getName());
+				exitWithMessageAndHelpMenu("Section is specified more than once: " + section.getName());
 			}
 			optionsFromFile.put(section, tmpOptions);
 		} 
@@ -228,14 +228,14 @@ public class ConfigFile {
 		for(ConfigFileSection section : optionsFromFile.keySet()) {
 			String sectionName = section.getName();
 			if(!allowableSectionsByName.containsKey(sectionName)) {
-				crashWithHelpMenu("Section name " + sectionName + " not recognized.");
+				exitWithMessageAndHelpMenu("Section name " + sectionName + " not recognized.");
 			}
 			for(ConfigFileOption option : optionsFromFile.get(section).keySet()) {
 				if(!allowableSectionsByName.get(sectionName).getAllowableOptions().contains(option)) {
-					crashWithHelpMenu("Option name " + option.getName() + " in section " + sectionName + " not recognized.");
+					exitWithMessageAndHelpMenu("Option name " + option.getName() + " in section " + sectionName + " not recognized.");
 				}
 				if(optionsFromFile.get(section).get(option).size() > 1 && !option.isRepeatable()) {
-					crashWithHelpMenu("Option " + option.getName() + " in section " + sectionName + " is not repeatable.");
+					exitWithMessageAndHelpMenu("Option " + option.getName() + " in section " + sectionName + " is not repeatable.");
 				}
 			}
 		}
@@ -245,7 +245,7 @@ public class ConfigFile {
 			ConfigFileSection section = allowableSectionsByName.get(sectionName);
 			if(!optionsFromFile.containsKey(section)) {
 				if(section.isRequired()) {
-					crashWithHelpMenu("Required section " + sectionName + " is missing.");
+					exitWithMessageAndHelpMenu("Required section " + sectionName + " is missing.");
 				} else {
 					optionsFromFile.put(section, new HashMap<ConfigFileOption, Collection<ConfigFileOptionValue>>());
 				}
@@ -253,7 +253,7 @@ public class ConfigFile {
 			for(ConfigFileOption option : section.getAllowableOptions()) {
 				if(!optionsFromFile.get(section).containsKey(option)) {
 					if(option.isRequired()) {
-						crashWithHelpMenu("Required option " + option.getName() + " in section " + sectionName + " is missing.");
+						exitWithMessageAndHelpMenu("Required option " + option.getName() + " in section " + sectionName + " is missing.");
 					} else {
 						Collection<ConfigFileOptionValue> tmpCol = new ArrayList<ConfigFileOptionValue>();
 						if(option.getDefaultValue() != null) {
@@ -268,7 +268,7 @@ public class ConfigFile {
 							continue;
 						}
 						if(!option.getAllowableNumbersOfValues().contains(Integer.valueOf(value.getActualNumValues()))) {
-							crashWithHelpMenu("Option " + option.getName() + " in section " + sectionName + " must have " + option.getAllowableNumbersOfValues() + " fields including the flag itself. (Line = " + value.getFullOptionLine() + ")");
+							exitWithMessageAndHelpMenu("Option " + option.getName() + " in section " + sectionName + " must have " + option.getAllowableNumbersOfValues() + " fields including the flag itself. (Line = " + value.getFullOptionLine() + ")");
 						}
 					}
 				}
@@ -324,7 +324,24 @@ public class ConfigFile {
 		
 	}
 	
-	private void crashWithHelpMenu(String errorMessage) {
+	/**
+	 * Print help menu and exit
+	 */
+	public void exitWithHelpMenu() {
+		
+		String message = getHelpMenu();
+		message += "\n\n";
+		
+		System.err.print(message);
+		System.exit(0);
+		
+	}
+
+	
+	/**
+	 * @param errorMessage Error message to print
+	 */
+	private void exitWithMessageAndHelpMenu(String errorMessage) {
 		
 		String message = getHelpMenu();
 		message += "\nInvalid config file:\n";

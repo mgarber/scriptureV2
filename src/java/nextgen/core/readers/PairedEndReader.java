@@ -284,12 +284,9 @@ public class PairedEndReader {
 				rtrn = new SingleEndAlignment(record, record.getReadPairedFlag() && record.getFirstOfPairFlag());
 				//rtrn=new SingleEndAlignment(record);
 			}
-		} catch (RuntimeException e) {
-			throw e;
+		} finally {
+			log.error("Failed on SAMRecord: " + record.toString());
 		}
-		//finally {
-			//log.error("Failed on SAMRecord: " + record.toString());
-		//}
 
 		return rtrn;
 	}
