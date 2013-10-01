@@ -143,14 +143,14 @@ public class SampleData {
 			return geneScores.get(gene).getCount();
 		}
 		ScanStatisticScore score = new ScanStatisticScore(data, gene, fullyContainedReads);
-		logger.debug("GET_GENE_COUNT\t" + gene.getName());
-		logger.debug("GET_GENE_COUNT\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
-		logger.debug("GET_GENE_COUNT\tglobal_length=" + score.getGlobalLength());
-		logger.debug("GET_GENE_COUNT\tglobal_count=" + score.getTotal());
-		logger.debug("GET_GENE_COUNT\tglobal_lambda=" + score.getGlobalLambda());
-		logger.debug("GET_GENE_COUNT\twindow_size=" + score.getCoordinateSpace().getSize(gene));
-		logger.debug("GET_GENE_COUNT\twindow_count=" + score.getCount());
-		logger.debug("GET_GENE_COUNT\tpval=" + score.getScanPvalue());
+		//logger.debug("GET_GENE_COUNT\t" + gene.getName());
+		//logger.debug("GET_GENE_COUNT\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
+		//logger.debug("GET_GENE_COUNT\tglobal_length=" + score.getGlobalLength());
+		//logger.debug("GET_GENE_COUNT\tglobal_count=" + score.getTotal());
+		//logger.debug("GET_GENE_COUNT\tglobal_lambda=" + score.getGlobalLambda());
+		//logger.debug("GET_GENE_COUNT\twindow_size=" + score.getCoordinateSpace().getSize(gene));
+		//logger.debug("GET_GENE_COUNT\twindow_count=" + score.getCount());
+		//logger.debug("GET_GENE_COUNT\tpval=" + score.getScanPvalue());
 		geneScores.put(gene, score);
 		return score.getCount();
 	}
@@ -167,14 +167,14 @@ public class SampleData {
 			return geneScores.get(gene).getScanPvalue();
 		}
 		ScanStatisticScore score = new ScanStatisticScore(data, gene, fullyContainedReads);
-		logger.debug("GET_GENE_SCAN_PVAL\t" + gene.getName());
-		logger.debug("GET_GENE_SCAN_PVAL\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
-		logger.debug("GET_GENE_SCAN_PVAL\tglobal_length=" + score.getGlobalLength());
-		logger.debug("GET_GENE_SCAN_PVAL\tglobal_count=" + score.getTotal());
-		logger.debug("GET_GENE_SCAN_PVAL\tglobal_lambda=" + score.getGlobalLambda());
-		logger.debug("GET_GENE_SCAN_PVAL\twindow_size=" + score.getCoordinateSpace().getSize(gene));
-		logger.debug("GET_GENE_SCAN_PVAL\twindow_count=" + score.getCount());
-		logger.debug("GET_GENE_SCAN_PVAL\tpval=" + score.getScanPvalue());
+		//logger.debug("GET_GENE_SCAN_PVAL\t" + gene.getName());
+		//logger.debug("GET_GENE_SCAN_PVAL\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
+		//logger.debug("GET_GENE_SCAN_PVAL\tglobal_length=" + score.getGlobalLength());
+		//logger.debug("GET_GENE_SCAN_PVAL\tglobal_count=" + score.getTotal());
+		//logger.debug("GET_GENE_SCAN_PVAL\tglobal_lambda=" + score.getGlobalLambda());
+		//logger.debug("GET_GENE_SCAN_PVAL\twindow_size=" + score.getCoordinateSpace().getSize(gene));
+		//logger.debug("GET_GENE_SCAN_PVAL\twindow_count=" + score.getCount());
+		//logger.debug("GET_GENE_SCAN_PVAL\tpval=" + score.getScanPvalue());
 		geneScores.put(gene, score);
 		return score.getScanPvalue();
 	}
@@ -193,15 +193,15 @@ public class SampleData {
 		ScanStatisticScore score = new ScanStatisticScore(data, gene, fullyContainedReads);
 		geneScores.put(gene, score);
 		double avgCoverage = score.getAverageCoverage(data);
-		logger.debug("GET_GENE_AVG_COVERAGE\t" + gene.getName());
-		logger.debug("GET_GENE_AVG_COVERAGE\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
-		logger.debug("GET_GENE_AVG_COVERAGE\tglobal_length=" + score.getGlobalLength());
-		logger.debug("GET_GENE_AVG_COVERAGE\tglobal_count=" + score.getTotal());
-		logger.debug("GET_GENE_AVG_COVERAGE\tglobal_lambda=" + score.getGlobalLambda());
-		logger.debug("GET_GENE_AVG_COVERAGE\twindow_size=" + score.getCoordinateSpace().getSize(gene));
-		logger.debug("GET_GENE_AVG_COVERAGE\twindow_count=" + score.getCount());
-		logger.debug("GET_GENE_AVG_COVERAGE\tpval=" + score.getScanPvalue());
-		logger.debug("GET_GENE_AVG_COVERAGE\tavg_coverage\t" + avgCoverage);
+		//logger.debug("GET_GENE_AVG_COVERAGE\t" + gene.getName());
+		//logger.debug("GET_GENE_AVG_COVERAGE\t" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd());
+		//logger.debug("GET_GENE_AVG_COVERAGE\tglobal_length=" + score.getGlobalLength());
+		//logger.debug("GET_GENE_AVG_COVERAGE\tglobal_count=" + score.getTotal());
+		//logger.debug("GET_GENE_AVG_COVERAGE\tglobal_lambda=" + score.getGlobalLambda());
+		//logger.debug("GET_GENE_AVG_COVERAGE\twindow_size=" + score.getCoordinateSpace().getSize(gene));
+		//logger.debug("GET_GENE_AVG_COVERAGE\twindow_count=" + score.getCount());
+		//logger.debug("GET_GENE_AVG_COVERAGE\tpval=" + score.getScanPvalue());
+		//logger.debug("GET_GENE_AVG_COVERAGE\tavg_coverage\t" + avgCoverage);
 		geneAvgCoverage.put(gene, Double.valueOf(avgCoverage));
 		return avgCoverage;
 	}
@@ -310,13 +310,13 @@ public class SampleData {
 		ScanStatisticScore windowScore = scoreWindow(gene, window);
 		double windowAvgCoverage = windowScore.getAverageCoverage(data);
 		double enrichment = windowAvgCoverage / geneAvgCov;
-		logger.debug("GET_ENRICHMENT_OVER_GENE\t" + gene.getName());
-		logger.debug("GET_ENRICHMENT_OVER_GENE\t" + window.toBED());
-		logger.debug("GET_ENRICHMENT_OVER_GENE\twindow_size=" + window.getSize());
-		logger.debug("GET_ENRICHMENT_OVER_GENE\tcount=" + windowScore.getCount());
-		logger.debug("GET_ENRICHMENT_OVER_GENE\tgene_avg_coverage=" + geneAvgCov);
-		logger.debug("GET_ENRICHMENT_OVER_GENE\twindow_avg_coverage=" + windowAvgCoverage);
-		logger.debug("GET_ENRICHMENT_OVER_GENE\tenrichment=" + enrichment);
+		//logger.debug("GET_ENRICHMENT_OVER_GENE\t" + gene.getName());
+		//logger.debug("GET_ENRICHMENT_OVER_GENE\t" + window.toBED());
+		//logger.debug("GET_ENRICHMENT_OVER_GENE\twindow_size=" + window.getSize());
+		//logger.debug("GET_ENRICHMENT_OVER_GENE\tcount=" + windowScore.getCount());
+		//logger.debug("GET_ENRICHMENT_OVER_GENE\tgene_avg_coverage=" + geneAvgCov);
+		//logger.debug("GET_ENRICHMENT_OVER_GENE\twindow_avg_coverage=" + windowAvgCoverage);
+		//logger.debug("GET_ENRICHMENT_OVER_GENE\tenrichment=" + enrichment);
 		return enrichment;
 	}
 	
@@ -436,6 +436,14 @@ public class SampleData {
 	 */
 	public void setSampleName(String name) {
 		sampleName = name;
+	}
+	
+	public int getWindowSize() {
+		return windowSize;
+	}
+	
+	public int getStepSize() {
+		return stepSize;
 	}
 	
 /*	*//**
