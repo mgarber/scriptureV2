@@ -4,6 +4,7 @@ import broad.pda.seq.segmentation.AlignmentDataModelStats;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;
+import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.model.AlignmentModel;
 import jsc.distributions.Binomial;
@@ -16,6 +17,8 @@ public class BinomialEnrichmentScore extends CountScore {
 	private double ctrlCount;              
 	private double sampleRegionCount;
 	private double ctrlRegionCount; //Total bases in gene/region/chrom in control
+	private double regionLength;
+	private static double DEFAULT_REGION_LENGTH = -1;
 	
 	/**
 	 * Binomial score for windows
@@ -35,6 +38,7 @@ public class BinomialEnrichmentScore extends CountScore {
 		setCtrlCount(ctrl.getCount(a,fullyContained));
 		setCtrlRegionCount(ctrl.getCount(a,fullyContained));
 		setSampleRegionCount(sample.getCount(a,fullyContained));
+		setRegionLength(DEFAULT_REGION_LENGTH);
 	
 		try {
 			setPvalue(calculatePVal(getSampleCount(), getCtrlCount(), getSampleRegionCount(), getCtrlRegionCount()));
@@ -42,6 +46,20 @@ public class BinomialEnrichmentScore extends CountScore {
 				logger.info("Cound not set P value for annotation " + a.getName());
 			}
 			getAnnotation().setScore(getPvalue());
+	}
+	
+	public BinomialEnrichmentScore(AlignmentModel sample, AlignmentModel ctrl, Annotation a, double regionLength, boolean fullyContained) {
+		this(sample,ctrl,a,fullyContained);
+		setRegionLength(regionLength);
+		refreshPvalue();
+		
+	}
+	
+	public BinomialEnrichmentScore(AlignmentModel sample, AlignmentModel ctrl, Annotation a, double regionLength) {
+		this(sample,ctrl,a,false);
+		setRegionLength(regionLength);
+		refreshPvalue();
+		
 	}
 	
 	public BinomialEnrichmentScore(AlignmentModel sample, Annotation a) {
@@ -98,8 +116,30 @@ public class BinomialEnrichmentScore extends CountScore {
 
 	}
 	
+	public double calculatePVal(double a, double b, double sampleRegionCounts, double ctrlRegionCounts, double regionLength, double windowSize) {
+		double pval1 = calculatePVal(a,b,sampleRegionCounts,ctrlRegionCounts);
+		
+		double p = windowSize/regionLength;
+		if (p==0) {return 1;}
+		long n = (long) sampleRegionCounts;
+		Binomial C = new Binomial(n,p);
+		double pval2 = 1 - C.cdf(a);
+		
+		return Math.max(pval1, pval2);
+	}
+	
 	public void refreshPvalue() {
-		setPvalue(calculatePVal(getCount(),ctrlCount,sampleRegionCount,ctrlRegionCount));
+		if (regionLength != -1) {
+			setPvalue(calculatePVal(getCount(),ctrlCount,sampleRegionCount,ctrlRegionCount,regionLength,annotation.getSize()));
+		} else {
+			setPvalue(calculatePVal(getCount(),ctrlCount,sampleRegionCount,ctrlRegionCount));
+		}
+	}
+	
+	public double getEnrichmentOverControl() {
+		double normSampleCounts = getCount()/getSampleRegionCount();
+		double normCtrlCounts = getCtrlCount()/getCtrlRegionCount();
+		return normSampleCounts/normCtrlCounts;
 	}
 	
 	public static class Processor extends WindowProcessor.AbstractProcessor<BinomialEnrichmentScore> {
@@ -186,5 +226,8 @@ public class BinomialEnrichmentScore extends CountScore {
 
 	public double getCtrlRegionCount() { return ctrlRegionCount; }
 	public double getSampleRegionCount() { return sampleRegionCount; }
+	
+	public void setRegionLength(double d) { regionLength = d; }
+	public double getRegionLength() { return regionLength; }
 
 }
