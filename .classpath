@@ -31,5 +31,6 @@
 	<classpathentry kind="lib" path="lib/tribble-0.1.jar"/>
 	<classpathentry kind="lib" path="lib/vcf.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="lib/drmaa.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

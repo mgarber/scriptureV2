@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.ggf.drmaa.DrmaaException;
+
 import broad.core.math.EmpiricalDistribution;
 
 import net.sf.picard.cmdline.Option;
@@ -105,8 +107,9 @@ public class BuildRatioNullDistribution extends GenomeCommandLineProgram {
 	 * Submit one job per permutation
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	private void submitJobs() throws IOException, InterruptedException {
+	private void submitJobs() throws IOException, InterruptedException, DrmaaException {
 		Collection<Job> jobs = new ArrayList<Job>();
 		for (int i = 0; i < PERMUTATIONS; i++) {
 

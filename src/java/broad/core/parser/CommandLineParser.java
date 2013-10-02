@@ -552,7 +552,7 @@ public final class CommandLineParser {
 	/**
 	 * Prints program description plus argument flags and descriptions
 	 */
-	private void printHelpMessage() {
+	public void printHelpMessage() {
 		System.err.println();
 		if(!programDescription.isEmpty()) {
 			for(String s : programDescription) System.err.println(s + "\n");

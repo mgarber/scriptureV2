@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 public class ChromosomeStringComparator implements Comparator<String> {
 	private static final Pattern numberPattern = Pattern.compile("[0-9]{1,2}");
 	public int compare(String a, String b) {
+		
 		int comparison = 0;
 		String alean = a.replace("chr", "");
 		String blean = b.replace("chr", "");

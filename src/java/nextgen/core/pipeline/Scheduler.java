@@ -11,15 +11,15 @@ public enum Scheduler {
 	 */
 	LSF,
 	/**
-	 * Sun Grid Engine
+	 * Open Grid Scheduler (formerly Sun Grid Engine)
 	 */
-	SGE;
+	OGS;
 	
 	@Override
 	public String toString() {
 		switch(this) {
 		case LSF: return "LSF";
-		case SGE: return "SGE";
+		case OGS: return "OGS";
 		default: throw new IllegalArgumentException("Not implemented.");
 		}
 	}
@@ -32,8 +32,8 @@ public enum Scheduler {
 		if(name.equals("LSF")) {
 			return LSF;
 		}
-		if(name.equals("SGE")) {
-			return SGE;
+		if(name.equals("OGS")) {
+			return OGS;
 		}
 		throw new IllegalArgumentException("Scheduler name " + name + " not recognized.");
 	}
