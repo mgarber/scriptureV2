@@ -57,6 +57,20 @@ public class ScanStatisticScore extends CountScore {
 		getAnnotation().setScore(getScanPvalue());
 	}
 	
+	public ScanStatisticScore(MultiScore other) {
+		super(other);
+		setRegionLength(other.getRegionLength());
+		coordSpace = other.getSampleCoordSpace();
+		setRegionTotal(other.getSampleRegionCount());
+		setGlobalLength(other.sampleModel.getGlobalLength());
+		try {
+			setScanPvalue(ScanStatistics.calculatePVal(new Double(getCount()).intValue(), other.sampleModel.getGlobalLambda(), other.sampleModel.getCoordinateSpace().getSize(annotation), other.sampleModel.getGlobalLength()));
+		} catch(Exception e) {
+			logger.info("Could not set scan P value for annotation " + annotation.getName());
+		}
+		getAnnotation().setScore(getScanPvalue());
+	}
+	
 	public ScanStatisticScore(AlignmentModel model, Annotation annotation, double regionTotal, double regionLength) {
 		this(model, annotation, regionTotal, regionLength, false);
 	}
@@ -138,8 +152,17 @@ public class ScanStatisticScore extends CountScore {
 	public void setScanPvalue(double scanPvalue) {
 		this.scanPvalue = scanPvalue;
 	}
+	
+	public void setPvalue(double scanPvalue) {
+		this.scanPvalue = scanPvalue;
+	}
 
 	public double getScanPvalue() {
+		return scanPvalue;
+	}
+	
+	@Override
+	public double getPvalue() {
 		return scanPvalue;
 	}
 

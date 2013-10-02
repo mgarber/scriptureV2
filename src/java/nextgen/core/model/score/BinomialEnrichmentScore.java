@@ -98,6 +98,21 @@ public class BinomialEnrichmentScore extends CountScore {
 		getAnnotation().setScore(getPvalue());
 	}
 	
+	public BinomialEnrichmentScore(MultiScore score) {
+		super(score);
+		sampleCoordSpace = score.getSampleCoordSpace();
+		ctrlCoordSpace = score.getCtrlCoordSpace();
+		setCtrlCount(score.getCtrlCount());
+		setSampleRegionCount(score.getSampleRegionCount());
+		setCtrlRegionCount(score.getCtrlRegionCount());
+		setRegionLength(score.getRegionLength());
+		try {
+			setPvalue(calculatePVal(new Double(getSampleCount()), new Double(getCtrlCount()), sampleRegionCount, ctrlRegionCount, regionLength, annotation.getSize()));
+		} catch(Exception e) {
+			logger.info("Could not set scan P value for annotation " + annotation.getName());
+		}
+	}
+	
 	/**
 	 * @param a				Sample reads
 	 * @param b	        	Control reads
@@ -118,18 +133,21 @@ public class BinomialEnrichmentScore extends CountScore {
 	
 	public double calculatePVal(double a, double b, double sampleRegionCounts, double ctrlRegionCounts, double regionLength, double windowSize) {
 		double pval1 = calculatePVal(a,b,sampleRegionCounts,ctrlRegionCounts);
-		
-		double p = windowSize/regionLength;
-		if (p==0) {return 1;}
-		long n = (long) sampleRegionCounts;
-		Binomial C = new Binomial(n,p);
-		double pval2 = 1 - C.cdf(a);
-		
-		return Math.max(pval1, pval2);
+		if (regionLength == DEFAULT_REGION_LENGTH | regionLength <= windowSize) {
+			return pval1;
+		} else {
+			double p = windowSize/regionLength;
+			if (p==0) {return 1;}
+			long n = (long) sampleRegionCounts;
+			Binomial C = new Binomial(n,p);
+			double pval2 = 1 - C.cdf(a);
+			return Math.max(pval1, pval2);
+		}
 	}
 	
+	@Override
 	public void refreshPvalue() {
-		if (regionLength != -1) {
+		if (regionLength != DEFAULT_REGION_LENGTH) {
 			setPvalue(calculatePVal(getCount(),ctrlCount,sampleRegionCount,ctrlRegionCount,regionLength,annotation.getSize()));
 		} else {
 			setPvalue(calculatePVal(getCount(),ctrlCount,sampleRegionCount,ctrlRegionCount));
@@ -213,6 +231,7 @@ public class BinomialEnrichmentScore extends CountScore {
 	}
 	
 	public void setPvalue(double scanPvalue) { this.Pvalue = scanPvalue; }
+	@Override
 	public double getPvalue() { return Pvalue; }
 
 	public void setSampleCount(double d) { setCount(d); }

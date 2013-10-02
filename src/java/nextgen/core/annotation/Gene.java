@@ -691,7 +691,7 @@ public class Gene extends BasicAnnotation {
 				int size = relativeStart + windowSize;
 				logger.info("relStart: " + relativeStart);
 				logger.info("relStart+win: " + size + " getSize: " + this.getSize());
-				if(relativeStart + windowSize < this.getSize()) {
+				if(relativeStart + windowSize <= this.getSize()) {
 					logger.info("if statement");
 					Gene exonGene =  new Gene(exon);
 					//GeneWindow subGene = this.trimAbsolute(i, i+windowSize);

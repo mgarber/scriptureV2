@@ -233,6 +233,11 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 	}
 
 
-	
+	public void refreshPvalue() {}
+
+	public double getPvalue() {
+		// TODO Auto-generated method stub
+		return 1;
+	}
 
 }
