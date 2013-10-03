@@ -464,6 +464,14 @@ public class SampleData {
 	}
 	
 	/**
+	 * Get the alignment data filtered by max fragment length
+	 * @return Alignment model
+	 */
+	public TranscriptomeSpaceAlignmentModel getFragmentLengthFilterData() {
+		return maxFragmentLengthData;
+	}
+	
+	/**
 	 * Trim the region to max contiguous subregion above a certain quantile
 	 * @param window The region
 	 * @param data Position level list of counts within the region

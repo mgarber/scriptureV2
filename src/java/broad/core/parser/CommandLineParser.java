@@ -64,6 +64,7 @@ public final class CommandLineParser {
 		programDescription = new ArrayList<String>();
 		requiredArgs = new HashSet<String>();
 		commandLineValues = new HashMap<String,String>();
+		duplicateCommandLineValues = new HashMap<String,ArrayList<String>>();
 		
 		allowDuplicateFlags = allowDuplicates;
 	}
@@ -287,6 +288,7 @@ public final class CommandLineParser {
 		isParsed = false;
 				
 		commandLineValues.clear();
+		duplicateCommandLineValues.clear();
 		int i=0;
 		while(i < args.length) {
 			

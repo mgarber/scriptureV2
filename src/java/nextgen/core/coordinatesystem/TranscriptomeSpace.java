@@ -140,7 +140,11 @@ public class TranscriptomeSpace implements CoordinateSpace{
 	
 	@Override
 	public Iterator<? extends Window> getWindowIterator(Annotation window, int windowSize, int overlap) {
-		return getWindowIterator(windowSize, window.getChr(), window.getStart(), window.getEnd(), overlap);
+		//return getWindowIterator(windowSize, window.getChr(), window.getStart(), window.getEnd(), overlap); // WRONG - INCLUDES OTHER OVERLAPPING ANNOTATIONS
+		GeneWindow geneWindow = new GeneWindow(window);
+		Collection<GeneWindow> baseGenes = new ArrayList<GeneWindow>();
+		baseGenes.add(geneWindow);
+		return new WindowIterator(baseGenes, windowSize, overlap);
 	}
 
 	/**

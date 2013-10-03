@@ -928,7 +928,14 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	}
 	
 	private BinomialEnrichmentScore scoreWindowBinomialWithFragmentLengthFilter(Gene gene, Annotation window, SampleData sample) {
-		return scoreWindowBinomial(gene, window, sample, sample.maxFragmentLengthData.getCount(window));
+		double sampleGeneCount = sample.getFragmentLengthFilterData().getCount(gene);
+		double ctrlGeneCount = binomialCtrl.getFragmentLengthFilterData().getCount(gene);
+		double regionLength = gene.getSize();
+		BinomialEnrichmentScore score = new BinomialEnrichmentScore(sample.getFragmentLengthFilterData(),binomialCtrl.getFragmentLengthFilterData(),window,regionLength);
+		score.setSampleRegionCount(sampleGeneCount);
+		score.setCtrlRegionCount(ctrlGeneCount);
+		score.refreshPvalue();
+		return score;
 	}
 	
 	private TreeSet<Annotation> trimWindows(TreeSet<Annotation> untrimmed, TranscriptomeSpaceAlignmentModel data) throws IOException {
