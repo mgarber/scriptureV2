@@ -14,7 +14,7 @@ public class BinomialEnrichmentScore extends CountScore {
 	private double Pvalue;
 	private CoordinateSpace sampleCoordSpace;
 	private CoordinateSpace ctrlCoordSpace;
-	private double ctrlCount;              
+	private double ctrlCount;  // sampleCount is count            
 	private double sampleRegionCount;
 	private double ctrlRegionCount; //Total bases in gene/region/chrom in control
 	private double regionLength;
@@ -98,18 +98,19 @@ public class BinomialEnrichmentScore extends CountScore {
 		getAnnotation().setScore(getPvalue());
 	}
 	
-	public BinomialEnrichmentScore(MultiScore score) {
-		super(score);
-		sampleCoordSpace = score.getSampleCoordSpace();
-		ctrlCoordSpace = score.getCtrlCoordSpace();
-		setCtrlCount(score.getCtrlCount());
-		setSampleRegionCount(score.getSampleRegionCount());
-		setCtrlRegionCount(score.getCtrlRegionCount());
-		setRegionLength(score.getRegionLength());
+	public BinomialEnrichmentScore(MultiScore other) {
+		super(other);
+		sampleCoordSpace = other.getSampleCoordSpace();
+		ctrlCoordSpace = other.getCtrlCoordSpace();
+		setCtrlCount(other.getCtrlCount());
+		setSampleRegionCount(other.getSampleRegionCount());
+		setCtrlRegionCount(other.getCtrlRegionCount());
+		setRegionLength(other.getRegionLength());
 		try {
 			setPvalue(calculatePVal(new Double(getSampleCount()), new Double(getCtrlCount()), sampleRegionCount, ctrlRegionCount, regionLength, annotation.getSize()));
 		} catch(Exception e) {
 			logger.info("Could not set scan P value for annotation " + annotation.getName());
+			logger.info(getSampleCount() + " " + getCtrlCount() + " " + sampleRegionCount + " " + ctrlRegionCount + " " + regionLength + " " + annotation.getSize());
 		}
 	}
 	
@@ -121,7 +122,7 @@ public class BinomialEnrichmentScore extends CountScore {
 	 * @return				Binomial P(X>a)
 	 */
 	public double calculatePVal(double a, double b, double sampleRegionCounts, double ctrlRegionCounts) {
-		if (a+b<=2) {return 1;}
+		if (a+b<=2|ctrlRegionCounts+sampleRegionCounts<2) {return 1;}
 		double p = sampleRegionCounts/(sampleRegionCounts+ctrlRegionCounts);
 		if (p==0) {return 1;}
 		long n = (long) (a + b);
