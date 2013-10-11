@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
@@ -27,8 +28,9 @@ public class TranscribedRegions {
 	
 	private Map<String, Sequence> chromosomes;
 	private Map<String, Collection<Gene>> genes;
-	private Map<String, Map<HalfOpenInterval, Strand>> geneStrands;
+	private Map<String, TreeMap<HalfOpenInterval, Strand>> geneStrands;
 	private static Logger logger = Logger.getLogger(TranscribedRegions.class.getName());
+	private String genomeFile;
 	
 	/**
 	 * @param genomeFasta Genome fasta file
@@ -36,13 +38,8 @@ public class TranscribedRegions {
 	 * @throws IOException
 	 */
 	public TranscribedRegions(String genomeFasta, String bedFile) throws IOException {
-		// Load chromosomes
-		FastaSequenceIO fsio = new FastaSequenceIO(genomeFasta);
-		List<Sequence> chrs = fsio.loadAll();
+		genomeFile = genomeFasta;
 		chromosomes = new TreeMap<String, Sequence>();
-		for(Sequence chr : chrs) {
-			chromosomes.put(chr.getId(), chr);
-		}
 		// Load genes
 		logger.info("Loading genes from file " + bedFile + "...");
 		genes = BEDFileParser.loadDataByChr(new File(bedFile));
@@ -54,7 +51,50 @@ public class TranscribedRegions {
 		// Collapse overlapping exons and determine strands
 		computeStrands();
 	}
+	
+	private void loadGenome() throws IOException {
+		chromosomes.clear();
+		FastaSequenceIO fsio = new FastaSequenceIO(genomeFile);
+		List<Sequence> chrs = fsio.loadAll();
+		for(Sequence chr : chrs) {
+			chromosomes.put(chr.getId(), chr);
+		}
+	}
 
+	/**
+	 * Shift a position along the direction of transcription
+	 * If the shifted position is not in the same block as the original position, this method currently throws an exception
+	 * Throws an exception if the position is not in any transcribed interval
+	 * @param chr Chromosome
+	 * @param pos Original position
+	 * @param offset Offset along direction of transcription (can be negative)
+	 * @return Shifted position within the transcript
+	 */
+	public int shiftPosition(String chr, int pos, int offset) {
+		for(HalfOpenInterval interval : geneStrands.get(chr).keySet()) {
+			if(interval.contains(pos)) {
+				Strand posStrand = geneStrands.get(chr).get(interval);
+				int offsetPos = 0;
+				if(posStrand.equals(Strand.UNKNOWN)) {
+					throw new IllegalArgumentException("Strand unknown.");
+				}
+				if(posStrand.equals(Strand.POSITIVE)) {
+					offsetPos = pos + offset;
+					logger.debug("Strand " + posStrand.toString() + " orig " + pos + " offset " + offsetPos);
+				} else if (posStrand.equals(Strand.NEGATIVE)) {
+					offsetPos = pos - offset;
+					logger.debug("Strand " + posStrand.toString() + " orig " + pos + " offset " + offsetPos);
+				} 
+				if(interval.contains(offsetPos)) {
+					logger.debug("Returning " + offsetPos);
+					return offsetPos;
+				}
+				throw new UnsupportedOperationException("Method does not support shifting position to another block.");
+			}
+		}
+		throw new IllegalArgumentException("No interval in data structure contains the position.");
+	}
+	
 	/**
 	 * Get the transcribed orientation of the position based on the gene set
 	 * Returns unknown if the position does not overlap a gene or strand is ambiguous
@@ -78,8 +118,10 @@ public class TranscribedRegions {
 	 * @param pos Position
 	 * @param strand Strand or null if get from annotation
 	 * @return The transcribed base
+	 * @throws IOException 
 	 */
-	public char getTranscribedBase(String chr, int pos, Strand strand) {
+	public char getTranscribedBase(String chr, int pos, Strand strand) throws IOException {
+		if(chromosomes.isEmpty()) loadGenome();
 		Strand s = strand == null ? getOrientation(chr, pos) : strand;
 		if(s.equals(Strand.UNKNOWN)) {
 			return 'N';
@@ -96,8 +138,9 @@ public class TranscribedRegions {
 	 * @param chr Chromosome
 	 * @param pos Position
 	 * @return The transcribed base
+	 * @throws IOException 
 	 */
-	public char getTranscribedBase(String chr, int pos) {
+	public char getTranscribedBase(String chr, int pos) throws IOException {
 		return getTranscribedBase(chr, pos, null);
 	}
 	
@@ -128,25 +171,26 @@ public class TranscribedRegions {
 	 */
 	private void computeStrands() {
 		logger.info("Collapsing overlapping exons and identifying strand...");
-		geneStrands = new TreeMap<String, Map<HalfOpenInterval,Strand>>();
+		geneStrands = new TreeMap<String, TreeMap<HalfOpenInterval,Strand>>();
 		for(String chr : genes.keySet()) {
 			logger.info(chr);
-			Map<HalfOpenInterval, Strand> chrStrands = new TreeMap<HalfOpenInterval, Strand>();
+			TreeMap<HalfOpenInterval, Strand> chrStrands = new TreeMap<HalfOpenInterval, Strand>();
 			for(Gene gene : genes.get(chr)) {
 				Strand strand = gene.getOrientation();
-				HalfOpenInterval nextInterval = new HalfOpenInterval(gene.getStart(), gene.getEnd());
-				boolean merged = false;
-				for(HalfOpenInterval existingInterval : chrStrands.keySet()) {
-					if(nextInterval.overlaps(existingInterval)) {
-						existingInterval.merge(nextInterval);
-						if(!chrStrands.get(existingInterval).equals(strand)) {
-							chrStrands.put(existingInterval, Strand.UNKNOWN);
+				for(HalfOpenInterval block : exonBlocks(gene)) {
+					boolean merged = false;
+					for(HalfOpenInterval existingInterval : chrStrands.keySet()) {
+						if(block.overlaps(existingInterval)) {
+							existingInterval.merge(block);
+							if(!chrStrands.get(existingInterval).equals(strand)) {
+								chrStrands.put(existingInterval, Strand.UNKNOWN);
+							}
+							merged = true;
 						}
-						merged = true;
 					}
-				}
-				if(!merged) {
-					chrStrands.put(nextInterval, strand);
+					if(!merged) {
+						chrStrands.put(block, strand);
+					}
 				}
 			}
 			geneStrands.put(chr, chrStrands);
@@ -154,6 +198,14 @@ public class TranscribedRegions {
 		logger.info("Done identifying intervals and strands.");
 	}
 
+	private Collection<HalfOpenInterval> exonBlocks(Gene gene) {
+		Collection<HalfOpenInterval> rtrn = new TreeSet<HalfOpenInterval>();
+		for(Annotation exon : gene.getBlocks()) {
+			rtrn.add(new HalfOpenInterval(exon.getStart(), exon.getEnd()));
+		}
+		return rtrn;
+	}
+	
 	private class HalfOpenInterval implements Comparable<HalfOpenInterval> {
 
 		private double start;
