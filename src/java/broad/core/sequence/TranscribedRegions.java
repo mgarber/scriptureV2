@@ -18,6 +18,8 @@ import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.annotation.Annotation.Strand;
+import nextgen.core.utils.CountLogger;
+import broad.core.parser.CommandLineParser;
 import broad.pda.annotation.BEDFileParser;
 
 /**
@@ -61,6 +63,14 @@ public class TranscribedRegions {
 		}
 	}
 
+	/**
+	 * Get the genes
+	 * @return Genes by chromosome
+	 */
+	public Map<String, Collection<Gene>> getGenes() {
+		return genes;
+	}
+	
 	/**
 	 * Shift a position along the direction of transcription
 	 * If the shifted position is not in the same block as the original position, this method currently throws an exception
@@ -144,7 +154,82 @@ public class TranscribedRegions {
 		return getTranscribedBase(chr, pos, null);
 	}
 	
-
+	/**
+	 * Get the total count of each nucleotide
+	 * @return Map of nucleotide as string to count
+	 * @throws IOException
+	 */
+	private Map<String, Integer> getOverallNucleotideCounts() throws IOException {
+		logger.info("Getting overall nucleotide counts for all transcribed exons...");
+		int countA = 0;
+		int countC = 0;
+		int countG = 0;
+		int countT = 0;
+		int countN = 0;
+		for(String chr : genes.keySet()) {
+			logger.info(chr);
+			// First list all postions contained in any exon
+			Collection<Integer> allPositions = new TreeSet<Integer>();
+			for(Gene gene : genes.get(chr)) {
+				for(Annotation exon : gene.getBlocks()) {
+					for(int i = exon.getStart(); i < exon.getEnd(); i++) {
+						allPositions.add(Integer.valueOf(i));
+					}
+				}
+			}
+			// Now get transcribed nucleotide for each position and add to tracks
+			int numPositions = allPositions.size();
+			CountLogger c = new CountLogger(numPositions,10);
+			for(Integer pos : allPositions) {
+				c.advance();
+				char base = getTranscribedBase(chr, pos.intValue());
+				switch(base) {
+				case 'A':
+					countA++;
+					break;
+				case 'a':
+					countA++;
+					break;
+				case 'C':
+					countC++;
+					break;
+				case 'c':
+					countC++;
+					break;
+				case 'G':
+					countG++;
+					break;
+				case 'g':
+					countG++;
+					break;
+				case 'T':
+					countT++;
+					break;
+				case 't':
+					countT++;
+					break;
+				case 'N':
+					countN++;
+					break;
+				case 'n':
+					countN++;
+					break;
+				default:
+					logger.warn("Nucleotide " + base + " not recognized.");
+					break;
+				}
+			}
+		}
+		Map<String, Integer> rtrn = new TreeMap<String, Integer>();
+		rtrn.put("A", Integer.valueOf(countA));
+		rtrn.put("C", Integer.valueOf(countC));
+		rtrn.put("G", Integer.valueOf(countG));
+		rtrn.put("T", Integer.valueOf(countT));
+		rtrn.put("N", Integer.valueOf(countN));
+		logger.info("Done getting nucleotide counts.");
+		return rtrn;
+	}
+	
 	
 	/**
 	 * Write overlapping intervals to bed file for QC
@@ -205,6 +290,47 @@ public class TranscribedRegions {
 		}
 		return rtrn;
 	}
+	
+	
+	
+	/**
+	 * @param args
+	 * @throws IOException
+	 */
+	public static void main(String[] args) throws IOException {
+		
+		CommandLineParser p = new CommandLineParser();
+		p.addStringArg("-g", "Genome bed file", true);
+		p.addStringArg("-b", "Annotation bed file", true);
+		p.addStringArg("-oc", "For each nucleotide get total number of transcribed positions and write table to this file", false, null);
+		p.parse(args);
+		String genomeFasta = p.getStringArg("-g");
+		String bedFile = p.getStringArg("-b");
+		String outCountsTable = p.getStringArg("-oc");
+		if(p.getFlagsAndValues().isEmpty()) {
+			p.printHelpMessage();
+			System.exit(-1);
+		}
+		
+		TranscribedRegions t = new TranscribedRegions(genomeFasta, bedFile);
+		
+		if(outCountsTable != null) {
+			Map<String, Integer> countsByBase = t.getOverallNucleotideCounts();
+			logger.info("Writing nucleotide counts to file " + outCountsTable + ".");
+			FileWriter w = new FileWriter(outCountsTable);
+			for(String base : countsByBase.keySet()) {
+				w.write(base + "\t" + countsByBase.get(base).toString() + "\n");
+			}
+			w.close();
+			logger.info("Done writing file.");
+		}
+		
+		logger.info("All done.");
+		
+	}
+	
+	
+	
 	
 	private class HalfOpenInterval implements Comparable<HalfOpenInterval> {
 
