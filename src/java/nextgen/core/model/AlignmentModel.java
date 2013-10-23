@@ -15,12 +15,16 @@ import org.apache.log4j.Logger;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.math.EmpiricalDistribution;
+import broad.core.util.CLUtil;
+import broad.core.util.CLUtil.ArgumentMap;
 import broad.pda.annotation.BEDFileParser;
 import broad.pda.datastructures.Alignments;
 
 import net.sf.samtools.util.CloseableIterator;
+import nextgen.core.alignment.AbstractPairedEndAlignment;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
+import nextgen.core.alignment.SingleEndAlignment;
 import nextgen.core.annotation.*;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.GenomicSpace;
@@ -33,9 +37,11 @@ import nextgen.core.readFilters.PairedAndProperFilter;
 import nextgen.core.readFilters.SameOrientationFilter;
 import nextgen.core.readFilters.SplicedReadFilter;
 import nextgen.core.readers.PairedEndReader;
+import nextgen.core.scripture.ScriptureScorer;
 import nextgen.core.writers.PairedEndWriter;
 import nextgen.core.exception.RuntimeIOException;
 import org.apache.commons.collections15.Predicate;
+import org.broad.igv.Globals;
 
 import nextgen.core.model.score.WindowProcessor;
 import nextgen.core.model.score.CountScore;
@@ -757,18 +763,18 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		// JE note:  extending nextgen.core.general.CloseableFilterIterator could clean this up a bit
 		
 		CloseableIterator<AlignmentCount> iter;
-		Collection<? extends Window> regionCS;
-		boolean fullyContained;
-		AlignmentCount next;
-		boolean hasWindow;
+        Collection<? extends Window> regionCS;
+        boolean fullyContained;
+        AlignmentCount next;
+        boolean hasWindow;
 		
-		public FilteredIterator (CloseableIterator<AlignmentCount> overlappers, Annotation region, CoordinateSpace cs, boolean fullyContained) {
-			this.hasWindow=true;
-			this.iter=overlappers;
-			this.fullyContained=fullyContained;
-			this.regionCS=cs.getFragment(region);
-			hasNext(); //To initialize
-		}
+        public FilteredIterator (CloseableIterator<AlignmentCount> overlappers, Annotation region, CoordinateSpace cs, boolean fullyContained) {
+            this.hasWindow=true;
+            this.iter=overlappers;
+            this.fullyContained=fullyContained;
+            this.regionCS=cs.getFragment(region);
+            hasNext(); //To initialize
+        }
 		
 		private Collection<? extends Window> filter(Collection<? extends Window> regionCS, Annotation region) {
 			Collection<Window> rtrn=new TreeSet<Window>();
@@ -793,58 +799,59 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 		
 		@Override
-		public boolean hasNext() {
-			//we will iterate through until we find an Alignment that passes filter
-			//if we hit the end return false
-			//else save the alignment and return true (cache fact that we have an unreturned element saved)
-			if(next!=null){return true;}
-			else{
-				//test for a next element and cache result
-				while(iter.hasNext()){
-					AlignmentCount alignment=getNext();
-					if(alignment!=null){
-						next=alignment;
-						return true;
-					}
-				}
-				return false;
-			}
-		}
+        public boolean hasNext() {
+                //we will iterate through until we find an Alignment that passes filter
+                //if we hit the end return false
+                //else save the alignment and return true (cache fact that we have an unreturned element saved)
+                if(next!=null){return true;}
+                else{
+                        //test for a next element and cache result
+                        while(iter.hasNext()){
+                                AlignmentCount alignment=getNext();
+                                if(alignment!=null){
+                                        next=alignment;
+                                        return true;
+                                }
+                        }
+                        return false;
+                }
+        }
 
 		@Override
-		public AlignmentCount next() {
-			//return next
-			AlignmentCount previousNext=next;
-			next=null;
-			//call hasNext
-			hasNext();
-			return previousNext;
-		}
+        public AlignmentCount next() {
+                //return next
+                AlignmentCount previousNext=next;
+                next=null;
+                //call hasNext
+                hasNext();
+                return previousNext;
+        }
 
 		private AlignmentCount getNext(){
-			AlignmentCount alignment=iter.next();
-			if(isValid(alignment.getRead())){
-				if(this.hasWindow) {
-					boolean contained=overlapsWindow(alignment.getRead(), regionCS, fullyContained);
-					if(contained){return alignment;}
-				}
-				else {return alignment;}
-			}
-			return null;
-		}
+            AlignmentCount alignment=iter.next();
+            if(isValid(alignment.getRead())){
+                    if(this.hasWindow) {
+                            boolean contained=overlapsWindow(alignment.getRead(), regionCS, fullyContained);
+                            if(contained){return alignment;}
+                    }
+                    else {return alignment;}
+            }
+            return null;
+    }
 		
 		@Override
-		public void remove() {
-			// TODO Auto-generated method stub
-			throw new UnsupportedOperationException();
-		}
+        public void remove() {
+                // TODO Auto-generated method stub
+                throw new UnsupportedOperationException();
+        }
 
-		@Override
-		public void close() {
-			iter.close();
-			
-		}
-	}
+        @Override
+        public void close() {
+                iter.close();
+                
+        }
+}
+
 	
 	
 	private class ShuffledIterator extends nextgen.core.coordinatesystem.ShuffledIterator<Alignment> {
@@ -1168,6 +1175,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	private SortedMap<String, Double> getReferenceSequenceCounts() {
 		SortedMap<String, Double> counts = new TreeMap<String, Double>();
 		for (String refName : coordinateSpace.getReferenceNames()) {
+			//logger.info("Coordinate space name: '"+refName+"'");
 			counts.put(refName, getReferenceSequenceCount(refName));
 		}
 		return counts;
@@ -1176,8 +1184,10 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	
 	private double getReferenceSequenceCount(String refName) {
 		Annotation refRegion = coordinateSpace.getReferenceAnnotation(refName);
+		//logger.info("refRegion size = "+refRegion.size());
 		CloseableIterator<AlignmentCount> itr = getOverlappingReadCounts(refRegion, false);
 		double count = getCount(itr);
+		//logger.info("Counts = "+count);
 		return count;
 	}
 
@@ -1418,4 +1428,5 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		double result = getCount(iter, excluded);
 		return result;
 	}
+
 }
