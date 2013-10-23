@@ -8,15 +8,20 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import nextgen.core.job.Job;
+import nextgen.core.job.JobUtils;
+import nextgen.core.job.LSFJob;
+import nextgen.core.pipeline.Scheduler;
 import nextgen.core.pipeline.util.AlignmentUtils;
-import nextgen.core.pipeline.util.PipelineUtils;
 
 import org.apache.log4j.Logger;
+import org.ggf.drmaa.DrmaaException;
 
 import broad.core.parser.StringParser;
 import broad.core.sequence.FastaSequenceIO;
@@ -176,11 +181,13 @@ public class LibraryCompositionByRnaClass {
 	 * @param bowtie2options 
 	 * @param bowtie2BuildExecutable Bowtie2-build executable file
 	 * @param logDir Output directory for logs and alignments
+	 * @param scheduler Scheduler
 	 * @return Map from sample name to class name to count
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public Map<String, Map<String, Integer>> alignAndGetCounts(String samtoolsExecutable, String bowtie2Executable, Map<String, String> bowtie2options, String bowtie2BuildExecutable, String logDir) throws IOException, InterruptedException {
+	public Map<String, Map<String, Integer>> alignAndGetCounts(String samtoolsExecutable, String bowtie2Executable, Map<String, String> bowtie2options, String bowtie2BuildExecutable, String logDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		
 		File dir = new File(logDir);
 		boolean madeDir = dir.mkdir();
@@ -205,7 +212,7 @@ public class LibraryCompositionByRnaClass {
 		if(!new File(rev1).exists()) writeIndex = true;
 		if(!new File(rev2).exists()) writeIndex = true;
 		
-		if(writeIndex) AlignmentUtils.makeBowtie2Index(singleFasta, btBase, bowtie2BuildExecutable, logDir);
+		if(writeIndex) AlignmentUtils.makeBowtie2Index(singleFasta, btBase, bowtie2BuildExecutable, logDir, scheduler);
 		else {
 			logger.warn("Bowtie2 index files " + btBase + ".*.bt2 already exist. Not remaking index.");
 		}
@@ -235,7 +242,7 @@ public class LibraryCompositionByRnaClass {
 		}
 		
 		// Align each sample to transcriptome
-		ArrayList<String> transcriptomeJobIDs = new ArrayList<String>();
+		ArrayList<Job> transcriptomeJobs = new ArrayList<Job>();
 		for(String sample : this.sampleNames) {
 			File outSamFile = new File(samToTranscriptome.get(sample));
 			if(!this.readsPaired) {
@@ -245,8 +252,8 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq file for sample " + sample + " already exist. Not rerunning alignment to transcriptome.");
 					continue;
 				}
-				String jobID = AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomeUnpaired.get(sample), bowtie2Executable, logDir);
-				transcriptomeJobIDs.add(jobID);
+				Job job = AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomeUnpaired.get(sample), bowtie2Executable, logDir, scheduler);
+				transcriptomeJobs.add(job);
 			} else {
 				File outUnalignedFile1 = new File(fastqNotTranscriptomePaired1.get(sample));
 				File outUnalignedFile2 = new File(fastqNotTranscriptomePaired2.get(sample));
@@ -255,19 +262,19 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq files for sample " + sample + " already exist. Not rerunning alignment to transcriptome.");
 					continue;
 				}
-				String jobID = AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), this.read2FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomePairedBase.get(sample), bowtie2Executable, logDir);
-				transcriptomeJobIDs.add(jobID);
+				Job job = AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), this.read2FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomePairedBase.get(sample), bowtie2Executable, logDir, scheduler);
+				transcriptomeJobs.add(job);
 			}		
 		}
 		// Wait for bowtie2 jobs to finish
 		this.logger.info("Waiting for jobs to finish...");
-		PipelineUtils.waitForAllJobs(transcriptomeJobIDs, Runtime.getRuntime());
+		JobUtils.waitForAll(transcriptomeJobs);
 		this.logger.info("Done aligning to transcriptome.");
 				
 		// Align unmapped reads for each sample to genome
 		this.logger.info("");
 		this.logger.info("Aligning unmapped reads to genome...");
-		ArrayList<String> genomeJobIDs = new ArrayList<String>();
+		ArrayList<Job> genomeJobs = new ArrayList<Job>();
 		for(String sample : this.sampleNames) {
 			File outSamFile = new File(samToGenome.get(sample));
 			if(!this.readsPaired) {
@@ -277,8 +284,8 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq file for sample " + sample + " already exist. Not rerunning alignment to genome.");
 					continue;
 				}
-				String jobID = AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomeUnpaired.get(sample), samToGenome.get(sample), fastqNotGenomeUnpaired.get(sample), bowtie2Executable, logDir);
-				genomeJobIDs.add(jobID);
+				Job job = AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomeUnpaired.get(sample), samToGenome.get(sample), fastqNotGenomeUnpaired.get(sample), bowtie2Executable, logDir, scheduler);
+				genomeJobs.add(job);
 			} else {
 				File outUnalignedFile1 = new File(fastqNotGenomePaired1.get(sample));
 				File outUnalignedFile2 = new File(fastqNotGenomePaired2.get(sample));
@@ -287,14 +294,14 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq files for sample " + sample + " already exist. Not rerunning alignment to genome.");
 					continue;
 				}
-				String jobID = AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomePaired1.get(sample), fastqNotTranscriptomePaired2.get(sample), samToGenome.get(sample), fastqNotGenomePairedBase.get(sample), bowtie2Executable, logDir);
-				genomeJobIDs.add(jobID);
+				Job job = AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomePaired1.get(sample), fastqNotTranscriptomePaired2.get(sample), samToGenome.get(sample), fastqNotGenomePairedBase.get(sample), bowtie2Executable, logDir, scheduler);
+				genomeJobs.add(job);
 			}		
 		}
 		
 		// Wait for bowtie2 jobs to finish
 		this.logger.info("Waiting for jobs to finish...");
-		PipelineUtils.waitForAllJobs(genomeJobIDs, Runtime.getRuntime());
+		JobUtils.waitForAll(genomeJobs);
 		this.logger.info("Done aligning unmapped reads to genome.");
 		
 		// Count classes for each sample

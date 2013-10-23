@@ -181,7 +181,7 @@
             </classfileset>-->
             <manifest>
                 <attribute name="Built-By" value="${user.name}" />
-                <attribute name="Main-Class" value="broad.pda.seq.segmentation.ContinuousDataAlignmentModel"/>
+                <attribute name="Main-Class" value="nextgen.core.scripture.BuildScriptureCoordinateSpace"/>
             </manifest>
 			<fileset dir="${lib.dir}">
         		<include name="*.jar"/>

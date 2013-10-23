@@ -7,8 +7,6 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
-import com.mysql.jdbc.StringUtils;
-
 import broad.core.annotation.ShortBEDReader;
 
 import net.sf.picard.cmdline.Option;
@@ -20,8 +18,7 @@ import nextgen.core.annotation.AnnotationFileReader;
 import nextgen.core.annotation.AnnotationList;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.filter.FullyContainedFilter;
-import nextgen.core.coordinatesystem.CoordinateSpace;
-import nextgen.core.coordinatesystem.GenomicSpace;
+import nextgen.core.coordinatesystem.*;
 import nextgen.core.model.score.WindowProcessor;
 import nextgen.core.model.score.WindowScore;
 import nextgen.core.model.score.WindowScoreIterator;
@@ -60,6 +57,8 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 	public boolean CLIP_AT_BOUNDARIES=true;
 	
 	
+	private int regionCounter = 0;
+	
 	/**
 	 * Stock main method.
 	 *
@@ -69,7 +68,6 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 		System.exit(new PlotAggregateRegions().instanceMain(args));
 	}
 	
-	@Override
 	protected void loadCoordinateSpace() {
 		// load coordinate space without masking; apply masking manually later
 		coordinateSpace = new GenomicSpace(SIZES);
@@ -95,6 +93,7 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 					
 					Annotation target = itr.next();
 					PlotRegions subregions = generateSubregions(target);
+					regionCounter += 1;
 
 					Integer counter = 0;
 					if (SYMMETRIC) {
@@ -179,22 +178,29 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 	 * @throws IOException
 	 */
 	private int scanAndPrint(final Annotation target, Annotation subregion, final String name, WindowProcessor<? extends WindowScore> processor, final GenomicSpace maskedSpace, BufferedWriter bw, Integer counter, boolean clip) throws IOException {
-		Iterator<? extends Annotation> windowIterator = getCoordinateSpace().getWindowIterator(subregion, WINDOW, OVERLAP, true);
+		Iterator<? extends Annotation> windowIterator = getCoordinateSpace().getWindowIterator(subregion, WINDOW, OVERLAP);
 		WindowScoreIterator<? extends WindowScore> itr = new WindowScoreIterator(windowIterator, processor, subregion);
 		while (itr.hasNext()) {
-			WindowScore ws = itr.next();
+			
+			try {
+				WindowScore ws = itr.next();
 
-			// Allow window if it is not masked
-			if (maskedSpace.isValidWindow(ws.getAnnotation())) {
-				
+				// Allow window if it is not masked
+				if (maskedSpace.isValidWindow(ws.getAnnotation())) {
 
-				// Accept windows only if they do not pass outside boundaries of the target
-				if (!clip || !CLIP_AT_BOUNDARIES || target.contains(ws.getAnnotation())) {
 
-					// Write the subregion name, location, and the result
-					bw.write(name + "\t" + counter + "\t" + ws.toString() + "\n");
+					// Accept windows only if they do not pass outside boundaries of the target
+					if (!clip || !CLIP_AT_BOUNDARIES || target.contains(ws.getAnnotation())) {
+
+						String regionName = target.getName();
+						if (regionName.equals("")) regionName = regionCounter + "";
+						// Write the subregion name, location, and the result
+						bw.write(regionName + "\t" + name + "\t" + counter + "\t" + ws.toString() + "\n");
+					}
+
 				}
-				
+			} catch (AnnotationOutOfBoundsException e) {
+				// this is okay .. just skip this window
 			}
 			
 			// Advance counter even if window is skipped

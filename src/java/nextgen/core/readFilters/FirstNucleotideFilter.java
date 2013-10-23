@@ -49,8 +49,15 @@ public class FirstNucleotideFilter implements Predicate<Alignment> {
 	public boolean evaluate(Alignment align) {
 		Gene alignGene = new Gene(align);
 		Gene parentGene = AnnotationUtils.getLargestParent(alignGene, genes);
-		char nuc = transcribedSequence.getTranscribedBaseAtBeginningPosition(parentGene, align, offset);
-		return nuc == nucleotide;
+		char nuc;
+		try {
+			nuc = transcribedSequence.getTranscribedBaseAtBeginningPosition(parentGene, align, offset);
+			return nuc == nucleotide;
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.exit(-1);
+			return false;
+		}
 	}
 
 }

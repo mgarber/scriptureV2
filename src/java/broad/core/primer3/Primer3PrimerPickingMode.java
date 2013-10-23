@@ -70,4 +70,9 @@ public class Primer3PrimerPickingMode {
     public String toString() {
         return mModeName;
     }
+
+	@Override
+	public int hashCode() {
+		throw new UnsupportedOperationException("Class should override hashCode() because it overrides equals()");
+	}
 }

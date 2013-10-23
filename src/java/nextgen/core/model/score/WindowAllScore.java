@@ -9,6 +9,7 @@ import nextgen.core.model.AlignmentModel;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 
 import broad.core.math.Distribution;
+import broad.core.math.ScanStatistics;
 import broad.pda.seq.segmentation.AlignmentDataModelStats;
 
 public class WindowAllScore extends CountScore {
@@ -42,8 +43,8 @@ public class WindowAllScore extends CountScore {
 		setDenominatorRegionTotal(denominatorRegionTotal);
 		setNumeratorLambda(rapLambda);
 		setDenominatorLambda(backgroundLambda);
-		setNumeratorScanPVal(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), numerator.getGlobalLambda(), numerator.getCoordinateSpace().getSize(annotation), numerator.getGlobalLength()));
-		setDenominatorScanPVal(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), denominator.getGlobalLambda(), denominator.getCoordinateSpace().getSize(annotation), denominator.getGlobalLength()));
+		setNumeratorScanPVal(ScanStatistics.calculatePVal(new Double(getCount()).intValue(), numerator.getGlobalLambda(), numerator.getCoordinateSpace().getSize(annotation), numerator.getGlobalLength()));
+		setDenominatorScanPVal(ScanStatistics.calculatePVal(new Double(getCount()).intValue(), denominator.getGlobalLambda(), denominator.getCoordinateSpace().getSize(annotation), denominator.getGlobalLength()));
 
 	}
 	

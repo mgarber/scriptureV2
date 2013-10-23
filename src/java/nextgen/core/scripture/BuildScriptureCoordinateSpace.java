@@ -25,6 +25,7 @@ import broad.core.annotation.MaximumContiguousSubsequence;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.datastructures.Pair;
+import broad.core.math.ScanStatistics;
 import broad.core.math.Statistics;
 import broad.core.util.CLUtil;
 import broad.core.util.CollapseByIntersection;
@@ -885,7 +886,7 @@ public class BuildScriptureCoordinateSpace {
 		}
 		iter.close();
 		//logger.debug("Count = "+scores[0]+" Int version "+new Double(scores[0]).intValue()+" global paired lambda = "+globalPairedLambda+" gene size = "+model.getCoordinateSpace().getSize(gene)+ " or "+gene.size()+" global length = "+model.getGlobalLength()+" global lambda = "+model.getGlobalLambda());
-		scores[1] = AlignmentDataModelStats.calculatePVal(new Double(scores[0]).intValue(), globalPairedLambda,gene.size(), model.getGlobalLength());
+		scores[1] = ScanStatistics.calculatePVal(new Double(scores[0]).intValue(), globalPairedLambda,gene.size(), model.getGlobalLength());
 		
 //		scores[1] = AlignmentDataModelStats.calculatePVal(new Double(scores[0]).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(gene), model.getGlobalLength());
 		

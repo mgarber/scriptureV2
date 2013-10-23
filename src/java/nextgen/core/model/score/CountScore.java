@@ -140,6 +140,13 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 
 	
 	
+	@Override
+	public int hashCode() {
+		throw new UnsupportedOperationException("Class should implement hashCode() because it overrides equals()");
+	}
+
+
+
 	public static class Processor extends WindowProcessor.AbstractProcessor<CountScore> {
 		protected AnnotationCollection<? extends Annotation> model;
 		protected double regionTotal = DEFAULT_REGION_TOTAL;
@@ -227,6 +234,11 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 	}
 
 
-	
+	public void refreshPvalue() {}
+
+	public double getPvalue() {
+		// TODO Auto-generated method stub
+		return 1;
+	}
 
 }

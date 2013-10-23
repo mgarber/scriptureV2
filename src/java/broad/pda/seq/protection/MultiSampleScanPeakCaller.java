@@ -20,6 +20,7 @@ import java.util.TreeSet;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.ggf.drmaa.DrmaaException;
 
 import broad.core.math.MathUtil;
 import broad.core.math.Statistics;
@@ -34,12 +35,18 @@ import nextgen.core.annotation.Gene;
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
+import nextgen.core.job.Job;
+import nextgen.core.job.JobUtils;
+import nextgen.core.job.LSFJob;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
+import nextgen.core.model.score.BinomialEnrichmentScore;
 import nextgen.core.model.score.ScanStatisticScore;
-import nextgen.core.pipeline.util.PipelineUtils;
+import nextgen.core.model.score.WindowProcessor;
+import nextgen.core.model.score.WindowScoreIterator;
 import nextgen.core.utils.AlignmentUtils;
 import nextgen.core.utils.AnnotationUtils;
+import nextgen.core.feature.GeneWindow;
 
 /**
  * @author prussell
@@ -51,11 +58,15 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	protected Map<String, Collection<Gene>> genes;
 	private Map<Gene, Map<Annotation, Double>> tStatisticWindowScores;
 	private Map<SampleData, Map<Gene, Map<Annotation, Double>>> singleSampleWindowEnrichmentOverGene;
-	private Map<SampleData, Map<Gene, Collection<Annotation>>> singleSampleScanPeaks;
+	private Map<SampleData, Map<Gene, Collection<Gene>>> singleSampleScanPeaks;
+	protected Map<SampleData, Map<Gene, Map<Annotation, BinomialEnrichmentScore>>> binomialWindowScores;
+	private Map<SampleData,WindowProcessor<BinomialEnrichmentScore>> binomialProcessors;
 	protected GenomeSpaceSampleData expressionData;
 	protected ArrayList<SampleData> controlSamples;
 	protected ArrayList<SampleData> signalSamples;
 	protected ArrayList<SampleData> allSamples;
+	private boolean useBinomialScore;
+	private SampleData binomialCtrl;
 	protected static Logger logger = Logger.getLogger(MultiSampleScanPeakCaller.class.getName());
 	protected int windowSize;
 	protected int stepSize;
@@ -69,7 +80,10 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private static boolean DEFAULT_FIRST_READ_TRANSCRIPTION_STRAND = false;
 	private static double DEFAULT_PEAK_MAX_PCT_DUPLICATES = 0.5;
 	private static boolean DEFAULT_FILTER_BY_STRAND = true;
+	private static boolean DEFAULT_EXTRA_FIELDS = false;
+	private static boolean DEFAULT_USE_BINOMIAL = false;
 	private boolean filterByStrand;
+	private boolean extraFields;
 	protected int numControls;
 	protected int numSignals;
 	protected int numSamples;
@@ -151,6 +165,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		if(sampleFile != null) {
 			initializeSamplesFromSampleListFile();
 			initializeScoreMaps();
+			initializeProcessors();
 		}
 		
 		trimQuantile = DEFAULT_TRIM_PEAK_QUANTILE;
@@ -159,6 +174,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		firstReadTranscriptionStrand = DEFAULT_FIRST_READ_TRANSCRIPTION_STRAND;
 		peakCutoffMaxReplicatePct = DEFAULT_PEAK_MAX_PCT_DUPLICATES;
 		filterByStrand = DEFAULT_FILTER_BY_STRAND;
+		extraFields = DEFAULT_EXTRA_FIELDS;
+		useBinomialScore = DEFAULT_USE_BINOMIAL;
 		
 		
 	}
@@ -210,6 +227,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		setFirstReadTranscriptionStrand(other.firstReadTranscriptionStrand);
 		setExpressionScanPvalueCutoff(other.expressionData.getExpressionScanPvalueCutoff());
 		setFilterByStrand(other.filterByStrand);
+		setExtraFields(other.extraFields);
+		setBinomialScore(other.useBinomialScore);
 	}
 	
 	/**
@@ -218,6 +237,22 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 */
 	public void setFilterByStrand(boolean useStrandFilter) {
 		filterByStrand = useStrandFilter;
+	}
+	
+	/**
+	 * Set whether to print extra fields
+	 * @param useExtraFields
+	 */
+	public void setExtraFields(boolean useExtraFields) {
+		extraFields = useExtraFields;
+	}
+	
+	/**
+	 * Set whether to print extra fields
+	 * @param useExtraFields
+	 */
+	public void setBinomialScore(boolean binomialScore) {
+		useBinomialScore = binomialScore;
 	}
 	
 	/**
@@ -296,6 +331,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		this(null, bedFile, chrSizeFile, window, step);
 		initializeWithSingleSample(expressionBamFile, signalBamFile, chrSizeFile);
 		initializeScoreMaps();
+		if (useBinomialScore) {
+			initializeProcessors();
+		}
 	}
 	
 	private void initializeWithSingleSample(String expressionBamFile, String signalBamFile, String chrSizeFile) throws IOException {
@@ -310,6 +348,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		allSamples.addAll(controlSamples);
 		allSamples.addAll(signalSamples);
 		numSamples = allSamples.size();
+		binomialCtrl = new SampleData(expressionBamFile, firstReadTranscriptionStrand, genes, windowSize, stepSize, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, true, false);
 	}
 	
 	private void initializeSamplesFromSampleListFile() throws IOException {
@@ -323,20 +362,52 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		allSamples.addAll(controlSamples);
 		allSamples.addAll(signalSamples);
 		numSamples = allSamples.size();
+		binomialCtrl = p.getBinomialCtrlData();
 	}
 	
 	private void initializeScoreMaps() {
 		tStatisticWindowScores = new TreeMap<Gene, Map<Annotation, Double>>();
 		singleSampleWindowEnrichmentOverGene = new HashMap<SampleData, Map<Gene, Map<Annotation, Double>>>();
-		singleSampleScanPeaks = new HashMap<SampleData, Map<Gene, Collection<Annotation>>>();
+		singleSampleScanPeaks = new HashMap<SampleData, Map<Gene, Collection<Gene>>>();
+		binomialWindowScores = new HashMap<SampleData, Map<Gene, Map<Annotation, BinomialEnrichmentScore>>>();
 		for(SampleData sample : allSamples) {
 			if(!singleSampleWindowEnrichmentOverGene.containsKey(sample)) {
 				Map<Gene, Map<Annotation, Double>> m = new TreeMap<Gene, Map<Annotation, Double>>();
 				singleSampleWindowEnrichmentOverGene.put(sample, m);
 			}
 			if(!singleSampleScanPeaks.containsKey(sample)) {
-				Map<Gene, Collection<Annotation>> m = new TreeMap<Gene, Collection<Annotation>>();
+				Map<Gene, Collection<Gene>> m = new TreeMap<Gene, Collection<Gene>>();
 				singleSampleScanPeaks.put(sample, m);
+			}
+			if (!binomialWindowScores.containsKey(sample)) {
+				Map<Gene, Map<Annotation, BinomialEnrichmentScore>> m = new TreeMap<Gene, Map<Annotation, BinomialEnrichmentScore>>();
+				binomialWindowScores.put(sample, m);
+			}
+		}
+	}
+	
+	private void initializeProcessors() throws IOException {
+		binomialProcessors = new HashMap<SampleData,WindowProcessor<BinomialEnrichmentScore>>();
+		for(SampleData sample : allSamples) {
+			if (!binomialProcessors.containsKey(sample)) {
+				SampleData ctrl = binomialCtrl;
+				try {
+					WindowProcessor<BinomialEnrichmentScore> p = new BinomialEnrichmentScore.Processor(sample.getData(),ctrl.getData());
+					binomialProcessors.put(sample, p);
+				} catch(Exception e) {
+					try {
+						sample.getData();
+					} catch(NullPointerException f) {
+						logger.debug("sample data is null");
+					}
+					try {
+						ctrl.getData();
+					} catch(NullPointerException g) {
+						logger.debug("ctrl data is null");
+					}
+					
+				}
+				
 			}
 		}
 	}
@@ -365,21 +436,21 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	}
 	
 	@SuppressWarnings("unused")
-	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs) throws IOException, InterruptedException {
+	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs) throws IOException, InterruptedException, DrmaaException {
 		batchWriteSingleSampleScanPeaksAllSamples(commandArgs, null, DEFAULT_BATCH_MEM_REQUEST);
 	}
 	
 	@SuppressWarnings("unused")
-	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, String chrListFile) throws IOException, InterruptedException {
+	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, String chrListFile) throws IOException, InterruptedException, DrmaaException {
 		batchWriteSingleSampleScanPeaksAllSamples(commandArgs, chrListFile, DEFAULT_BATCH_MEM_REQUEST);
 	}
 	
 	@SuppressWarnings("unused")
-	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, int memRequestGb) throws IOException, InterruptedException {
+	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, int memRequestGb) throws IOException, InterruptedException, DrmaaException {
 		batchWriteSingleSampleScanPeaksAllSamples(commandArgs, null, memRequestGb);
 	}
 	
-	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, String chrListFile, int memRequestGb) throws IOException, InterruptedException {
+	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, String chrListFile, int memRequestGb) throws IOException, InterruptedException, DrmaaException {
 		
 		logger.info("");
 		logger.info("\nBatching out peak calling by sample and chromosome...\n");
@@ -409,7 +480,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		}
 		
 		String jar = commandLineBatchJar(commandArgs);
-		ArrayList<String> jobIDs = new ArrayList<String>();
+		ArrayList<Job> jobs = new ArrayList<Job>();
 		String outDir = commandLineOutDir(commandArgs);
 		File o = new File(outDir);
 		@SuppressWarnings("unused")
@@ -430,52 +501,20 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				String cmmd = "java -jar -Xmx" + xmx + "g -Xms" + xms + "g -Xmn" + xmn + "g " + jar + " " + args;
 				logger.info("Running command: " + cmmd);
 				String jobID = sample.getSampleName() + "_" + chr + "_" + Long.valueOf(System.currentTimeMillis()).toString();
-				jobIDs.add(jobID);
+				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, outDir + "/" + jobID + ".bsub", "week", memRequestGb);
+				jobs.add(job);
 				cmmds.put(jobID, cmmd);
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, outDir + "/" + jobID + ".bsub", "week", memRequestGb);
+				job.submit();
 
 			}
 		}
 
-		boolean allJobsReservedHeapSpace = false;
-		while(!allJobsReservedHeapSpace) {
-			logger.info("");
-			logger.info("Waiting for all jobs to start...");
-			PipelineUtils.waitForAllJobsToStart(jobIDs, Runtime.getRuntime());
-			logger.info("All jobs have started.");
-			Thread.sleep(5000);
-			ArrayList<String> jobsThatFailedHeapSpace = new ArrayList<String>();
-			for(String jobID : jobIDs) {
-				String out = outDir + "/" + jobID + ".bsub";
-				File outFile = new File(out);
-				if(outFile.exists()) {
-					if(PipelineUtils.jobFailedCouldNotReserveHeapSpace(out)) {
-						jobsThatFailedHeapSpace.add(jobID);
-					}
-				}
-			}
-			if(jobsThatFailedHeapSpace.isEmpty()) {
-				allJobsReservedHeapSpace = true;
-				continue;
-			}
-			for(String jobID : jobsThatFailedHeapSpace) {
-				String cmmd = cmmds.get(jobID);
-				logger.info("Resubmitting command because heap space reservation failed: " + cmmd);
-				String newJobID = jobID + "_" + Long.valueOf(System.currentTimeMillis()).toString();
-				jobIDs.add(newJobID);
-				cmmds.put(newJobID, cmmd);
-				logger.info("LSF job ID is " + newJobID + ".");
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), newJobID, cmmd, outDir + "/" + newJobID + ".bsub", "week", 32);
-				jobIDs.remove(jobID);
-				jobIDs.add(newJobID);
-			}
-		}
 		
 		logger.info("");
 		logger.info("Waiting for jobs to finish...");
-		PipelineUtils.waitForAllJobs(jobIDs, Runtime.getRuntime());
+		JobUtils.waitForAll(jobs);
 		
 		logger.info("\nAll jobs finished.\n");
 		
@@ -558,15 +597,16 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				}
 			}
 			for(Gene gene : genes.get(chr)) {
-				Collection<Annotation> peaks = getSingleSampleScanPeaks(sample, gene);
-				for(Annotation window : peaks) {
+				Collection<Gene> peaks = getSingleSampleScanPeaks(sample, gene);
+				for(Gene window : peaks) {
+					GeneWindow geneWindow = new GeneWindow(window); 
 					int r = RGB_RED_UNKNOWN;
 					int g = RGB_GREEN_UNKNOWN;
 					int b = RGB_BLUE_UNKNOWN;
 					if(window.getOrientation().equals(Strand.UNKNOWN)) {
 						String name = window.getName();
 						name += "_STRAND_UNKNOWN";
-						window.setName(name);						
+						geneWindow.setName(name);						
 					}
 					if(window.getOrientation().equals(gene.getOrientation()) && !window.getOrientation().equals(Strand.UNKNOWN)) {
 						r = RGB_RED_WITH_GENE;
@@ -576,12 +616,17 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 					if(!window.getOrientation().equals(gene.getOrientation()) && !window.getOrientation().equals(Strand.UNKNOWN)) {
 						String name = window.getName();
 						name += "_STRAND_AGAINST_GENE";
-						window.setName(name);
+						geneWindow.setName(name);
 						r = RGB_RED_AGAINST_GENE;
 						g = RGB_GREEN_AGAINST_GENE;
 						b = RGB_BLUE_AGAINST_GENE;
 					}
-					w.write(window.toBED(r, g, b) + "\n");
+					geneWindow.setBedScore(window.getScore());
+					if (extraFields) {
+						w.write(geneWindow.toBED(true, r, g, b) + "\n");
+					} else {
+						w.write(geneWindow.toBED(r, g, b) + "\n");
+					}
 				}
 			}
 		}
@@ -596,7 +641,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @return Significant scan peaks
 	 * @throws IOException 
 	 */
-	public Collection<Annotation> getSingleSampleScanPeaks(SampleData sample, Gene gene) throws IOException {
+	public Collection<Gene> getSingleSampleScanPeaks(SampleData sample, Gene gene) throws IOException {
 		if(singleSampleScanPeaks.get(sample).containsKey(gene)) {
 			return singleSampleScanPeaks.get(sample).get(gene);
 		}
@@ -613,12 +658,14 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private void identifySingleSampleScanPeaks(SampleData sample, Gene gene, FileWriter rejectFileWriterExpression) throws IOException {
 		
 		TreeSet<Annotation> finalPeaks = new TreeSet<Annotation>();
+		TreeSet<Gene> rtrnPeaks = new TreeSet<Gene>();
 		TranscriptomeSpaceAlignmentModel data = sample.getData();
+		TreeSet<Annotation> scanSignificantWindows = new TreeSet<Annotation>();
 		
 		// If gene is not expressed, skip
 		if(!isExpressed(gene)) {
 			logger.info("Gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ") not expressed in expression dataset.");
-			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
+			singleSampleScanPeaks.get(sample).put(gene, rtrnPeaks);
 			rejectFileWriterExpression.write(gene.toBED() + "\n");
 			return;
 		}
@@ -626,11 +673,15 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		logger.info("Finding scan peaks for sample " + sample.getSampleName() + " and gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ")");
 		
 		// Get fixed size windows with sufficient count and significant scan statistic
-		TreeSet<Annotation> scanSignificantWindows = findScanSignificantWindows(sample, gene, windowCountRejectFileWriters.get(sample), windowScanPvalAllFragmentsRejectFileWriters.get(sample), windowScanPvalWithFragmentLengthFilterRejectFileWriters.get(sample));
-		
+		// Note: this is where I need to split for binomial score
+		if (!useBinomialScore) {
+			scanSignificantWindows = findScanSignificantWindows(sample, gene, windowCountRejectFileWriters.get(sample), windowScanPvalAllFragmentsRejectFileWriters.get(sample), windowScanPvalWithFragmentLengthFilterRejectFileWriters.get(sample));
+		} else {
+			scanSignificantWindows = findBinomialSignificantWindows(sample, gene, windowCountRejectFileWriters.get(sample), windowScanPvalAllFragmentsRejectFileWriters.get(sample), windowScanPvalWithFragmentLengthFilterRejectFileWriters.get(sample));
+		}
 		// If no significant windows return
 		if(scanSignificantWindows.isEmpty()) {
-			singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
+			singleSampleScanPeaks.get(sample).put(gene, rtrnPeaks);
 			return;
 		}
 		
@@ -643,6 +694,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		TreeSet<Annotation> trimmedMergedWindows = trimWindows(mergedTree, data);
 		
 		// Filter by scan statistic again
+		
 		TreeSet<Annotation> scanSigWindows = filterByScanStatistic(trimmedMergedWindows, sample, gene, peakScanPvalRejectWriters.get(sample));
 		
 		// Filter on strand information
@@ -664,34 +716,65 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		int geneSize = coord.getSize(gene);
 		
 		// Add finishing touches to peaks
-		for(Annotation window : finalPeaks) {
+		for(Annotation peak : finalPeaks) {
 			
+			Gene window = new Gene(peak);
 			// Name peaks
 			window.setName(gene.getName() + ":" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
 			
 			// Set peak score to enrichment
 			double enrichment = sample.getEnrichmentOverGene(gene, window);
-			double windowCount = sample.scoreWindow(gene, window).getCount();
-			double windowAvgCoverage = sample.scoreWindow(gene, window).getAverageCoverage(data);
+			double pval;
+			double[] extraFields;
+			if (!useBinomialScore) {
+				ScanStatisticScore score = sample.scoreWindow(gene, window);
+				pval = score.getScanPvalue();
+				extraFields = new double[6];
+				extraFields[0] = score.getCount();
+				extraFields[1] = score.getAverageCoverage(data);
+				extraFields[2] = geneCount;
+				extraFields[3] = geneAvgCoverage;
+				extraFields[4] = (double) geneSize;
+				extraFields[5] = pval;
+			}
+			else {
+				BinomialEnrichmentScore score = scoreWindowBinomial(gene,window,sample);
+				score.setRegionLength(geneSize);
+				score.refreshPvalue();
+				pval = score.getPvalue();
+				extraFields = new double[6];
+				extraFields[0] = score.getSampleCount();
+				extraFields[1] = score.getCtrlCount();
+				extraFields[2] = score.getSampleRegionCount();
+				extraFields[3] = score.getCtrlRegionCount();
+				extraFields[4] = score.getRegionLength();
+				extraFields[5] = pval;
+				enrichment = score.getEnrichmentOverControl();
+			}
+			
+			
 			
 			logger.debug("FINAL_PEAK\t" + gene.getName());
 			logger.debug("FINAL_PEAK\t" + window.toBED());
-			logger.debug("FINAL_PEAK\tname=" + window.getName());
-			logger.debug("FINAL_PEAK\twindow_count=" + windowCount);
-			logger.debug("FINAL_PEAK\twindow_size=" + coord.getSize(window));
-			logger.debug("FINAL_PEAK\twindow_avg_coverage=" + windowAvgCoverage);
-			logger.debug("FINAL_PEAK\tgene_count=" + geneCount);
-			logger.debug("FINAL_PEAK\tgene_size=" + geneSize);
-			logger.debug("FINAL_PEAK\tgene_avg_coverage=" + geneAvgCoverage);
-			logger.debug("FINAL_PEAK\tenrichment_over_transcript=" + enrichment);
-			logger.debug("FINAL_PEAK\tscore=" + window.getScore());
-			logger.debug("FINAL_PEAK\torientation=" + window.getOrientation().toString());
+			//logger.debug("FINAL_PEAK\tname=" + window.getName());
+			//logger.debug("FINAL_PEAK\twindow_count=" + windowCount);
+			//logger.debug("FINAL_PEAK\twindow_size=" + coord.getSize(window));
+			//logger.debug("FINAL_PEAK\twindow_avg_coverage=" + windowAvgCoverage);
+			//logger.debug("FINAL_PEAK\tgene_count=" + geneCount);
+			//logger.debug("FINAL_PEAK\tgene_size=" + geneSize);
+			//logger.debug("FINAL_PEAK\tgene_avg_coverage=" + geneAvgCoverage);
+			//logger.debug("FINAL_PEAK\tenrichment_over_transcript=" + enrichment);
+			//logger.debug("FINAL_PEAK\tscore=" + window.getScore());
+			//logger.debug("FINAL_PEAK\torientation=" + window.getOrientation().toString());
 			
 			window.setScore(enrichment);
+			window.setExtraFields(extraFields);
+			
+			rtrnPeaks.add(window);
 
 		}
 		
-		singleSampleScanPeaks.get(sample).put(gene, finalPeaks);
+		singleSampleScanPeaks.get(sample).put(gene, rtrnPeaks);
 	}
 	
 	private TreeSet<Annotation> findScanSignificantWindows(SampleData sample, Gene gene, FileWriter windowCountRejectFileWriter, FileWriter rejectFileWriterAllFragments, FileWriter rejectFileWriterFragmentLengthFilter) throws IOException {
@@ -706,31 +789,31 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			}
 			double pval = score.getScanPvalue();
 			if(pval < peakWindowScanPvalCutoff) {
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + gene.getName());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + window.toBED());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_length=" + score.getGlobalLength());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_count=" + score.getTotal());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + score.getGlobalLambda());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\twindow_size=" + score.getCoordinateSpace().getSize(window));
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\twindow_count=" + score.getCount());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tpval=" + score.getScanPvalue());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + gene.getName());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + window.toBED());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_length=" + score.getGlobalLength());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_count=" + score.getTotal());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + score.getGlobalLambda());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\twindow_size=" + score.getCoordinateSpace().getSize(window));
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\twindow_count=" + score.getCount());
+				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tpval=" + score.getScanPvalue());
 				ScanStatisticScore fragmentLengthFilterScore = sample.scoreWindowWithFragmentLengthFilter(gene, window);
 				double pval2 = fragmentLengthFilterScore.getScanPvalue();
 				if(pval2 < peakWindowScanPvalCutoff) {
-					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_length=" + fragmentLengthFilterScore.getGlobalLength());
-					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_count=" + fragmentLengthFilterScore.getTotal());
-					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + fragmentLengthFilterScore.getGlobalLambda());
-					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_size=" + fragmentLengthFilterScore.getCoordinateSpace().getSize(window));
-					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_count=" + fragmentLengthFilterScore.getCount());
-					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tpval=" + fragmentLengthFilterScore.getScanPvalue());				
+					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_length=" + fragmentLengthFilterScore.getGlobalLength());
+					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_count=" + fragmentLengthFilterScore.getTotal());
+					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + fragmentLengthFilterScore.getGlobalLambda());
+					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_size=" + fragmentLengthFilterScore.getCoordinateSpace().getSize(window));
+					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_count=" + fragmentLengthFilterScore.getCount());
+					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tpval=" + fragmentLengthFilterScore.getScanPvalue());				
 					rtrn.add(window);
 				} else {
-					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_length=" + fragmentLengthFilterScore.getGlobalLength());
-					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_count=" + fragmentLengthFilterScore.getTotal());
-					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + fragmentLengthFilterScore.getGlobalLambda());
-					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_size=" + fragmentLengthFilterScore.getCoordinateSpace().getSize(window));
-					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_count=" + fragmentLengthFilterScore.getCount());
-					logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tpval=" + fragmentLengthFilterScore.getScanPvalue());				
+					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_length=" + fragmentLengthFilterScore.getGlobalLength());
+					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_count=" + fragmentLengthFilterScore.getTotal());
+					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + fragmentLengthFilterScore.getGlobalLambda());
+					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_size=" + fragmentLengthFilterScore.getCoordinateSpace().getSize(window));
+					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_count=" + fragmentLengthFilterScore.getCount());
+					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tpval=" + fragmentLengthFilterScore.getScanPvalue());				
 					rejectFileWriterFragmentLengthFilter.write(window.toBED() + "\n");
 				}
 			} else {
@@ -740,31 +823,152 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		return rtrn;
 	}
 	
+	private TreeSet<Annotation> findBinomialSignificantWindows(SampleData sample, Gene gene, FileWriter windowCountRejectFileWriter, FileWriter rejectFileWriterAllFragments, FileWriter rejectFileWriterFragmentLengthFilter) throws IOException {
+		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
+		Map<Annotation, BinomialEnrichmentScore> windowScores = getBinomialWindowScores(sample,gene);
+		for(Annotation window : windowScores.keySet()) {
+			BinomialEnrichmentScore score = windowScores.get(window);
+			double count = score.getCount();
+			if(count < peakWindowCountCutoff) {
+				windowCountRejectFileWriter.write(window.toBED() + "\n");
+				continue;
+			}
+			double pval = score.getPvalue();
+			if(pval < peakWindowScanPvalCutoff) {
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + gene.getName());
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + window.toBED());
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tsampleCounts=" + score.getSampleCount());
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tctrlCounts=" + score.getCtrlCount());
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tsampleRegionCounts=" + score.getSampleRegionCount());
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tctrlRegionCounts=" + score.getCtrlRegionCount());
+				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tpval=" + score.getPvalue());
+				BinomialEnrichmentScore fragmentLengthFilterScore = scoreWindowBinomialWithFragmentLengthFilter(gene, window, sample);
+				double pval2 = fragmentLengthFilterScore.getPvalue();
+				if(pval2 < peakWindowScanPvalCutoff) {
+				rtrn.add(window);
+				} else {
+				rejectFileWriterFragmentLengthFilter.write(window.toBED() + "\n");
+				}
+			} else {
+				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\t" + gene.getName());
+				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\t" + window.toBED());
+				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\tsampleCounts=" + score.getSampleCount());
+				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\tctrlCounts=" + score.getCtrlCount());
+				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\tsampleRegionCounts=" + score.getSampleRegionCount());
+				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\tctrlRegionCounts=" + score.getCtrlRegionCount());
+				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\tpval=" + score.getPvalue());
+
+				rejectFileWriterAllFragments.write(window.toBED() + "\n");
+			}
+		}
+		return rtrn;
+	}
+	
+	private Map<Annotation, BinomialEnrichmentScore> getBinomialWindowScores(SampleData sample,Gene gene) {
+		if (binomialWindowScores.get(sample).containsKey(gene)) {
+			return binomialWindowScores.get(sample).get(gene);
+		} else {
+			computeBinomialWindowScores(sample,gene);
+			return binomialWindowScores.get(sample).get(gene);
+		}
+	}
+	
+	private void computeBinomialWindowScores(SampleData sample, Gene gene) {
+		Map<Annotation, BinomialEnrichmentScore> scores = new TreeMap<Annotation, BinomialEnrichmentScore>();
+		if(gene.getSize() < windowSize) {
+			logger.info(gene.getName() + " is smaller than window size. Not computing window binding site scores.");
+			binomialWindowScores.get(sample).put(gene, scores);
+			return;
+		}
+		WindowScoreIterator<BinomialEnrichmentScore> iter = null;
+		try {
+			iter = sample.getData().scan(gene,sample.getWindowSize(),sample.getWindowSize()-sample.getStepSize(),binomialProcessors.get(sample));
+		} catch(NullPointerException e) {
+			logger.info("Gene: " + gene.getName());
+			logger.info("Gene: " + gene.toBED());
+		}
+		
+		double sampleGeneCount = sample.getGeneCount(gene);
+		double ctrlGeneCount = binomialCtrl.getGeneCount(gene);
+		while (iter.hasNext()) {
+			BinomialEnrichmentScore score = iter.next();
+			Annotation window = score.getAnnotation();
+			score.setSampleRegionCount(sampleGeneCount);
+			score.setCtrlRegionCount(ctrlGeneCount);
+			score.setRegionLength(gene.size());
+			score.refreshPvalue();
+			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\t" + gene.getName());
+			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
+			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tsample_count=" + score.getSampleCount());
+			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tctrl_count=" + score.getCtrlCount());
+			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tsample_gene_count=" + score.getSampleRegionCount());
+			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tctrl_gene_count=" + score.getCtrlRegionCount());
+			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tpval=" + score.getPvalue());
+			scores.put(window, score);
+		}
+		binomialWindowScores.get(sample).put(gene, scores);
+	}
+	
+	private BinomialEnrichmentScore scoreWindowBinomial(Gene gene, Annotation window, SampleData sample, double count) {
+		BinomialEnrichmentScore score = scoreWindowBinomial(gene,window,sample);
+		score.setCount(count);
+		score.refreshPvalue();
+		return score;
+	}
+	
+	private BinomialEnrichmentScore scoreWindowBinomial(Gene gene, Annotation window, SampleData sample) {
+		double sampleGeneCount = sample.getGeneCount(gene);
+		double ctrlGeneCount = binomialCtrl.getGeneCount(gene);
+		double regionLength = gene.getSize();
+		BinomialEnrichmentScore score = new BinomialEnrichmentScore(sample.getData(),binomialCtrl.getData(),window,regionLength);
+		score.setSampleRegionCount(sampleGeneCount);
+		score.setCtrlRegionCount(ctrlGeneCount);
+		score.refreshPvalue();
+		return score;
+	}
+	
+	private BinomialEnrichmentScore scoreWindowBinomialWithFragmentLengthFilter(Gene gene, Annotation window, SampleData sample) {
+		double sampleGeneCount = sample.getFragmentLengthFilterData().getCount(gene);
+		double ctrlGeneCount = binomialCtrl.getFragmentLengthFilterData().getCount(gene);
+		double regionLength = gene.getSize();
+		BinomialEnrichmentScore score = new BinomialEnrichmentScore(sample.getFragmentLengthFilterData(),binomialCtrl.getFragmentLengthFilterData(),window,regionLength);
+		score.setSampleRegionCount(sampleGeneCount);
+		score.setCtrlRegionCount(ctrlGeneCount);
+		score.refreshPvalue();
+		return score;
+	}
+	
 	private TreeSet<Annotation> trimWindows(TreeSet<Annotation> untrimmed, TranscriptomeSpaceAlignmentModel data) throws IOException {
 		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
 		for(Annotation window : untrimmed) {
 			List<Double> coverageData = data.getPositionCountList(new Gene(window));
 			Annotation trimmed = SampleData.trimMaxContiguous(window, coverageData, trimQuantile);
 			rtrn.add(trimmed);
-			logger.debug("MERGED_TRIMMED_WINDOW\t" + window.toBED());
+			//logger.debug("MERGED_TRIMMED_WINDOW\t" + window.toBED());
 		}
 		return rtrn;
 	}
 	
 	private TreeSet<Annotation> filterByScanStatistic(TreeSet<Annotation> preFilter, SampleData sample, Gene gene, FileWriter rejectFileWriter) throws IOException {
 		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
+		double p;
 		for(Annotation window : preFilter) {
-			ScanStatisticScore score = sample.scoreWindow(gene, window);
-			double p = score.getScanPvalue();
+			if (useBinomialScore) {
+				BinomialEnrichmentScore score = scoreWindowBinomial(gene,window,sample);
+				p = score.getPvalue();
+			} else {
+				ScanStatisticScore score = sample.scoreWindow(gene, window);
+				p = score.getScanPvalue();
+			}
 			if(p < peakWindowScanPvalCutoff) {
 				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + gene.getName());
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + window.toBED());
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_length=" + score.getGlobalLength());
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_count=" + score.getTotal());
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_lambda=" + score.getGlobalLambda());
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_size=" + score.getCoordinateSpace().getSize(window));
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_count=" + score.getCount());
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tpval=" + score.getScanPvalue());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + window.toBED());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_length=" + score.getGlobalLength());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_count=" + score.getTotal());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_lambda=" + score.getGlobalLambda());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_size=" + score.getCoordinateSpace().getSize(window));
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_count=" + score.getCount());
+				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tpval=" + score.getScanPvalue());
 				rtrn.add(window);
 			} else {
 				rejectFileWriter.write(window.toBED() + "\n");
@@ -791,11 +995,11 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			}
 			double mostCommonPct = (double) largestReplicate / (double) total;
 			if(mostCommonPct > maxPctMostCommonRead) {
-				logger.debug("TOO_MANY_DUPLICATE_READS\t" + mostCommon + "\t" + mostCommonPct + " duplicates");
+				//logger.debug("TOO_MANY_DUPLICATE_READS\t" + mostCommon + "\t" + mostCommonPct + " duplicates");
 				rejectFileWriter.write(window.toBED() + "\n");
 				continue;
 			}
-			logger.debug("NUMBER_OF_DUPLICATE_READS_OK\t" + mostCommon + "\t" +  mostCommonPct + " duplicates");
+			//logger.debug("NUMBER_OF_DUPLICATE_READS_OK\t" + mostCommon + "\t" +  mostCommonPct + " duplicates");
 			rtrn.add(window);
 		}
 		return rtrn;
@@ -807,16 +1011,16 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			Strand orientation = AlignmentUtils.assignOrientationToWindow(sample.getOriginalBamFile(), window, sample.firstReadTranscriptionStrand(), 0.9);
 			window.setOrientation(orientation);
 			if(orientation.equals(gene.getOrientation())) {
-				logger.debug("STRAND_OK\t" + gene.toBED());
-				logger.debug("STRAND_OK\t" + window.toBED());
+				//logger.debug("STRAND_OK\t" + gene.toBED());
+				//logger.debug("STRAND_OK\t" + window.toBED());
 				rtrn.add(window);
 			} else if(orientation.equals(Strand.UNKNOWN)) {
-				logger.debug("STRAND_UNKNOWN_SKIPPING\t" + gene.toBED());
-				logger.debug("STRAND_UNKNOWN_SKIPPING\t" + window.toBED());				
+				//logger.debug("STRAND_UNKNOWN_SKIPPING\t" + gene.toBED());
+				//logger.debug("STRAND_UNKNOWN_SKIPPING\t" + window.toBED());				
 				rejectFileWriter.write(window.toBED() + "\n");
 			} else {
-				logger.debug("WRONG_STRAND_SKIPPING\t" + gene.toBED());
-				logger.debug("WRONG_STRAND_SKIPPING\t" + window.toBED());				
+				//logger.debug("WRONG_STRAND_SKIPPING\t" + gene.toBED());
+				//logger.debug("WRONG_STRAND_SKIPPING\t" + window.toBED());				
 				rejectFileWriter.write(window.toBED() + "\n");
 			}
 		}
@@ -897,7 +1101,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			for(Annotation window : scores.keySet()) {
 				double windowAvgCoverage = scores.get(window).getAverageCoverage(sample.getData());
 				double enrichment = windowAvgCoverage / geneAvgCoverage;
-				//logger.info(sample.getSampleName() + "\t" + gene.getName() + "\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\tavg_coverage=" + windowAvgCoverage + "\twindow_enrichment=" + enrichment);
+				logger.info(sample.getSampleName() + "\t" + gene.getName() + "\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\tavg_coverage=" + windowAvgCoverage + "\twindow_enrichment=" + enrichment);
 				sampleWindowEnrichments.put(window, Double.valueOf(enrichment));
 			}
 			singleSampleWindowEnrichmentOverGene.get(sample).put(gene, sampleWindowEnrichments);
@@ -1026,7 +1230,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		peakTree.addAll(peaks);
 		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(peakTree);
 		for(Annotation window : mergedWindows) {
-			logger.debug("MERGED_WINDOW\t" + window.toBED());
+			//logger.debug("MERGED_WINDOW\t" + window.toBED());
 		}
 		return mergedWindows;
 	}
@@ -1175,6 +1379,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		p.addBooleanArg("-ft", "First read is transcription strand", false, DEFAULT_FIRST_READ_TRANSCRIPTION_STRAND);
 		p.addDoubleArg("-r", "Cutoff for percentage of reads in peak coming from the most common replicate fragment", false, DEFAULT_PEAK_MAX_PCT_DUPLICATES);
 		p.addBooleanArg("-sf", "Apply strand filter using read strand info", false, DEFAULT_FILTER_BY_STRAND);
+		p.addBooleanArg("-ef", "Print additional info in BED file", false, DEFAULT_EXTRA_FIELDS);
+		p.addBooleanArg("-binom", "Use binomial score", false,DEFAULT_USE_BINOMIAL);
 		p.parse(commandArgs);
 		return p;
 	}
@@ -1193,7 +1399,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		boolean firstReadIsTranscriptionStrand = p.getBooleanArg("-ft");
 		double maxPctMostCommonReplicatePerPeak = p.getDoubleArg("-r");
 		boolean useStrandFilter = p.getBooleanArg("-sf");
-		
+		boolean extraFields =  p.getBooleanArg("-ef");
+		boolean binomialScore = p.getBooleanArg("-binom");
 		
 		MultiSampleScanPeakCaller m = new MultiSampleScanPeakCaller(sampleListFile, bedFile, chrSizeFile, windowSize, stepSize);
 		m.setExpressionScanPvalueCutoff(expressionScanPvalCutoff);
@@ -1203,6 +1410,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		m.setPeakWindowCountCutoff(windowCountCutoff);
 		m.setPeakWindowScanPvalCutoff(scanPvalCutoff);
 		m.setFilterByStrand(useStrandFilter);
+		m.setExtraFields(extraFields);
+		m.setBinomialScore(binomialScore);
 		
 		return m;
 		 
@@ -1246,8 +1455,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @param args
 	 * @throws IOException 
 	 * @throws InterruptedException 
+	 * @throws DrmaaException 
 	 */
-	public static void main(String[] args) throws IOException, InterruptedException {
+	public static void main(String[] args) throws IOException, InterruptedException, DrmaaException {
 
 		MultiSampleScanPeakCaller m = createFromCommandArgs(args);
 		
@@ -1293,6 +1503,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			controlData = new ArrayList<SampleData>();
 			signalData = new ArrayList<SampleData>();
 			expressionSampleData = null;
+			binomialCtrl = null;
 			parseFile(sampleFileName);
 		}
 		
@@ -1318,6 +1529,14 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		 */
 		public GenomeSpaceSampleData getExpressionData() {
 			return expressionSampleData;
+		}
+		
+		/**
+		 * Get the binomial control
+		 * @return Binomial control dataset
+		 */
+		public SampleData getBinomialCtrlData() {
+			return binomialCtrl;
 		}
 		
 		/**
@@ -1381,6 +1600,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 					GenomeSpaceSampleData sample = new GenomeSpaceSampleData(bamFile, sizeFile, genes, windowSize, stepSize, cutoff, true);
 					expressionSampleData = sample;
 					foundExpressionData = true;
+					SampleData sample2 = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval, false);
+					binomialCtrl = sample2;
 					continue;
 				}
 				
