@@ -130,7 +130,7 @@ public class PairedEndWriter {
 				//If first read is in direction of trasncription
 				if(txnRead.equals(TranscriptionRead.FIRST_OF_PAIR)){
 					//This is the first read
-					if(record.getFirstOfPairFlag()){
+					if(!record.getReadPairedFlag() || record.getFirstOfPairFlag()){
 						//Orientation of fragment is same as that of read
 					}
 					//This is the other mate
@@ -143,7 +143,7 @@ public class PairedEndWriter {
 				else if(txnRead.equals(TranscriptionRead.SECOND_OF_PAIR)){
 					//This is the first read
 					//Reverse orientation
-					if(record.getFirstOfPairFlag()){
+					if(record.getReadPairedFlag() && record.getFirstOfPairFlag()){
 						record.setReadNegativeStrandFlag(!record.getReadNegativeStrandFlag());
 					}
 					//This is the other mate
