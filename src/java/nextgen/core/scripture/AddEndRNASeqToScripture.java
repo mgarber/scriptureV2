@@ -25,7 +25,6 @@ import broad.core.math.Statistics;
 import broad.core.util.CLUtil;
 import broad.core.util.CLUtil.ArgumentMap;
 import broad.pda.annotation.BEDFileParser;
-import broad.pda.gene.GeneWithIsoforms;
 
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
@@ -60,13 +59,14 @@ public class AddEndRNASeqToScripture {
 	
 	private AlignmentModel model5p;
 	private AlignmentModel model3p;
-	private AlignmentModel model;
+	//private AlignmentModel model;
 	//private BEDFileParser annotationParser;
 	private int windowSize;
 	private int extension;
 	Map<String,Collection<Gene>> annotations;
 	Map<String,Collection<Gene>> complete;
-	private TranscriptionRead strand;
+	private TranscriptionRead strand5p;
+	private TranscriptionRead strand3p;
 	private static int DEFAULT_EXTENSION = 0;
 	private static int DEFAULT_WINDOW_SIZE = 2;
 	Map<String, IntervalTree<Gene>> intervalTrees;
@@ -158,27 +158,30 @@ public class AddEndRNASeqToScripture {
 	private AlignmentModel load3pData(ArgumentMap argMap){
 		
 		//Strand for 3' data
-		TranscriptionRead strand = TranscriptionRead.UNSTRANDED;
+		strand3p = TranscriptionRead.UNSTRANDED;
 		if(argMap.get("strand3p").equalsIgnoreCase("first")){
-			strand = TranscriptionRead.FIRST_OF_PAIR;
+			strand3p = TranscriptionRead.FIRST_OF_PAIR;
 		}
 		else{ 
 			if(argMap.get("strand3p").equalsIgnoreCase("second")){
-				strand = TranscriptionRead.SECOND_OF_PAIR;
+				strand3p = TranscriptionRead.SECOND_OF_PAIR;
 			}
 			else
 				logger.warn("3' data is unstranded");
 		}	
 
+		boolean single=false;
 		//Determine if 3' end is single ended
 		if(argMap.isPresent("singleEnd")){
 			logger.info("3' data is single ended");
+			single=true;
 		}
 		else{
 			logger.info("3' data is paired ended");
+			single =false;
 		}
 		
-		AlignmentModel model=new AlignmentModel(new File(argMap.getMandatory("3p")).getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),!(argMap.isPresent("singleEnd")),strand,false);
+		AlignmentModel model=new AlignmentModel(new File(argMap.getMandatory("3p")).getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),!single,strand3p,false);
 		
 		return model;
 	}
@@ -192,19 +195,19 @@ public class AddEndRNASeqToScripture {
 	private AlignmentModel load5pData(ArgumentMap argMap){
 		
 		//Strand for 5' data
-		TranscriptionRead strand = TranscriptionRead.UNSTRANDED;
+		strand5p = TranscriptionRead.UNSTRANDED;
 		if(argMap.get("strand5p").equalsIgnoreCase("first")){
-			strand = TranscriptionRead.FIRST_OF_PAIR;
+			strand5p = TranscriptionRead.FIRST_OF_PAIR;
 		}
 		else{ 
 			if(argMap.get("strand5p").equalsIgnoreCase("second")){
-				strand = TranscriptionRead.SECOND_OF_PAIR;
+				strand5p = TranscriptionRead.SECOND_OF_PAIR;
 			}
 			else
 				logger.warn("5' data is unstranded");
 		}	
 
-		AlignmentModel model=new AlignmentModel(new File(argMap.getMandatory("5p")).getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false); 
+		AlignmentModel model=new AlignmentModel(new File(argMap.getMandatory("5p")).getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand5p,false); 
 		
 		return model;
 	}
@@ -227,7 +230,7 @@ public class AddEndRNASeqToScripture {
 		else 
 			if(str == (TranscriptionRead.SECOND_OF_PAIR))
 				oppStrand = TranscriptionRead.FIRST_OF_PAIR;
-		strand = str;
+		//strand = str;
 		//Read annotation file
 		//annotationParser = new BEDFileParser(annotationFile);	
 				
@@ -268,7 +271,7 @@ public class AddEndRNASeqToScripture {
 		
 		BufferedWriter bw = new BufferedWriter(new FileWriter(outputName+".isoforms.info"));
 		BufferedWriter bwCov = new BufferedWriter(new FileWriter(outputName+".isoforms.coverage.info"));
-		model=new AlignmentModel(fullBam.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand);
+		//model=new AlignmentModel(fullBam.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand5p);
 		
 		int singleExonGenes = 0;
 		int multiExonGenes = 0;
@@ -368,11 +371,11 @@ public class AddEndRNASeqToScripture {
 			logger.info("Processing "+chr);
 			complete.put(chr, new TreeSet<Gene>());
 			//If 5' or 3' end RNA-seq does not have data for it, dont run
-			if(model5p.getRefSequenceLambda(chr)==0.0
-					|| model3p.getRefSequenceLambda(chr)==0.0){
+			if(!model5p.containsReference(chr)
+					&& !model3p.containsReference(chr)){
 				logger.warn(chr +" is not expressed in end RNA-seq");
-//			}
-//			else{				
+			}
+			else{				
 				/*
 				 * FOR THIS GENE
 				 */
@@ -415,7 +418,7 @@ public class AddEndRNASeqToScripture {
 					space = new TranscriptomeSpace(chrToGenesMap);
 					
 					double[] nulls5p = get5pNullDistribution(ge,space);
-					
+					//logger.info("5p null: "+nulls5p[0]+" "+nulls5p[1]+" "+nulls5p[2]+" ");
 					if(nulls5p[2]<11){
 						THRESHOLD=15;
 						
@@ -817,7 +820,7 @@ public class AddEndRNASeqToScripture {
 						}
 					}
 					else{
-						list.add(0, Double.NaN);
+						list.add(1, Double.NaN);
 					}
 					//edited.setOrientedEnd(maxPeak.getOrientedEnd());
 				}
@@ -899,9 +902,11 @@ public class AddEndRNASeqToScripture {
 					
 					double prevZScore = mapp.get(gene).get(0);
 					List<Annotation> peaks = geneTo5pPeakMap.get(gene);
+					//Removes all peaks with z-score less than 10% of the max z-score
 					peaks = cleanPeaks(peaks,prevZScore);
 					//While peaks is not empty
 					while(!peaks.isEmpty()){
+						peakTrimmed = false;
 						//Get the next highest peak
 						Annotation peak5 = pop(peaks,prevZScore);
 						peaks.remove(peak5);
@@ -966,11 +971,23 @@ public class AddEndRNASeqToScripture {
 				//if there is a 3' peak for this gene
 				if(geneTo3pPeakMap.containsKey(gene)){
 					
-					//For each 3' peak
-					for(Annotation peak3:geneTo3pPeakMap.get(gene)){
+					geneTrimmed = false;
+					peakTrimmed = false;
+					
+					double prevZScore = mapp.get(gene).get(1);
+					List<Annotation> peaks = geneTo3pPeakMap.get(gene);
+					//Removes all peaks with z-score less than 10% of the max z-score
+					peaks = cleanPeaks(peaks,prevZScore);
+					//While peaks is not empty
+					while(!peaks.isEmpty()){
+						peakTrimmed = false;
+						//Get the next highest peak
+						Annotation peak3 = pop(peaks,prevZScore);
+						peaks.remove(peak3);
 						
 						//For each edited gene
 						for(Gene edited:editedGenes){
+							
 							Gene editedAgain = edited.copy();
 							if(gene.isNegativeStrand()){ 
 								if(peak3.getStart()<edited.getStart() && (edited.getEnd()-peak3.getStart())>200){
@@ -1008,11 +1025,11 @@ public class AddEndRNASeqToScripture {
 											logger.info("For "+gene.getName()+" the 3' end is upstream of 5' end.");
 										}
 									}
-								}
-								
+								}							
 							}
 							bwBed.write(editedAgain.toBED()+"\n");
 						}
+
 					}
 				}
 				//logger.info(edited.toBED());
@@ -1213,8 +1230,8 @@ public class AddEndRNASeqToScripture {
 			SingleEndAlignment align = (SingleEndAlignment) read;
 			//Check if read is the correct read
 			//if read starts in window
-			if(((strand==(TranscriptionRead.FIRST_OF_PAIR) && align.getIsFirstMate()) || 
-					(strand==(TranscriptionRead.SECOND_OF_PAIR) && !align.getIsFirstMate())) 
+			if(((strand5p==(TranscriptionRead.FIRST_OF_PAIR) && align.getIsFirstMate()) || 
+					(strand5p==(TranscriptionRead.SECOND_OF_PAIR) && !align.getIsFirstMate())) 
 						&& (readStartFallsInWindow(read,window))
 							&& (read.getOrientation().equals(orientation))){
 				return true;
@@ -1224,7 +1241,7 @@ public class AddEndRNASeqToScripture {
 		else{
 			PairedReadAlignment align = (PairedReadAlignment) read;
 			Annotation mate;
-			if(strand==TranscriptionRead.FIRST_OF_PAIR){
+			if(strand5p==TranscriptionRead.FIRST_OF_PAIR){
 				mate = align.getFirstMate();
 			}
 			else{
@@ -1252,13 +1269,14 @@ public class AddEndRNASeqToScripture {
 			SingleEndAlignment align = (SingleEndAlignment) read;
 			//Check if read is the correct read
 			//if read starts in window
-			if(((strand==(TranscriptionRead.FIRST_OF_PAIR) && align.getIsFirstMate()) || 
-					(strand==(TranscriptionRead.SECOND_OF_PAIR) && !align.getIsFirstMate())) 
+			if(((strand3p==(TranscriptionRead.FIRST_OF_PAIR) && !align.getIsFirstMate()) || 
+					(strand3p==(TranscriptionRead.SECOND_OF_PAIR) && align.getIsFirstMate())) 
 					//We used readEndFallsInWindow if the read would be in the same orientation as the gene
 					//Here is it oppostite so
 					//	&& (readEndFallsInWindow(read,window))
 						&& (readStartFallsInWindow(read,window))
-							&& (!read.getOrientation().equals(orientation))){
+						//Single end alignment. Orientation is already corrected.
+							&& (read.getOrientation().equals(orientation))){
 				return true;
 			}
 		}
@@ -1266,7 +1284,7 @@ public class AddEndRNASeqToScripture {
 		else{
 			PairedReadAlignment align = (PairedReadAlignment) read;
 			Annotation mate;
-			if(strand==TranscriptionRead.FIRST_OF_PAIR){
+			if(strand3p==TranscriptionRead.SECOND_OF_PAIR){
 				mate = align.getFirstMate();
 			}
 			else{
@@ -1530,10 +1548,10 @@ public class AddEndRNASeqToScripture {
 			logger.info("Processing "+chr);
 			complete.put(chr, new TreeSet<Gene>());
 			//If 5' or 3' end RNA-seq does not have data for it, dont run
-			if(model3p.getRefSequenceLambda(chr)==0.0){
-				logger.warn("Warning: "+chr +" has lambda 0.0.");
-//			}
-//			else{				
+			if(!model3p.containsReference(chr)){
+				logger.warn("Warning: "+chr +" not expressed in 3' data.");
+			}
+			else{				
 				/*
 				 * FOR THIS GENE
 				 */
@@ -1721,10 +1739,10 @@ public class AddEndRNASeqToScripture {
 			logger.info("Processing "+chr);
 			complete.put(chr, new TreeSet<Gene>());
 			//If 5' or 3' end RNA-seq does not have data for it, dont run
-			if(model5p.getRefSequenceLambda(chr)==0.0){
-				logger.warn("Warning:"+chr +" has lambda 0.0 in end RNA-seq");
-//			}
-//			else{				
+			if(!model5p.containsReference(chr)){
+				logger.warn("Warning:"+chr +" not present in 5' end RNA-seq");
+			}
+			else{				
 				/*
 				 * FOR THIS GENE
 				 */
@@ -1900,7 +1918,7 @@ public class AddEndRNASeqToScripture {
 		BufferedWriter bw = new BufferedWriter(new FileWriter(outputName+".trimmed.summary.txt"));
 		
 		if(whichEnd.equalsIgnoreCase("3p")){
-			logger.info("Trimming 3p ends");
+			logger.info("Trimming Best isoform with 3p ends");
 			int trim = 0;
 			int extend=0;
 			//For each chromosome in the annotation set
@@ -1909,14 +1927,14 @@ public class AddEndRNASeqToScripture {
 				for(Gene gene:annotations.get(chr)){
 					Gene edited = gene.copy();
 					
-					List<Double> list = new ArrayList<Double>(2);
+					List<Double> list = new ArrayList<Double>(1);
 					//logger.info(edited.toBED());
 					//if there is a peak for this gene
 					if(geneToPeakMap.containsKey(gene)){
 						//Get the max z-score peak
 						Annotation maxPeak = getMaxZScorePeak(geneToPeakMap.get(gene));
 						if(maxPeak !=null){
-							list.add(1, maxPeak.getScore());
+							list.add(0, maxPeak.getScore());
 							if(gene.isNegativeStrand()){ 
 								if(maxPeak.getStart()<edited.getStart()){
 									extend++;
@@ -1963,7 +1981,7 @@ public class AddEndRNASeqToScripture {
 						//edited.setOrientedEnd(maxPeak.getOrientedEnd());
 					}
 					else{
-						list.add(1, Double.NaN);
+						list.add(0, Double.NaN);
 					}
 					geneToMaxZScoreMap.put(gene, list);
 					//logger.info(edited.toBED());
@@ -1977,7 +1995,7 @@ public class AddEndRNASeqToScripture {
 		}
 		else{
 			if(whichEnd.equalsIgnoreCase("5p")){
-				logger.info("Trimming 5p ends");
+				logger.info("Trimming best isoforms with 5p ends");
 				int trim = 0;
 				int extend=0;
 				//For each chromosome in the annotation set
@@ -1986,7 +2004,7 @@ public class AddEndRNASeqToScripture {
 					for(Gene gene:annotations.get(chr)){
 						Gene edited = gene.copy();
 						
-						List<Double> list = new ArrayList<Double>(2);
+						List<Double> list = new ArrayList<Double>(1);
 						//logger.info(edited.toBED());
 						//if there is a peak for this gene
 						if(geneToPeakMap.containsKey(gene)){
@@ -2069,7 +2087,7 @@ public class AddEndRNASeqToScripture {
 		BufferedWriter bw = new BufferedWriter(new FileWriter(outputName+".trimmed.all.summary.txt"));
 		
 		if(whichEnd.equalsIgnoreCase("3p")){
-			logger.info("Trimming 3p ends");
+			logger.info("Trimming all isoform with 3p ends");
 			int trim =0;
 			int extend = 0;
 			//For each chromosome in the annotation set
@@ -2083,55 +2101,63 @@ public class AddEndRNASeqToScripture {
 					//if there is a 3' peak for this gene
 					if(geneToPeakMap.containsKey(gene)){
 						
-						//For each 3' peak
-						for(Annotation peak3:geneToPeakMap.get(gene)){
-							
-							//For each edited gene
-							for(Gene edited:editedGenes){
-								Gene editedAgain = edited.copy();
-								if(gene.isNegativeStrand()){ 
-									if(peak3.getStart()<edited.getStart() && (edited.getEnd()-peak3.getStart())>200){
-										extend++;
-										editedAgain.setStart(peak3.getStart());
-										editedAgain.setName(edited.getName()+".adj3p");
-									}
-									else{
-										if(peak3.getStart()>edited.getStart()){
-											if(peak3.getStart()<edited.getEnd() && (edited.getEnd()-peak3.getStart())>200){
-												trim++;
-												editedAgain.setStart(peak3.getStart());
-												editedAgain.setName(edited.getName()+".adj3p");
-											}
-											else{
-												logger.info("For "+gene.getName()+" the 3' end is upstream of 5' end.");
-											}
-										}
-									}
+						geneTrimmed = false;
+						peakTrimmed = false;
+						
+						double prevZScore = mapp.get(gene).get(0);
+						List<Annotation> peaks = geneToPeakMap.get(gene);
+						//Removes all peaks with z-score less than 10% of the max z-score
+						peaks = cleanPeaks(peaks,prevZScore);
+						//While peaks is not empty
+						while(!peaks.isEmpty()){
+							peakTrimmed = false;
+							//Get the next highest peak
+							Annotation peak3 = pop(peaks,prevZScore);
+							peaks.remove(peak3);
+								
+							Gene edited = gene.copy();
+							if(gene.isNegativeStrand()){ 
+								if(peak3.getStart()<edited.getStart() && (edited.getEnd()-peak3.getStart())>200){
+									extend++;
+									edited.setStart(peak3.getStart());
+									edited.setName(edited.getName()+".adj3p");
 								}
 								else{
-									if(peak3.getEnd()>edited.getEnd() && (peak3.getEnd()-edited.getStart())>200){
-										extend++;
-										editedAgain.setEnd(peak3.getEnd());
-										editedAgain.setName(edited.getName()+".adj3p");
-									}
-									else{
-										if(peak3.getEnd()<edited.getEnd()){
-											if(peak3.getEnd()>edited.getStart() && (peak3.getEnd()-edited.getStart())>200){
-												trim++;
-												editedAgain.setEnd(peak3.getEnd());
-												editedAgain.setName(edited.getName()+".adj3p");
-											}
-											else{
-												logger.info("For "+gene.getName()+" the 3' end is upstream of 5' end.");
-											}
+									if(peak3.getStart()>edited.getStart()){
+										if(peak3.getStart()<edited.getEnd() && (edited.getEnd()-peak3.getStart())>200){
+											trim++;
+											edited.setStart(peak3.getStart());
+											edited.setName(edited.getName()+".adj3p");
+										}
+										else{
+											logger.info("For "+gene.getName()+" the 3' end is upstream of 5' end.");
 										}
 									}
-									
 								}
-								bwBed.write(editedAgain.toBED()+"\n");
 							}
+							else{
+								if(peak3.getEnd()>edited.getEnd() && (peak3.getEnd()-edited.getStart())>200){
+									extend++;
+									edited.setEnd(peak3.getEnd());
+									edited.setName(edited.getName()+".adj3p");
+								}
+								else{
+									if(peak3.getEnd()<edited.getEnd()){
+										if(peak3.getEnd()>edited.getStart() && (peak3.getEnd()-edited.getStart())>200){
+											trim++;
+											edited.setEnd(peak3.getEnd());
+											edited.setName(edited.getName()+".adj3p");
+										}
+										else{
+											logger.info("For "+gene.getName()+" the 3' end is upstream of 5' end.");
+										}
+									}
+								}							
+							}
+							bwBed.write(edited.toBED()+"\n");
 						}
 					}
+					//logger.info(edited.toBED());
 				}
 			}
 			bw.write("Genes with trimmed 3p ends: "+trim+"\n");
@@ -2141,22 +2167,21 @@ public class AddEndRNASeqToScripture {
 
 		}
 		else if(whichEnd.equalsIgnoreCase("5p")){
-			logger.info("Trimming 5p ends");
+			logger.info("Trimming all isoforms with 5p ends");
 			int trim = 0;
 			int extend=0;
+			//ONLY TRIM COMPLETE TRANSCRIPTS
+			//annotations = complete;
 			//For each chromosome in the annotation set
 			for(String chr:annotations.keySet()){
 				//For each gene
-				for(Gene gene:annotations.get(chr)){
-					
-					boolean geneTrimmed = false;
-					boolean peakTrimmed = false;
-					Collection<Gene> editedGenes = new TreeSet<Gene>();
+				for(Gene gene:annotations.get(chr)){					
 					//if there is a 5' peak for this gene
 					if(geneToPeakMap.containsKey(gene)){
 						
 						double prevZScore = mapp.get(gene).get(0);
 						List<Annotation> peaks = geneToPeakMap.get(gene);
+						//Removes all peaks with z-score less than 10% of the max z-score
 						peaks = cleanPeaks(peaks,prevZScore);
 						//While peaks is not empty
 						while(!peaks.isEmpty()){
@@ -2169,8 +2194,6 @@ public class AddEndRNASeqToScripture {
 								if(peak5.getEnd()>gene.getEnd()){
 									extend++;
 									edited.setEnd(peak5.getEnd());
-									geneTrimmed=true;
-									peakTrimmed=true;
 									edited.setName(edited.getName()+".adj5p");
 								}
 								else{
@@ -2178,8 +2201,6 @@ public class AddEndRNASeqToScripture {
 										if(peak5.getEnd()>gene.getStart()){
 											trim++;
 											edited.setEnd(peak5.getEnd());
-											geneTrimmed=true;
-											peakTrimmed=true;
 											edited.setName(edited.getName()+".adj5p");
 										}
 										else{
@@ -2192,8 +2213,6 @@ public class AddEndRNASeqToScripture {
 								if(peak5.getStart()<gene.getStart()){
 									extend++;
 									edited.setStart(peak5.getStart());
-									geneTrimmed=true;
-									peakTrimmed=true;
 									edited.setName(edited.getName()+".adj5p");
 								}
 								else{
@@ -2201,8 +2220,6 @@ public class AddEndRNASeqToScripture {
 										if(peak5.getStart()<gene.getEnd()){
 											trim++; 
 											edited.setStart(peak5.getStart());
-											geneTrimmed=true;
-											peakTrimmed=true;
 											edited.setName(edited.getName()+".adj5p");
 										}
 										else{
@@ -2211,15 +2228,8 @@ public class AddEndRNASeqToScripture {
 									}
 								}
 							}
-							if(peakTrimmed){
-								editedGenes.add(edited);
-							}
+							bwBed.write(edited.toBED()+"\n");
 						}
-
-						//If none of the peaks were used for trimming
-						if(!geneTrimmed)
-							editedGenes.add(gene.copy());
-
 					}
 				}
 			}
