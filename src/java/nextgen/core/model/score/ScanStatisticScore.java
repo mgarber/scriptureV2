@@ -33,6 +33,7 @@ public class ScanStatisticScore extends CountScore {
 			setScanPvalue(AlignmentDataModelStats.calculatePVal(new Double(getCount()).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(annotation), getGlobalLength()));
 		} catch(Exception e) {
 			logger.info("Could not set scan P value for annotation " + annotation.getName());
+			logger.info(e.toString());
 		}
 		getAnnotation().setScore(getScanPvalue());
 		
@@ -162,16 +163,17 @@ public class ScanStatisticScore extends CountScore {
 	 * [7] = region length  
 	 */
 	public double[] getScores(){
-		double[] scores = new double[9];
+		double[] scores = new double[10];
 		scores[0] = getCount();
 		scores[1] = getRPKM();
 		scores[2] = getRPK();
 		scores[3] = getRegionTotal();
 		scores[4] = getTotal();
-		scores[5] = getScanPvalue();
-		scores[6] = getGlobalLambda();
-		scores[7] = getLocalLambda();
-		scores[8] = getRegionLength();
+		scores[5] = getAnnotation().length();
+		scores[6] = getScanPvalue();
+		scores[7] = getGlobalLambda();
+		scores[8] = getLocalLambda();
+		scores[9] = getRegionLength();
 		return scores;
 	}
 	
