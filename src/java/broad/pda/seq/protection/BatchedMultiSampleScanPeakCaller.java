@@ -39,7 +39,7 @@ public class BatchedMultiSampleScanPeakCaller extends MultiSampleScanPeakCaller 
 		
 	}
 
-	protected static String[] extendSuperArgsForSampleAndChr(String[] commandArgs, String sampleName, String chrName) {
+	public static String[] extendSuperArgsForSampleAndChr(String[] commandArgs, String sampleName, String chrName) {
 		String[] rtrn = new String[commandArgs.length + 2];
 		for(int i=0; i < commandArgs.length; i++) {
 			rtrn[i] = commandArgs[i];

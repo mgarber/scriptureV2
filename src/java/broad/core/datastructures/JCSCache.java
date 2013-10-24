@@ -379,13 +379,14 @@ public class JCSCache {
 		} else {
 			if (this.cacheChr == null || chr.equalsIgnoreCase(this.cacheChr)) { 
 				if (end > this.cacheEnd) {
-					// Set the cache to start at the beginning of the requested sequence
+					// Set the cache to start and the beginning of the requested sequence
 					newStart = start;
 					newEnd = start + this.cacheSize;
 				} else if (start < this.cacheStart) {
 					// Maybe we're scanning backwards?  So we'll fix the cache to the end of the window
 					newEnd = end;
 					newStart = end - this.cacheSize;
+
 //					throw new IllegalStateException("Cache DEBUG");
 				}
 			}

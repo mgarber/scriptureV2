@@ -22,6 +22,8 @@ import net.sf.picard.util.Log;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.annotation.*;
 import nextgen.core.annotation.filter.*;
+import nextgen.core.coordinatesystem.CoordinateSpace;
+import nextgen.core.coordinatesystem.GenomicSpace;
 import nextgen.core.job.Job;
 import nextgen.core.job.JobUtils;
 import nextgen.core.job.LSFJob;
@@ -35,6 +37,7 @@ import org.apache.commons.math3.stat.descriptive.*;
 import org.apache.commons.math3.stat.descriptive.moment.*;
 import org.apache.commons.math3.stat.descriptive.rank.*;
 import org.apache.commons.io.IOUtils;
+import org.ggf.drmaa.DrmaaException;
 
 public class CollectAnnotationEnrichments extends GenomeCommandLineProgram {
     private static final Log log = Log.getInstance(RatioPermutationPeakCaller.class);
@@ -166,12 +169,13 @@ public class CollectAnnotationEnrichments extends GenomeCommandLineProgram {
 	protected void shufflePeaks(AnnotationList<Annotation> regions, AnnotationList<Annotation> peaks, String output) throws IOException {
 		for (int i = 1; i <= PERMUTATIONS; i++) {
 			String currOutput = output + "_" + i + ".bed";
-			ShuffleBED.shuffleAndWriteAnnotations(regions, getCoordinateSpace(), peaks, new File(currOutput), 1);
+			// Casts to genomic space
+			ShuffleBED.shuffleAndWriteAnnotations(regions, (GenomicSpace) getCoordinateSpace(), peaks, new File(currOutput), 1);
 		}
 	}
 	
 	
-	protected void submitJobs(SortedMap<String,File> annotationMap) throws IOException, InterruptedException {
+	protected void submitJobs(SortedMap<String,File> annotationMap) throws IOException, InterruptedException, DrmaaException {
 		Runtime run = Runtime.getRuntime();
 		String jobID = LSFJob.generateJobID();
 		Collection<Job> jobs = new ArrayList<Job>();

@@ -16,8 +16,10 @@ import java.util.TreeMap;
 import nextgen.core.job.Job;
 import nextgen.core.job.JobUtils;
 import nextgen.core.job.LSFJob;
+import nextgen.core.pipeline.Scheduler;
 
 import org.apache.log4j.Logger;
+import org.ggf.drmaa.DrmaaException;
 
 import broad.core.parser.StringParser;
 
@@ -146,11 +148,11 @@ public class AlignmentUtils {
 	 * @param outBtIndexBase Output index file without .bt2 extension
 	 * @param bowtie2BuildExecutable The bowtie2-build executable
 	 * @param bsubOutputDir Output directory for bsub file
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	public static void makeBowtie2Index(String fastaFile, String outBtIndexBase, String bowtie2BuildExecutable, String bsubOutputDir, String scheduler) throws IOException, InterruptedException {
+	public static void makeBowtie2Index(String fastaFile, String outBtIndexBase, String bowtie2BuildExecutable, String bsubOutputDir, Scheduler scheduler) throws IOException, InterruptedException {
 		logger.info("");
 		logger.info("Writing bowtie2 index for file " + fastaFile + " to files " + outBtIndexBase);
 		File bsubDir = new File(bsubOutputDir);
@@ -179,13 +181,15 @@ public class AlignmentUtils {
 		logger.info("Submitting command " + cmmd);
 		String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 		String output = bsubOutputDir + "/make_bowtie_index_" + jobID + ".bsub";
-		if(scheduler.equals("LSF")) {
-			LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
-			job.submit();
-			job.waitFor();
-		} else {
-			throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
-		}
+		switch(scheduler) {
+			case LSF:
+				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
+				job.submit();
+				job.waitFor();
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
+			}
 		logger.info("Done creating bowtie2 index for file " + fastaFile);
 	}
 	
@@ -198,12 +202,12 @@ public class AlignmentUtils {
 	 * @param outUnalignedFastq Output fastq file for unaligned reads or null
 	 * @param bowtie2Executable Bowtie2 executable
 	 * @param bsubOutDir Output directory for bsub file
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @return The job object
 	 */
-	public static Job runBowtie2(String bowtie2IndexBase, Map<String, String> options, String reads, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, String scheduler) throws IOException, InterruptedException {
+	public static Job runBowtie2(String bowtie2IndexBase, Map<String, String> options, String reads, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, Scheduler scheduler) throws IOException, InterruptedException {
 		return runBowtie2(bowtie2IndexBase, options, reads, null, outSamFile, outUnalignedFastq, bowtie2Executable, bsubOutDir, false, scheduler);
 	}
 
@@ -218,12 +222,12 @@ public class AlignmentUtils {
 	 * @param outUnalignedFastq Output fastq file for unaligned reads or null
 	 * @param bowtie2Executable Bowtie2 executable
 	 * @param bsubOutDir Output directory for bsub file
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @return The job object
 	 */
-	public static Job runBowtie2(String bowtie2IndexBase, Map<String, String> options, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, String scheduler) throws IOException, InterruptedException {
+	public static Job runBowtie2(String bowtie2IndexBase, Map<String, String> options, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, Scheduler scheduler) throws IOException, InterruptedException {
 		return runBowtie2(bowtie2IndexBase, options, read1Fastq, read2Fastq, outSamFile, outUnalignedFastq, bowtie2Executable, bsubOutDir, true, scheduler);
 	}
 	
@@ -238,12 +242,12 @@ public class AlignmentUtils {
 	 * @param bowtie2Executable Bowtie2 executable
 	 * @param bsubOutDir Output directory for bsub files
 	 * @param readsPaired Whether the reads are paired
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @return The bsub job ID
 	 */
-	public static Job runBowtie2(String bowtie2IndexBase, Map<String, String> options, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, boolean readsPaired, String scheduler) throws IOException, InterruptedException {
+	public static Job runBowtie2(String bowtie2IndexBase, Map<String, String> options, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, boolean readsPaired, Scheduler scheduler) throws IOException, InterruptedException {
 
 		File bsubOutDirectory = new File(bsubOutDir);
 		@SuppressWarnings("unused")
@@ -274,16 +278,18 @@ public class AlignmentUtils {
 		logger.info("Running bowtie2 command:");
 		logger.info(cmmd);
 		
-		if(scheduler.equals("LSF")) {
-			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-			String output = bsubOutDir + "/run_bowtie_" + jobID + ".bsub";
-			logger.info("Writing bsub output to file " + output);
-			LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
-			job.submit();
-			logger.info("Job ID is " + jobID);
-			return job;
+		switch(scheduler) {
+			case LSF:
+				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+				String output = bsubOutDir + "/run_bowtie_" + jobID + ".bsub";
+				logger.info("Writing bsub output to file " + output);
+				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
+				job.submit();
+				logger.info("Job ID is " + jobID);
+				return job;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 		}
-		throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
 		
 	}
 	
@@ -299,12 +305,13 @@ public class AlignmentUtils {
 	 * @param genomeIndex Genome fasta index
 	 * @param queueName LSF queue name
 	 * @param outputDir Output directory
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Collection<String> sampleNames, Map<String, String> leftFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, String scheduler) throws IOException, InterruptedException {
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Collection<String> sampleNames, Map<String, String> leftFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		return runTophat(tophatExecutable, samtools, sampleNames, leftFastqs, null, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, queueName, outputDir, scheduler);
 	}
 
@@ -335,12 +342,13 @@ public class AlignmentUtils {
 	 * @param tophatDirsPerSample Directory to write tophat output to, by sample name
 	 * @param tophatBamFinalPath Final bam file for tophat output, by sample name
 	 * @param genomeIndex Genome fasta index
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String scheduler) throws IOException, InterruptedException {
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		return runTophat(tophatExecutable, samtools, leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, ".", scheduler);
 	}
 	
@@ -356,12 +364,13 @@ public class AlignmentUtils {
 	 * @param finalTophatBam Final bam file; skip if already exists
 	 * @param genomeIndex Genome fasta index
 	 * @param outputDir Output directory
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static String runTophat(String tophatExecutable, String samtools, String sampleName, String leftFastq, String rightFastq, Map<String, String> tophatOptions, String tophatDir, String finalTophatBam, String genomeIndex, String outputDir, String scheduler) throws IOException, InterruptedException {
+	public static String runTophat(String tophatExecutable, String samtools, String sampleName, String leftFastq, String rightFastq, Map<String, String> tophatOptions, String tophatDir, String finalTophatBam, String genomeIndex, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		return runTophat(tophatExecutable, samtools, sampleName, leftFastq, rightFastq, tophatOptions, tophatDir, finalTophatBam, genomeIndex, "week", outputDir, scheduler);
 	}
 	
@@ -376,12 +385,13 @@ public class AlignmentUtils {
 	 * @param tophatBamFinalPath Final bam file for tophat output, by sample name
 	 * @param genomeIndex Genome fasta index
 	 * @param outputDir Output directory
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String outputDir, String scheduler) throws IOException, InterruptedException {
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		return runTophat(tophatExecutable, samtools, leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, "week", outputDir, scheduler);
 	}
 	
@@ -397,12 +407,13 @@ public class AlignmentUtils {
 	 * @param genomeIndex Genome fasta index
 	 * @param queueName LSF queue name
 	 * @param outputDir Output directory
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, String scheduler) throws IOException, InterruptedException {
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		return runTophat(tophatExecutable, samtools, leftFastqs.keySet(), leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, queueName, outputDir, scheduler);
 	}
 	
@@ -419,12 +430,13 @@ public class AlignmentUtils {
 	 * @param genomeIndex Genome fasta index
 	 * @param queueName LSF queue name
 	 * @param outputDir Output directory
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static String runTophat(String tophatExecutable, String samtools, String sampleName, String leftFastq, String rightFastq, Map<String, String> tophatOptions, String tophatDir, String finalTophatBam, String genomeIndex, String queueName, String outputDir, String scheduler) throws IOException, InterruptedException {
+	public static String runTophat(String tophatExecutable, String samtools, String sampleName, String leftFastq, String rightFastq, Map<String, String> tophatOptions, String tophatDir, String finalTophatBam, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		Collection<String> sampleNames = new ArrayList<String>();
 		sampleNames.add(sampleName);
 		Map<String, String> leftFastqs = new TreeMap<String, String>();
@@ -451,12 +463,13 @@ public class AlignmentUtils {
 	 * @param genomeIndex Genome fasta index
 	 * @param queueName LSF queue name
 	 * @param outputDir Output directory
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Collection<String> sampleNames, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, String scheduler) throws IOException, InterruptedException {
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Collection<String> sampleNames, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		
 		Map<String, String> rtrn = new TreeMap<String, String>();
 		
@@ -490,15 +503,17 @@ public class AlignmentUtils {
 			logger.info("Writing tophat output for sample " + sample + " to directory " + outdir + ".");
 			logger.info("Running tophat command: " + tophatCmmd);
 			
-			if(scheduler.equals("LSF")) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, tophatCmmd, outdir + "/tophat_" + jobID + ".bsub", queueName, 16);
 				tophatJobs.add(job);
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
 				job.submit();
-			} else {
-				throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
 		}
 		// Wait for tophat jobs to finish
@@ -601,11 +616,12 @@ public class AlignmentUtils {
 	 * Index a set of bam files
 	 * @param bamFiles Map of sample name to bam file to index
 	 * @param samtools Samtools executable
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void indexBamFiles(Map<String, String> bamFiles, String samtools, String scheduler) throws IOException, InterruptedException {
+	public static void indexBamFiles(Map<String, String> bamFiles, String samtools, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		ArrayList<Job> indexJobs = new ArrayList<Job>();
 		for(String sample : bamFiles.keySet()) {
 			String bam = bamFiles.get(sample);
@@ -618,16 +634,19 @@ public class AlignmentUtils {
 			}
 			String cmmd = samtools + " index " + bam + " " + index;
 			logger.info("Running samtools command: " + cmmd);
-			if(scheduler.equals("LSF")) {
-				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-				logger.info("LSF job ID is " + jobID + ".");
-				// Submit job
-				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, indexfile.getParent() + "/index_bam_" + jobID + ".bsub", "hour", 1);
-				indexJobs.add(job);
-				job.submit();
-			} else {
-				throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
+			switch(scheduler) {
+				case LSF:
+					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+					logger.info("LSF job ID is " + jobID + ".");
+					// Submit job
+					LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, indexfile.getParent() + "/index_bam_" + jobID + ".bsub", "hour", 1);
+					indexJobs.add(job);
+					job.submit();
+					break;
+				default:
+					throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
+			
 		}
 		logger.info("Waiting for samtools jobs to finish...");
 		JobUtils.waitForAll(indexJobs);

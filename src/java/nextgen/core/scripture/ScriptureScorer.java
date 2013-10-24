@@ -16,6 +16,8 @@ import java.util.TreeMap;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.Gene;
+import nextgen.core.coordinatesystem.CoordinateSpace;
+import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.readFilters.MappingQualityFilter;
@@ -41,7 +43,7 @@ public class ScriptureScorer {
 	static final int COUNT_SCORE = 0;
 	static final int RPKM_SCORE = 1;
 	static final int RPK_SCORE = 2;
-	static final int PVAL_SCORE = 5;
+	static final int PVAL_SCORE = 6;
 	private static final TranscriptionRead DEFAULT_TXN_READ =  TranscriptionRead.UNSTRANDED;
 	private TranscriptionRead strand;
 	private String outName;
@@ -146,7 +148,10 @@ public class ScriptureScorer {
 			 * Initialize the data models for all alignment files
 			 * @param: <alignment flieName> <coordinate space> <read filters> <read or create paired end bam file> <load as fragments>
 			 */
-			AlignmentModel model = new AlignmentModel(alignmentFiles.get(i), null, new ArrayList<Predicate<Alignment>>(), true,strand,true);
+			boolean pairedFlag = !argMap.isPresent("singleEnd");
+			logger.info("Paired flag is "+pairedFlag);
+			CoordinateSpace space = new TranscriptomeSpace(annotations);
+			AlignmentModel model = new AlignmentModel(alignmentFiles.get(i), space, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true);
 			
 			//Add read filters
 			model.addFilter(new MappingQualityFilter(minimumMappingQuality,minimumMappingQuality));
@@ -164,7 +169,7 @@ public class ScriptureScorer {
 			}
 			
 			//WRITE THE BED FILE
-			BuildScriptureCoordinateSpace.write(outputname, annotations);
+			//BuildScriptureCoordinateSpace.write(outputname, annotations);
 		}
 		
 		
@@ -341,12 +346,13 @@ public class ScriptureScorer {
 	}
 	
 	public static void main(String[] args)throws IOException{
-		
+		 
 		Globals.setHeadless(true);
 		/*
 		 * @param for ArgumentMap - size, usage, default task
 		 * argMap maps the command line arguments to the respective parameters
 		 */
+		
 		ArgumentMap argMap = CLUtil.getParameters(args,usage,"score");
 		
 		if(argMap.containsKey("alignment")){
@@ -371,9 +377,9 @@ public class ScriptureScorer {
 		
 		for(Gene gene: genes){
 			if(!model.containsReference(gene.getChr())){
-				double[] s = new double[9];
+				double[] s = new double[10];
 				//p-value
-				s[5] = 1.0;
+				s[6] = 1.0;
 				rtrn.put(gene, s);
 			}
 			else{
@@ -397,6 +403,7 @@ public class ScriptureScorer {
 			"\n\n**************************************************************"+
 			"\n\t\tOptional Arguments"+
 			"\n**************************************************************"+
+			"\n\t\t-singleEnd Only if data is single end"+
 			"\n";
 
 }

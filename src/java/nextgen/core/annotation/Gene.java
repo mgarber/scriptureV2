@@ -198,7 +198,7 @@ public class Gene extends BasicAnnotation {
 	
 	public Gene(Gene gene) {
 		this(gene.getChr(), gene.getName(), gene.getOrientation(), gene.getExonSet(), gene.getCDSStart(), gene.getCDSEnd());
-				
+		this.bedScore=gene.getScore();
 		initFromGene(gene);
 			
 	}
@@ -644,11 +644,15 @@ public class Gene extends BasicAnnotation {
 			throw new IllegalArgumentException("Step size must be >= 1");
 		}
 		Collection<GeneWindow> subGenes=new TreeSet<GeneWindow>();
-		for(int i=start; i< (length()+1)-windowSize; i=i+stepSize){
-			GeneWindow subGene=trimGene(i, i+windowSize);
-			if(subGene!=null){
-				subGenes.add(subGene);
-			}
+		if (windowSize > length()){
+			subGenes.add((GeneWindow) this);
+		} else {
+			for(int i=start; i< (length()+1)-windowSize; i=i+stepSize){
+				GeneWindow subGene=trimGene(i, i+windowSize);
+				if(subGene!=null){
+					subGenes.add(subGene);
+				}
+		}
 		}
 		return subGenes;
 	}
@@ -671,7 +675,6 @@ public class Gene extends BasicAnnotation {
 			//logger.info("Exon: " + exon.toUCSC());
 			// If the exon is larger than the input window size
 			if(exon.getSize() > windowSize) {
-				logger.info("");
 				for(int i = exon.getStart(); i <= exon.getEnd() - windowSize; i++) {
 					GeneWindow subGene = new GeneWindow(new Gene(getChr(), i, i + windowSize));
 					subGene.addSourceAnnotation(this);
@@ -685,10 +688,7 @@ public class Gene extends BasicAnnotation {
 				//logger.info("Size: " + this.getSize() + " ExonSize: " + exon.getSize() + " " + i + " start: " + exon.getStart() + " end: " + exon.getEnd());
 				int relativeStart = getPositionAtReferenceCoordinate(i, true);
 				int size = relativeStart + windowSize;
-				logger.info("relStart: " + relativeStart);
-				logger.info("relStart+win: " + size + " getSize: " + this.getSize());
 				if(relativeStart + windowSize < this.getSize()) {
-					logger.info("if statement");
 					Gene exonGene =  new Gene(exon);
 					//GeneWindow subGene = this.trimAbsolute(i, i+windowSize);
 					GeneWindow subGene = this.trimGene(relativeStart, relativeStart + windowSize);

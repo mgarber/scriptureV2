@@ -10,16 +10,21 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
 
+import net.sf.picard.sam.BuildBamIndex;
+import net.sf.picard.sam.SortSam;
+import net.sf.samtools.SAMFileReader;
 import nextgen.core.annotation.Gene;
 import nextgen.core.job.Job;
 import nextgen.core.job.JobUtils;
 import nextgen.core.job.LSFJob;
+import nextgen.core.pipeline.Scheduler;
 import nextgen.core.readFilters.FirstOfPairFilter;
 import nextgen.core.readFilters.ProperPairFilter;
 import nextgen.core.readFilters.SecondOfPairFilter;
 import nextgen.core.writers.WigWriter;
 
 import org.apache.log4j.Logger;
+import org.ggf.drmaa.DrmaaException;
 
 import broad.pda.annotation.BEDFileParser;
 
@@ -30,6 +35,54 @@ import broad.pda.annotation.BEDFileParser;
 public class BamUtils {
 	
 	private static Logger logger = Logger.getLogger(BamUtils.class.getName());
+	
+	/**
+	 * Sort a bam file in coordinate order and write to a new file
+	 * @param input Input bam file
+	 * @param output Output sorted bam file
+	 */
+	public static void sortBam(String input, String output) {
+		sortBam(input, output, "coordinate");
+	}	
+	
+	/**
+	 * Sort a bam file and write to a new file
+	 * @param input Input bam file
+	 * @param output Output sorted bam file
+	 * @param sortOrder Sort order ("coordinate" or "queryname")
+	 */
+	public static void sortBam(String input, String output, String sortOrder) {
+		
+		logger.info("Sorting file " + input + ". Writing sorted bam to file " + output + ".");
+		
+		SAMFileReader reader = new SAMFileReader(new File(input));
+		String[] a = new String[3];
+		a[0] = "INPUT=" + input;
+		a[1] = "OUTPUT=" + output;
+		a[2] = "SORT_ORDER=" + sortOrder;
+		SortSam.main(a);
+		reader.close();
+
+	}
+
+	
+	/**
+	 * Index a bam file and write the index to a file
+	 * @param input Input bam file
+	 * @param output Output bam index file
+	 */
+	public static void indexBam(String input, String output) {
+		
+		logger.info("Indexing file " + input + ". Writing index to file " + output + ".");
+		
+		SAMFileReader reader = new SAMFileReader(new File(input));
+		String[] a = new String[2];
+		a[0] = "INPUT=" + input;
+		a[1] = "OUTPUT=" + output;
+		BuildBamIndex.main(a);
+		reader.close();
+
+	}
 	
 	/**
 	 * Write global genomic space stats for bam file and write bsub output to working directory
@@ -50,12 +103,12 @@ public class BamUtils {
 	 * @param bamFiles Bam files by sample name
 	 * @param chrSizeFile Chromosome size file for genomic space
 	 * @param alignmentGlobalStatsJar Jar file for alignment global stats
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Set of LSF job IDs
 	 * @throws IOException
 	 * @throws InterruptedException 
 	 */
-	public static Collection<Job> writeGenomicSpaceStats(Map<String, String> bamFiles, String chrSizeFile, String alignmentGlobalStatsJar, String scheduler) throws IOException, InterruptedException {
+	public static Collection<Job> writeGenomicSpaceStats(Map<String, String> bamFiles, String chrSizeFile, String alignmentGlobalStatsJar, Scheduler scheduler) throws IOException, InterruptedException {
 		return writeGenomicSpaceStats(bamFiles, chrSizeFile, alignmentGlobalStatsJar, ".", scheduler);
 	}
 	
@@ -66,12 +119,12 @@ public class BamUtils {
 	 * @param chrSizeFile Chromosome size file for genomic space
 	 * @param alignmentGlobalStatsJar Jar file for alignment global stats
 	 * @param bsubOutputDir Directory to write LSF output files to
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Set of LSF job IDs
 	 * @throws IOException
 	 * @throws InterruptedException 
 	 */
-	public static Job writeGenomicSpaceStats(String bamFile, String sampleName, String chrSizeFile, String alignmentGlobalStatsJar, String bsubOutputDir, String scheduler) throws IOException, InterruptedException {
+	public static Job writeGenomicSpaceStats(String bamFile, String sampleName, String chrSizeFile, String alignmentGlobalStatsJar, String bsubOutputDir, Scheduler scheduler) throws IOException, InterruptedException {
 		Map<String, String> bamFiles = new TreeMap<String, String>();
 		bamFiles.put(sampleName, bamFile);
 		return writeGenomicSpaceStats(bamFiles, chrSizeFile, alignmentGlobalStatsJar, bsubOutputDir, scheduler).iterator().next();
@@ -84,12 +137,12 @@ public class BamUtils {
 	 * @param chrSizeFile Chromosome size file for genomic space
 	 * @param alignmentGlobalStatsJar Jar file for alignment global stats
 	 * @param bsubOutputDir Directory to write LSF output files to
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Set of LSF job IDs
 	 * @throws IOException
 	 * @throws InterruptedException 
 	 */
-	public static Collection<Job> writeGenomicSpaceStats(Map<String, String> bamFiles, String chrSizeFile, String alignmentGlobalStatsJar, String bsubOutputDir, String scheduler) throws IOException, InterruptedException {
+	public static Collection<Job> writeGenomicSpaceStats(Map<String, String> bamFiles, String chrSizeFile, String alignmentGlobalStatsJar, String bsubOutputDir, Scheduler scheduler) throws IOException, InterruptedException {
 		logger.info("Calculating genomic space stats from chromosome sizes in " + chrSizeFile);
 		ArrayList<Job> jobs = new ArrayList<Job>();
 		for(String sampleName : bamFiles.keySet()) {
@@ -97,14 +150,16 @@ public class BamUtils {
 			logger.info("Calculating genomic space stats for sample " + sampleName + "...");
 			String cmmd = "java -jar -Xmx30g -Xms20g -Xmn10g " + alignmentGlobalStatsJar + " -b " + bamFile + " -g " + chrSizeFile;
 			logger.info("Running command: " + cmmd);
-			if(scheduler.equals("LSF")) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bsubOutputDir + "/compute_genomic_space_stats_" + jobID + ".bsub", "week", 32);		
 				jobs.add(job);
-			} else {
-				throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
 		}
 		return jobs;
@@ -130,12 +185,12 @@ public class BamUtils {
 	 * @param bamFiles Bam files by sample name
 	 * @param bedFile Bed annotation for transcriptome space
 	 * @param alignmentGlobalStatsJar Jar file for alignment global stats
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Set of LSF job IDs
 	 * @throws IOException
 	 * @throws InterruptedException 
 	 */
-	public static Collection<Job> writeTranscriptomeSpaceStats(Map<String, String> bamFiles, String bedFile, String alignmentGlobalStatsJar, String scheduler) throws IOException, InterruptedException {
+	public static Collection<Job> writeTranscriptomeSpaceStats(Map<String, String> bamFiles, String bedFile, String alignmentGlobalStatsJar, Scheduler scheduler) throws IOException, InterruptedException {
 		return writeTranscriptomeSpaceStats(bamFiles, bedFile, alignmentGlobalStatsJar, ".", scheduler);
 	}
 	
@@ -146,12 +201,12 @@ public class BamUtils {
 	 * @param bedFile Bed annotation for transcriptome space
 	 * @param alignmentGlobalStatsJar Jar file for alignment global stats
 	 * @param bsubOutDir Directory to write bsub output to
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Set of LSF job IDs
 	 * @throws IOException
 	 * @throws InterruptedException 
 	 */
-	public static Job writeTranscriptomeSpaceStats(String bamFile, String sampleName, String bedFile, String alignmentGlobalStatsJar, String bsubOutDir, String scheduler) throws IOException, InterruptedException {
+	public static Job writeTranscriptomeSpaceStats(String bamFile, String sampleName, String bedFile, String alignmentGlobalStatsJar, String bsubOutDir, Scheduler scheduler) throws IOException, InterruptedException {
 		Map<String, String> bamFiles = new TreeMap<String, String>();
 		bamFiles.put(sampleName, bamFile);
 		return writeTranscriptomeSpaceStats(bamFiles, bedFile, alignmentGlobalStatsJar, bsubOutDir, scheduler).iterator().next();
@@ -163,12 +218,12 @@ public class BamUtils {
 	 * @param bedFile Bed annotation for transcriptome space
 	 * @param alignmentGlobalStatsJar Jar file for alignment global stats
 	 * @param bsubOutDir Directory to write bsub output to
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @return Set of LSF job IDs
 	 * @throws IOException
 	 * @throws InterruptedException 
 	 */
-	public static Collection<Job> writeTranscriptomeSpaceStats(Map<String, String> bamFiles, String bedFile, String alignmentGlobalStatsJar, String bsubOutDir, String scheduler) throws IOException, InterruptedException {
+	public static Collection<Job> writeTranscriptomeSpaceStats(Map<String, String> bamFiles, String bedFile, String alignmentGlobalStatsJar, String bsubOutDir, Scheduler scheduler) throws IOException, InterruptedException {
 		logger.info("Calculating transcriptome space stats from annotation in " + bedFile);
 		ArrayList<Job> jobs = new ArrayList<Job>();
 		for(String sampleName : bamFiles.keySet()) {
@@ -176,14 +231,16 @@ public class BamUtils {
 			logger.info("Calculating transcriptome space stats for sample " + sampleName + "...");
 			String cmmd = "java -jar -Xmx30g -Xms20g -Xmn10g " + alignmentGlobalStatsJar + " -b " + bamFile + " -t " + bedFile;
 			logger.info("Running command: " + cmmd);
-			if(scheduler.equals("LSF")) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bsubOutDir + "/compute_transcriptome_space_stats_" + jobID + ".bsub", "week", 32);	
 				jobs.add(job);
-			} else {
-				throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
 		}
 		return jobs;
@@ -195,11 +252,13 @@ public class BamUtils {
 	 * @param sampleName Sample name
 	 * @param assemblyFasta Fasta file of assembly
 	 * @param igvtoolsExecutable Igvtools executable file
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void makeTdfs(String bamFile, String sampleName, String assemblyFasta, String igvtoolsExecutable) throws IOException, InterruptedException {
-		makeTdfs(bamFile, sampleName, ".", assemblyFasta, igvtoolsExecutable);
+	public static void makeTdfs(String bamFile, String sampleName, String assemblyFasta, String igvtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+		makeTdfs(bamFile, sampleName, ".", assemblyFasta, igvtoolsExecutable, scheduler);
 	}
 	
 	/**
@@ -207,11 +266,12 @@ public class BamUtils {
 	 * @param bamFilesBySampleName Bam file name by sample name
 	 * @param assemblyFasta Fasta file of assembly
 	 * @param igvtoolsExecutable Igvtools executable file
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void makeTdfs(Map<String, String> bamFilesBySampleName, String assemblyFasta, String igvtoolsExecutable, String scheduler) throws IOException, InterruptedException {
+	public static void makeTdfs(Map<String, String> bamFilesBySampleName, String assemblyFasta, String igvtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		makeTdfs(bamFilesBySampleName, ".", assemblyFasta, igvtoolsExecutable, scheduler);
 	}
 	
@@ -222,13 +282,15 @@ public class BamUtils {
 	 * @param bsubOutDir Directory to write bsub output to
 	 * @param assemblyFasta Fasta file of assembly
 	 * @param igvtoolsExecutable Igvtools executable file
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void makeTdfs(String bamFile, String sampleName, String bsubOutDir, String assemblyFasta, String igvtoolsExecutable) throws IOException, InterruptedException {
+	public static void makeTdfs(String bamFile, String sampleName, String bsubOutDir, String assemblyFasta, String igvtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		Map<String, String> bamFiles = new TreeMap<String, String>();
 		bamFiles.put(sampleName, bamFile);
-		makeTdfs(bamFiles, bsubOutDir, assemblyFasta, igvtoolsExecutable);
+		makeTdfs(bamFiles, bsubOutDir, assemblyFasta, igvtoolsExecutable, scheduler);
 	}
 	
 	/**
@@ -237,11 +299,12 @@ public class BamUtils {
 	 * @param bsubOutDir Directory to write bsub output to
 	 * @param assemblyFasta Fasta file of assembly
 	 * @param igvtoolsExecutable Igvtools executable file
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void makeTdfs(Map<String, String> bamFilesBySampleName, String bsubOutDir, String assemblyFasta, String igvtoolsExecutable, String scheduler) throws IOException, InterruptedException {
+	public static void makeTdfs(Map<String, String> bamFilesBySampleName, String bsubOutDir, String assemblyFasta, String igvtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		ArrayList<Job> tdfJobs = new ArrayList<Job>();
 		Map<String, String> outTdf = new TreeMap<String, String>();
 		for(String sample : bamFilesBySampleName.keySet()) {
@@ -257,15 +320,17 @@ public class BamUtils {
 			// Use igvtools count
 			String cmmd = igvtoolsExecutable + " count -w 3 " + bam + " " + tdf + " " + assemblyFasta;
 			logger.info("Running igvtools command: " + cmmd);
-			if(scheduler.equals("LSF")) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bsubOutDir + "/make_tdf_" + jobID + ".bsub", "hour", 1);
 				job.submit();
 				tdfJobs.add(job);
-			} else {
-				throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
 		}
 		if(tdfJobs.isEmpty()) return;
@@ -300,11 +365,12 @@ public class BamUtils {
 	 * @param bamFile Bam file to write
 	 * @param finalBamFile Final bam file; skip if already exists
 	 * @param samtools Samtools executables
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void samToBam(String sampleName, String samFile, String bamFile, String finalBamFile, String samtools, String scheduler) throws IOException, InterruptedException {
+	public static void samToBam(String sampleName, String samFile, String bamFile, String finalBamFile, String samtools, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		samToBam(sampleName, samFile, bamFile, finalBamFile, ".", samtools, scheduler);
 	}
 	
@@ -314,11 +380,12 @@ public class BamUtils {
 	 * @param bamFiles The bam files to write, by sample name
 	 * @param bsubOutputDirs The directories to write bsub output to, by sample name
 	 * @param samtools Samtools executables
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void samToBam(Map<String, String> samFiles, Map<String, String> bamFiles, Map<String, String> bsubOutputDirs, String samtools, String scheduler) throws IOException, InterruptedException {
+	public static void samToBam(Map<String, String> samFiles, Map<String, String> bamFiles, Map<String, String> bsubOutputDirs, String samtools, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		samToBam(samFiles, bamFiles, null, bsubOutputDirs, samtools, scheduler);
 	}
 	
@@ -330,11 +397,12 @@ public class BamUtils {
 	 * @param finalBamFile Final bam file; skip if already exists
 	 * @param bsubOutputDir Directory to write bsub output to
 	 * @param samtools Samtools executables
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void samToBam(String sampleName, String samFile, String bamFile, String finalBamFile, String bsubOutputDir, String samtools, String scheduler) throws IOException, InterruptedException {
+	public static void samToBam(String sampleName, String samFile, String bamFile, String finalBamFile, String bsubOutputDir, String samtools, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		Map<String, String> bamFiles = new TreeMap<String, String>();
 		bamFiles.put(sampleName, bamFile);
 		Map<String, String> samFiles = new TreeMap<String, String>();
@@ -354,11 +422,12 @@ public class BamUtils {
 	 * @param finalBamFiles Final bam files; skip if they already exist
 	 * @param bsubOutputDirs The directories to write bsub output to, by sample name
 	 * @param samtools Samtools executables
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void samToBam(Map<String, String> samFiles, Map<String, String> bamFiles, Map<String, String> finalBamFiles, Map<String, String> bsubOutputDirs, String samtools, String scheduler) throws IOException, InterruptedException {
+	public static void samToBam(Map<String, String> samFiles, Map<String, String> bamFiles, Map<String, String> finalBamFiles, Map<String, String> bsubOutputDirs, String samtools, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		ArrayList<Job> cbJobs = new ArrayList<Job>();
 		for(String sample : samFiles.keySet()) {
 			File bam = new File(bamFiles.get(sample));
@@ -379,13 +448,15 @@ public class BamUtils {
 			// Use samtools view
 			String cmmd = samtools + " view -Sb -o " + bamFiles.get(sample) + " " + samFiles.get(sample);
 			logger.info("Running Samtools command: " + cmmd);
-			if(scheduler.equals("LSF")) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				logger.info("LSF job ID is " + jobID + ".");
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bsubOutputDirs.get(sample) + "/sam_to_bam_" + jobID + ".bsub", "hour", 1);
 				cbJobs.add(job);
-			} else {
-				throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
 		}
 		// Wait for jobs to finish
@@ -400,11 +471,12 @@ public class BamUtils {
 	 * @param sortedBam Sorted bam file to write
 	 * @param finalBam Final bam file; skip if already exists
 	 * @param picardJarDir Directory containing Picard jar files
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void sortBamFile(String sampleName, String unsortedBam, String sortedBam, String finalBam, String picardJarDir, String scheduler) throws IOException, InterruptedException {
+	public static void sortBamFile(String sampleName, String unsortedBam, String sortedBam, String finalBam, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		sortBamFile(sampleName, unsortedBam, sortedBam, ".", finalBam, picardJarDir, scheduler);
 	}
 	
@@ -414,11 +486,12 @@ public class BamUtils {
 	 * @param sortedBams The sorted bam files to write, by sample name
 	 * @param finalBams Final bam files; skip if they already exist
 	 * @param picardJarDir Directory containing Picard jar files
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, Map<String, String> finalBams, String picardJarDir, String scheduler) throws IOException, InterruptedException {
+	public static void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, Map<String, String> finalBams, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		sortBamFiles(unsortedBams, sortedBams, ".", finalBams, picardJarDir, scheduler);
 	}
 	
@@ -429,11 +502,12 @@ public class BamUtils {
 	 * @param bsubOutputDir Directory to write all bsub output files to
 	 * @param finalBams Final bam files; skip if they already exist
 	 * @param picardJarDir Directory containing Picard jar files
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, String bsubOutputDir, Map<String, String> finalBams, String picardJarDir, String scheduler) throws IOException, InterruptedException {
+	public static void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, String bsubOutputDir, Map<String, String> finalBams, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		Map<String, String> outDirs = new TreeMap<String, String>();
 		for(String sample : unsortedBams.keySet()) {
 			outDirs.put(sample, bsubOutputDir);
@@ -449,11 +523,12 @@ public class BamUtils {
 	 * @param bsubOutputDir Directory to write bsub output to
 	 * @param finalBam Final bam file; skip if already exists
 	 * @param picardJarDir Directory containing Picard jar files
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void sortBamFile(String sampleName, String unsortedBam, String sortedBam, String bsubOutputDir, String finalBam, String picardJarDir, String scheduler) throws IOException, InterruptedException {
+	public static void sortBamFile(String sampleName, String unsortedBam, String sortedBam, String bsubOutputDir, String finalBam, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		Map<String, String> unsortedBams = new TreeMap<String, String>();
 		unsortedBams.put(sampleName, unsortedBam);
 		Map<String, String> sortedBams = new TreeMap<String, String>();
@@ -473,11 +548,12 @@ public class BamUtils {
 	 * @param bsubOutputDirs The directories to write bsub output to, by sample name
 	 * @param finalBams Final bam files; skip if they already exist
 	 * @param picardJarDir Directory containing Picard jar files
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, Map<String, String> bsubOutputDirs, Map<String, String> finalBams, String picardJarDir, String scheduler) throws IOException, InterruptedException {
+	public static void sortBamFiles(Map<String, String> unsortedBams, Map<String, String> sortedBams, Map<String, String> bsubOutputDirs, Map<String, String> finalBams, String picardJarDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		ArrayList<Job> sbJobs = new ArrayList<Job>();
 		for(String sample : unsortedBams.keySet()) {
 			File finalBam = new File(finalBams.get(sample));
@@ -488,14 +564,16 @@ public class BamUtils {
 			// Use Picard program SortSam
 			String cmmd = "java -jar " + picardJarDir + "/SortSam.jar INPUT=" + unsortedBams.get(sample) + " OUTPUT=" + sortedBams.get(sample) + " SORT_ORDER=coordinate";
 			logger.info("Running Picard command: " + cmmd);
-			if(scheduler.equals("LSF")) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				logger.info("LSF job ID is " + jobID + ".");
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bsubOutputDirs.get(sample) + "/sort_bam_" + jobID + ".bsub", "hour", 4);
 				job.submit();
 				sbJobs.add(job);
-			} else {
-				throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
 		}
 		// Wait for jobs to finish
@@ -512,11 +590,12 @@ public class BamUtils {
 	 * @param refFasta Reference fasta file
 	 * @param wigToBigWigExecutable WigToBigWig executable file
 	 * @param wigWriterJar WigWriter jar file
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void writeWigPositionCount(String bamFile, String sampleName, String bamDir, String geneBedFile, String refFasta, String wigToBigWigExecutable, String wigWriterJar, String scheduler) throws IOException, InterruptedException {
+	public static void writeWigPositionCount(String bamFile, String sampleName, String bamDir, String geneBedFile, String refFasta, String wigToBigWigExecutable, String wigWriterJar, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		Map<String, String> bamFiles = new TreeMap<String, String>();
 		bamFiles.put(sampleName, bamFile);
 		writeWigPositionCount(bamFiles, bamDir, geneBedFile, refFasta, wigToBigWigExecutable, wigWriterJar, scheduler);
@@ -530,11 +609,12 @@ public class BamUtils {
 	 * @param refFasta Reference fasta file
 	 * @param wigToBigWigExecutable WigToBigWig executable file
 	 * @param wigWriterJar WigWriter jar file
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void writeWigPositionCount(Map<String, String> bamFiles, String bamDir, String geneBedFile, String refFasta, String wigToBigWigExecutable, String wigWriterJar, String scheduler) throws IOException, InterruptedException {
+	public static void writeWigPositionCount(Map<String, String> bamFiles, String bamDir, String geneBedFile, String refFasta, String wigToBigWigExecutable, String wigWriterJar, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		Map<String, Collection<Gene>> genes = BEDFileParser.loadDataByChr(new File(geneBedFile));
 		Collection<String> chrNames = genes.keySet();
 		Map<String, Map<String, String>> normalizedWigFiles = new TreeMap<String, Map<String, String>>();
@@ -580,15 +660,17 @@ public class BamUtils {
 					logger.info("Writing wig file " + normalizedFile + "...");
 					String cmmd = "java -jar -Xmx15g -Xms10g -Xmn5g " + wigWriterJar + " -b " + bamFile + " -g " + geneBedFile + " -n true -o " + prefix + " -chr " + chr;
 					logger.info("Running command: " + cmmd);
-					if(scheduler.equals("LSF")) {
+					switch(scheduler) {
+					case LSF:
 						String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 						logger.info("LSF job ID is " + jobID + ".");
 						// Submit job
 						LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bamDir + "/write_wig_normalized_" + sample + "_" + chr + "_" + jobID + ".bsub", "week", 16);
 						job.submit();
 						wigJobs.add(job);
-					} else {
-						throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
+						break;
+					default:
+						throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 					}
 				}
 			}
@@ -607,15 +689,17 @@ public class BamUtils {
 					logger.info("Writing wig file " + unnormalizedFile + "...");
 					String cmmd = "java -jar -Xmx15g -Xms10g -Xmn5g " + wigWriterJar + " -b " + bamFile + " -g " + geneBedFile + " -n false -o " + prefix + " -chr " + chr;
 					logger.info("Running command: " + cmmd);
-					if(scheduler.equals("LSF")) {
+					switch(scheduler) {
+					case LSF:
 						String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 						logger.info("LSF job ID is " + jobID + ".");
 						// Submit job
 						LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bamDir + "/write_wig_unnormalized_" + sample + "_" + chr + "_" + jobID + ".bsub", "week", 16);
 						job.submit();
 						wigJobs.add(job);
-					} else {
-						throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
+						break;
+					default:
+						throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 					}
 				}
 			}
@@ -678,14 +762,16 @@ public class BamUtils {
 			logger.info("");
 			logger.info("Making bigwig file for wig file " + wig + ".");
 			logger.info("Running UCSC command " + cmmd);
-			if(scheduler.equals("LSF")) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				logger.info("LSF job ID is " + jobID + ".");
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_normalized_" + jobID + ".bsub", "hour", 4);
 				job.submit();
 				bigwigJobs.add(job);
-			} else {
-				throw new IllegalArgumentException("Scheduler " + scheduler + " is not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " is not supported.");
 			}
 		}
 		// Submit jobs for unnormalized files
@@ -701,14 +787,16 @@ public class BamUtils {
 			logger.info("");
 			logger.info("Making bigwig file for wig file " + wig + ".");
 			logger.info("Running UCSC command " + cmmd);
-			if(scheduler.equals("LSF")) {
+			switch(scheduler) {
+			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				logger.info("LSF job ID is " + jobID + ".");
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_unnormalized_" + jobID + ".bsub", "hour", 4);
 				job.submit();
 				bigwigJobs.add(job);
-			} else {
-				throw new IllegalArgumentException("Scheduler " + scheduler + " is not supported.");
+				break;
+			default:
+				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " is not supported.");
 			}
 		}
 		logger.info("Waiting for wigToBigWig jobs to finish...");
@@ -724,11 +812,12 @@ public class BamUtils {
 	 * @param refFasta Fasta file of sequences these bam files were aligned against
 	 * @param geneBedFile Bed file of genes to count reads in or null if using genomic space
 	 * @param wigToBigWigExecutable WigToBigWig executable file
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void writeWigFragmentEndsAndMidpoints(String sampleName, String bamFile, boolean pairedData, String bamDir, String refFasta, String geneBedFile, String wigToBigWigExecutable, String scheduler) throws IOException, InterruptedException {
+	public static void writeWigFragmentEndsAndMidpoints(String sampleName, String bamFile, boolean pairedData, String bamDir, String refFasta, String geneBedFile, String wigToBigWigExecutable, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		Map<String, String> bamFiles = new TreeMap<String, String>();
 		bamFiles.put(sampleName, bamFile);
 		Map<String, Boolean> paired = new TreeMap<String, Boolean>();
@@ -745,11 +834,12 @@ public class BamUtils {
 	 * @param refFasta Fasta file of sequences these bam files were aligned against
 	 * @param geneBedFile Bed file of genes to count reads in or null if using genomic space
 	 * @param wigToBigWigExecutable WigToBigWig executable file
-	 * @param scheduler Name of scheduler e.g. "LSF" or "SGE"
+	 * @param scheduler Scheduler
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void writeWigFragmentEndsAndMidpoints(Map<String, String> bamFiles, Map<String, Boolean> pairedData, String bamDir, String refFasta, String geneBedFile, String wigToBigWigExecutable, String scheduler) throws IOException, InterruptedException {
+	public static void writeWigFragmentEndsAndMidpoints(Map<String, String> bamFiles, Map<String, Boolean> pairedData, String bamDir, String refFasta, String geneBedFile, String wigToBigWigExecutable, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
 		
 		Map<String, String> read1endWig = new TreeMap<String, String>();
 		Map<String, String> read2endWig = new TreeMap<String, String>();
@@ -801,13 +891,15 @@ public class BamUtils {
 				logger.info("");
 				logger.info("Making bigwig file for wig file " + wig1 + ".");
 				logger.info("Running UCSC command " + cmmd);
-				if(scheduler.equals("LSF")) {
+				switch(scheduler) {
+				case LSF:
 					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 					logger.info("LSF job ID is " + jobID + ".");
 					LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
 					bigwigJobs.add(job);
-				} else {
-					throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
+					break;
+				default:
+					throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 				}
 			}
 			
@@ -834,14 +926,16 @@ public class BamUtils {
 				logger.info("");
 				logger.info("Making bigwig file for wig file " + midpointWigFileName + ".");
 				logger.info("Running UCSC command " + cmmd);
-				if(scheduler.equals("LSF")) {
+				switch(scheduler) {
+				case LSF:
 					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 					logger.info("LSF job ID is " + jobID + ".");
 					LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
 					job.submit();
 					bigwigJobs.add(job);
-				} else {
-					throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
+					break;
+				default:
+					throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 				}
 			}
 
@@ -871,14 +965,16 @@ public class BamUtils {
 					logger.info("");
 					logger.info("Making bigwig file for wig file " + wig2 + ".");
 					logger.info("Running UCSC command " + cmmd);
-					if(scheduler.equals("LSF")) {
+					switch(scheduler) {
+					case LSF:
 						String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 						logger.info("LSF job ID is " + jobID + ".");
 						LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
 						job.submit();
 						bigwigJobs.add(job);
-					} else {
-						throw new IllegalArgumentException("Scheduler " + scheduler + " not supported.");
+						break;
+					default:
+						throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 					}
 				}
 			}

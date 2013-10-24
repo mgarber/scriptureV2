@@ -5,6 +5,7 @@ import broad.pda.seq.segmentation.AlignmentDataModelStats;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;
+import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.model.AlignmentModel;
 
@@ -34,6 +35,7 @@ public class ScanStatisticScore extends CountScore {
 			setScanPvalue(ScanStatistics.calculatePVal(new Double(getCount()).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(annotation), getGlobalLength()));
 		} catch(Exception e) {
 			logger.info("Could not set scan P value for annotation " + annotation.getName());
+			logger.info(e.toString());
 		}
 		getAnnotation().setScore(getScanPvalue());
 		
@@ -51,6 +53,21 @@ public class ScanStatisticScore extends CountScore {
 		setGlobalLength(model.getGlobalLength());
 		try {
 			setScanPvalue(ScanStatistics.calculatePVal(new Double(getCount()).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(annotation), model.getGlobalLength()));
+		} catch(Exception e) {
+			logger.info("Could not set scan P value for annotation " + annotation.getName());
+		}
+		getAnnotation().setScore(getScanPvalue());
+	}
+	
+	public ScanStatisticScore(MultiScore other) {
+		super(other);
+		coordSpace = other.getSampleCoordSpace();
+		setRegionLength(other.annotation.getSize());
+		setGlobalLength(other.getRegionLength());
+		setRegionTotal(other.getSampleCount());
+		setTotal(other.getSampleRegionCount());
+		try {
+			refreshScanPvalue(other.sampleModel);
 		} catch(Exception e) {
 			logger.info("Could not set scan P value for annotation " + annotation.getName());
 		}
@@ -138,8 +155,17 @@ public class ScanStatisticScore extends CountScore {
 	public void setScanPvalue(double scanPvalue) {
 		this.scanPvalue = scanPvalue;
 	}
+	
+	public void setPvalue(double scanPvalue) {
+		this.scanPvalue = scanPvalue;
+	}
 
 	public double getScanPvalue() {
+		return scanPvalue;
+	}
+	
+	@Override
+	public double getPvalue() {
 		return scanPvalue;
 	}
 
@@ -163,17 +189,26 @@ public class ScanStatisticScore extends CountScore {
 	 * [7] = region length  
 	 */
 	public double[] getScores(){
-		double[] scores = new double[9];
+		double[] scores = new double[10];
 		scores[0] = getCount();
 		scores[1] = getRPKM();
 		scores[2] = getRPK();
 		scores[3] = getRegionTotal();
 		scores[4] = getTotal();
-		scores[5] = getScanPvalue();
-		scores[6] = getGlobalLambda();
-		scores[7] = getLocalLambda();
-		scores[8] = getRegionLength();
+		scores[5] = getAnnotation().length();
+		scores[6] = getScanPvalue();
+		scores[7] = getGlobalLambda();
+		scores[8] = getLocalLambda();
+		scores[9] = getRegionLength();
 		return scores;
+	}
+	
+	public void getDebugInfo(String prefix) {
+		logger.debug(prefix + annotation.toBED());
+		logger.debug(prefix + " global_length="+getGlobalLength()+" global_count="+getTotal());
+		logger.debug(prefix + " global_lambda="+getGlobalLambda());
+		logger.debug(prefix + " window_size"+getCoordinateSpace().getSize(new Gene(annotation))+" window_count="+getCount());
+		logger.debug(prefix + " pval="+getScanPvalue());
 	}
 	
 	public String toString() {

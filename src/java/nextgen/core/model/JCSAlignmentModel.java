@@ -21,6 +21,8 @@ import broad.core.datastructures.IntervalTree.Node;
 import broad.core.datastructures.JCSCache;
 //import broad.core.datastructures.CachedIntervalTree.Node;
 import broad.core.math.EmpiricalDistribution;
+import broad.core.util.CLUtil;
+import broad.core.util.CLUtil.ArgumentMap;
 import broad.pda.annotation.BEDFileParser;
 import broad.pda.datastructures.Alignments;
 
@@ -43,10 +45,12 @@ import nextgen.core.readFilters.SameOrientationFilter;
 import nextgen.core.readFilters.SplicedReadFilter;
 import nextgen.core.readers.PairedEndReader;
 import nextgen.core.scripture.BuildScriptureCoordinateSpace;
+import nextgen.core.scripture.ScriptureScorer;
 import nextgen.core.writers.PairedEndWriter;
 import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.exception.RuntimeIOException;
 import org.apache.commons.collections15.Predicate;
+import org.broad.igv.Globals;
 
 import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.model.score.WindowProcessor;
@@ -836,12 +840,17 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 
 		private AlignmentCount getNext(){
 			AlignmentCount alignment=iter.next();
-			if(isValid(alignment.getRead())){
-				if(this.hasWindow) {
-					boolean contained=overlapsWindow(alignment.getRead(), regionCS, fullyContained);
-					if(contained){return alignment;}
+			if(alignment==null){
+				logger.info("alignment is null");
+			}
+			else{
+				if(isValid(alignment.getRead())){
+					if(this.hasWindow) {
+						boolean contained=overlapsWindow(alignment.getRead(), regionCS, fullyContained);
+						if(contained){return alignment;}
+					}
+					else {return alignment;}
 				}
-				else {return alignment;}
 			}
 			return null;
 		}
@@ -1173,7 +1182,9 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		if (!hasGlobalStats) {
 			computeGlobalStats();
 		}
-		if(!containsReference(refName)) return 0.0;
+		if(!containsReference(refName)){
+			return 0.0;
+		}		
 		return refSequenceCounts.get(refName) / getRefSequenceLength(refName);
 	}
 	
@@ -1181,6 +1192,7 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	private SortedMap<String, Double> getReferenceSequenceCounts() {
 		SortedMap<String, Double> counts = new TreeMap<String, Double>();
 		for (String refName : coordinateSpace.getReferenceNames()) {
+			//logger.info("Coordinate space name: '"+refName+"'");
 			counts.put(refName, getReferenceSequenceCount(refName));
 		}
 		return counts;
@@ -1189,8 +1201,11 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	
 	private double getReferenceSequenceCount(String refName) {
 		Annotation refRegion = coordinateSpace.getReferenceAnnotation(refName);
+		//logger.info("In Alignment model getReferenceSequenceCounts Calculating for : "+refRegion.toUCSC());
+		//logger.info("refRegion size = "+refRegion.size());
 		CloseableIterator<AlignmentCount> itr = getOverlappingReadCounts(refRegion, false);
 		double count = getCount(itr);
+		//logger.info("Counts = "+count);
 		return count;
 	}
 
@@ -1431,5 +1446,37 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		double result = getCount(iter, excluded);
 		return result;
 	}
+	
+	public static void main(String[] args)throws IOException{
+		 
+		Globals.setHeadless(true);
+		
+		ArgumentMap argMap = CLUtil.getParameters(args,usage,"score");
+		//Transcription strand
+				TranscriptionRead strand = TranscriptionRead.UNSTRANDED;
+				if(argMap.get("strand").equalsIgnoreCase("first")){
+					strand = TranscriptionRead.FIRST_OF_PAIR;
+				}
+				else if(argMap.get("strand").equalsIgnoreCase("second")){
+					strand = TranscriptionRead.SECOND_OF_PAIR;
+				}
+				else
+					logger.info("no strand");
+		JCSAlignmentModel model = new JCSAlignmentModel(argMap.getInput(), null, new ArrayList<Predicate<Alignment>>(), !argMap.isPresent("singleEnd"),strand,true);
+		model.computeGlobalStats();
+		
+	}
+	static final String usage = "Usage: GlobalStats -task score "+
+			"\n**************************************************************"+
+			"\n\t\tArguments"+
+			"\n**************************************************************"+
+			"\n\n\t\t-in <Single bam file> "+
+			"\n\t\t-strand <VALUES: first, second, unstranded. Specifies the mate that is in the direction of transcription DEFAULT: Unstranded> "+
+
+			"\n\n**************************************************************"+
+			"\n\t\tOptional Arguments"+
+			"\n**************************************************************"+
+			"\n\t\t-singleEnd Only if data is single end"+
+			"\n";
 	
 }

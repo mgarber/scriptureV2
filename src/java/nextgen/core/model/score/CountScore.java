@@ -106,8 +106,9 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 		return annotation.toBED() + "\t" + 
 				getCount() + "\t" + 
 				getRPKM() + "\t" + 
-				getRegionTotal() + "\t" + 
-				getTotal();
+				getRegionTotal() + "\t" +
+				getTotal() + "\t" +
+				getAnnotation().length();
 	}
 	
 	/**
@@ -233,6 +234,11 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 	}
 
 
-	
+	public void refreshPvalue() {}
+
+	public double getPvalue() {
+		// TODO Auto-generated method stub
+		return 1;
+	}
 
 }

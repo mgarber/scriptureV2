@@ -39,8 +39,8 @@ public abstract class TranscriptomeCommandLineProgram extends GenomeCommandLineP
 	
 	@Override
 	protected void loadCoordinateSpace() {
-		super.loadCoordinateSpace();
 		try {
+			super.loadCoordinateSpace();
 			ts = new TranscriptomeSpace(BEDFileParser.loadDataByChr(GENE_BED));
 		} catch (IOException e) {
 			throw new RuntimeException("Encountered IOException " + e);
@@ -48,7 +48,7 @@ public abstract class TranscriptomeCommandLineProgram extends GenomeCommandLineP
 	}
 	
 	protected GenomicSpace getGenomicSpace() {
-		return getCoordinateSpace();
+		return (GenomicSpace) getCoordinateSpace();
 	}
 	
 	protected TranscriptomeSpace getTranscriptomeSpace() {

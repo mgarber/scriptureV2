@@ -140,7 +140,11 @@ public class TranscriptomeSpace implements CoordinateSpace{
 	
 	@Override
 	public Iterator<? extends Window> getWindowIterator(Annotation window, int windowSize, int overlap) {
-		return getWindowIterator(windowSize, window.getChr(), window.getStart(), window.getEnd(), overlap);
+		//return getWindowIterator(windowSize, window.getChr(), window.getStart(), window.getEnd(), overlap); // WRONG - INCLUDES OTHER OVERLAPPING ANNOTATIONS
+		GeneWindow geneWindow = new GeneWindow(window);
+		Collection<GeneWindow> baseGenes = new ArrayList<GeneWindow>();
+		baseGenes.add(geneWindow);
+		return new WindowIterator(baseGenes, windowSize, overlap);
 	}
 
 	/**
@@ -224,7 +228,11 @@ public class TranscriptomeSpace implements CoordinateSpace{
 			}
 			//else, see if there are still genes
 			else if(genes.hasNext()){
-				return true;
+				Gene nextGene=genes.next();
+				this.currentGeneWindows=makeWindows(nextGene, this.windowSize, this.step);
+				if(currentGeneWindows!=null && currentGeneWindows.hasNext()){
+					return true;
+				}
 			}
 			return false;
 		}
@@ -546,6 +554,14 @@ protected class GeneTree {
 			return null;
 		}
 	}
+	
+	@Override
+	public Annotation getEntireChromosome(String chrName) {
+		if(!chrNames.contains(chrName)) {
+			throw new IllegalArgumentException("Chromosome name " + chrName + " not recognized.");
+		}
+		return geneTree.getGenesByName().get(chrName);
+	}
 
 	@Override
 	public int getSize(Annotation region) {
@@ -591,6 +607,16 @@ protected class GeneTree {
 	@Override
 	public Collection<String> getChromosomeNames() {
 		return chrNames;
+	}
+	
+	@Override
+	public boolean isValidWindow(Annotation a) {
+		if(!chrNames.contains(a.getChr())){
+			logger.error(a.getChr()+" is not in the genomic space");
+			return false;
+		} else {
+			return true;
+		}
 	}
 	
 }

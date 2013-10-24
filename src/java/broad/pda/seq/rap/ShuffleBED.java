@@ -56,7 +56,8 @@ public class ShuffleBED extends GenomeCommandLineProgram {
 			ShortBEDReader peakReader = new ShortBEDReader(INPUT.getAbsolutePath());
 			AnnotationList<ShortBED> peaks = new AnnotationList<ShortBED>(getCoordinateSpace(), peakReader.getAnnotationList()).getOverlappingAnnotationList(regions, true);
 			
-			shuffleAndWriteAnnotations(regions, getCoordinateSpace(), peaks, OUTPUT, PERMUTATIONS);
+			// Cast to genomic space
+			shuffleAndWriteAnnotations(regions, (GenomicSpace) getCoordinateSpace(), peaks, OUTPUT, PERMUTATIONS);
 		} catch (Exception e) {
 			log.error(e);
 		}

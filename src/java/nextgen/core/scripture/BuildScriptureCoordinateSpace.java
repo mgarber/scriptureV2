@@ -145,11 +145,11 @@ public class BuildScriptureCoordinateSpace {
 		}*/
 		
 		try {
-			FileWriter writer=new FileWriter(outName+".pairedGenes.bed");
-			FileWriter writer2=new FileWriter(outName+".pairedCounts.txt");
-			Map<String, Collection<Gene>> genes = setFPKMScores(rtrn,writer,writer2);
-			writer.close();
-			writer2.close();
+//			FileWriter writer=new FileWriter(outName+".pairedGenes.bed");
+//			FileWriter writer2=new FileWriter(outName+".pairedCounts.txt");
+			Map<String, Collection<Gene>> genes = setFPKMScores(rtrn);//,writer,writer2);
+//			writer.close();
+//			writer2.close();
 
 //			write(outName+".10final.paths.bed",genes);
 			
@@ -204,11 +204,11 @@ public class BuildScriptureCoordinateSpace {
 		}
 */		
 		try {
-			FileWriter writer=new FileWriter(outName+".pairedGenes.bed");
-			FileWriter writer2=new FileWriter(outName+".pairedCounts.txt");
-			Map<String, Collection<Gene>> genes = setFPKMScores(rtrn,writer,writer2);
-			writer.close();
-			writer2.close();
+//			FileWriter writer=new FileWriter(outName+".pairedGenes.bed");
+//			FileWriter writer2=new FileWriter(outName+".pairedCounts.txt");
+			Map<String, Collection<Gene>> genes = setFPKMScores(rtrn);//,writer,writer2);
+//			writer.close();
+//			writer2.close();
 
 //			write(outName+".10final.paths.bed",genes);
 			
@@ -2548,21 +2548,21 @@ public class BuildScriptureCoordinateSpace {
 	 * @return
 	 * @throws IOException 
 	 */
-	private Map<String,Collection<Gene>> setFPKMScores(Map<String,Collection<Gene>> geneMap,FileWriter writer,FileWriter writer2){
+	private Map<String,Collection<Gene>> setFPKMScores(Map<String,Collection<Gene>> geneMap){//,FileWriter writer,FileWriter writer2){
 		
 		Map<String,Collection<Gene>> filteredGenes = new HashMap<String,Collection<Gene>>();
 		String name = "gene.v2.1_";
 		for(String chr:geneMap.keySet()){
 			//logger.debug("For chromosome "+chr+" graph gave "+geneMap.get(chr).size()+" genes");
 			Collection<Gene> filtered = new ArrayList<Gene>();
-			try{
+//			try{
 			//MAKE A MAP OF GENE TO ISOFORMS
 			Map<Gene,Set<Gene>> isoformMap = getIsoformMap(geneMap.get(chr));
 			Map<Gene,Double> geneToPairedCount = new HashMap<Gene,Double>();
 			
 			//For each gene
 			for(Gene gene:isoformMap.keySet()){
-				writer2.write("Gene:\n");
+//				writer2.write("Gene:\n");
 				//logger.debug("Starting new gene");
 				//For each transcript
 				for(Gene isoform:isoformMap.get(gene)){
@@ -2585,8 +2585,8 @@ public class BuildScriptureCoordinateSpace {
 						isoform.setBedScore(fields[3]);
 						isoform.setExtraFields(fields);
 						counter++;
-						writer.write(isoform+"\n");
-						writer2.write(isoform.toBED()+"\t"+fields[0]+"\n");
+//						writer.write(isoform+"\n");
+//						writer2.write(isoform.toBED()+"\t"+fields[0]+"\n");
 						geneToPairedCount.put(isoform, fields[0]);
 						filtered.add(isoform);
 					}
@@ -2595,9 +2595,9 @@ public class BuildScriptureCoordinateSpace {
 					}
 				}
 			}
-			} catch (IOException e) {
+/*			} catch (IOException e) {
 				e.printStackTrace();
-			}
+			}*/
 			logger.info("After applyPairedEndFilter "+filtered.size()+" genes");
 			filteredGenes.put(chr, filtered);
 		}

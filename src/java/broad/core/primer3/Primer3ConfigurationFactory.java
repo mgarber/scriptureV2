@@ -142,7 +142,7 @@ public class Primer3ConfigurationFactory {
      * @param maxProductSize Maximum product size
      * @return The Primer3 configuration
      */
-    public static Primer3Configuration getPlasmidDeletionConfiguration(int optimalProductSize, int minProductSize, int maxProductSize) {
+    public static Primer3Configuration getDeletionPlasmidConfiguration(int optimalProductSize, int minProductSize, int maxProductSize) {
         Primer3Configuration config = new Primer3Configuration();
         config.optimalMeltingTemp = 60.0;
         config.maxMeltingTemp = 64.0;
@@ -619,7 +619,7 @@ public class Primer3ConfigurationFactory {
         config.underLengthPenaltyWeight=0.01;
         config.underMeltingTempPenaltyWeight=0.05;
         config.overMeltingTempPenaltyWeight=0.05;
-        config.missprimingLibraryFile=HUMAN_LONG_REP;
+        //config.missprimingLibraryFile=HUMAN_LONG_REP;
         
         return config;
 	}
@@ -654,7 +654,7 @@ public class Primer3ConfigurationFactory {
         config.underLengthPenaltyWeight=0;
         config.underMeltingTempPenaltyWeight=0.05;
         config.overMeltingTempPenaltyWeight=0.05;
-        config.missprimingLibraryFile=HUMAN_LONG_REP;
+        //config.missprimingLibraryFile=HUMAN_LONG_REP;
         
         return config;
 	}
