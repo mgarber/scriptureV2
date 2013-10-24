@@ -72,6 +72,7 @@ public class AddEndRNASeqToScripture {
 	Map<String, IntervalTree<Gene>> intervalTrees;
 	private double THRESHOLD = 7.0;
 	private static final double DEFAULT_THRESHOLD = 7.0;
+	private boolean singleEnd3p;
 	
 	static final String usage = "Usage: AddEndRNASeqToScripture -task <task name> "+
 			"\n\tcompleteTranscripts"+
@@ -170,18 +171,17 @@ public class AddEndRNASeqToScripture {
 				logger.warn("3' data is unstranded");
 		}	
 
-		boolean single=false;
 		//Determine if 3' end is single ended
 		if(argMap.isPresent("singleEnd")){
 			logger.info("3' data is single ended");
-			single=true;
+			singleEnd3p=true;
 		}
 		else{
 			logger.info("3' data is paired ended");
-			single =false;
+			singleEnd3p =false;
 		}
 		
-		AlignmentModel model=new AlignmentModel(new File(argMap.getMandatory("3p")).getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),!single,strand3p,false);
+		AlignmentModel model=new AlignmentModel(new File(argMap.getMandatory("3p")).getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),!singleEnd3p,strand3p,false);
 		
 		return model;
 	}
@@ -1267,17 +1267,27 @@ public class AddEndRNASeqToScripture {
 		
 		if(SingleEndAlignment.class.isInstance(read)){
 			SingleEndAlignment align = (SingleEndAlignment) read;
-			//Check if read is the correct read
-			//if read starts in window
-			if(((strand3p==(TranscriptionRead.FIRST_OF_PAIR) && !align.getIsFirstMate()) || 
-					(strand3p==(TranscriptionRead.SECOND_OF_PAIR) && align.getIsFirstMate())) 
-					//We used readEndFallsInWindow if the read would be in the same orientation as the gene
-					//Here is it oppostite so
-					//	&& (readEndFallsInWindow(read,window))
-						&& (readStartFallsInWindow(read,window))
+			
+			//if data is single end
+			if(singleEnd3p){
+				if((readStartFallsInWindow(read,window))
 						//Single end alignment. Orientation is already corrected.
-							&& (read.getOrientation().equals(orientation))){
-				return true;
+						&& (!read.getOrientation().equals(orientation)))
+					return true;
+			}
+			else{
+				//Check if read is the correct read
+				//if read starts in window
+				if(((strand3p==(TranscriptionRead.FIRST_OF_PAIR) && !align.getIsFirstMate()) || 
+						(strand3p==(TranscriptionRead.SECOND_OF_PAIR) && align.getIsFirstMate())) 
+						//We used readEndFallsInWindow if the read would be in the same orientation as the gene
+						//Here is it oppostite so
+						//	&& (readEndFallsInWindow(read,window))
+							&& (readEndFallsInWindow(read,window))
+							//Single end alignment. Orientation is already corrected.
+								&& (read.getOrientation().equals(orientation))){
+					return true;
+				}
 			}
 		}
 		//ELSE PAIRED
