@@ -1084,8 +1084,17 @@ public class AddEndRNASeqToScripture {
 	
 	private double get3pWindowCount(Annotation window,Strand orientation){
 		double windowCount = 0.0;
-		//Get the reads in the window
-		window.setOrientation(orientation);
+		if(singleEnd3p){
+			if(orientation.equals(Strand.POSITIVE))
+				window.setOrientation(Strand.NEGATIVE);
+			else
+				if(orientation.equals(Strand.NEGATIVE))
+					window.setOrientation(Strand.POSITIVE);
+		}
+		else{
+			//Get the reads in the window
+			window.setOrientation(orientation);
+		}
 		//Iterator<AlignmentCount> readiter = model3p.getOverlappingReadCountsStranded(window, false);
 		CloseableIterator<Alignment> readiter = model3p.getOverlappingReads(window, false);
 		//for all reads in the window
@@ -1181,6 +1190,14 @@ public class AddEndRNASeqToScripture {
 			//For each block in the window
 			for(Annotation block: window.getBlocks()){
 				
+				if(singleEnd3p){
+					Strand s = window.getOrientation();
+					if(s.equals(Strand.POSITIVE))
+						block.setOrientation(Strand.NEGATIVE);
+					else
+						if(s.equals(Strand.NEGATIVE))
+							block.setOrientation(Strand.POSITIVE);
+				}
 				CloseableIterator<Alignment> readiter = model3p.getOverlappingReads(block,false);
 				//for all reads in the window
 				while(readiter.hasNext()){
