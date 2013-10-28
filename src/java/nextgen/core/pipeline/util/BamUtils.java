@@ -10,6 +10,9 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
 
+import net.sf.picard.sam.BuildBamIndex;
+import net.sf.picard.sam.SortSam;
+import net.sf.samtools.SAMFileReader;
 import nextgen.core.annotation.Gene;
 import nextgen.core.job.Job;
 import nextgen.core.job.JobUtils;
@@ -32,6 +35,54 @@ import broad.pda.annotation.BEDFileParser;
 public class BamUtils {
 	
 	private static Logger logger = Logger.getLogger(BamUtils.class.getName());
+	
+	/**
+	 * Sort a bam file in coordinate order and write to a new file
+	 * @param input Input bam file
+	 * @param output Output sorted bam file
+	 */
+	public static void sortBam(String input, String output) {
+		sortBam(input, output, "coordinate");
+	}	
+	
+	/**
+	 * Sort a bam file and write to a new file
+	 * @param input Input bam file
+	 * @param output Output sorted bam file
+	 * @param sortOrder Sort order ("coordinate" or "queryname")
+	 */
+	public static void sortBam(String input, String output, String sortOrder) {
+		
+		logger.info("Sorting file " + input + ". Writing sorted bam to file " + output + ".");
+		
+		SAMFileReader reader = new SAMFileReader(new File(input));
+		String[] a = new String[3];
+		a[0] = "INPUT=" + input;
+		a[1] = "OUTPUT=" + output;
+		a[2] = "SORT_ORDER=" + sortOrder;
+		SortSam.main(a);
+		reader.close();
+
+	}
+
+	
+	/**
+	 * Index a bam file and write the index to a file
+	 * @param input Input bam file
+	 * @param output Output bam index file
+	 */
+	public static void indexBam(String input, String output) {
+		
+		logger.info("Indexing file " + input + ". Writing index to file " + output + ".");
+		
+		SAMFileReader reader = new SAMFileReader(new File(input));
+		String[] a = new String[2];
+		a[0] = "INPUT=" + input;
+		a[1] = "OUTPUT=" + output;
+		BuildBamIndex.main(a);
+		reader.close();
+
+	}
 	
 	/**
 	 * Write global genomic space stats for bam file and write bsub output to working directory

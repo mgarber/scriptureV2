@@ -65,6 +65,13 @@ public class PairedEndReader {
 		this.header=reader.getFileHeader();
 		alignmentType = getAlignmentType(this.header);
 		strand = read;
+		if(alignmentType==AlignmentType.PAIRED_END){
+			System.out.println("Alignment is Paired");
+		}
+		else{
+			System.out.println("Alignment is Single");
+		}
+		
 		setFragmentFlag(fra);
 	}
 	
@@ -256,7 +263,7 @@ public class PairedEndReader {
 				//If first read is in direction of trasncription
 				if(transcriptionRead.equals(TranscriptionRead.FIRST_OF_PAIR)){
 					//This is the first read
-					if(record.getFirstOfPairFlag()){
+					if(!record.getReadPairedFlag() || record.getFirstOfPairFlag()){
 						//Orientation of fragment is same as that of read
 					}
 					//This is the other mate
@@ -269,7 +276,7 @@ public class PairedEndReader {
 				else if(transcriptionRead.equals(TranscriptionRead.SECOND_OF_PAIR)){
 					//This is the first read
 					//Reverse orientation
-					if(record.getFirstOfPairFlag()){
+					if(record.getReadPairedFlag() && record.getFirstOfPairFlag()){
 						record.setReadNegativeStrandFlag(!record.getReadNegativeStrandFlag());
 					}
 					//This is the other mate

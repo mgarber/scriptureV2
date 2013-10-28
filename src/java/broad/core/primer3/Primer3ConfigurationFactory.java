@@ -619,7 +619,7 @@ public class Primer3ConfigurationFactory {
         config.underLengthPenaltyWeight=0.01;
         config.underMeltingTempPenaltyWeight=0.05;
         config.overMeltingTempPenaltyWeight=0.05;
-        config.missprimingLibraryFile=HUMAN_LONG_REP;
+        //config.missprimingLibraryFile=HUMAN_LONG_REP;
         
         return config;
 	}
@@ -654,7 +654,7 @@ public class Primer3ConfigurationFactory {
         config.underLengthPenaltyWeight=0;
         config.underMeltingTempPenaltyWeight=0.05;
         config.overMeltingTempPenaltyWeight=0.05;
-        config.missprimingLibraryFile=HUMAN_LONG_REP;
+        //config.missprimingLibraryFile=HUMAN_LONG_REP;
         
         return config;
 	}

@@ -1,7 +1,7 @@
 /**
  * Call protein binding sites on RNA with Protect-seq data from multiple control and multiple signal samples
  */
-package broad.pda.seq.protection;
+package broad.pda.seq.clip;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -9,6 +9,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -40,8 +41,7 @@ import nextgen.core.job.JobUtils;
 import nextgen.core.job.LSFJob;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
-import nextgen.core.model.score.BinomialEnrichmentScore;
-import nextgen.core.model.score.ScanStatisticScore;
+import nextgen.core.model.score.MultiScore;
 import nextgen.core.model.score.WindowProcessor;
 import nextgen.core.model.score.WindowScoreIterator;
 import nextgen.core.utils.AlignmentUtils;
@@ -49,27 +49,29 @@ import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.feature.GeneWindow;
 
 /**
- * @author prussell
- *
+ * This class finds significant peaks using any/all of the scores included in MultiScore class.
+ * Note: t-statistic analysis not currently performed, but methods to implement are included.
+ * @author shari
  */
-public class MultiSampleScanPeakCaller implements PeakCaller {
+public class MultiSamplePeakCaller implements PeakCaller {
 	
 	private TranscriptomeSpace coord;
 	protected Map<String, Collection<Gene>> genes;
 	private Map<Gene, Map<Annotation, Double>> tStatisticWindowScores;
 	private Map<SampleData, Map<Gene, Map<Annotation, Double>>> singleSampleWindowEnrichmentOverGene;
-	private Map<SampleData, Map<Gene, Collection<Gene>>> singleSampleScanPeaks;
-	protected Map<SampleData, Map<Gene, Map<Annotation, BinomialEnrichmentScore>>> binomialWindowScores;
-	private Map<SampleData,WindowProcessor<BinomialEnrichmentScore>> binomialProcessors;
+	private Map<SampleData,Map<Gene, Map<String, Collection<Gene>>>> singleSampleScanPeaks;
+	protected Map<SampleData, Map<Gene, Map<Annotation, MultiScore>>> windowScores;
+	protected Map<SampleData, Map<Gene, Map<Annotation, MultiScore>>> finalWindowScores;
+	private Map<SampleData,WindowProcessor<MultiScore>> processors;
 	protected GenomeSpaceSampleData expressionData;
 	protected ArrayList<SampleData> controlSamples;
 	protected ArrayList<SampleData> signalSamples;
 	protected ArrayList<SampleData> allSamples;
-	private boolean useBinomialScore;
-	private SampleData binomialCtrl;
-	protected static Logger logger = Logger.getLogger(MultiSampleScanPeakCaller.class.getName());
+	private SampleData ctrl;
+	protected static Logger logger = Logger.getLogger(MultiSamplePeakCaller.class.getName());
 	protected int windowSize;
 	protected int stepSize;
+	protected ArrayList<String> scoresToUse;
 	private static int DEFAULT_WINDOW_SIZE = 20;
 	private static int DEFAULT_STEP_SIZE = 1;
 	private static double DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF = 0.001;
@@ -81,7 +83,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private static double DEFAULT_PEAK_MAX_PCT_DUPLICATES = 0.5;
 	private static boolean DEFAULT_FILTER_BY_STRAND = true;
 	private static boolean DEFAULT_EXTRA_FIELDS = false;
-	private static boolean DEFAULT_USE_BINOMIAL = false;
+	private static String BINOMIAL_KEY = "binomial";
+	private static String SCAN_STAT_KEY = "scan_statistic";
+	private static String[] DEFAULT_SCORES = { BINOMIAL_KEY, SCAN_STAT_KEY };
 	private boolean filterByStrand;
 	private boolean extraFields;
 	protected int numControls;
@@ -111,21 +115,26 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private static String REJECT_FILE_PREFIX_EXPRESSION_FILTER = "expression_filter";
 	private Map<SampleData, FileWriter> windowCountRejectFileWriters;
 	private static String REJECT_FILE_PREFIX_WINDOW_COUNT = "window_count_filter";
-	private Map<SampleData, FileWriter> windowScanPvalAllFragmentsRejectFileWriters;
+	private Map<SampleData,Map<String, FileWriter>> windowScanPvalAllFragmentsRejectFileWriters;
 	private static String REJECT_FILE_PREFIX_WINDOW_SCAN_PVAL_ALL_FRAGMENTS = "window_scan_pval_all_fragments_filter";
-	private Map<SampleData, FileWriter> windowScanPvalWithFragmentLengthFilterRejectFileWriters;
+	private Map<SampleData,Map<String, FileWriter>> windowScanPvalWithFragmentLengthFilterRejectFileWriters;
 	private static String REJECT_FILE_PREFIX_WINDOW_SCAN_PVAL_WITH_FRAGMENT_LENGTH = "fragment_length_filter";
-	private Map<SampleData, FileWriter> peakScanPvalRejectWriters;
+	private Map<SampleData,Map<String, FileWriter>> peakScanPvalRejectWriters;
 	private static String REJECT_FILE_PREFIX_PEAK_SCAN_PVAL = "peak_scan_pval_filter";
-	private Map<SampleData, FileWriter> duplicateRejectWriters;
+	private Map<SampleData,Map<String, FileWriter>> duplicateRejectWriters;
 	private static String REJECT_FILE_PREFIX_DUPLICATE = "duplication_filter";
-	private Map<SampleData, FileWriter> strandRejectWriters;
+	private Map<SampleData,Map<String, FileWriter>> strandRejectWriters;
 	private static String REJECT_FILE_PREFIX_STRAND = "strand_filter";
-	private ArrayList<FileWriter> allRejectFileWriters;
+	private Map<String,ArrayList<FileWriter>> allRejectFileWriters;
 	protected static String FILTER_REJECT_DIR = "filter_rejects";
 
-	
-	protected MultiSampleScanPeakCaller(MultiSampleScanPeakCaller other) throws IOException {
+	// Constructors
+	/**
+	 * Instantiate from another MultiSamplePeakCaller
+	 * @param other 
+	 * @throws IOException
+	 */
+	protected MultiSamplePeakCaller(MultiSamplePeakCaller other) throws IOException {
 		this(other.sampleFile, other.bedAnnotationFile, other.sizeFile, other.windowSize, other.stepSize);
 		copyParameters(other);
 	}
@@ -137,10 +146,9 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unused")
-	private MultiSampleScanPeakCaller(String sampleListFile, String bedFile, String chrSizeFile) throws IOException {
+	private MultiSamplePeakCaller(String sampleListFile, String bedFile, String chrSizeFile) throws IOException {
 		this(sampleListFile, bedFile, chrSizeFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE);
 	}
-	
 	
 	/**
 	 * Instantiate using file of sample information
@@ -151,7 +159,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @param step Step size
 	 * @throws IOException
 	 */
-	public MultiSampleScanPeakCaller(String sampleListFile, String bedFile, String chrSizeFile, int window, int step) throws IOException {
+	public MultiSamplePeakCaller(String sampleListFile, String bedFile, String chrSizeFile, int window, int step) throws IOException {
 		
 		sampleFile = sampleListFile;
 		bedAnnotationFile = bedFile;
@@ -161,6 +169,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		genes = BEDFileParser.loadDataByChr(new File(bedFile));
 		coord = new TranscriptomeSpace(genes);
 		random = new Random();
+		scoresToUse = new ArrayList<String>(Arrays.asList(DEFAULT_SCORES));
 		
 		if(sampleFile != null) {
 			initializeSamplesFromSampleListFile();
@@ -175,134 +184,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		peakCutoffMaxReplicatePct = DEFAULT_PEAK_MAX_PCT_DUPLICATES;
 		filterByStrand = DEFAULT_FILTER_BY_STRAND;
 		extraFields = DEFAULT_EXTRA_FIELDS;
-		useBinomialScore = DEFAULT_USE_BINOMIAL;
 		
-		
-	}
-	
-	protected void initializeFilterRejectWriters(String commonSuffix, String outDir) throws IOException {
-		File dir = new File(outDir);
-		@SuppressWarnings("unused")
-		boolean madeDir = dir.mkdir();
-		logger.info("");
-		logger.info("Writing regions rejected by filters to files in directory " + outDir);
-		expressionFilterRejectWriters = new HashMap<SampleData, FileWriter>();
-		windowCountRejectFileWriters = new HashMap<SampleData, FileWriter>();
-		windowScanPvalAllFragmentsRejectFileWriters = new HashMap<SampleData, FileWriter>();
-		windowScanPvalWithFragmentLengthFilterRejectFileWriters = new HashMap<SampleData, FileWriter>();
-		peakScanPvalRejectWriters = new HashMap<SampleData, FileWriter>();
-		duplicateRejectWriters = new HashMap<SampleData, FileWriter>();
-		strandRejectWriters = new HashMap<SampleData, FileWriter>();
-		allRejectFileWriters = new ArrayList<FileWriter>();
-
-		for(SampleData sample : allSamples) {
-			expressionFilterRejectWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_EXPRESSION_FILTER + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
-			windowCountRejectFileWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_WINDOW_COUNT + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
-			windowScanPvalAllFragmentsRejectFileWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_WINDOW_SCAN_PVAL_ALL_FRAGMENTS + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
-			windowScanPvalWithFragmentLengthFilterRejectFileWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_WINDOW_SCAN_PVAL_WITH_FRAGMENT_LENGTH + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
-			peakScanPvalRejectWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_PEAK_SCAN_PVAL + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
-			duplicateRejectWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_DUPLICATE + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
-			strandRejectWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_STRAND + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
-			allRejectFileWriters.add(expressionFilterRejectWriters.get(sample));
-			allRejectFileWriters.add(windowCountRejectFileWriters.get(sample));
-			allRejectFileWriters.add(windowScanPvalAllFragmentsRejectFileWriters.get(sample));
-			allRejectFileWriters.add(windowScanPvalWithFragmentLengthFilterRejectFileWriters.get(sample));
-			allRejectFileWriters.add(peakScanPvalRejectWriters.get(sample));
-			allRejectFileWriters.add(duplicateRejectWriters.get(sample));
-			allRejectFileWriters.add(strandRejectWriters.get(sample));
-		}
-	}
-	
-	protected void closeFilterRejectWriters() throws IOException {
-		for(FileWriter w : allRejectFileWriters) {
-			w.close();
-		}
-	}
-	
-	private void copyParameters(MultiSampleScanPeakCaller other) {
-		setPeakTrimQuantile(other.trimQuantile);
-		setPeakWindowCountCutoff(other.peakWindowCountCutoff);
-		setPeakWindowScanPvalCutoff(other.peakWindowScanPvalCutoff);
-		setPeakCutoffMostCommonReplicate(other.peakCutoffMaxReplicatePct);
-		setFirstReadTranscriptionStrand(other.firstReadTranscriptionStrand);
-		setExpressionScanPvalueCutoff(other.expressionData.getExpressionScanPvalueCutoff());
-		setFilterByStrand(other.filterByStrand);
-		setExtraFields(other.extraFields);
-		setBinomialScore(other.useBinomialScore);
-	}
-	
-	/**
-	 * Set whether to use strand information in reads to filter peaks
-	 * @param useStrandFilter Whether to apply strand filter
-	 */
-	public void setFilterByStrand(boolean useStrandFilter) {
-		filterByStrand = useStrandFilter;
-	}
-	
-	/**
-	 * Set whether to print extra fields
-	 * @param useExtraFields
-	 */
-	public void setExtraFields(boolean useExtraFields) {
-		extraFields = useExtraFields;
-	}
-	
-	/**
-	 * Set whether to print extra fields
-	 * @param useExtraFields
-	 */
-	public void setBinomialScore(boolean binomialScore) {
-		useBinomialScore = binomialScore;
-	}
-	
-	/**
-	 * Set cutoff for the percentage of fragments overlapping a peak that come from the most common replicate fragment
-	 * @param maxPct The max percentage
-	 */
-	public void setPeakCutoffMostCommonReplicate(double maxPct) {
-		peakCutoffMaxReplicatePct = maxPct;
-	}
-	
-	/**
-	 * Set quantile for trim max contiguous algorithm for peak calling
-	 * @param trimPeakQuantile The quantile of data values
-	 */
-	public void setPeakTrimQuantile(double trimPeakQuantile) {
-		trimQuantile = trimPeakQuantile;
-	}
-	
-	/**
-	 * Set minimum number of fragments overlapping a window to be considered for possible peak
-	 * @param peakCountCutoff Minimum fragment count for each window
-	 */
-	public void setPeakWindowCountCutoff(double peakCountCutoff) {
-		peakWindowCountCutoff = peakCountCutoff;
-	}
-	
-	/**
-	 * Set scan P value cutoff for window within transcript to be considered for possible peak
-	 * @param peakScanPvalCutoff Max scan P value
-	 */
-	public void setPeakWindowScanPvalCutoff(double peakScanPvalCutoff) {
-		peakWindowScanPvalCutoff = peakScanPvalCutoff;
-	}
-	
-	/**
-	 * Set whether read 1 is transcription strand
-	 * @param firstReadIsTranscriptionStrand True if read 1 is transcription strand
-	 */
-	public void setFirstReadTranscriptionStrand(boolean firstReadIsTranscriptionStrand) {
-		firstReadTranscriptionStrand = firstReadIsTranscriptionStrand;
-	}
-	
-	/**
-	 * Set genome wide scan P value cutoff for expression of transcript
-	 * @param expressionScanPvalCutoff P value cutoff for transcript expression against genomic background
-	 */
-	public void setExpressionScanPvalueCutoff(double expressionScanPvalCutoff) {
-		for(SampleData sample : allSamples) {
-			sample.setExpressionScanPvalueCutoff(expressionScanPvalCutoff);
-		}
 	}
 	
 	/**
@@ -313,7 +195,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @param chrSizeFile Chromosome size file
 	 * @throws IOException
 	 */
-	public MultiSampleScanPeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile) throws IOException {
+	public MultiSamplePeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile) throws IOException {
 		this(expressionBamFile, signalBamFile, bedFile, chrSizeFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE);
 	}
 	
@@ -327,73 +209,89 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @param step Step size
 	 * @throws IOException
 	 */
-	public MultiSampleScanPeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile, int window, int step) throws IOException {
+	public MultiSamplePeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile, int window, int step) throws IOException {
 		this(null, bedFile, chrSizeFile, window, step);
 		initializeWithSingleSample(expressionBamFile, signalBamFile, chrSizeFile);
 		initializeScoreMaps();
-		if (useBinomialScore) {
-			initializeProcessors();
-		}
+		initializeProcessors();
 	}
 	
+	// Methods to initalize MultiSamplePeakCaller
+	// Populate signal and control data, initialize score hashes, initialize processors, and initialize filter reject writers
+	
+	/**
+	 * Populate MultiSamplePeakCaller with single sample and expression data
+	 * @param expressionBamFile
+	 * @param signalBamFile
+	 * @param chrSizeFile
+	 * @throws IOException
+	 */
 	private void initializeWithSingleSample(String expressionBamFile, String signalBamFile, String chrSizeFile) throws IOException {
 		controlSamples = new ArrayList<SampleData>();
 		numControls = controlSamples.size();
 		signalSamples = new ArrayList<SampleData>();
-		SampleData signalSample = new SampleData(signalBamFile, firstReadTranscriptionStrand, genes, windowSize, stepSize, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, true, false);
+		SampleData signalSample = new SampleData(signalBamFile, firstReadTranscriptionStrand, genes, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, true, false);
 		signalSamples.add(signalSample);
 		numSignals = signalSamples.size();
-		expressionData = new GenomeSpaceSampleData(expressionBamFile, chrSizeFile, genes, windowSize, stepSize, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, true);
+		expressionData = new GenomeSpaceSampleData(expressionBamFile, chrSizeFile, genes, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, true);
 		allSamples = new ArrayList<SampleData>();
 		allSamples.addAll(controlSamples);
 		allSamples.addAll(signalSamples);
 		numSamples = allSamples.size();
-		binomialCtrl = new SampleData(expressionBamFile, firstReadTranscriptionStrand, genes, windowSize, stepSize, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, true, false);
+		ctrl = new SampleData(expressionBamFile, firstReadTranscriptionStrand, genes, DEFAULT_EXPRESSION_SCAN_P_VALUE_CUTOFF, true, false);
 	}
 	
+	/**
+	 * Populate MultiSamplePeakCaller from sample list file
+	 * @throws IOException
+	 */
 	private void initializeSamplesFromSampleListFile() throws IOException {
 		SampleFileParser p = new SampleFileParser(sampleFile);
 		controlSamples = p.getControlDatasets();
 		numControls = controlSamples.size();
 		signalSamples = p.getSignalDatasets();
 		expressionData = p.getExpressionData();
+		ctrl = p.getCtrlData();
 		numSignals = signalSamples.size();
 		allSamples = new ArrayList<SampleData>();
 		allSamples.addAll(controlSamples);
 		allSamples.addAll(signalSamples);
 		numSamples = allSamples.size();
-		binomialCtrl = p.getBinomialCtrlData();
 	}
 	
+	/**
+	 * Initialize hashes to store: 
+		 * window enrichments over gene background for each gene in each sample
+		 * Significant peaks for each sample for each score for each gene
+		 * t-statistic scores for window of each gene
+	 */
 	private void initializeScoreMaps() {
+		
 		tStatisticWindowScores = new TreeMap<Gene, Map<Annotation, Double>>();
 		singleSampleWindowEnrichmentOverGene = new HashMap<SampleData, Map<Gene, Map<Annotation, Double>>>();
-		singleSampleScanPeaks = new HashMap<SampleData, Map<Gene, Collection<Gene>>>();
-		binomialWindowScores = new HashMap<SampleData, Map<Gene, Map<Annotation, BinomialEnrichmentScore>>>();
+		singleSampleScanPeaks = new HashMap<SampleData,Map<Gene,Map<String, Collection<Gene>>>>();
+		windowScores = new HashMap<SampleData, Map<Gene, Map<Annotation, MultiScore>>>();
+		finalWindowScores = new HashMap<SampleData, Map<Gene, Map<Annotation, MultiScore>>>();
+		
 		for(SampleData sample : allSamples) {
-			if(!singleSampleWindowEnrichmentOverGene.containsKey(sample)) {
-				Map<Gene, Map<Annotation, Double>> m = new TreeMap<Gene, Map<Annotation, Double>>();
-				singleSampleWindowEnrichmentOverGene.put(sample, m);
-			}
-			if(!singleSampleScanPeaks.containsKey(sample)) {
-				Map<Gene, Collection<Gene>> m = new TreeMap<Gene, Collection<Gene>>();
-				singleSampleScanPeaks.put(sample, m);
-			}
-			if (!binomialWindowScores.containsKey(sample)) {
-				Map<Gene, Map<Annotation, BinomialEnrichmentScore>> m = new TreeMap<Gene, Map<Annotation, BinomialEnrichmentScore>>();
-				binomialWindowScores.put(sample, m);
-			}
+			singleSampleScanPeaks.put(sample,new HashMap<Gene, Map<String, Collection<Gene>>>());
+			singleSampleWindowEnrichmentOverGene.put(sample, new TreeMap<Gene, Map<Annotation, Double>>());
+			windowScores.put(sample, new HashMap<Gene,Map<Annotation,MultiScore>>());
+			finalWindowScores.put(sample, new HashMap<Gene,Map<Annotation,MultiScore>>());
 		}
 	}
 	
+	/**
+	 * Initialize MultiScore processor for each sample
+	 * @throws IOException
+	 */
 	private void initializeProcessors() throws IOException {
-		binomialProcessors = new HashMap<SampleData,WindowProcessor<BinomialEnrichmentScore>>();
+		processors = new HashMap<SampleData,WindowProcessor<MultiScore>>();
 		for(SampleData sample : allSamples) {
-			if (!binomialProcessors.containsKey(sample)) {
-				SampleData ctrl = binomialCtrl;
+			if (!processors.containsKey(sample)) {
 				try {
-					WindowProcessor<BinomialEnrichmentScore> p = new BinomialEnrichmentScore.Processor(sample.getData(),ctrl.getData());
-					binomialProcessors.put(sample, p);
+					WindowProcessor<MultiScore> p = new MultiScore.Processor(sample.getData(),ctrl.getData(),false);
+					processors.put(sample, p);
 				} catch(Exception e) {
 					try {
 						sample.getData();
@@ -405,12 +303,158 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 					} catch(NullPointerException g) {
 						logger.debug("ctrl data is null");
 					}
-					
 				}
-				
 			}
 		}
 	}
+	
+	/**
+	 * Initialize filter reject writers
+	 * @param commonSuffix suffix for output bed
+	 * @param outDir
+	 * @throws IOException
+	 */
+	@SuppressWarnings("unused")
+	protected void initializeFilterRejectWriters(String commonSuffix, String outDir) throws IOException {
+		File dir = new File(outDir);
+		boolean madeDir = dir.mkdir();
+		for (String scoreName : scoresToUse) {
+			File scoreDir = new File(outDir + "/" + scoreName);
+			boolean madeScoreDir = scoreDir.mkdir();
+		}
+		logger.info("");
+		logger.info("Writing regions rejected by filters to files in directory " + outDir);
+		expressionFilterRejectWriters = new HashMap<SampleData, FileWriter>();
+		windowCountRejectFileWriters = new HashMap<SampleData, FileWriter>();
+		windowScanPvalAllFragmentsRejectFileWriters = new HashMap<SampleData,Map<String,FileWriter>>();
+		windowScanPvalWithFragmentLengthFilterRejectFileWriters = new HashMap<SampleData,Map<String,FileWriter>>();
+		peakScanPvalRejectWriters = new HashMap<SampleData,Map<String,FileWriter>>();
+		duplicateRejectWriters = new HashMap<SampleData,Map<String,FileWriter>>();
+		strandRejectWriters = new HashMap<SampleData,Map<String,FileWriter>>();
+		allRejectFileWriters = new HashMap<String,ArrayList<FileWriter>>();
+		
+		for(SampleData sample : allSamples) {
+			expressionFilterRejectWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_EXPRESSION_FILTER + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+			windowCountRejectFileWriters.put(sample, new FileWriter(outDir + "/" + REJECT_FILE_PREFIX_WINDOW_COUNT + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+		}
+		
+		for(SampleData sample : allSamples) {
+			windowScanPvalAllFragmentsRejectFileWriters.put(sample,new HashMap<String, FileWriter>());
+			windowScanPvalWithFragmentLengthFilterRejectFileWriters.put(sample,new HashMap<String, FileWriter>());
+			peakScanPvalRejectWriters.put(sample,new HashMap<String, FileWriter>());
+			duplicateRejectWriters.put(sample,new HashMap<String, FileWriter>());
+			strandRejectWriters.put(sample,new HashMap<String, FileWriter>());
+		
+			for (String scoreName : scoresToUse) {
+				windowScanPvalAllFragmentsRejectFileWriters.get(sample).put(scoreName, new FileWriter(outDir + "/" + scoreName + "/" + REJECT_FILE_PREFIX_WINDOW_SCAN_PVAL_ALL_FRAGMENTS + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+				windowScanPvalWithFragmentLengthFilterRejectFileWriters.get(sample).put(scoreName, new FileWriter(outDir + "/" + scoreName + "/" + REJECT_FILE_PREFIX_WINDOW_SCAN_PVAL_WITH_FRAGMENT_LENGTH + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+				peakScanPvalRejectWriters.get(sample).put(scoreName, new FileWriter(outDir + "/" + scoreName + "/" + REJECT_FILE_PREFIX_PEAK_SCAN_PVAL + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+				duplicateRejectWriters.get(sample).put(scoreName, new FileWriter(outDir + "/" + scoreName + "/" + REJECT_FILE_PREFIX_DUPLICATE + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+				strandRejectWriters.get(sample).put(scoreName, new FileWriter(outDir + "/" + scoreName + "/" + REJECT_FILE_PREFIX_STRAND + "_" + sample.getSampleName() + "_" + commonSuffix + ".bed"));
+				
+				if (!allRejectFileWriters.containsKey(scoreName)){
+					allRejectFileWriters.put(scoreName,new ArrayList<FileWriter>());
+				}
+				allRejectFileWriters.get(scoreName).add(expressionFilterRejectWriters.get(sample));
+				allRejectFileWriters.get(scoreName).add(windowCountRejectFileWriters.get(sample));
+				allRejectFileWriters.get(scoreName).add(windowScanPvalAllFragmentsRejectFileWriters.get(sample).get(scoreName));
+				allRejectFileWriters.get(scoreName).add(windowScanPvalWithFragmentLengthFilterRejectFileWriters.get(sample).get(scoreName));
+				allRejectFileWriters.get(scoreName).add(peakScanPvalRejectWriters.get(sample).get(scoreName));
+				allRejectFileWriters.get(scoreName).add(duplicateRejectWriters.get(sample).get(scoreName));
+				allRejectFileWriters.get(scoreName).add(strandRejectWriters.get(sample).get(scoreName));
+			}
+		}
+	}
+	
+	/**
+	 * Close all reject filter writers for each score
+	 * @throws IOException
+	 */
+	protected void closeFilterRejectWriters() throws IOException {
+		for(String scoreName : scoresToUse) {
+			for(FileWriter w : allRejectFileWriters.get(scoreName)) {
+				w.close();
+			}
+		}
+	}
+	
+	// Methods to set parameters
+	
+	/**
+	 * Copy parameters from other MultiSamplePeakCaller
+	 * @param other
+	 */
+	private void copyParameters(MultiSamplePeakCaller other) {
+		setPeakTrimQuantile(other.trimQuantile);
+		setPeakWindowCountCutoff(other.peakWindowCountCutoff);
+		setPeakWindowScanPvalCutoff(other.peakWindowScanPvalCutoff);
+		setPeakCutoffMostCommonReplicate(other.peakCutoffMaxReplicatePct);
+		setFirstReadTranscriptionStrand(other.firstReadTranscriptionStrand);
+		setExpressionScanPvalueCutoff(other.expressionData.getExpressionScanPvalueCutoff());
+		setFilterByStrand(other.filterByStrand);
+		setExtraFields(other.extraFields);
+		setScoreList(other.scoresToUse);
+	}
+	
+	/**
+	 * Set whether to filter by strand info
+	 * @param useStrandFilter
+	 */
+	public void setFilterByStrand(boolean useStrandFilter) { filterByStrand = useStrandFilter; }
+	
+	/**
+	 * Set whether to print extra fields in output beds
+	 * @param useExtraFields
+	 */
+	public void setExtraFields(boolean useExtraFields) { extraFields = useExtraFields; }
+	
+	/**
+	 * Set which scores to compute peaks for
+	 * @param scoreList List of keys of scores
+	 */
+	public void setScoreList(ArrayList<String> scoreList) { scoresToUse = scoreList; }
+	
+	/**
+	 * Set cutoff for the percentage of fragments overlapping a peak that come from the most common replicate fragment
+	 * @param maxPct The max percentage
+	 */
+	public void setPeakCutoffMostCommonReplicate(double maxPct) { peakCutoffMaxReplicatePct = maxPct; }
+	
+	/**
+	 * Set quantile for trim max contiguous algorithm for peak calling
+	 * @param trimPeakQuantile The quantile of data values
+	 */
+	public void setPeakTrimQuantile(double trimPeakQuantile) { trimQuantile = trimPeakQuantile; }
+	
+	/**
+	 * Set minimum number of fragments overlapping a window to be considered for possible peak
+	 * @param peakCountCutoff Minimum fragment count for each window
+	 */
+	public void setPeakWindowCountCutoff(double peakCountCutoff) { peakWindowCountCutoff = peakCountCutoff; }
+	
+	/**
+	 * Set scan P value cutoff for window within transcript to be considered for possible peak
+	 * @param peakScanPvalCutoff Max scan P value
+	 */
+	public void setPeakWindowScanPvalCutoff(double peakScanPvalCutoff) { peakWindowScanPvalCutoff = peakScanPvalCutoff; }
+	
+	/**
+	 * Set whether read 1 is transcription strand
+	 * @param firstReadIsTranscriptionStrand True if read 1 is transcription strand
+	 */
+	public void setFirstReadTranscriptionStrand(boolean firstReadIsTranscriptionStrand) { firstReadTranscriptionStrand = firstReadIsTranscriptionStrand; }
+	
+	/**
+	 * Set genome wide scan P value cutoff for expression of transcript
+	 * @param expressionScanPvalCutoff P value cutoff for transcript expression against genomic background
+	 */
+	public void setExpressionScanPvalueCutoff(double expressionScanPvalCutoff) {
+		for(SampleData sample : allSamples) {
+			sample.setExpressionScanPvalueCutoff(expressionScanPvalCutoff);
+		}
+	}
+
+	// Methods to get expression information
 	
 	/**
 	 * Whether the gene is expressed in all control samples at the given significance level
@@ -435,22 +479,24 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		return expressionData.isExpressed(gene);
 	}
 	
+	// Batch write peak files - submit job for each chromosome for each sample
+	
 	@SuppressWarnings("unused")
-	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs) throws IOException, InterruptedException, DrmaaException {
-		batchWriteSingleSampleScanPeaksAllSamples(commandArgs, null, DEFAULT_BATCH_MEM_REQUEST);
+	private void batchWriteSingleSamplePeaksAllSamples(String[] commandArgs) throws IOException, InterruptedException, DrmaaException {
+		batchWriteSingleSamplePeaksAllSamples(commandArgs, null, DEFAULT_BATCH_MEM_REQUEST);
 	}
 	
 	@SuppressWarnings("unused")
-	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, String chrListFile) throws IOException, InterruptedException, DrmaaException {
-		batchWriteSingleSampleScanPeaksAllSamples(commandArgs, chrListFile, DEFAULT_BATCH_MEM_REQUEST);
+	private void batchWriteSingleSamplePeaksAllSamples(String[] commandArgs, String chrListFile) throws IOException, InterruptedException, DrmaaException {
+		batchWriteSingleSamplePeaksAllSamples(commandArgs, chrListFile, DEFAULT_BATCH_MEM_REQUEST);
 	}
 	
 	@SuppressWarnings("unused")
-	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, int memRequestGb) throws IOException, InterruptedException, DrmaaException {
-		batchWriteSingleSampleScanPeaksAllSamples(commandArgs, null, memRequestGb);
+	private void batchWriteSingleSamplePeaksAllSamples(String[] commandArgs, int memRequestGb) throws IOException, InterruptedException, DrmaaException {
+		batchWriteSingleSamplePeaksAllSamples(commandArgs, null, memRequestGb);
 	}
 	
-	private void batchWriteSingleSampleScanPeaksAllSamples(String[] commandArgs, String chrListFile, int memRequestGb) throws IOException, InterruptedException, DrmaaException {
+	private void batchWriteSingleSamplePeaksAllSamples(String[] commandArgs, String chrListFile, int memRequestGb) throws IOException, InterruptedException, DrmaaException {
 		
 		logger.info("");
 		logger.info("\nBatching out peak calling by sample and chromosome...\n");
@@ -493,7 +539,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		
 		for(SampleData sample : allSamples) {
 			for(String chr : chrs) {
-				String[] batchedCmmdArgs = BatchedMultiSampleScanPeakCaller.extendSuperArgsForSampleAndChr(commandArgs, sample.getSampleName(), chr);
+				String[] batchedCmmdArgs = BatchedMultiSamplePeakCaller.extendSuperArgsForSampleAndChr(commandArgs, sample.getSampleName(), chr);
 				String args = "";
 				for(int i=0; i < batchedCmmdArgs.length; i++) {
 					args += batchedCmmdArgs[i] + " ";
@@ -507,10 +553,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
 				job.submit();
-
 			}
 		}
-
 		
 		logger.info("");
 		logger.info("Waiting for jobs to finish...");
@@ -520,31 +564,13 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		
 	}
 	
-	/**
-	 * Get name of bed file to write for peaks
-	 * @param sample Sample
-	 * @param outDir Output directory name or null if current directory
-	 * @param chrName Chromosome name or null if all chromosomes
-	 * @return File name
-	 */
-	protected String getPeakBedFileName(SampleData sample, String outDir, String chrName) {
-		String rtrn = "";
-		if(outDir != null) {
-			rtrn += outDir + "/";
-		}
-		rtrn += sample.getSampleName() + "_scan_peaks_" + windowSize + "_" + stepSize + "_" + peakWindowScanPvalCutoff + "_" + trimQuantile;
-		if(chrName != null) {
-			rtrn += "_" + chrName;
-		}
-		rtrn += ".bed";
-		return rtrn;
-	}
-	
+	// Methods to scan windows in all genes, identify significant peaks, and write to output beds
+
 	/**
 	 * Write scan peaks for all samples to separate bed files
 	 * @throws IOException
 	 */
-	private void writeSingleSampleScanPeaksAllSamples(String outDir) throws IOException {
+	private void writeSingleSamplePeaksAllSamples(String outDir) throws IOException {
 		logger.info("");
 		logger.info("Writing single sample scan peaks for each sample...");
 		File o = new File(outDir);
@@ -554,12 +580,12 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			throw new IOException("Could not create directory " + outDir);
 		}
 		for(SampleData signal : signalSamples) {
-			String outfile = getPeakBedFileName(signal, outDir, null);
-			writeSingleSampleScanPeaks(signal, outfile);
+			Map<String,String> outfiles = getPeakBedFileName(signal, outDir, null);
+			writeSingleSamplePeaks(signal, outfiles);
 		}		
 		for(SampleData control : controlSamples) {
-			String outfile = getPeakBedFileName(control, outDir, null);
-			writeSingleSampleScanPeaks(control, outfile);
+			Map<String,String> outfiles = getPeakBedFileName(control, outDir, null);
+			writeSingleSamplePeaks(control, outfiles);
 		}
 		logger.info("Done writing single sample scan peaks for all samples.");
 	}
@@ -573,8 +599,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @param b Blue value for bed file color
 	 * @throws IOException 
 	 */
-	private void writeSingleSampleScanPeaks(SampleData sample, String outFile) throws IOException {
-		writeSingleSampleScanPeaks(sample, outFile, null);
+	private void writeSingleSamplePeaks(SampleData sample, Map<String,String> outFiles) throws IOException {
+		writeSingleSamplePeaks(sample, outFiles, null);
 	}
 	
 	/**
@@ -587,9 +613,15 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @param chrName Only write peaks for this chromosome
 	 * @throws IOException 
 	 */
-	protected void writeSingleSampleScanPeaks(SampleData sample, String outFile, String chrName) throws IOException {
-		logger.info("Writing single sample scan peaks for sample " + sample.getSampleName() + " to file " + outFile + "...");
-		FileWriter w = new FileWriter(outFile);
+	protected void writeSingleSamplePeaks(SampleData sample, Map<String,String> outFiles, String chrName) throws IOException {
+		logger.info("Writing single sample scan peaks for sample " + sample.getSampleName() + "...");
+		for (String scoreName : scoresToUse) {
+			logger.info(scoreName + " to file " + outFiles.get(scoreName));
+		}
+		Map<String,FileWriter> w = new HashMap<String,FileWriter>();
+		for (String scoreName : scoresToUse) {
+			w.put(scoreName,new FileWriter(outFiles.get(scoreName)));
+		}
 		for(String chr : genes.keySet()) {
 			if(chrName != null) {
 				if(!chr.equals(chrName)) {
@@ -597,40 +629,45 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				}
 			}
 			for(Gene gene : genes.get(chr)) {
-				Collection<Gene> peaks = getSingleSampleScanPeaks(sample, gene);
-				for(Gene window : peaks) {
-					GeneWindow geneWindow = new GeneWindow(window); 
-					int r = RGB_RED_UNKNOWN;
-					int g = RGB_GREEN_UNKNOWN;
-					int b = RGB_BLUE_UNKNOWN;
-					if(window.getOrientation().equals(Strand.UNKNOWN)) {
-						String name = window.getName();
-						name += "_STRAND_UNKNOWN";
-						geneWindow.setName(name);						
-					}
-					if(window.getOrientation().equals(gene.getOrientation()) && !window.getOrientation().equals(Strand.UNKNOWN)) {
-						r = RGB_RED_WITH_GENE;
-						g = RGB_GREEN_WITH_GENE;
-						b = RGB_BLUE_WITH_GENE;
-					}
-					if(!window.getOrientation().equals(gene.getOrientation()) && !window.getOrientation().equals(Strand.UNKNOWN)) {
-						String name = window.getName();
-						name += "_STRAND_AGAINST_GENE";
-						geneWindow.setName(name);
-						r = RGB_RED_AGAINST_GENE;
-						g = RGB_GREEN_AGAINST_GENE;
-						b = RGB_BLUE_AGAINST_GENE;
-					}
-					geneWindow.setBedScore(window.getScore());
-					if (extraFields) {
-						w.write(geneWindow.toBED(true, r, g, b) + "\n");
-					} else {
-						w.write(geneWindow.toBED(r, g, b) + "\n");
-					}
+				Map<String,Collection<Gene>> peaks = getSingleSamplePeaks(sample, gene);
+				for (String scoreName : scoresToUse) {
+					for(Gene window : peaks.get(scoreName)) {
+						GeneWindow geneWindow = new GeneWindow(window); 
+						int r = RGB_RED_UNKNOWN;
+						int g = RGB_GREEN_UNKNOWN;
+						int b = RGB_BLUE_UNKNOWN;
+						if(window.getOrientation().equals(Strand.UNKNOWN)) {
+							String name = window.getName();
+							name += "_STRAND_UNKNOWN";
+							geneWindow.setName(name);						
+						}
+						if(window.getOrientation().equals(gene.getOrientation()) && !window.getOrientation().equals(Strand.UNKNOWN)) {
+							r = RGB_RED_WITH_GENE;
+							g = RGB_GREEN_WITH_GENE;
+							b = RGB_BLUE_WITH_GENE;
+						}
+						if(!window.getOrientation().equals(gene.getOrientation()) && !window.getOrientation().equals(Strand.UNKNOWN)) {
+							String name = window.getName();
+							name += "_STRAND_AGAINST_GENE";
+							geneWindow.setName(name);
+							r = RGB_RED_AGAINST_GENE;
+							g = RGB_GREEN_AGAINST_GENE;
+							b = RGB_BLUE_AGAINST_GENE;
+						}
+						geneWindow.setBedScore(window.getScore());
+						if (extraFields) {
+							w.get(scoreName).write(geneWindow.toBED(true, r, g, b) + "\n");
+						} else {
+							w.get(scoreName).write(geneWindow.toBED(r, g, b) + "\n");
+						}
+				}
 				}
 			}
 		}
-		w.close();
+		for (String scoreName : scoresToUse) {
+			w.get(scoreName).close();
+		}
+		
 		logger.info("Done writing scan peaks for sample " + sample.getSampleName() + ".");
 	}
 	
@@ -641,31 +678,42 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 * @return Significant scan peaks
 	 * @throws IOException 
 	 */
-	public Collection<Gene> getSingleSampleScanPeaks(SampleData sample, Gene gene) throws IOException {
+	public Map<String,Collection<Gene>> getSingleSamplePeaks(SampleData sample, Gene gene) throws IOException {
 		if(singleSampleScanPeaks.get(sample).containsKey(gene)) {
 			return singleSampleScanPeaks.get(sample).get(gene);
-		}
-		identifySingleSampleScanPeaks(sample, gene, expressionFilterRejectWriters.get(sample));
+		} 
+		identifySingleSamplePeaks(sample, gene, expressionFilterRejectWriters.get(sample));
 		return singleSampleScanPeaks.get(sample).get(gene);
 	}
 	
 	/**
-	 * Identify significant peaks within the sample and the gene
+	 * Identify significant windows for each score within the sample and the gene, 
+	 * Merge overlapping windows, trim merged windows, filter again by new scores, filter by strand and duplicates,
+	 * Stores final peaks of given sample for each test in the gene in singleSampleScanPeaks
 	 * @param sample The sample
 	 * @param gene The gene
 	 * @throws IOException
 	 */
-	private void identifySingleSampleScanPeaks(SampleData sample, Gene gene, FileWriter rejectFileWriterExpression) throws IOException {
+	private void identifySingleSamplePeaks(SampleData sample, Gene gene, FileWriter rejectFileWriterExpression) throws IOException {
 		
-		TreeSet<Annotation> finalPeaks = new TreeSet<Annotation>();
-		TreeSet<Gene> rtrnPeaks = new TreeSet<Gene>();
+		Map<String,TreeSet<Annotation>> finalPeaks = new HashMap<String,TreeSet<Annotation>>();
+		Map<String,TreeSet<Gene>> rtrnPeaks = new HashMap<String,TreeSet<Gene>>();
+		Map<String,TreeSet<Annotation>> significantWindows = new HashMap<String,TreeSet<Annotation>>();
+		for (String scoreName : scoresToUse) {
+			finalPeaks.put(scoreName,new TreeSet<Annotation>());
+			rtrnPeaks.put(scoreName, new TreeSet<Gene>());
+			significantWindows.put(scoreName, new TreeSet<Annotation>());
+		}
 		TranscriptomeSpaceAlignmentModel data = sample.getData();
-		TreeSet<Annotation> scanSignificantWindows = new TreeSet<Annotation>();
+		
+		singleSampleScanPeaks.get(sample).put(gene, new HashMap<String,Collection<Gene>>());
 		
 		// If gene is not expressed, skip
 		if(!isExpressed(gene)) {
 			logger.info("Gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ") not expressed in expression dataset.");
-			singleSampleScanPeaks.get(sample).put(gene, rtrnPeaks);
+			for (String scoreName : scoresToUse) {
+				singleSampleScanPeaks.get(sample).get(gene).put(scoreName, rtrnPeaks.get(scoreName));
+			}
 			rejectFileWriterExpression.write(gene.toBED() + "\n");
 			return;
 		}
@@ -673,303 +721,266 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		logger.info("Finding scan peaks for sample " + sample.getSampleName() + " and gene " + gene.getName() + " (" + gene.getChr() + ":" + gene.getStart() + "-" + gene.getEnd() + ")");
 		
 		// Get fixed size windows with sufficient count and significant scan statistic
-		// Note: this is where I need to split for binomial score
-		if (!useBinomialScore) {
-			scanSignificantWindows = findScanSignificantWindows(sample, gene, windowCountRejectFileWriters.get(sample), windowScanPvalAllFragmentsRejectFileWriters.get(sample), windowScanPvalWithFragmentLengthFilterRejectFileWriters.get(sample));
-		} else {
-			scanSignificantWindows = findBinomialSignificantWindows(sample, gene, windowCountRejectFileWriters.get(sample), windowScanPvalAllFragmentsRejectFileWriters.get(sample), windowScanPvalWithFragmentLengthFilterRejectFileWriters.get(sample));
-		}
-		// If no significant windows return
-		if(scanSignificantWindows.isEmpty()) {
-			singleSampleScanPeaks.get(sample).put(gene, rtrnPeaks);
-			return;
-		}
-		
-		// Merge overlapping windows
-		Collection<Annotation> mergedWindows = mergePeaks(scanSignificantWindows);
-		
-		// Trim each window
-		TreeSet<Annotation> mergedTree = new TreeSet<Annotation>();
-		mergedTree.addAll(mergedWindows);
-		TreeSet<Annotation> trimmedMergedWindows = trimWindows(mergedTree, data);
-		
-		// Filter by scan statistic again
-		
-		TreeSet<Annotation> scanSigWindows = filterByScanStatistic(trimmedMergedWindows, sample, gene, peakScanPvalRejectWriters.get(sample));
-		
-		// Filter on strand information
-		TreeSet<Annotation> correctStrandWindows = new TreeSet<Annotation>();
-		if(filterByStrand) {
-			correctStrandWindows.addAll(filterByStrandInformation(scanSigWindows, sample, gene, strandRejectWriters.get(sample)));
-		} else {
-			correctStrandWindows.addAll(scanSigWindows);
-		}
-		
-		// Filter on percent duplicates
-		TreeSet<Annotation> dupsOk = filterByDuplicates(correctStrandWindows, sample, peakCutoffMaxReplicatePct, duplicateRejectWriters.get(sample));
-		
-		// Final peaks
-		finalPeaks.addAll(dupsOk);
-		
-		double geneAvgCoverage = sample.getGeneAverageCoverage(gene);
-		double geneCount = sample.getGeneCount(gene);
-		int geneSize = coord.getSize(gene);
-		
-		// Add finishing touches to peaks
-		for(Annotation peak : finalPeaks) {
-			
-			Gene window = new Gene(peak);
-			// Name peaks
-			window.setName(gene.getName() + ":" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
-			
-			// Set peak score to enrichment
-			double enrichment = sample.getEnrichmentOverGene(gene, window);
-			double pval;
-			double[] extraFields;
-			if (!useBinomialScore) {
-				ScanStatisticScore score = sample.scoreWindow(gene, window);
-				pval = score.getScanPvalue();
-				extraFields = new double[6];
-				extraFields[0] = score.getCount();
-				extraFields[1] = score.getAverageCoverage(data);
-				extraFields[2] = geneCount;
-				extraFields[3] = geneAvgCoverage;
-				extraFields[4] = (double) geneSize;
-				extraFields[5] = pval;
+		significantWindows = findSignificantWindows(sample, gene, windowCountRejectFileWriters.get(sample), windowScanPvalAllFragmentsRejectFileWriters.get(sample), windowScanPvalWithFragmentLengthFilterRejectFileWriters.get(sample));
+
+		for (String scoreName : scoresToUse) {
+			// If no significant windows return
+			if(significantWindows.get(scoreName).isEmpty()) {
+				singleSampleScanPeaks.get(sample).get(gene).put(scoreName, rtrnPeaks.get(scoreName));
+				continue;
 			}
-			else {
-				BinomialEnrichmentScore score = scoreWindowBinomial(gene,window,sample);
-				score.setRegionLength(geneSize);
-				score.refreshPvalue();
-				pval = score.getPvalue();
-				extraFields = new double[6];
-				extraFields[0] = score.getSampleCount();
+		
+			// Merge overlapping windows
+			Collection<Annotation> mergedWindows = mergePeaks(significantWindows.get(scoreName));
+			logger.info("Found " + mergedWindows.size() + " merged windows for " + scoreName);
+		
+			// Trim each window
+			TreeSet<Annotation> mergedTree = new TreeSet<Annotation>();
+			mergedTree.addAll(mergedWindows);
+			TreeSet<Annotation> trimmedMergedWindows = trimWindows(mergedTree, data);
+		
+			// Filter by score again
+			TreeSet<Annotation> scanSigWindows = filterByScore(trimmedMergedWindows, sample, gene, scoreName, peakScanPvalRejectWriters.get(sample).get(scoreName));
+			logger.info("Found " + scanSigWindows.size() + " windows after score filter for " + scoreName);
+			
+			// Filter on strand information
+			TreeSet<Annotation> correctStrandWindows = new TreeSet<Annotation>();
+			if(filterByStrand) {
+				correctStrandWindows.addAll(filterByStrandInformation(scanSigWindows, sample, gene, strandRejectWriters.get(sample).get(scoreName)));
+			} else {
+				correctStrandWindows.addAll(scanSigWindows);
+			}
+			logger.info("Found " + correctStrandWindows.size() + " windows after strand filter for " + scoreName);
+		
+			// Filter on percent duplicates
+			TreeSet<Annotation> dupsOk = filterByDuplicates(correctStrandWindows, sample, peakCutoffMaxReplicatePct, duplicateRejectWriters.get(sample).get(scoreName));
+			logger.info("Found " + dupsOk.size() + " windows after duplicate filter for " + scoreName);
+			
+			// Final peaks
+			finalPeaks.get(scoreName).addAll(dupsOk);
+		
+			double geneAvgCoverage = sample.getGeneAverageCoverage(gene);
+			double geneCount = sample.getGeneCount(gene);
+			int geneSize = coord.getSize(gene);
+		
+			// Add finishing touches to peaks
+			for(Annotation peak : finalPeaks.get(scoreName)) {
+			
+				Gene window = new Gene(peak);
+				// Name peaks
+				window.setName(gene.getName() + ":" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
+			
+				MultiScore score = scoreWindow(gene, window, sample);
+				double geneEnrichment = sample.getEnrichmentOverGene(gene, window);
+				double ctrlEnrichment = score.getEnrichmentOverControl();
+				double pval = score.getPvalue(scoreName);
+				
+				double[] extraFields;
+				extraFields = new double[8];
+				extraFields[0] = score.getCount();
 				extraFields[1] = score.getCtrlCount();
 				extraFields[2] = score.getSampleRegionCount();
-				extraFields[3] = score.getCtrlRegionCount();
-				extraFields[4] = score.getRegionLength();
-				extraFields[5] = pval;
-				enrichment = score.getEnrichmentOverControl();
-			}
-			
-			
-			
-			logger.debug("FINAL_PEAK\t" + gene.getName());
-			logger.debug("FINAL_PEAK\t" + window.toBED());
-			//logger.debug("FINAL_PEAK\tname=" + window.getName());
-			//logger.debug("FINAL_PEAK\twindow_count=" + windowCount);
-			//logger.debug("FINAL_PEAK\twindow_size=" + coord.getSize(window));
-			//logger.debug("FINAL_PEAK\twindow_avg_coverage=" + windowAvgCoverage);
-			//logger.debug("FINAL_PEAK\tgene_count=" + geneCount);
-			//logger.debug("FINAL_PEAK\tgene_size=" + geneSize);
-			//logger.debug("FINAL_PEAK\tgene_avg_coverage=" + geneAvgCoverage);
-			//logger.debug("FINAL_PEAK\tenrichment_over_transcript=" + enrichment);
-			//logger.debug("FINAL_PEAK\tscore=" + window.getScore());
-			//logger.debug("FINAL_PEAK\torientation=" + window.getOrientation().toString());
-			
-			window.setScore(enrichment);
-			window.setExtraFields(extraFields);
-			
-			rtrnPeaks.add(window);
+				extraFields[3] = score.getCtrlCount();
+				extraFields[4] = geneEnrichment;
+				extraFields[5] = window.size();
+				extraFields[6] = (double) geneSize;
+				extraFields[7] = pval;
 
-		}
+				logger.debug("FINAL_PEAK\t" + gene.getName());
+				logger.debug("FINAL_PEAK\t" + window.toBED());
+				logger.debug("FINAL_PEAK\tname=" + window.getName());
+				logger.debug("FINAL_PEAK\twindow_count=" + score.getCount());
+				logger.debug("FINAL_PEAK\twindow_size=" + coord.getSize(window));
+				logger.debug("FINAL_PEAK\twindow_avg_coverage=" + score.getAverageCoverage(data));
+				logger.debug("FINAL_PEAK\tgene_count=" + geneCount);
+				logger.debug("FINAL_PEAK\tgene_size=" + geneSize);
+				logger.debug("FINAL_PEAK\tgene_avg_coverage=" + geneAvgCoverage);
+				logger.debug("FINAL_PEAK\tenrichment_over_transcript=" + geneEnrichment);
+				logger.debug("FINAL_PEAK\torientation=" + window.getOrientation().toString());
+			
+				window.setScore(ctrlEnrichment);
+				window.setExtraFields(extraFields);
+			
+				rtrnPeaks.get(scoreName).add(window);
+
+			}
 		
-		singleSampleScanPeaks.get(sample).put(gene, rtrnPeaks);
+		singleSampleScanPeaks.get(sample).get(gene).putAll(rtrnPeaks);
+		
+		}
 	}
 	
-	private TreeSet<Annotation> findScanSignificantWindows(SampleData sample, Gene gene, FileWriter windowCountRejectFileWriter, FileWriter rejectFileWriterAllFragments, FileWriter rejectFileWriterFragmentLengthFilter) throws IOException {
-		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
-		Map<Annotation, ScanStatisticScore> windowScores = sample.getWindowScores(gene);
-		for(Annotation window : windowScores.keySet()) {
-			ScanStatisticScore score = windowScores.get(window);
+	/**
+	 * Identify significant windows for each score within the sample and the gene
+	 * Recompute scores for significant windows with fragment length filter and filter again
+	 * @param sample The sample
+	 * @param gene The gene
+	 * @return Hash of score_name : significant_windows
+	 * @throws IOException
+	 */
+	@SuppressWarnings("unchecked")
+	private Map<String,TreeSet<Annotation>> findSignificantWindows(SampleData sample, Gene gene, FileWriter windowCountRejectFileWriter, Map<String,FileWriter> rejectFileWriterAllFragments, Map<String,FileWriter> rejectFileWriterFragmentLengthFilter) throws IOException {
+		Map<String,TreeSet<Annotation>> rtrn = new HashMap<String,TreeSet<Annotation>>();
+		for (String scoreName : scoresToUse) {
+			rtrn.put(scoreName,new TreeSet<Annotation>());
+		}
+		Map<Annotation, MultiScore> geneWindowScores = getWindowScores(sample,gene);
+		for(Annotation window : geneWindowScores.keySet()) {
+			MultiScore score = geneWindowScores.get(window);
 			double count = score.getCount();
 			if(count < peakWindowCountCutoff) {
 				windowCountRejectFileWriter.write(window.toBED() + "\n");
 				continue;
 			}
-			double pval = score.getScanPvalue();
-			if(pval < peakWindowScanPvalCutoff) {
-				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + gene.getName());
-				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + window.toBED());
-				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_length=" + score.getGlobalLength());
-				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_count=" + score.getTotal());
-				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + score.getGlobalLambda());
-				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\twindow_size=" + score.getCoordinateSpace().getSize(window));
-				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\twindow_count=" + score.getCount());
-				//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tpval=" + score.getScanPvalue());
-				ScanStatisticScore fragmentLengthFilterScore = sample.scoreWindowWithFragmentLengthFilter(gene, window);
-				double pval2 = fragmentLengthFilterScore.getScanPvalue();
-				if(pval2 < peakWindowScanPvalCutoff) {
-					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_length=" + fragmentLengthFilterScore.getGlobalLength());
-					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_count=" + fragmentLengthFilterScore.getTotal());
-					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + fragmentLengthFilterScore.getGlobalLambda());
-					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_size=" + fragmentLengthFilterScore.getCoordinateSpace().getSize(window));
-					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_count=" + fragmentLengthFilterScore.getCount());
-					//logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tpval=" + fragmentLengthFilterScore.getScanPvalue());				
-					rtrn.add(window);
+			score.getDebugInfo("FIXED_SIZE_WINDOW_SCORES: ");
+			for (String scoreName : scoresToUse) {
+				double pval = score.getPvalue(scoreName);		
+				if(pval < peakWindowScanPvalCutoff) {
+					logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER");
+					MultiScore fragmentLengthFilterScore = scoreWindowWithFragmentLengthFilter(gene, window, sample);
+					score.getDebugInfo("FIXED_SIZE_WINDOW_SCORES_AFTER_FRAGMENT_LENGTH_FILTER: ");
+					double pval2 = fragmentLengthFilterScore.getPvalue(scoreName);
+					if(pval2 < peakWindowScanPvalCutoff) {
+						window.setScore(pval2);
+						logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER");
+						rtrn.get(scoreName).add(window);
+					} else {
+						logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER");
+						rejectFileWriterFragmentLengthFilter.get(scoreName).write(window.toBED() + "\n");
+					}
 				} else {
-					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_length=" + fragmentLengthFilterScore.getGlobalLength());
-					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_count=" + fragmentLengthFilterScore.getTotal());
-					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tglobal_lambda=" + fragmentLengthFilterScore.getGlobalLambda());
-					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_size=" + fragmentLengthFilterScore.getCoordinateSpace().getSize(window));
-					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\twindow_count=" + fragmentLengthFilterScore.getCount());
-					//logger.debug("FIXED_SIZE_WINDOW_NOT_SIGNIFICANT_AFTER_FRAGMENT_LENGTH_FILTER\tpval=" + fragmentLengthFilterScore.getScanPvalue());				
-					rejectFileWriterFragmentLengthFilter.write(window.toBED() + "\n");
+					logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER");
+					rejectFileWriterAllFragments.get(scoreName).write(window.toBED() + "\n");
 				}
-			} else {
-				rejectFileWriterAllFragments.write(window.toBED() + "\n");
 			}
+		}
+		logger.info("Finished computing significant windows for " + gene.getName());
+		for (String scoreName : scoresToUse) {
+			logger.info("Found " + rtrn.get(scoreName).size() + " significant windows for " + scoreName + " score");	
 		}
 		return rtrn;
 	}
 	
-	private TreeSet<Annotation> findBinomialSignificantWindows(SampleData sample, Gene gene, FileWriter windowCountRejectFileWriter, FileWriter rejectFileWriterAllFragments, FileWriter rejectFileWriterFragmentLengthFilter) throws IOException {
-		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
-		Map<Annotation, BinomialEnrichmentScore> windowScores = getBinomialWindowScores(sample,gene);
-		for(Annotation window : windowScores.keySet()) {
-			BinomialEnrichmentScore score = windowScores.get(window);
-			double count = score.getCount();
-			if(count < peakWindowCountCutoff) {
-				windowCountRejectFileWriter.write(window.toBED() + "\n");
-				continue;
-			}
-			double pval = score.getPvalue();
-			if(pval < peakWindowScanPvalCutoff) {
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + gene.getName());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\t" + window.toBED());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tsampleCounts=" + score.getSampleCount());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tctrlCounts=" + score.getCtrlCount());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tsampleRegionCounts=" + score.getSampleRegionCount());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tctrlRegionCounts=" + score.getCtrlRegionCount());
-				logger.debug("FIXED_SIZE_WINDOW_IS_SIGNIFICANT_BEFORE_FRAGMENT_LENGTH_FILTER\tpval=" + score.getPvalue());
-				BinomialEnrichmentScore fragmentLengthFilterScore = scoreWindowBinomialWithFragmentLengthFilter(gene, window, sample);
-				double pval2 = fragmentLengthFilterScore.getPvalue();
-				if(pval2 < peakWindowScanPvalCutoff) {
-				rtrn.add(window);
-				} else {
-				rejectFileWriterFragmentLengthFilter.write(window.toBED() + "\n");
-				}
-			} else {
-				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\t" + gene.getName());
-				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\t" + window.toBED());
-				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\tsampleCounts=" + score.getSampleCount());
-				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\tctrlCounts=" + score.getCtrlCount());
-				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\tsampleRegionCounts=" + score.getSampleRegionCount());
-				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\tctrlRegionCounts=" + score.getCtrlRegionCount());
-				logger.debug("FIXED_SIZE_WINDOW_IS_NOT_SIGNIFICANT\tpval=" + score.getPvalue());
-
-				rejectFileWriterAllFragments.write(window.toBED() + "\n");
-			}
-		}
-		return rtrn;
-	}
-	
-	private Map<Annotation, BinomialEnrichmentScore> getBinomialWindowScores(SampleData sample,Gene gene) {
-		if (binomialWindowScores.get(sample).containsKey(gene)) {
-			return binomialWindowScores.get(sample).get(gene);
+	/**
+	 * Check for gene in computed window scores, else compute window scores for the gene
+	 * @param sample The sample
+	 * @param gene The gene
+	 * @return Hash of window : MultiScore
+	 */
+	private Map<Annotation, MultiScore> getWindowScores(SampleData sample,Gene gene) {
+		if (windowScores.get(sample).containsKey(gene)) {
+			return windowScores.get(sample).get(gene);
 		} else {
-			computeBinomialWindowScores(sample,gene);
-			return binomialWindowScores.get(sample).get(gene);
+			computeWindowScores(sample,gene);
+			return windowScores.get(sample).get(gene);
 		}
 	}
 	
-	private void computeBinomialWindowScores(SampleData sample, Gene gene) {
-		Map<Annotation, BinomialEnrichmentScore> scores = new TreeMap<Annotation, BinomialEnrichmentScore>();
+	/**
+	 * Make windows over gene, iterate over windows using MultiScore processor
+	 * Store scores in windowScores
+	 * @param sample The sample
+	 * @param gene The gene
+	 */
+	private void computeWindowScores(SampleData sample, Gene gene) {
+		Map<Annotation, MultiScore> scores = new TreeMap<Annotation, MultiScore>();
 		if(gene.getSize() < windowSize) {
 			logger.info(gene.getName() + " is smaller than window size. Not computing window binding site scores.");
-			binomialWindowScores.get(sample).put(gene, scores);
+			windowScores.get(sample).put(gene, scores);
 			return;
 		}
-		WindowScoreIterator<BinomialEnrichmentScore> iter = null;
+		WindowScoreIterator<MultiScore> iter = null;
 		try {
-			iter = sample.getData().scan(gene,sample.getWindowSize(),sample.getWindowSize()-sample.getStepSize(),binomialProcessors.get(sample));
+			iter = sample.getData().scan(gene,windowSize,windowSize-stepSize,processors.get(sample));
 		} catch(NullPointerException e) {
-			logger.info("Gene: " + gene.getName());
-			logger.info("Gene: " + gene.toBED());
+			logger.debug("Gene: " + gene.getName());
+			logger.debug("Gene: " + gene.toBED());
 		}
 		
 		double sampleGeneCount = sample.getGeneCount(gene);
-		double ctrlGeneCount = binomialCtrl.getGeneCount(gene);
+		double ctrlGeneCount = ctrl.getGeneCount(gene);
 		while (iter.hasNext()) {
-			BinomialEnrichmentScore score = iter.next();
+			MultiScore score = iter.next();
 			Annotation window = score.getAnnotation();
+			score.setGene(gene);
 			score.setSampleRegionCount(sampleGeneCount);
 			score.setCtrlRegionCount(ctrlGeneCount);
 			score.setRegionLength(gene.size());
-			score.refreshPvalue();
-			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\t" + gene.getName());
-			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
-			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tsample_count=" + score.getSampleCount());
-			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tctrl_count=" + score.getCtrlCount());
-			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tsample_gene_count=" + score.getSampleRegionCount());
-			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tctrl_gene_count=" + score.getCtrlRegionCount());
-			//logger.debug("SCORE_ALL_WINDOWS_IN_GENE\tpval=" + score.getPvalue());
+			score.updateScores();
+			//score.getDebugInfo("SCORE_ALL_WINDOWS_IN_GENE\t");
+			//new ScanStatisticScore(score).getDebugInfo("SCORE_ALL_WINDOWS_IN_GENE\t");
 			scores.put(window, score);
 		}
-		binomialWindowScores.get(sample).put(gene, scores);
+		windowScores.get(sample).put(gene, scores);
 	}
 	
-	private BinomialEnrichmentScore scoreWindowBinomial(Gene gene, Annotation window, SampleData sample, double count) {
-		BinomialEnrichmentScore score = scoreWindowBinomial(gene,window,sample);
-		score.setCount(count);
-		score.refreshPvalue();
-		return score;
-	}
-	
-	private BinomialEnrichmentScore scoreWindowBinomial(Gene gene, Annotation window, SampleData sample) {
+	/**
+	 * Score a given window
+	 * @param sample The sample
+	 * @param window The window
+	 * @param gene The gene
+	 * @return MultiScore
+	 */
+	private MultiScore scoreWindow(Gene gene, Annotation window, SampleData sample) {
+		if (finalWindowScores.get(sample).get(gene).containsKey(window)) {
+			return finalWindowScores.get(sample).get(gene).get(window);
+		}
 		double sampleGeneCount = sample.getGeneCount(gene);
-		double ctrlGeneCount = binomialCtrl.getGeneCount(gene);
+		double ctrlGeneCount = ctrl.getGeneCount(gene);
 		double regionLength = gene.getSize();
-		BinomialEnrichmentScore score = new BinomialEnrichmentScore(sample.getData(),binomialCtrl.getData(),window,regionLength);
+		MultiScore score = new MultiScore(sample.getData(),ctrl.getData(),window,regionLength);
 		score.setSampleRegionCount(sampleGeneCount);
 		score.setCtrlRegionCount(ctrlGeneCount);
-		score.refreshPvalue();
+		score.setGene(gene);
+		score.updateScores();
 		return score;
 	}
 	
-	private BinomialEnrichmentScore scoreWindowBinomialWithFragmentLengthFilter(Gene gene, Annotation window, SampleData sample) {
-		double sampleGeneCount = sample.getFragmentLengthFilterData().getCount(gene);
-		double ctrlGeneCount = binomialCtrl.getFragmentLengthFilterData().getCount(gene);
-		double regionLength = gene.getSize();
-		BinomialEnrichmentScore score = new BinomialEnrichmentScore(sample.getFragmentLengthFilterData(),binomialCtrl.getFragmentLengthFilterData(),window,regionLength);
-		score.setSampleRegionCount(sampleGeneCount);
-		score.setCtrlRegionCount(ctrlGeneCount);
-		score.refreshPvalue();
+	/**
+	 * Score a given window with fragment length filter
+	 * @param sample The sample
+	 * @param window The window
+	 * @param gene The gene
+	 * @return MultiScore
+	 */
+	private MultiScore scoreWindowWithFragmentLengthFilter(Gene gene, Annotation window, SampleData sample) {
+		MultiScore score = new MultiScore(sample.getFragmentLengthFilterData(),ctrl.getFragmentLengthFilterData(),window,gene);
 		return score;
 	}
 	
+	/**
+	 * Trim windows to max contiguous subregion above certain quantile
+	 * @param data The alignment data
+	 * @return New windows
+	 */
 	private TreeSet<Annotation> trimWindows(TreeSet<Annotation> untrimmed, TranscriptomeSpaceAlignmentModel data) throws IOException {
 		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
 		for(Annotation window : untrimmed) {
 			List<Double> coverageData = data.getPositionCountList(new Gene(window));
 			Annotation trimmed = SampleData.trimMaxContiguous(window, coverageData, trimQuantile);
 			rtrn.add(trimmed);
-			//logger.debug("MERGED_TRIMMED_WINDOW\t" + window.toBED());
+			logger.debug("MERGED_TRIMMED_WINDOW\t" + window.toBED());
 		}
 		return rtrn;
 	}
 	
-	private TreeSet<Annotation> filterByScanStatistic(TreeSet<Annotation> preFilter, SampleData sample, Gene gene, FileWriter rejectFileWriter) throws IOException {
+	/**
+	 * Rescores windows, filter by pvalue of given score 
+	 * @param data The alignment data
+	 * @return New windows
+	 */
+	private TreeSet<Annotation> filterByScore(TreeSet<Annotation> preFilter, SampleData sample, Gene gene, String scoreName, FileWriter rejectFileWriter) throws IOException {
 		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
-		double p;
+		double p;	
+		if (!finalWindowScores.get(sample).containsKey(gene)) {
+			finalWindowScores.get(sample).put(gene, new HashMap<Annotation,MultiScore>());
+		}
 		for(Annotation window : preFilter) {
-			if (useBinomialScore) {
-				BinomialEnrichmentScore score = scoreWindowBinomial(gene,window,sample);
-				p = score.getPvalue();
-			} else {
-				ScanStatisticScore score = sample.scoreWindow(gene, window);
-				p = score.getScanPvalue();
-			}
+			MultiScore score = scoreWindow(gene,window,sample);
+			p = score.getPvalue(scoreName);
 			if(p < peakWindowScanPvalCutoff) {
-				logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + gene.getName());
-				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\t" + window.toBED());
-				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_length=" + score.getGlobalLength());
-				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_count=" + score.getTotal());
-				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tglobal_lambda=" + score.getGlobalLambda());
-				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_size=" + score.getCoordinateSpace().getSize(window));
-				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\twindow_count=" + score.getCount());
-				//logger.debug("MERGED_TRIMMED_WINDOW_IS_SIGNIFICANT\tpval=" + score.getScanPvalue());
 				rtrn.add(window);
+				finalWindowScores.get(sample).get(gene).put(window, score);
 			} else {
 				rejectFileWriter.write(window.toBED() + "\n");
 			}
@@ -977,6 +988,11 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		return rtrn;
 	}
 	
+	/**
+	 * Rescores windows, filter by pvalue of given score 
+	 * @param data The alignment data
+	 * @return New windows
+	 */
 	private static TreeSet<Annotation> filterByDuplicates(TreeSet<Annotation> preFilter, SampleData sample, double maxPctMostCommonRead, FileWriter rejectFileWriter) throws IOException {
 		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
 		AlignmentModel data = sample.getData();
@@ -995,38 +1011,40 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			}
 			double mostCommonPct = (double) largestReplicate / (double) total;
 			if(mostCommonPct > maxPctMostCommonRead) {
-				//logger.debug("TOO_MANY_DUPLICATE_READS\t" + mostCommon + "\t" + mostCommonPct + " duplicates");
 				rejectFileWriter.write(window.toBED() + "\n");
 				continue;
 			}
-			//logger.debug("NUMBER_OF_DUPLICATE_READS_OK\t" + mostCommon + "\t" +  mostCommonPct + " duplicates");
 			rtrn.add(window);
 		}
 		return rtrn;
 	}
 	
+	/**
+	 * Filters regions with less than 90% of reads on same strand as gene
+	 * @return New windows
+	 */
 	private static TreeSet<Annotation> filterByStrandInformation(TreeSet<Annotation> preFilter, SampleData sample, Gene gene, FileWriter rejectFileWriter) throws IOException {
 		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
 		for(Annotation window : preFilter) {
 			Strand orientation = AlignmentUtils.assignOrientationToWindow(sample.getOriginalBamFile(), window, sample.firstReadTranscriptionStrand(), 0.9);
 			window.setOrientation(orientation);
 			if(orientation.equals(gene.getOrientation())) {
-				//logger.debug("STRAND_OK\t" + gene.toBED());
-				//logger.debug("STRAND_OK\t" + window.toBED());
 				rtrn.add(window);
-			} else if(orientation.equals(Strand.UNKNOWN)) {
-				//logger.debug("STRAND_UNKNOWN_SKIPPING\t" + gene.toBED());
-				//logger.debug("STRAND_UNKNOWN_SKIPPING\t" + window.toBED());				
+			} else if(orientation.equals(Strand.UNKNOWN)) {			
 				rejectFileWriter.write(window.toBED() + "\n");
-			} else {
-				//logger.debug("WRONG_STRAND_SKIPPING\t" + gene.toBED());
-				//logger.debug("WRONG_STRAND_SKIPPING\t" + window.toBED());				
+			} else {				
 				rejectFileWriter.write(window.toBED() + "\n");
 			}
 		}
 		return rtrn;
 	}
 	
+	// Methods to compute window enrichments over gene background
+	
+	/**
+	 * Compute window enrichments in all genes, store in hash.
+	 * Note: only used for t-statistic
+	 */
 	private void computeSingleSampleWindowEnrichmentsOverGenes() {
 		logger.info("Computing window enrichments for each sample...");
 		for(String chr : genes.keySet()) {
@@ -1037,12 +1055,42 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				computeSingleSampleWindowEnrichmentOverGene(gene);
 			}
 		}		
-		//writeSingleSampleWindowScoresToFileIfNeeded();
 		logger.info("Done computing single sample window enrichments.");
 	}
 	
+	
 	/**
-	 * Score all genes
+	 * For each sample compute the enrichment of each window over the gene average
+	 * Cache the window enrichments
+	 * @param gene The gene
+	 */
+	private void computeSingleSampleWindowEnrichmentOverGene(Gene gene) {
+		logger.info("Getting enrichment for each window and each sample...");
+		for(SampleData sample : allSamples) {
+			Map<Annotation,Double> sampleWindowEnrichments = new TreeMap<Annotation,Double>();
+			double geneAvgCoverage = sample.getGeneAverageCoverage(gene);
+			logger.info("Sample " + sample.getSampleName() + " Gene average coverage = " + geneAvgCoverage);
+			Map<Annotation, MultiScore> scores = getWindowScores(sample,gene);
+			
+			if(gene.getSize() < windowSize) {
+				logger.info(gene.getName() + " is smaller than window size. Not computing single sample window enrichments.");
+				singleSampleWindowEnrichmentOverGene.get(sample).put(gene, sampleWindowEnrichments);
+				continue;
+			}
+			for(Annotation window : scores.keySet()) {
+				double windowAvgCoverage = scores.get(window).getAverageCoverage(sample.getData());
+				double enrichment = windowAvgCoverage / geneAvgCoverage;
+				logger.info(sample.getSampleName() + "\t" + gene.getName() + "\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\tavg_coverage=" + windowAvgCoverage + "\twindow_enrichment=" + enrichment);
+				sampleWindowEnrichments.put(window, Double.valueOf(enrichment));
+			}
+			singleSampleWindowEnrichmentOverGene.get(sample).put(gene, sampleWindowEnrichments);
+		}
+	}
+	
+	// Methods for t-statistic testing
+	
+	/**
+	 * Score all genes using t-statistic
 	 * @throws IOException 
 	 */
 	@SuppressWarnings("unused")
@@ -1063,48 +1111,6 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				logger.info("Scoring gene " + gene.getName());
 				computeTStatisticWindowScores(gene);
 			}
-		}
-	}
-	
-	
-/*	*//**
-	 * For samples that didn't read window scores from file, write to files
-	 * @throws IOException
-	 *//*
-	private void writeSingleSampleWindowScoresToFileIfNeeded() throws IOException {
-		for(SampleData sample : allSamples) {
-			if(!sample.gotWindowScoresFromFile()) {
-				sample.writeWindowScoresToFile(this);
-			}
-		}
-		logger.info("Done writing window score files.");
-	}
-*/	
-	/**
-	 * For each sample compute the enrichment of each window over the gene average
-	 * Cache the window enrichments
-	 * @param gene The gene
-	 */
-	private void computeSingleSampleWindowEnrichmentOverGene(Gene gene) {
-		logger.info("Getting enrichment for each window and each sample...");
-		for(SampleData sample : allSamples) {
-			Map<Annotation,Double> sampleWindowEnrichments = new TreeMap<Annotation,Double>();
-			double geneAvgCoverage = sample.getGeneAverageCoverage(gene);
-			logger.info("Sample " + sample.getSampleName() + " Gene average coverage = " + geneAvgCoverage);
-			Map<Annotation, ScanStatisticScore> scores = sample.getWindowScores(gene);
-			
-			if(gene.getSize() < windowSize) {
-				logger.info(gene.getName() + " is smaller than window size. Not computing single sample window enrichments.");
-				singleSampleWindowEnrichmentOverGene.get(sample).put(gene, sampleWindowEnrichments);
-				continue;
-			}
-			for(Annotation window : scores.keySet()) {
-				double windowAvgCoverage = scores.get(window).getAverageCoverage(sample.getData());
-				double enrichment = windowAvgCoverage / geneAvgCoverage;
-				logger.info(sample.getSampleName() + "\t" + gene.getName() + "\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\tavg_coverage=" + windowAvgCoverage + "\twindow_enrichment=" + enrichment);
-				sampleWindowEnrichments.put(window, Double.valueOf(enrichment));
-			}
-			singleSampleWindowEnrichmentOverGene.get(sample).put(gene, sampleWindowEnrichments);
 		}
 	}
 	
@@ -1131,10 +1137,10 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			tStatisticScoresThisGene.put(window, Double.valueOf(score));
 			String e = "";
 			for(SampleData control : controlSamples) {
-				e += control.getSampleName() + ":" + control.getWindowScores(gene).get(window).getCount() + ":" + singleSampleWindowEnrichmentOverGene.get(control).get(gene).get(window).toString() + "\t";
+				e += control.getSampleName() + ":" + getWindowScores(control,gene).get(window).getCount() + ":" + singleSampleWindowEnrichmentOverGene.get(control).get(gene).get(window).toString() + "\t";
 			}
-			for(SampleData signal : controlSamples) {
-				e += signal.getSampleName() + ":" + signal.getWindowScores(gene).get(window).getCount() + ":" + singleSampleWindowEnrichmentOverGene.get(signal).get(gene).get(window).toString() + "\t";
+			for(SampleData signal : signalSamples) {
+				e += signal.getSampleName() + ":" + getWindowScores(signal,gene).get(window).getCount() + ":" + singleSampleWindowEnrichmentOverGene.get(signal).get(gene).get(window).toString() + "\t";
 			}
 			logger.info(gene.getName() + "\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\t" + score + "\t" + e);
 		}
@@ -1167,16 +1173,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		}
 		return Statistics.tstat(signalEnrichments, controlEnrichments);
 	}
-	
-	
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#scoreWindows(java.util.Collection)
-	 */
-	@Override
-	public void scoreWindows(Collection<Annotation> windows) {
-		throw new UnsupportedOperationException("TODO");
-	}
-	
+		
 	/**
 	 * Nominal P value calculated relative to null distribution of t statistic score
 	 * Where null distribution is determined by permuting the contol/signal labels of samples
@@ -1212,71 +1209,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private double tStatisticWindowScoreFDR(Gene gene, Annotation window) {
 		throw new UnsupportedOperationException("TODO");
 	}
-	
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#filterWindows(java.util.Collection)
-	 */
-	@Override
-	public Collection<Annotation> filterWindows(Collection<Annotation> windows) throws IOException {
-		throw new UnsupportedOperationException("TODO");
- 	}
 
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#mergePeaks(java.util.Collection)
-	 */
-	@Override
-	public Collection<Annotation> mergePeaks(Collection<Annotation> peaks) {
-		TreeSet<Annotation> peakTree = new TreeSet<Annotation>();
-		peakTree.addAll(peaks);
-		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(peakTree);
-		for(Annotation window : mergedWindows) {
-			//logger.debug("MERGED_WINDOW\t" + window.toBED());
-		}
-		return mergedWindows;
-	}
-	
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#mergePeaks(java.util.Collection)
-	 */	
-	@Override
-	public Annotation trimPeak(Annotation peak) {
-		throw new UnsupportedOperationException("TODO");
-	}
-
-
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#writeResults(java.util.Collection, java.lang.String)
-	 */
-	@Override
-	public void writeResults(Collection<Annotation> windows, String out) throws IOException {
-		throw new UnsupportedOperationException("TODO");
-	}
-
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#writeResult(java.util.Collection, java.io.FileWriter)
-	 */
-	@Override
-	public void writeResult(Collection<Annotation> windows, FileWriter writer) throws IOException {
-		throw new UnsupportedOperationException("TODO");
-	}
-
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#setCoordinateSpace(nextgen.core.coordinatesystem.CoordinateSpace)
-	 */
-	@Override
-	public void setCoordinateSpace(CoordinateSpace space) {
-		coord = (TranscriptomeSpace) space;
-	}
-
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#getCoordinateSpace()
-	 */
-	@Override
-	public CoordinateSpace getCoordinateSpace() {
-		return coord;
-	}
-	
-	
 	/**
 	 * Get a systematic iterator over all possible sample identity permutations
 	 * @return An iterator over all permutations of sample identity (control or signal)
@@ -1343,24 +1276,11 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		}
 		return new SamplePermutation(controlPositions);
 	}
-
-	/**
-	 * Set logger levels for all samples
-	 * @param level Level
-	 */
-	protected void setLoggerLevel(Level level) {
-		logger.setLevel(level);
-		for(SampleData sample : signalSamples) {
-			sample.getLogger().setLevel(level);
-		}
-		for(SampleData sample : controlSamples) {
-			sample.getLogger().setLevel(level);
-		}
-		expressionData.getLogger().setLevel(level);
-	}
 	
+	// Methods to parse command line arguments and sample file and set parameters for output
+
 	private static CommandLineParser getCommandLineParser(String[] commandArgs) {
-		CommandLineParser p = new CommandLineParser();
+		CommandLineParser p = new CommandLineParser(true);
 		p.addStringArg("-l", "Sample list file", true);
 		p.addStringArg("-b", "Bed file of genes", true);
 		p.addIntArg("-w", "Window size", false, DEFAULT_WINDOW_SIZE);
@@ -1380,12 +1300,12 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		p.addDoubleArg("-r", "Cutoff for percentage of reads in peak coming from the most common replicate fragment", false, DEFAULT_PEAK_MAX_PCT_DUPLICATES);
 		p.addBooleanArg("-sf", "Apply strand filter using read strand info", false, DEFAULT_FILTER_BY_STRAND);
 		p.addBooleanArg("-ef", "Print additional info in BED file", false, DEFAULT_EXTRA_FIELDS);
-		p.addBooleanArg("-binom", "Use binomial score", false,DEFAULT_USE_BINOMIAL);
-		p.parse(commandArgs);
+		p.addStringListArg("-score", "Score to use in peak calling. Can be used multiple times. Possible values: binomial, scan_statistic", false, new ArrayList<String>(Arrays.asList(DEFAULT_SCORES)));
+		p.parse(commandArgs,true);
 		return p;
 	}
 	
-	protected static MultiSampleScanPeakCaller createFromCommandArgs(String[] commandArgs) throws IOException {
+	protected static MultiSamplePeakCaller createFromCommandArgs(String[] commandArgs) throws IOException {
 		CommandLineParser p = getCommandLineParser(commandArgs);
 		String sampleListFile = p.getStringArg("-l");
 		String bedFile = p.getStringArg("-b");
@@ -1400,9 +1320,14 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		double maxPctMostCommonReplicatePerPeak = p.getDoubleArg("-r");
 		boolean useStrandFilter = p.getBooleanArg("-sf");
 		boolean extraFields =  p.getBooleanArg("-ef");
-		boolean binomialScore = p.getBooleanArg("-binom");
+		ArrayList<String> scoresToUse = p.getStringListArg("-score");
 		
-		MultiSampleScanPeakCaller m = new MultiSampleScanPeakCaller(sampleListFile, bedFile, chrSizeFile, windowSize, stepSize);
+		ArrayList<String> validScoreNames = new ArrayList<String>(Arrays.asList(DEFAULT_SCORES));
+		if (!validScoreNames.containsAll(scoresToUse)) {
+			throw new IllegalArgumentException("Invalid score name. Scores must belong to " + validScoreNames.toString());
+		}
+
+		MultiSamplePeakCaller m = new MultiSamplePeakCaller(sampleListFile, bedFile, chrSizeFile, windowSize, stepSize);
 		m.setExpressionScanPvalueCutoff(expressionScanPvalCutoff);
 		m.setFirstReadTranscriptionStrand(firstReadIsTranscriptionStrand);
 		m.setPeakCutoffMostCommonReplicate(maxPctMostCommonReplicatePerPeak);
@@ -1411,37 +1336,106 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		m.setPeakWindowScanPvalCutoff(scanPvalCutoff);
 		m.setFilterByStrand(useStrandFilter);
 		m.setExtraFields(extraFields);
-		m.setBinomialScore(binomialScore);
+		m.setScoreList(scoresToUse);
 		
 		return m;
 		 
 	}
 	
+	/**
+	 * Set logger levels for all samples
+	 * @param level Level
+	 */
+	protected void setLoggerLevel(Level level) {
+		logger.setLevel(level);
+		for(SampleData sample : signalSamples) {
+			sample.getLogger().setLevel(level);
+		}
+		for(SampleData sample : controlSamples) {
+			sample.getLogger().setLevel(level);
+		}
+		expressionData.getLogger().setLevel(level);
+	}
+	
+	/**
+	 * Get name of bed file to write for peaks
+	 * @param sample Sample
+	 * @param outDir Output directory name or null if current directory
+	 * @param chrName Chromosome name or null if all chromosomes
+	 * @return File name
+	 */
+	protected Map<String,String> getPeakBedFileName(SampleData sample, String outDir, String chrName) {
+		Map<String,String> rtrn = new HashMap<String,String>();
+		for (String scoreName : scoresToUse) {
+			String fileName = "";
+			if(outDir != null) {
+				fileName += outDir + "/";
+			}
+			fileName += sample.getSampleName() + "_" + scoreName + "_peaks_" + windowSize + "_" + stepSize + "_" + peakWindowScanPvalCutoff + "_" + trimQuantile;
+			if(chrName != null) {
+				fileName += "_" + chrName;
+			}
+			fileName += ".bed";
+			rtrn.put(scoreName, fileName);
+		}
+		return rtrn;
+	}
+	
+	/**
+	 * Get chromosome list for batch writing
+	 * @param commandArgs
+	 * @return
+	 */
 	private static String commandLineBatchChrList(String[] commandArgs) {
 		CommandLineParser p = getCommandLineParser(commandArgs);
 		return p.getStringArg("-cl");
 	}
 	
+	/**
+	 * Get memory requirements
+	 * @param commandArgs
+	 * @return
+	 */
 	private static int commandLineBatchMemRequest(String[] commandArgs) {
 		CommandLineParser p = getCommandLineParser(commandArgs);
 		return p.getIntArg("-m");
 	}
 	
+	/**
+	 * Get debug level
+	 * @param commandArgs
+	 * @return
+	 */
 	protected static boolean commandLineHasDebugFlag(String[] commandArgs) {
 		CommandLineParser p = getCommandLineParser(commandArgs);
 		return p.getBooleanArg("-d");
 	}
 	
+	/**
+	 * Get whether to use batch writer
+	 * @param commandArgs
+	 * @return
+	 */
 	private static boolean commandLineHasBatchFlag(String[] commandArgs) {
 		CommandLineParser p = getCommandLineParser(commandArgs);
 		return p.getBooleanArg("-batch");
 	}
 	
+	/**
+	 * Get outdir
+	 * @param commandArgs
+	 * @return
+	 */
 	protected static String commandLineOutDir(String[] commandArgs) {
 		CommandLineParser p = getCommandLineParser(commandArgs);
 		return p.getStringArg("-o");		
 	}
 	
+	/**
+	 * Get jarfile for batch writer
+	 * @param commandArgs
+	 * @return
+	 */
 	private static String commandLineBatchJar(String[] commandArgs) {
 		CommandLineParser p = getCommandLineParser(commandArgs);
 		String jar = p.getStringArg("-bj");
@@ -1451,6 +1445,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		return jar;
 	}
 	
+	// Main method
+	
 	/**
 	 * @param args
 	 * @throws IOException 
@@ -1459,17 +1455,17 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	 */
 	public static void main(String[] args) throws IOException, InterruptedException, DrmaaException {
 
-		MultiSampleScanPeakCaller m = createFromCommandArgs(args);
+		MultiSamplePeakCaller m = createFromCommandArgs(args);
 		
 		if(commandLineHasDebugFlag(args)) {
 			m.setLoggerLevel(Level.DEBUG);
 		}
 		
 		if(commandLineHasBatchFlag(args)) {
-			m.batchWriteSingleSampleScanPeaksAllSamples(args, commandLineBatchChrList(args), commandLineBatchMemRequest(args));
+			m.batchWriteSingleSamplePeaksAllSamples(args, commandLineBatchChrList(args), commandLineBatchMemRequest(args));
 		} else {
-			m.initializeFilterRejectWriters("all_chr", FILTER_REJECT_DIR);
-			m.writeSingleSampleScanPeaksAllSamples(commandLineOutDir(args));
+			m.initializeFilterRejectWriters("all_chr", commandLineOutDir(args) + "/" + FILTER_REJECT_DIR);
+			m.writeSingleSamplePeaksAllSamples(commandLineOutDir(args));
 			m.closeFilterRejectWriters();
 		}
 		
@@ -1478,7 +1474,79 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		logger.info("All done.");
 		
 	}
+	
+	// Inherited methods from nextgen.core.analysis.PeakCaller
+	
+	/* (non-Javadoc)
+	 * @see nextgen.core.analysis.PeakCaller#scoreWindows(java.util.Collection)
+	 */
+	@Override
+	public void scoreWindows(Collection<Annotation> windows) {
+		throw new UnsupportedOperationException("TODO");
+	}
+	
+	/* (non-Javadoc)
+	 * @see nextgen.core.analysis.PeakCaller#filterWindows(java.util.Collection)
+	 */
+	@Override
+	public Collection<Annotation> filterWindows(Collection<Annotation> windows) throws IOException {
+		throw new UnsupportedOperationException("TODO");
+ 	}
 
+	/* (non-Javadoc)
+	 * @see nextgen.core.analysis.PeakCaller#mergePeaks(java.util.Collection)
+	 */
+	@Override
+	public Collection<Annotation> mergePeaks(Collection<Annotation> peaks) {
+		TreeSet<Annotation> peakTree = new TreeSet<Annotation>();
+		peakTree.addAll(peaks);
+		Collection<Annotation> mergedWindows = AnnotationUtils.mergeOverlappingBlocks(peakTree);
+
+		return mergedWindows;
+	}
+	
+	/* (non-Javadoc)
+	 * @see nextgen.core.analysis.PeakCaller#mergePeaks(java.util.Collection)
+	 */	
+	@Override
+	public Annotation trimPeak(Annotation peak) {
+		throw new UnsupportedOperationException("TODO");
+	}
+
+
+	/* (non-Javadoc)
+	 * @see nextgen.core.analysis.PeakCaller#writeResults(java.util.Collection, java.lang.String)
+	 */
+	@Override
+	public void writeResults(Collection<Annotation> windows, String out) throws IOException {
+		throw new UnsupportedOperationException("TODO");
+	}
+
+	/* (non-Javadoc)
+	 * @see nextgen.core.analysis.PeakCaller#writeResult(java.util.Collection, java.io.FileWriter)
+	 */
+	@Override
+	public void writeResult(Collection<Annotation> windows, FileWriter writer) throws IOException {
+		throw new UnsupportedOperationException("TODO");
+	}
+
+	/* (non-Javadoc)
+	 * @see nextgen.core.analysis.PeakCaller#setCoordinateSpace(nextgen.core.coordinatesystem.CoordinateSpace)
+	 */
+	@Override
+	public void setCoordinateSpace(CoordinateSpace space) {
+		coord = (TranscriptomeSpace) space;
+	}
+
+	/* (non-Javadoc)
+	 * @see nextgen.core.analysis.PeakCaller#getCoordinateSpace()
+	 */
+	@Override
+	public CoordinateSpace getCoordinateSpace() {
+		return coord;
+	}
+	
+	// Extra classes for file parser, sample permutation
 	
 	/**
 	 * Helper class to parse file containing list of sample types and bam file names
@@ -1490,6 +1558,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		private String EXPRESSION_LABEL = "Expression";
 		private String EXPRESSION_PVAL_CUTOFF_LABEL = "Expression_pval_cutoff";
 		private String EXPRESSION_AVG_COVERAGE_CUTOFF_LABEL = "Expression_avg_coverage_cutoff";
+		private String CONTROL_FOR_SCORES_LABEL = "Control_for_scores";
 		private String CONTROL_LABEL = "Control";
 		private String SIGNAL_LABEL = "Signal";
 		private String FIRST_READ_TRANSCRIPTION_STRAND_LABEL = "first_read_transcription_strand";
@@ -1503,7 +1572,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			controlData = new ArrayList<SampleData>();
 			signalData = new ArrayList<SampleData>();
 			expressionSampleData = null;
-			binomialCtrl = null;
+			ctrl = null;
 			parseFile(sampleFileName);
 		}
 		
@@ -1523,6 +1592,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			return signalData;
 		}
 		
+		
 		/**
 		 * Get the expression dataset
 		 * @return Expression dataset
@@ -1532,11 +1602,11 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		}
 		
 		/**
-		 * Get the binomial control
-		 * @return Binomial control dataset
+		 * Get the  control
+		 * @return  control dataset
 		 */
-		public SampleData getBinomialCtrlData() {
-			return binomialCtrl;
+		public SampleData getCtrlData() {
+			return ctrl;
 		}
 		
 		/**
@@ -1545,6 +1615,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		 */
 		private void parseFile(String sampleFileName) throws IOException {
 			boolean foundExpressionData = false;
+			boolean foundScoreCtrl = false;
+			String scoringCtrlFileName = null;
 			FileReader r = new FileReader(sampleFileName);
 			BufferedReader b = new BufferedReader(r);
 			StringParser s = new StringParser();
@@ -1572,6 +1644,22 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 				crashWithHelpMessage();
 			}
 			
+			String ctrlLine = b.readLine();
+			s.parse(ctrlLine);
+			if(s.getFieldCount() != 2) {
+				crashWithHelpMessage();
+			}
+			if(s.asString(0).equals(CONTROL_FOR_SCORES_LABEL)) {
+				scoringCtrlFileName = s.asString(1);
+				logger.debug("Using for control: " + scoringCtrlFileName);
+			} else {
+				crashWithHelpMessage();
+			}
+			
+			if(!b.ready()) {
+				crashWithHelpMessage();
+			}
+			
 			while(b.ready()) {
 				
 				String line = b.readLine();
@@ -1587,7 +1675,6 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 					if(foundExpressionData) {
 						crashWithHelpMessage();
 					}
-					@SuppressWarnings("unused")
 					boolean firstReadIsTranscriptionStrand = false;
 					if(s.asString(2).equals(FIRST_READ_TRANSCRIPTION_STRAND_LABEL)) {
 						firstReadIsTranscriptionStrand = true;
@@ -1597,11 +1684,14 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 						}
 					}
 					logger.info("Creating sample data object for gene expression from bam file " + bamFile);
-					GenomeSpaceSampleData sample = new GenomeSpaceSampleData(bamFile, sizeFile, genes, windowSize, stepSize, cutoff, true);
+					GenomeSpaceSampleData sample = new GenomeSpaceSampleData(bamFile, sizeFile, genes, cutoff, true);
 					expressionSampleData = sample;
 					foundExpressionData = true;
-					SampleData sample2 = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval, false);
-					binomialCtrl = sample2;
+					if (bamFile.equals(scoringCtrlFileName)) {
+						ctrl = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, cutoff, expByScanPval, false);	
+						foundScoreCtrl = true;
+						logger.debug("Found control: " + bamFile);
+					}
 					continue;
 				}
 				
@@ -1616,8 +1706,13 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 							crashWithHelpMessage();
 						}
 					}
-					SampleData sample = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval, false);
+					SampleData sample = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, cutoff, expByScanPval, false);
 					controlData.add(sample);
+					if (bamFile.equals(scoringCtrlFileName)) {
+						ctrl = sample;	
+						foundScoreCtrl = true;
+						logger.debug("Found control: " + bamFile);
+					}
 					continue;
 				}
 				
@@ -1632,8 +1727,13 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 							crashWithHelpMessage();
 						}
 					}
-					SampleData sample = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, windowSize, stepSize, cutoff, expByScanPval, false);
+					SampleData sample = new SampleData(bamFile, firstReadIsTranscriptionStrand, genes, cutoff, expByScanPval, false);
 					signalData.add(sample);
+					if (bamFile.equals(scoringCtrlFileName)) {
+						ctrl = sample;	
+						foundScoreCtrl = true;
+						logger.debug("Found control: " + bamFile);
+					}
 					continue;
 				}
 				
@@ -1644,7 +1744,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			r.close();
 			b.close();
 			
-			if(!foundExpressionData) {
+			if(!foundExpressionData|!foundScoreCtrl) {
+				logger.debug("Found expression data: " + foundExpressionData + "\nFound score ctrl: " + foundScoreCtrl);
 				crashWithHelpMessage();
 			}
 			
@@ -1664,6 +1765,8 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 			logger.error("-OR-");
 			logger.error(EXPRESSION_AVG_COVERAGE_CUTOFF_LABEL + "\t<avg_depth_cutoff>");
 			logger.error("");
+			logger.error("Second line must be:");
+			logger.error(CONTROL_FOR_SCORES_LABEL + "\t<bam_file_name>");
 			logger.error("Exactly one line must be of the form:");
 			logger.error(EXPRESSION_LABEL + "\t<bam_file_name>\t" + FIRST_READ_TRANSCRIPTION_STRAND_LABEL + " OR " + SECOND_READ_TRANSCRIPTION_STRAND_LABEL);
 			logger.error("");

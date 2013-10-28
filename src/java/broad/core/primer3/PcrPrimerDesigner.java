@@ -856,7 +856,6 @@ public class PcrPrimerDesigner  {
 		}
 		return rtrn;
 	}
-	
 	/**
 	 * Design primers using primer3 and get the one with the lowest penalty
 	 * @param config Primer3 configuration

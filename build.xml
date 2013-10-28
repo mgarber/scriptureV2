@@ -2,7 +2,7 @@
 
 <project name="lincRNA" default="CreateExecutableJarFileWithExternalLibrary">
 	<target name="CreateExecutableJarFileWithExternalLibrary">
-		<jar destfile="/Users/grossman/Scripts/FastaExtendPeaks.jar" basedir="bin/">
+		<jar destfile="/Users//BatchedMultiSamplePeakCaller.jar" basedir="bin/">
 			<zipfileset dir="" prefix="" />
 			<zipfileset src="${basedir}/lib/ATV-3.1.jar" />
 			<zipfileset src="${basedir}/lib/collections-generic-4.01.jar" />
@@ -33,7 +33,7 @@
 			<zipfileset src="${basedir}/lib/tribble-0.1.jar" />
 			<zipfileset src="${basedir}/lib/vcf.jar" />
 			<manifest>
-				<attribute name="Main-Class" value="broad/pda/seq/clip/FastaExtendPeaks" />
+				<attribute name="Main-Class" value="broad/pda/seq/clip/BatchedMultiSamplePeakCaller" />
 			</manifest>
 		</jar>
 	</target>

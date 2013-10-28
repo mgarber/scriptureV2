@@ -15,6 +15,7 @@ import org.apache.log4j.Logger;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.math.EmpiricalDistribution;
+import broad.core.math.Statistics;
 import broad.pda.annotation.BEDFileParser;
 import broad.pda.datastructures.Alignments;
 
@@ -1377,6 +1378,34 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 		iter.close();
 		return counter;
+	}
+	
+	/**
+	 * Get average position level coverage of only positions with count above a threshold (denominator excludes positions not passing threshold)
+	 * @param gene The gene
+	 * @param minCount Min coverage to include a position
+	 * @return The average of all position counts over threshold in the gene
+	 */
+	public double getAverageCountPerPositionWithThreshold(Gene gene, int minCount) {
+		double[] counts = getCountsPerPosition(gene);
+		List<Double> nonzeroCounts = new ArrayList<Double>();
+		for(int i=0; i<counts.length; i++) {
+			double count = counts[i];
+			if(count > minCount) {
+				nonzeroCounts.add(Double.valueOf(count));
+			}
+		}
+		return Statistics.mean(nonzeroCounts);
+	}
+	
+	/**
+	 * Get the average position level coverage
+	 * @param gene The gene
+	 * @return The average of all position counts in the gene
+	 */
+	public double getAverageCountPerPosition(Gene gene) {
+		double[] counts = getCountsPerPosition(gene);
+		return Statistics.mean(counts);
 	}
 	
 	/**

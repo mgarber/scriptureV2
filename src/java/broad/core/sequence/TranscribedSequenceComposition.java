@@ -94,8 +94,9 @@ public class TranscribedSequenceComposition {
 	 * Get map of nucleotide bases to beginning positions of reads starting with the nucleotide
 	 * @param region The region
 	 * @param offset Offset along the parent transcript from the beginning position of each read, or null if region does not have parent
+	 * @throws IOException 
 	 */
-	private Map<String, Collection<NucleotidePosition>> getBeginningPositionsByNucleotide(Gene region, int offset) {
+	private Map<String, Collection<NucleotidePosition>> getBeginningPositionsByNucleotide(Gene region, int offset) throws IOException {
 		if(!regionBeginningPositionsByOffsetAndNucleotide.containsKey(Integer.valueOf(offset))) {
 			Map<Gene, Map<String, Collection<NucleotidePosition>>> mapThisOffset = new TreeMap<Gene, Map<String, Collection<NucleotidePosition>>>();
 			regionBeginningPositionsByOffsetAndNucleotide.put(Integer.valueOf(offset), mapThisOffset);
@@ -112,8 +113,9 @@ public class TranscribedSequenceComposition {
 	 * @param read Alignment 
 	 * @param offset Offset along the parent transcript from the beginning position
 	 * @return The transcribed base or N if read orientation does not match parent gene strand
+	 * @throws IOException 
 	 */
-	public char getTranscribedBaseAtBeginningPosition(Gene parent, Alignment read, int offset) {
+	public char getTranscribedBaseAtBeginningPosition(Gene parent, Alignment read, int offset) throws IOException {
 		NucleotidePosition n = getBeginningPositionAndBase(parent, read, offset);
 		if(n == null) {
 			return 'N';
@@ -128,8 +130,9 @@ public class TranscribedSequenceComposition {
 	 * @param read Alignment 
 	 * @param offset Offset along the parent transcript from the beginning position
 	 * @return The transcribed position and nucleotide
+	 * @throws IOException 
 	 */
-	private NucleotidePosition getBeginningPositionAndBase(Gene parent, Alignment read, int offset) {
+	private NucleotidePosition getBeginningPositionAndBase(Gene parent, Alignment read, int offset) throws IOException {
 		Strand parentStrand = parent.getOrientation();
 		Strand readStrand = read.getFragmentStrand();
 		String chr = parent.getChr();
@@ -155,8 +158,9 @@ public class TranscribedSequenceComposition {
 	 * Calculate map of nucleotide bases to beginning positions of reads starting with the nucleotide
 	 * @param region The region
 	 * @param offset Offset along the parent transcript from the beginning position of each read
+	 * @throws IOException 
 	 */
-	private void calculateBeginningPositionsByNucleotide(Gene region, int offset) {
+	private void calculateBeginningPositionsByNucleotide(Gene region, int offset) throws IOException {
 		logger.debug("Calculating beginning positions by nucleotide (offset = " + offset + ") for region " + region.toBED());
 		Strand regionStrand = region.getStrand();
 		if(regionStrand.equals(Strand.UNKNOWN)) {
@@ -208,8 +212,9 @@ public class TranscribedSequenceComposition {
 	 * @param nucleotideSet The set of nucleotides to use
 	 * @param convertToTranscriptCoordinates Convert beginning positions to transcript coordinates with respect to parent gene
 	 * @return Map of base to median beginning position of positions having the base, or -1 if region does not have parent
+	 * @throws IOException 
 	 */
-	private double medianBeginningPositionByNucleotideSet(Gene region, int offset, TreeSet<String> nucleotideSet, boolean convertToTranscriptCoordinates) {
+	private double medianBeginningPositionByNucleotideSet(Gene region, int offset, TreeSet<String> nucleotideSet, boolean convertToTranscriptCoordinates) throws IOException {
 		Map<String, Collection<NucleotidePosition>> allPositions = getBeginningPositionsByNucleotide(region, offset);
 		if(allPositions == null) {
 			return -1;
@@ -235,8 +240,9 @@ public class TranscribedSequenceComposition {
 	 * @param offset Offset along the parent transcript from the beginning position of each read
 	 * @param convertToTranscriptCoordinates Convert beginning positions to transcript coordinates with respect to parent gene
 	 * @return Map of base to median beginning position of positions having the base
+	 * @throws IOException 
 	 */
-	private Map<String, Double> medianBeginningPositionByNucleotide(Gene region, int offset, boolean convertToTranscriptCoordinates) {
+	private Map<String, Double> medianBeginningPositionByNucleotide(Gene region, int offset, boolean convertToTranscriptCoordinates) throws IOException {
 		Map<String, Double> rtrn = new TreeMap<String, Double>();
 		for(String nuc : allNucleotides) {
 			TreeSet<String> thisNuc = new TreeSet<String>();
@@ -251,8 +257,9 @@ public class TranscribedSequenceComposition {
 	 * @param region The region
 	 * @param offset Offset along the parent transcript from the beginning position of each read
 	 * @return Map of base to number of overlapping fragments whose first position is the base, or null if region does not have parent
+	 * @throws IOException 
 	 */
-	private Map<String, Integer> countBeginningPositionByNucleotide(Gene region, int offset) {
+	private Map<String, Integer> countBeginningPositionByNucleotide(Gene region, int offset) throws IOException {
 		Map<String, Collection<NucleotidePosition>> allPositions = getBeginningPositionsByNucleotide(region, offset);
 		if(allPositions == null) {
 			return null;
@@ -358,8 +365,9 @@ public class TranscribedSequenceComposition {
 	 * @param nucleotideSet The set of nucleotides to use
 	 * @param offset Offset along the parent transcript from the beginning position of each read
 	 * @return Start positions of all fragments beginning with any nucleotide in the set, or null if region does not have parent
+	 * @throws IOException 
 	 */
-	private ArrayList<Double> getFragmentStartPositionsInNucleotideSet(Gene region, TreeSet<String> nucleotideSet, int offset) {
+	private ArrayList<Double> getFragmentStartPositionsInNucleotideSet(Gene region, TreeSet<String> nucleotideSet, int offset) throws IOException {
 		ArrayList<Double> rtrn = new ArrayList<Double>();
 		Map<String, Collection<NucleotidePosition>> positionsByNuc = getBeginningPositionsByNucleotide(region, offset);
 		if(positionsByNuc == null) {
@@ -384,8 +392,9 @@ public class TranscribedSequenceComposition {
 	 * @param nucleotideSet1 One set of nucleotides
 	 * @param nucleotideSet2 Other set of nucleotides
 	 * @return Mann Whitney P value or -1 if not enough of each nucleotide or region does not have parent transcript
+	 * @throws IOException 
 	 */
-	private double mannWhitneyPvalBeginningPositions(Gene region, int offset, TreeSet<String> nucleotideSet1, TreeSet<String> nucleotideSet2) {
+	private double mannWhitneyPvalBeginningPositions(Gene region, int offset, TreeSet<String> nucleotideSet1, TreeSet<String> nucleotideSet2) throws IOException {
 		boolean nonemptyIntersection = nucleotideSet1.removeAll(nucleotideSet2);
 		if(nonemptyIntersection) {
 			throw new IllegalArgumentException("The two sets of nucleotides must not intersect.");
@@ -714,7 +723,6 @@ public class TranscribedSequenceComposition {
 			return new String(b);
 		}
 		
-		@SuppressWarnings("unused")
 		protected char getBase() {
 			return nuc;
 		}

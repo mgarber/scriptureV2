@@ -20,14 +20,17 @@ public final class CommandLineParser {
 	
 	private boolean isParsed;
 	private ArrayList<String> programDescription;
+	private boolean allowDuplicateFlags;
 
 	private Map<String,String> stringArgDescriptions;
+	private Map<String,String> stringListArgDescriptions;
 	private Map<String,String> intArgDescriptions;
 	private Map<String,String> floatArgDescriptions;
 	private Map<String,String> doubleArgDescriptions;
 	private Map<String,String> boolArgDescriptions;	
 	
 	private Map<String,String> stringArgDefaults;
+	private Map<String,ArrayList<String>> stringListArgDefaults;
 	private Map<String,Integer> intArgDefaults;
 	private Map<String,Float> floatArgDefaults;
 	private Map<String,Double> doubleArgDefaults;
@@ -35,21 +38,24 @@ public final class CommandLineParser {
 	
 	private HashSet<String> requiredArgs;
 	private Map<String,String> commandLineValues;
+	private Map<String,ArrayList<String>> duplicateCommandLineValues;
 
-	
+
 	/**
 	 * 
 	 */
-	public CommandLineParser() {
+	public CommandLineParser(boolean allowDuplicates) {
 		isParsed = false;
 		
 		stringArgDescriptions = new HashMap<String,String>();
+		stringListArgDescriptions = new HashMap<String,String>();
 		intArgDescriptions = new HashMap<String,String>();
 		floatArgDescriptions = new HashMap<String,String>();
 		doubleArgDescriptions = new HashMap<String,String>();
 		boolArgDescriptions = new HashMap<String,String>();	
 		
 		stringArgDefaults = new HashMap<String,String>();
+		stringListArgDefaults = new HashMap<String,ArrayList<String>>();
 		intArgDefaults = new HashMap<String,Integer>();
 		floatArgDefaults = new HashMap<String,Float>();
 		doubleArgDefaults = new HashMap<String,Double>();
@@ -58,9 +64,18 @@ public final class CommandLineParser {
 		programDescription = new ArrayList<String>();
 		requiredArgs = new HashSet<String>();
 		commandLineValues = new HashMap<String,String>();
-
+		duplicateCommandLineValues = new HashMap<String,ArrayList<String>>();
+		
+		allowDuplicateFlags = allowDuplicates;
 	}
 	
+	/**
+	 * 
+	 */
+	public CommandLineParser() {
+		this(false);
+	}
+
 	/**
 	 * Sets program description to be printed as part of help menu
 	 * @param description The program description
@@ -99,6 +114,39 @@ public final class CommandLineParser {
 		commandLineValues.put(flag, null);
 		if(required) requiredArgs.add(flag);
 		stringArgDefaults.put(flag, def);
+	}
+	
+	/**
+	 * Adds new string list argument to set of arguments and stores default
+	 * Client will crash if the same argument flag or description has already been added
+	 * @param flag the command line flag for the argument
+	 * @param description the description of the argument
+	 * @param required whether parameter is required
+	 * @param def default value
+	 */
+	public void addStringListArg(String flag, String description, boolean required, ArrayList<String> def) {
+		enforceUniqueFlag(flag);
+		enforceUniqueDescription(description);
+		stringListArgDescriptions.put(flag, description);
+		commandLineValues.put(flag, null);
+		if(required) requiredArgs.add(flag);
+		stringListArgDefaults.put(flag, def);
+	}
+	
+	/**
+	 * Adds new string list argument to set of arguments and stores default
+	 * Client will crash if the same argument flag or description has already been added
+	 * @param flag the command line flag for the argument
+	 * @param description the description of the argument
+	 * @param required whether parameter is required
+	 * @param def default value
+	 */
+	public void addStringListArg(String flag, String description, boolean required) {
+		enforceUniqueFlag(flag);
+		enforceUniqueDescription(description);
+		stringListArgDescriptions.put(flag, description);
+		commandLineValues.put(flag, null);
+		if(required) requiredArgs.add(flag);
 	}
 
 	/**
@@ -235,11 +283,12 @@ public final class CommandLineParser {
 	 * If a required argument is missing, prints help menu and exits
 	 * @param args the command line arguments passed to a main program
 	 */
-	public void parse(String[] args) {
+	public void parse(String[] args, boolean allowDuplicateTags) {
 		
 		isParsed = false;
 				
 		commandLineValues.clear();
+		duplicateCommandLineValues.clear();
 		int i=0;
 		while(i < args.length) {
 			
@@ -260,7 +309,7 @@ public final class CommandLineParser {
 			
 			
 			// Can't see same flag twice
-			if(commandLineValues.containsKey(args[i])) {
+			if(!allowDuplicateTags & commandLineValues.containsKey(args[i])) {
 				printHelpMessage();
 				throw new IllegalArgumentException("Flag specified twice:" + args[i]);
 			}
@@ -273,7 +322,20 @@ public final class CommandLineParser {
 			}
 			
 			// Add entries to map
-			commandLineValues.put(args[i], args[i+1]);
+			if (duplicateCommandLineValues.containsKey(args[i])) {
+				duplicateCommandLineValues.get(args[i]).add(args[i+1]);
+			}
+			else if (commandLineValues.containsKey(args[i]) & allowDuplicateTags) {
+				if (!duplicateCommandLineValues.containsKey(args[i])) {
+					duplicateCommandLineValues.put(args[i], new ArrayList<String>());
+					duplicateCommandLineValues.get(args[i]).add(commandLineValues.get(args[i]));
+				}
+				commandLineValues.remove(args[i]);
+				duplicateCommandLineValues.get(args[i]).add(args[i+1]);
+				
+			} else {
+				commandLineValues.put(args[i], args[i+1]);
+			}
 			
 			// Skip to next flag
 			i += 2;
@@ -290,6 +352,10 @@ public final class CommandLineParser {
 		
 		isParsed = true;
 		
+	}
+	
+	public void parse(String[] args) {
+		parse(args,false);
 	}
 	
 	/**
@@ -357,6 +423,34 @@ public final class CommandLineParser {
 		}
 		
 		return commandLineValues.get(flag);
+	}
+	
+	/**
+	 * Get value of String parameter specified by flag
+	 * @param flag The command line flag for the argument
+	 * @return String specified on command line or null if parameter was not specified
+	 */
+	public ArrayList<String> getStringListArg(String flag) {
+		
+		// Make sure command line has been parsed
+		if(!isParsed) {
+			throw new IllegalStateException("Cannot get parameter value without first calling method parse()");
+		}
+		
+		// Make sure parameter type is correct
+		if(!stringListArgDescriptions.containsKey(flag)) {
+			throw new IllegalArgumentException("Trying to get String List value for non-String List parameter " + flag);
+		}
+		
+		if(commandLineValues.get(flag) == null & duplicateCommandLineValues.get(flag) == null) {
+			if(stringListArgDefaults.containsKey(flag)) return stringListArgDefaults.get(flag);
+		} else if (commandLineValues.containsKey(flag)) {
+			ArrayList<String> l = new ArrayList<String>();
+			l.add(commandLineValues.get(flag));
+			return l;
+		} 
+		
+		return duplicateCommandLineValues.get(flag);
 	}
 
 	/**

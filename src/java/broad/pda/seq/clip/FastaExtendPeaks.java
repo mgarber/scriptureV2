@@ -152,6 +152,7 @@ public class FastaExtendPeaks {
 				
 				if (newPeak != null){
 					newPeak.setName(peak.getName());
+					newPeak.setOrientation(peak.getOrientation());
 					Collection<Gene> data=new TreeSet<Gene>();
 					if(rtrn.containsKey(newPeak.getChr())){
 						data.addAll(rtrn.get(newPeak.getChr()));
@@ -173,6 +174,7 @@ public class FastaExtendPeaks {
 	private Sequence getGeneSequence(Gene gene) {
 		String chr = gene.getReferenceName();
 		return chromosomes.get(chr).getSubsequence(gene);
+		
 	}
 	
 	/**
@@ -189,7 +191,7 @@ public class FastaExtendPeaks {
 			for(Gene gene : genesToWrite.get(chr)) {
 				try {
 					Sequence seq = getGeneSequence(gene);
-					seq.setId(gene.getName());
+					seq.setId(gene.getName() + ":" + gene.getScore());
 					seq.uppercase();
 					fsio.write(seq, b);
 				} catch (NullPointerException e) {

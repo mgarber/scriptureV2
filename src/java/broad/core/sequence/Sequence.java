@@ -741,6 +741,25 @@ public class Sequence {
 	 * @param annot The annotation
 	 * @return Sequence with same name as annotation containing the transcribed sequence
 	 */
+	public Sequence getSubsequence(Gene annot) {
+		List<? extends Annotation> blocks = annot.getBlocks();
+		Sequence seq = new Sequence(annot.getName());
+		for(Annotation block : blocks) {
+			Sequence blockSequence = getSubSequence("", block.getStart(), block.getEnd());
+			seq.append(blockSequence.getSequenceBases());
+		}
+		if(annot.getOrientation().equals(Strand.NEGATIVE)) {
+			seq.reverse();
+		}
+		return seq;
+	}
+	
+	/**
+	 * Get the spliced transcribed sequence of an annotation
+	 * Bases are reported in 5' to 3' direction
+	 * @param annot The annotation
+	 * @return Sequence with same name as annotation containing the transcribed sequence
+	 */
 	public Sequence getSubsequence(Annotation annot) {
 		List<? extends Annotation> blocks = annot.getBlocks();
 		Sequence seq = new Sequence(annot.getName());

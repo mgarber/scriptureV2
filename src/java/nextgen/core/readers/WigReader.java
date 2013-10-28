@@ -25,7 +25,7 @@ import broad.core.parser.StringParser;
 public class WigReader {
 	
 	private BufferedReader reader;
-	private Map<String, Map<Integer,Double>> data;
+	private Map<String, TreeMap<Integer,Double>> data;
 	private static Logger logger = Logger.getLogger(WigReader.class.getName());
 
 	/**
@@ -42,8 +42,21 @@ public class WigReader {
 	 * Chromosome coordinates are zero based (unlike the original wig file which is one based)
 	 * @return The wig data as a map
 	 */
-	public Map<String, Map<Integer,Double>> getAllValues() {
+	public Map<String, TreeMap<Integer,Double>> getAllValues() {
 		return data;
+	}
+	
+	/**
+	 * Get a sub-interval of positions on one chromosome
+	 * @param chr Chromosome
+	 * @param begin First position (inclusive)
+	 * @param end Last position (inclusive)
+	 * @return Map of positions to wig values for positions within the interval only
+	 */
+	public TreeMap<Integer, Double> getValues(String chr, int begin, int end) {
+		TreeMap<Integer, Double> rtrn = new TreeMap<Integer, Double>();
+		rtrn.putAll(data.get(chr).subMap(Integer.valueOf(begin), Integer.valueOf(end)));
+		return rtrn;
 	}
 	
 	/**
@@ -67,7 +80,7 @@ public class WigReader {
 	 */
 	private void readFile(String fileName) throws IOException {
 		logger.info("Reading wig file " + fileName + "...");
-		data = new TreeMap<String, Map<Integer,Double>>();
+		data = new TreeMap<String, TreeMap<Integer,Double>>();
 		FileReader r = new FileReader(fileName);
 		reader = new BufferedReader(r);
 		ArrayList<String> tempDeclarationLine = new ArrayList<String>();
@@ -81,7 +94,7 @@ public class WigReader {
 					WigSectionReader sectionReader = getSectionReader(lastDeclarationLine, tempDataLines);
 					String chr = sectionReader.getChrName();
 					if(!data.containsKey(chr)) {
-						Map<Integer,Double> chrData = new TreeMap<Integer,Double>();
+						TreeMap<Integer,Double> chrData = new TreeMap<Integer,Double>();
 						data.put(chr, chrData);
 					}
 					data.get(chr).putAll(sectionReader.getSectionData());
@@ -99,7 +112,7 @@ public class WigReader {
 			WigSectionReader sectionReader = getSectionReader(lastDeclarationLine, tempDataLines);
 			String chr = sectionReader.getChrName();
 			if(!data.containsKey(chr)) {
-				Map<Integer,Double> chrData = new TreeMap<Integer,Double>();
+				TreeMap<Integer,Double> chrData = new TreeMap<Integer,Double>();
 				data.put(chr, chrData);
 			}
 			data.get(chr).putAll(sectionReader.getSectionData());
@@ -155,7 +168,7 @@ public class WigReader {
 		String outWig = p.getStringArg("-o");
 		
 		WigReader wr = new WigReader(inWig);
-		Map<String, Map<Integer, Double>> data = wr.getAllValues();
+		Map<String, TreeMap<Integer, Double>> data = wr.getAllValues();
 		FileWriter w = new FileWriter(outWig);
 		for(String chr : data.keySet()) {
 			for(Integer pos : data.get(chr).keySet()) {
