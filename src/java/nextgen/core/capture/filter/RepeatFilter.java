@@ -1,9 +1,12 @@
 package nextgen.core.capture.filter;
 
+import java.util.Collection;
+
 import org.apache.log4j.Logger;
 
 import nextgen.core.capture.OligoPool;
 import nextgen.core.capture.Probe;
+import nextgen.core.capture.ProbeSet;
 import nextgen.core.pipeline.ConfigFileOptionValue;
 
 /**
@@ -126,5 +129,8 @@ public class RepeatFilter implements ProbeFilter {
 		if(includesN) r += "_N";
 		return "repeat_filter_" + maxPct + r;
 	}
+	
+	@Override
+	public void setup(Collection<ProbeSet> probeSets) {}
 
 }
