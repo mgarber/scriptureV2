@@ -1185,8 +1185,9 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	
 	
 	private double getReferenceSequenceCount(String refName) {
-		Annotation refRegion = coordinateSpace.getReferenceAnnotation(refName);
-		CloseableIterator<AlignmentCount> itr = getOverlappingReadCounts(refRegion, false);
+//		Annotation refRegion = coordinateSpace.getReferenceAnnotation(refName);
+//		CloseableIterator<AlignmentCount> itr = getOverlappingReadCounts(refRegion, false);		
+		CloseableIterator<AlignmentCount> itr = getOverlappingReadCounts(refName);
 		double count = getCount(itr);
 		return count;
 	}

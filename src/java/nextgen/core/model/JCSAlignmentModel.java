@@ -1200,12 +1200,10 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	
 	
 	private double getReferenceSequenceCount(String refName) {
-		Annotation refRegion = coordinateSpace.getReferenceAnnotation(refName);
-		//logger.info("In Alignment model getReferenceSequenceCounts Calculating for : "+refRegion.toUCSC());
-		//logger.info("refRegion size = "+refRegion.size());
-		CloseableIterator<AlignmentCount> itr = getOverlappingReadCounts(refRegion, false);
+//		Annotation refRegion = coordinateSpace.getReferenceAnnotation(refName);
+//		CloseableIterator<AlignmentCount> itr = getOverlappingReadCounts(refRegion, false);		
+		CloseableIterator<AlignmentCount> itr = getOverlappingReadCounts(refName);
 		double count = getCount(itr);
-		//logger.info("Counts = "+count);
 		return count;
 	}
 
