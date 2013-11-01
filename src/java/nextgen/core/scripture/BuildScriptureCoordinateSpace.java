@@ -280,7 +280,21 @@ public class BuildScriptureCoordinateSpace {
 							Gene merged=new Gene(rtrn);
 							merged.setName(branch1.getName());
 							//SET THE SCORE TO THE MAX FPKM
-							merged.setBedScore(Math.max(branch1.getBedScore(),branch2.getBedScore()));
+//							merged.setBedScore(Math.max(branch1.getBedScore(),branch2.getBedScore()));
+							double[] scores = getScores(merged);
+							double[] fields = new double[4];
+							//[0] : sum
+							fields[0] = scores[0];
+							//[1] : p-value
+							fields[1] = scores[1];
+							//[2] : FPK
+							fields[2] = (scores[0]*1000.0)/merged.getSize();
+							//[3] : FPKM
+							//Calculate FPKM
+							fields[3] = fields[2]*((double)1000000.0)/model.getGlobalPairedFragments();
+							merged.setBedScore(fields[3]);
+							logger.debug(merged.toBED());
+							merged.setExtraFields(fields);
 							//remove annotation1 and annotation2
 							tree.remove(branch1.getStart(), branch1.getEnd(), branch1);
 							tree.remove(branch2.getStart(), branch2.getEnd(), branch2);
@@ -885,10 +899,45 @@ public class BuildScriptureCoordinateSpace {
 			}
 		}
 		iter.close();
-		//logger.debug("Count = "+scores[0]+" Int version "+new Double(scores[0]).intValue()+" global paired lambda = "+globalPairedLambda+" gene size = "+model.getCoordinateSpace().getSize(gene)+ " or "+gene.size()+" global length = "+model.getGlobalLength()+" global lambda = "+model.getGlobalLambda());
+		//logger.info("Count = "+scores[0]+" Int version "+new Double(scores[0]).intValue()+" global paired lambda = "+globalPairedLambda+" gene size = "+model.getCoordinateSpace().getSize(gene)+ " or "+gene.size()+" global length = "+model.getGlobalLength()+" global lambda = "+model.getGlobalLambda());
 		scores[1] = ScanStatistics.calculatePVal(new Double(scores[0]).intValue(), globalPairedLambda,gene.size(), model.getGlobalLength());
+		//logger.info("Pvalue = "+scores[1]);
+//		scores[1] = ScanStatistics.calculatePVal(new Double(scores[0]).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(gene), model.getGlobalLength());
 		
-//		scores[1] = AlignmentDataModelStats.calculatePVal(new Double(scores[0]).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(gene), model.getGlobalLength());
+		return scores;
+	}
+	
+	
+	/**
+	 * Returns all read counts and scan p-value for the specified gene
+	 * @param gene
+	 * @return
+	 */
+	private double[] getScoresAllReads(Annotation gene){
+		double[] scores = new double[2];
+		scores[0] = 0.0;
+		//Get all reads overlapping the transcript
+		CloseableIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(gene,true), new ProperPairFilter());
+		//For each read,
+		while(iter.hasNext()){					
+			Alignment read = iter.next();
+			boolean countRead = true;
+			for(Annotation mate:read.getReadAlignments(space)){
+				if(!compatible(gene,mate)){
+					//logger.debug("Read "+mate.toUCSC()+" is not compatible with isoform with "+isoform.getExons().length);
+					countRead=false;
+					break;
+				}
+			}
+			//For the assembly, we need to treat each read separately	
+			if(countRead){
+				scores[0] += read.getWeight();
+			}
+		}
+		iter.close();
+		//logger.debug("Count = "+scores[0]+" Int version "+new Double(scores[0]).intValue()+" global paired lambda = "+globalPairedLambda+" gene size = "+model.getCoordinateSpace().getSize(gene)+ " or "+gene.size()+" global length = "+model.getGlobalLength()+" global lambda = "+model.getGlobalLambda());
+		
+		scores[1] = ScanStatistics.calculatePVal(new Double(scores[0]).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(gene), model.getGlobalLength());
 		
 		return scores;
 	}

@@ -402,9 +402,15 @@ public class AddEndRNASeqToScripture {
 						bestExtension = extension;
 					}
 					if(gene.isNegativeStrand()){
+						if((gene.getEnd()+bestExtension)>model3p.getCoordinateSpace().getReferenceAnnotation(chr).getEnd()){
+							bestExtension=model3p.getCoordinateSpace().getReferenceAnnotation(chr).getEnd()-gene.getEnd();
+						}
 						end = bestExtension;
 					}
 					else{
+						if((gene.getStart()-bestExtension)<0){
+							bestExtension=gene.getStart();
+						}
 						start = bestExtension;
 					}
 					Gene ge = gene.copy();
@@ -434,10 +440,16 @@ public class AddEndRNASeqToScripture {
 						bestExtension = extension;
 					}
 					if(gene.isNegativeStrand()){
+						if((gene.getStart()-bestExtension)<0){
+							bestExtension=gene.getStart();
+						}
 						start = bestExtension;
 						//
 					}
 					else{
+						if((gene.getEnd()+bestExtension)>model3p.getCoordinateSpace().getReferenceAnnotation(chr).getEnd()){
+							bestExtension=model3p.getCoordinateSpace().getReferenceAnnotation(chr).getEnd()-gene.getEnd();
+						}
 						end = bestExtension;
 					}
 					//logger.info("Start: "+start+" End: "+end);
@@ -1497,6 +1509,11 @@ public class AddEndRNASeqToScripture {
 		
 	}
 	
+	/**
+	 * Returns the distance to the next closest gene downstream of the current gene's 3' end
+	 * @param gene
+	 * @return
+	 */
 	public int getDistanceToClosestSameOrientation3pGene(Gene gene) {
 		IntervalTree<Gene> chrTree = intervalTrees.get(gene.getChr());
 		int closestUpstream = Integer.MAX_VALUE;
