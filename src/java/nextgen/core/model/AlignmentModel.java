@@ -31,6 +31,7 @@ import nextgen.core.feature.Window;
 import nextgen.core.general.CloseableFilterIterator;
 import nextgen.core.model.score.WindowScore;
 import nextgen.core.readFilters.PairedAndProperFilter;
+import nextgen.core.readFilters.PairedEndFilter;
 import nextgen.core.readFilters.SameOrientationFilter;
 import nextgen.core.readFilters.SplicedReadFilter;
 import nextgen.core.readers.PairedEndReader;
@@ -302,7 +303,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		double globalFragments = 0;
 		for(String chr: coordinateSpace.getReferenceNames()){
 			//Get all proper paired reads 
-			CloseableFilterIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(getOverlappingReads(chr), new PairedAndProperFilter());
+			CloseableFilterIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(getOverlappingReads(chr), new PairedEndFilter());
 			while(iter.hasNext()){
 				Alignment read = iter.next();
 				globalFragments += read.getWeight();
