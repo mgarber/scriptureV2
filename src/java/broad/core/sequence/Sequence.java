@@ -495,6 +495,13 @@ public class Sequence {
 		forwardStrand = false;
 	}
 	
+	public static Sequence reverseSequence(Sequence seq) {
+		String r = reverseSequence(seq.getSequenceBases());
+		Sequence rtrn = new Sequence(seq.getId() + "_reverse");
+		rtrn.setSequenceBases(r);
+		return rtrn;
+	}
+	
 	public static String reverseSequence(String seq) {
 		Sequence tmpSeq = new Sequence("tmp");
 		tmpSeq.setSequenceBases(seq);
@@ -926,7 +933,7 @@ public class Sequence {
 	 * Gvien a kmer size, it builds a map of all kmers found
 	 * @param kmer
 	 */
-	public Map<String, KmerInfo> buildKamerMap(int kmer) {
+	public Map<String, KmerInfo> buildKmerMap(int kmer) {
 		Map<String, KmerInfo> kmerData = new HashMap<String, KmerInfo>();
 		String bases = getSequenceBases();
 		logger.debug("Got sequence bases");
