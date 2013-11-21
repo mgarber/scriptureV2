@@ -75,16 +75,15 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 		Collection<SAMRecord> pair1=getValue1();
 		Collection<SAMRecord> pair2=getValue2();
 		
-		int adjustedNumHits = pair1.size() * pair2.size();
 		//match up all pair1 and pair2
 		for(SAMRecord r1: pair1){
 			for(SAMRecord r2: pair2){
 				if(isCompatiblePair(r1, r2)){
 					Pair<SAMRecord> p=new Pair<SAMRecord>(r1, r2);
-					SAMRecord fragment= makePair(p);
-					fragment.setAttribute("NH", adjustedNumHits); //MG moved this from PairedEndWriter to here, not sure why was there.
-					fragment.setMateUnmappedFlag(false);
-					fragment.setNotPrimaryAlignmentFlag(r1.getNotPrimaryAlignmentFlag() && r2.getNotPrimaryAlignmentFlag());
+					SAMRecord fragment=makePair(p);
+					if(r1.getNotPrimaryAlignmentFlag() && r2.getNotPrimaryAlignmentFlag()){
+						fragment.setNotPrimaryAlignmentFlag(true);
+					}
 					rtrn.add(fragment);
 				}
 			}
@@ -95,31 +94,24 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 	
 	
 	private boolean isCompatiblePair(SAMRecord r1, SAMRecord r2) {
-
-		return r1.getReferenceName()==r2.getReferenceName() && 
-				r1.getMateNegativeStrandFlag()==r2.getReadNegativeStrandFlag() && r1.getReadNegativeStrandFlag()==r2.getMateNegativeStrandFlag() &&
-						r1.getMateReferenceName().equalsIgnoreCase(r2.getReferenceName()) && r2.getMateReferenceName().equalsIgnoreCase(r1.getReferenceName()) ;
+		if(r1.getReferenceName()==r2.getReferenceName()){
+			if((r1.getAlignmentStart()==r2.getMateAlignmentStart())&& (r1.getMateAlignmentStart()==r2.getAlignmentStart())){
+				if(r1.getMateNegativeStrandFlag()==r2.getReadNegativeStrandFlag() && r1.getReadNegativeStrandFlag()==r2.getMateNegativeStrandFlag()){
+					if(r1.getMateReferenceName().equalsIgnoreCase(r2.getReferenceName()) && r2.getMateReferenceName().equalsIgnoreCase(r1.getReferenceName())){
+						return true;
+					}
+				}
+			}
+		}
+		return false;
 	}
 
 
 	private SAMRecord makePair(Pair<SAMRecord> pair) {
-		long start = System.nanoTime();
 		SingleEndAlignment a1 = new SingleEndAlignment(pair.getValue1());
-		long a1Time = System.nanoTime() - start;
-		start = System.nanoTime();
 		SingleEndAlignment a2 = new SingleEndAlignment(pair.getValue2());
-		long a2Time = System.nanoTime() - start;
-		start = System.nanoTime();
 		SAMRecord rtrn = new FragmentAlignment(a1, a2).toSAMRecord();
-		long frgTime = System.nanoTime() - start;
-		
-		long ta1 =  Math.round(a1Time/(double)1000000);
-		long ta2 = 	Math.round(a2Time/(double)1000000);
-		long tFrg = Math.round(frgTime/(double)1000000);
-		
-		//if(ta1 + ta2 + tFrg > 50) {
-		//	logger.info(String.format("Times: a1: %d\ta2: %d\tfrg: %d", ta1, ta2, tFrg));
-		//}
+
 		return rtrn;
 	}
 
