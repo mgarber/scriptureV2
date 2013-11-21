@@ -25,6 +25,7 @@ import broad.core.annotation.MaximumContiguousSubsequence;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.datastructures.Pair;
+import broad.core.math.EmpiricalDistribution;
 import broad.core.math.ScanStatistics;
 import broad.core.math.Statistics;
 import broad.core.util.CLUtil;
@@ -48,8 +49,8 @@ import nextgen.core.model.JCSAlignmentModel;
 import nextgen.core.readFilters.CanonicalSpliceFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.IndelFilter;
-import nextgen.core.readFilters.PairedAndProperFilter;
-import nextgen.core.readFilters.ProperPairFilter;
+import nextgen.core.readFilters.PairedEndFilter;
+import nextgen.core.readFilters.ReadsToReconstructFilter;
 import nextgen.core.readFilters.SameOrientationFilter;
 import nextgen.core.readFilters.SplicedReadFilter;
 import nextgen.core.scripture.OrientedChromosomeTranscriptGraph.TranscriptGraphEdge;
@@ -346,7 +347,79 @@ public class BuildScriptureCoordinateSpace {
 		
 		return graph;
 	}
-
+	
+/*	private double calculatePvalue(Map<Double,Integer> fragSizeDist,int k,double w,int T){
+		//Return 1 if less than 2 counts OR
+		//if minimum insert size > annotation.size
+		if(k<=2 || w< minFrag){
+			return 1;
+		}
+		double sum = 0.0;
+		for(double f:fragSizeDist.keySet()){
+			if(f<=w){
+				sum += (w-f);
+			}
+		}
+		double lambdaW=sum;   // parameter for Poisson distribution
+		double a=((k-lambdaW)/k)*(lambda*(T-w)*ScanStatistics.poisson(k-1, lambdaW));     // poisson function = Poisson PDF
+		double result=ScanStatistics.Fp(k-1, lambdaW)*Math.exp(-a);					   // Fp = Poisson CDF
+		double p=1-result;
+		p=Math.abs(p);
+		p=Math.min(1, p);
+		//p=Math.max(0, p);
+		return p;
+	}
+	
+	/**
+	 * Computes the exact distribution of fragment sizes for the specified reconstructions (transcriptome space)
+	 * @param cs
+	 * @return
+	 */
+/*	private Map<Double,Integer> calculateReadSizeDistribution(Map<String, Collection<Gene>> annotations) {
+		
+		Predicate<Alignment> f= new PairedEndFilter();
+		model.addFilter(f);
+		
+		//Use the current reconstructions
+		Map<String,Collection<Gene>> temp = new HashMap<String,Collection<Gene>>();
+		for(String chr:annotations.keySet()){
+			if(!annotations.get(chr).isEmpty()){
+				temp.put(chr, annotations.get(chr));
+			}
+		}
+		temp = filterSingleIsoforms(temp);
+		//Compute the fragment size distribution
+		CoordinateSpace cs = new TranscriptomeSpace(temp);
+		
+		CloseableIterator<Alignment> iter = model.getReadIterator();
+		
+		Map<Double,Integer> dist = new TreeMap<Double,Integer>();
+		int done = 0;
+		while(iter.hasNext()) {
+			Alignment align = iter.next();
+			done++;
+			if(done % 1000000 == 0) logger.info("Got " + done + " records.");
+			try {
+				for(Integer size : align.getFragmentSize(cs)) {
+					double doublesize = size.doubleValue();
+					if(dist.containsKey(doublesize)){
+						dist.put(doublesize, (dist.get(doublesize)+1));
+					}
+					else{
+						dist.put(doublesize, 1);
+					}
+				}
+			} catch (NullPointerException e) {
+				// Catch NullPointerException if the fragment is from a chromosome that is not present in the TranscriptomeSpace
+				continue;
+			}
+		}
+		iter.close();
+		model.removeFilter(f);
+		return dist;
+	}
+	
+	
 	/**
 	 * This function connects disconnected reconstructions using paired end reads.
 	 * @param annotations
@@ -354,7 +427,7 @@ public class BuildScriptureCoordinateSpace {
 	 */
 	private void connectDisconnectedTranscripts(Map<String, Collection<Gene>> annotations) throws IOException{
 		
-		model.addFilter(new PairedAndProperFilter());
+		model.addFilter(new PairedEndFilter());
 		int loop=0;
 		boolean somethingWasConnected = true;
 		double medianInsertSize=0.0; 
@@ -629,7 +702,7 @@ public class BuildScriptureCoordinateSpace {
 	private ChromosomeTranscriptGraph assembleDirectly(String chr,TranscriptionRead strand){
 		
 		model=new JCSAlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
-		model.addFilter(new ProperPairFilter());
+		model.addFilter(new ReadsToReconstructFilter());
 		model.addFilter(new IndelFilter());
 		model.addFilter(new GenomicSpanFilter(20000000));
 		this.space=model.getCoordinateSpace();
@@ -881,7 +954,7 @@ public class BuildScriptureCoordinateSpace {
 		double[] scores = new double[2];
 		scores[0] = 0.0;
 		//Get all reads overlapping the transcript
-		CloseableIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(gene,true), new PairedAndProperFilter());
+		CloseableIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(gene,true), new PairedEndFilter());
 		//For each read,
 		while(iter.hasNext()){					
 			Alignment read = iter.next();
@@ -917,7 +990,7 @@ public class BuildScriptureCoordinateSpace {
 		double[] scores = new double[2];
 		scores[0] = 0.0;
 		//Get all reads overlapping the transcript
-		CloseableIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(gene,true), new ProperPairFilter());
+		CloseableIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(gene,true), new ReadsToReconstructFilter());
 		//For each read,
 		while(iter.hasNext()){					
 			Alignment read = iter.next();
@@ -1234,7 +1307,7 @@ public class BuildScriptureCoordinateSpace {
 		}
 		boolean passes=true;
 		//Get paired end reads for exon1
-		CloseableIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(exon1,true), new ProperPairFilter());
+		CloseableIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(exon1,true), new ReadsToReconstructFilter());
 		double exonCount = 0.0;
 		while(iter.hasNext()){
 			Alignment read = iter.next();
@@ -1253,7 +1326,7 @@ public class BuildScriptureCoordinateSpace {
 		Annotation[] flankingExons = overlapper.getFlankingBlocks(intron2);
 		Assembly sumAssembly = new Assembly(Arrays.asList(flankingExons),false);
 		//int intronLength = flankingExons[0].length()+flankingExons[1].length();
-		iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(sumAssembly,true), new ProperPairFilter());
+		iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(sumAssembly,true), new  ReadsToReconstructFilter());
 		double intronCount = 0.0;
 		while(iter.hasNext()){
 			Alignment read = iter.next();

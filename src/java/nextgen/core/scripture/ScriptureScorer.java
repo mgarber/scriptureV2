@@ -20,6 +20,7 @@ import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
+import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.MappingQualityFilter;
 
 import org.apache.commons.collections15.Predicate;
@@ -150,11 +151,13 @@ public class ScriptureScorer {
 			 */
 			boolean pairedFlag = !argMap.isPresent("singleEnd");
 			logger.info("Paired flag is "+pairedFlag);
-			CoordinateSpace space = new TranscriptomeSpace(annotations);
-			AlignmentModel model = new AlignmentModel(alignmentFiles.get(i), space, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true);
+			//CoordinateSpace space = new TranscriptomeSpace(annotations);
+			AlignmentModel model = new AlignmentModel(alignmentFiles.get(i), null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true);
 			
 			//Add read filters
 			model.addFilter(new MappingQualityFilter(minimumMappingQuality,minimumMappingQuality));
+			//Will not allow more than 500kB fragments
+			model.addFilter(new GenomicSpanFilter(500000));
 			
 			Map<Gene, double[]> scores=runScore(model);
 			for(String chr : annotations.keySet()){
@@ -330,15 +333,12 @@ public class ScriptureScorer {
 		
 		Map<Gene, double[]> scores=new TreeMap<Gene, double[]>();
 		
-		if(strand.equals(TranscriptionRead.UNSTRANDED)){
-			for(String chr:annotations.keySet()){
-				if(!model.containsReference(chr)){
-
-				}
-			}
-		}
 		for(String chr : annotations.keySet()) {
 			logger.info("processing " + chr);			
+
+			if(!model.containsReference(chr)){
+				logger.info("No data for "+chr);
+			}
 			Collection<Gene> chrAnnotations = annotations.get(chr);
 			scores.putAll(scoreGenes(model, chrAnnotations));
 		}
@@ -352,7 +352,6 @@ public class ScriptureScorer {
 		 * @param for ArgumentMap - size, usage, default task
 		 * argMap maps the command line arguments to the respective parameters
 		 */
-		
 		ArgumentMap argMap = CLUtil.getParameters(args,usage,"score");
 		
 		if(argMap.containsKey("alignment")){
