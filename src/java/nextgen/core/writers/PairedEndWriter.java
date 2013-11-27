@@ -22,12 +22,14 @@ import net.sf.samtools.SAMRecordIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.AlignmentPair;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
+import nextgen.core.readers.PairedEndReader;
 
 import org.apache.commons.io.output.NullOutputStream;
 import org.apache.log4j.Logger;
 
 import broad.core.datastructures.Pair;
 import broad.core.math.Statistics;
+import broad.core.parser.CommandLineParser;
 
 public class PairedEndWriter {
 
@@ -403,7 +405,28 @@ public class PairedEndWriter {
 		reader2.close();
 	}
 	
-	public static void main (String args []) {
+	
+	
+	public static void main(String args []) {
+		
+		CommandLineParser p = new CommandLineParser();
+		p.addStringArg("-t", "Transcription read (first,  second, unstranded)", true);
+		p.addStringArg("-b", "Input bam file", true);
+		p.parse(args);
+		String txnRead = p.getStringArg("-t");
+		String bamFile = p.getStringArg("-b");
+		
+		TranscriptionRead transcriptionRead = TranscriptionRead.fromString(txnRead);
+		
+		
+		String peBam = PairedEndReader.getOrCreatePairedEndFile(bamFile,transcriptionRead);
+		String file = PairedEndReader.getPairedEndFile(bamFile);
+		if (file == null) {
+			file = PairedEndWriter.getDefaultFile(bamFile);
+			PairedEndWriter writer = new PairedEndWriter(new File(peBam), file);
+			writer.convertInputToPairedEnd(transcriptionRead);
+		}
+
 		
 	}
 	
