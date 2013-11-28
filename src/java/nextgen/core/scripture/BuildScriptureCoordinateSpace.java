@@ -25,7 +25,6 @@ import broad.core.annotation.MaximumContiguousSubsequence;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
 import broad.core.datastructures.Pair;
-import broad.core.math.EmpiricalDistribution;
 import broad.core.math.ScanStatistics;
 import broad.core.math.Statistics;
 import broad.core.util.CLUtil;
@@ -194,8 +193,8 @@ public class BuildScriptureCoordinateSpace {
 		graphs.put(chr, graph);
 		
 		Map<String, Collection<Gene>> rtrn=getPaths();
-/*		try {
-			FileWriter writer=new FileWriter(outName+".08graph.all.paths.bed");
+		try {
+			FileWriter writer=new FileWriter(outName+".graph.all.paths.bed");
 			for(Gene g:rtrn.get(chr)){
 				writer.write(g.toBED()+"\n");
 			}			
@@ -203,7 +202,7 @@ public class BuildScriptureCoordinateSpace {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-*/		
+		
 		try {
 //			FileWriter writer=new FileWriter(outName+".pairedGenes.bed");
 //			FileWriter writer2=new FileWriter(outName+".pairedCounts.txt");
@@ -348,25 +347,37 @@ public class BuildScriptureCoordinateSpace {
 		return graph;
 	}
 	
-/*	private double calculatePvalue(Map<Double,Integer> fragSizeDist,int k,double w,int T){
+	/**
+	 * 
+	 * @param fragSizeDist
+	 * @param k
+	 * @param w
+	 * @param d
+	 * @return
+	 */
+	private double calculatePvalue(Map<Double,Double> fragSizeDist,int k,double w,double d){
 		//Return 1 if less than 2 counts OR
 		//if minimum insert size > annotation.size
-		if(k<=2 || w< minFrag){
-			return 1;
+		if(k<=2 || w< Statistics.min(fragSizeDist.keySet())){
+			return 1.0;
 		}
-		double sum = 0.0;
+		
+		double lambdaTw = 0.0;
+		double lambdaW = 0.0; // parameter for Poisson distribution
 		for(double f:fragSizeDist.keySet()){
 			if(f<=w){
-				sum += (w-f);
+				lambdaW += fragSizeDist.get(f)*(w-f);
+				lambdaTw += fragSizeDist.get(f)*(d-w+f);
 			}
 		}
-		double lambdaW=sum;   // parameter for Poisson distribution
-		double a=((k-lambdaW)/k)*(lambda*(T-w)*ScanStatistics.poisson(k-1, lambdaW));     // poisson function = Poisson PDF
+		
+		double a=((k-lambdaW)/k)*(lambdaTw*ScanStatistics.poisson(k-1, lambdaW));     // poisson function = Poisson PDF
 		double result=ScanStatistics.Fp(k-1, lambdaW)*Math.exp(-a);					   // Fp = Poisson CDF
 		double p=1-result;
 		p=Math.abs(p);
 		p=Math.min(1, p);
 		//p=Math.max(0, p);
+		logger.info("Count = "+k+" Window = "+w+"LambdaW = "+lambdaW+" Pvalue = "+p);
 		return p;
 	}
 	
@@ -375,7 +386,7 @@ public class BuildScriptureCoordinateSpace {
 	 * @param cs
 	 * @return
 	 */
-/*	private Map<Double,Integer> calculateReadSizeDistribution(Map<String, Collection<Gene>> annotations) {
+	private Map<Double,Double> calculateReadSizeDistribution(Map<String, Collection<Gene>> annotations) {
 		
 		Predicate<Alignment> f= new PairedEndFilter();
 		model.addFilter(f);
@@ -393,7 +404,7 @@ public class BuildScriptureCoordinateSpace {
 		
 		CloseableIterator<Alignment> iter = model.getReadIterator();
 		
-		Map<Double,Integer> dist = new TreeMap<Double,Integer>();
+		Map<Double,Double> dist = new TreeMap<Double,Double>();
 		int done = 0;
 		while(iter.hasNext()) {
 			Alignment align = iter.next();
@@ -406,7 +417,7 @@ public class BuildScriptureCoordinateSpace {
 						dist.put(doublesize, (dist.get(doublesize)+1));
 					}
 					else{
-						dist.put(doublesize, 1);
+						dist.put(doublesize, 1.0);
 					}
 				}
 			} catch (NullPointerException e) {
@@ -416,9 +427,44 @@ public class BuildScriptureCoordinateSpace {
 		}
 		iter.close();
 		model.removeFilter(f);
+		
+		for(Double fragsize:dist.keySet()){
+			dist.put(fragsize, dist.get(fragsize)/model.getGlobalLength());
+		}
 		return dist;
 	}
 	
+	/**
+	 * Filters out all annotations that have overlapping isoforms and returns only the single isoforms
+	 * For genes with multiple isoforms, only keeps one of the isoforms
+	 */
+	private Map<String,Collection<Gene>> filterSingleIsoforms(Map<String,Collection<Gene>> annotations){
+		
+		Map<String,Collection<Gene>> rtrn = new HashMap<String,Collection<Gene>>();
+		
+		for(String chr:annotations.keySet()){
+			Collection<Gene> considered = new HashSet<Gene>();
+			//MAKE AN INTERVAL TREE OF THE GENES on this chr
+			IntervalTree<Gene> tree = new IntervalTree<Gene>();
+			for(Gene g:annotations.get(chr)){
+				tree.put(g.getStart(), g.getEnd(), g);
+			}
+			
+			for(Gene gene:annotations.get(chr)){
+				
+				//If gene has not already been processed
+				if(!considered.contains(gene)){
+					considered.add(gene);
+					
+					if(!hasAnOverlappingGene(gene, tree, 0.2)){
+						tree.remove(gene.getStart(), gene.getEnd(), gene);
+					}
+				}			
+			}
+			rtrn.put(chr, tree.toCollection());
+		}
+		return rtrn;
+	}
 	
 	/**
 	 * This function connects disconnected reconstructions using paired end reads.
@@ -980,6 +1026,39 @@ public class BuildScriptureCoordinateSpace {
 		return scores;
 	}
 	
+	
+	/**
+	 * Returns paired end counts and scan p-value BASED ON CONTAINMENT for the specified gene
+	 * @param gene
+	 * @return
+	 */
+	private double[] getScores(Annotation gene,Map<Double,Double> fragSizeDist){
+		double[] scores = new double[2];
+		scores[0] = 0.0;
+		//Get all reads overlapping the transcript
+		CloseableIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(gene,true), new PairedEndFilter());
+		//For each read,
+		while(iter.hasNext()){					
+			Alignment read = iter.next();
+			boolean countRead = true;
+			for(Annotation mate:read.getReadAlignments(space)){
+				if(!compatible(gene,mate)){
+					//logger.debug("Read "+mate.toUCSC()+" is not compatible with isoform with "+isoform.getExons().length);
+					countRead=false;
+					break;
+				}
+			}
+			//For the assembly, we need to treat each read separately	
+			if(countRead){
+				scores[0] += read.getWeight();
+			}
+		}
+		iter.close();
+		//logger.info("Count = "+scores[0]+" Int version "+new Double(scores[0]).intValue()+" global paired lambda = "+globalPairedLambda+" gene size = "+model.getCoordinateSpace().getSize(gene)+ " or "+gene.size()+" global length = "+model.getGlobalLength()+" global lambda = "+model.getGlobalLambda());
+		scores[1] = calculatePvalue(fragSizeDist, new Double(scores[0]).intValue(), gene.size(), model.getGlobalLength());
+		
+		return scores;
+	}
 	
 	/**
 	 * Returns all read counts and scan p-value for the specified gene
@@ -2672,6 +2751,11 @@ public class BuildScriptureCoordinateSpace {
 	 */
 	private Map<String,Collection<Gene>> setFPKMScores(Map<String,Collection<Gene>> geneMap){//,FileWriter writer,FileWriter writer2){
 		
+		//FIRST CALCULATE THE FRAGMENT SIZE DISTRIBUTION
+		//TODO: For genome level calculate once
+		logger.info("Calculating the fragment size distribution");
+		Map<Double,Double> fragmentSizeDistribution  = calculateReadSizeDistribution(geneMap);
+		
 		Map<String,Collection<Gene>> filteredGenes = new HashMap<String,Collection<Gene>>();
 		String name = "gene.v2.1_";
 		for(String chr:geneMap.keySet()){
@@ -2689,7 +2773,7 @@ public class BuildScriptureCoordinateSpace {
 				//For each transcript
 				for(Gene isoform:isoformMap.get(gene)){
 					
-					double[] scores = getScores(isoform);
+					double[] scores = getScores(isoform,fragmentSizeDistribution);
 					double[] fields = new double[4];
 					logger.debug(gene.toUCSC()+" "+scores[0]+"\t"+scores[1]);
 					if(scores[1]<alpha){
@@ -2713,7 +2797,7 @@ public class BuildScriptureCoordinateSpace {
 						filtered.add(isoform);
 					}
 					else{
-						logger.debug("Gene "+gene.toUCSC()+" is filtered out because it does not meet the significance threshold : "+scores[1]);
+						logger.info("Gene "+gene.toUCSC()+" is filtered out because it does not meet the significance threshold : "+scores[1]);
 					}
 				}
 			}
@@ -2769,6 +2853,7 @@ public class BuildScriptureCoordinateSpace {
 	 * @param allGenes
 	 * @param minPctOverlap
 	 * @return
+	 * TODO: optimize using interval tree
 	 */
 	public static Collection<Gene> getOverlappingGenes(Gene gene,Collection<Gene> allGenes, double minPctOverlap){
 		
@@ -2778,6 +2863,46 @@ public class BuildScriptureCoordinateSpace {
 				overlappers.add(g);
 		}
 		return overlappers;
+	}
+	
+	/**
+	 * returns a collection of genes in the interval tree that overlap this gene with atleast minPctOverlap and in the same orientation
+	 * @param gene
+	 * @param allGenesTree
+	 * @param minPctOverlap
+	 * @return
+	 */
+	public static Collection<Gene> getOverlappingGenes(Gene gene,IntervalTree<Gene> allGenesTree, double minPctOverlap){
+		
+		Collection<Gene> overlappers = new HashSet<Gene>();
+		Iterator<Gene> OL=allGenesTree.overlappingValueIterator(gene.getStart(), gene.getEnd());
+		while(OL.hasNext()){
+			Gene gene2=OL.next();
+			if(!gene.equals(gene2) && gene.overlaps(gene2, minPctOverlap) && gene2.getOrientation().equals(gene.getOrientation())){
+				overlappers.add(gene2);
+			}		
+		}
+		return overlappers;
+	}
+	
+	/**
+	 * Returns true if has an overlapping gene with atleast minPctOverlap and in the same orientationin the interval tree
+	 * @param gene
+	 * @param allGenesTree
+	 * @param minPctOverlap
+	 * @return
+	 */
+	public static boolean hasAnOverlappingGene(Gene gene,IntervalTree<Gene> allGenesTree, double minPctOverlap){
+		
+		Collection<Gene> overlappers = new HashSet<Gene>();
+		Iterator<Gene> OL=allGenesTree.overlappingValueIterator(gene.getStart(), gene.getEnd());
+		while(OL.hasNext()){
+			Gene gene2=OL.next();
+			if(gene.overlaps(gene2, minPctOverlap) && gene2.getOrientation().equals(gene.getOrientation())){
+				return true;
+			}		
+		}
+		return false;
 	}
 	
 	public static void main(String[] args)throws IOException{
