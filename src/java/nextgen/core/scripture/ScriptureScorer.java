@@ -382,7 +382,7 @@ public class ScriptureScorer {
 				rtrn.put(gene, s);
 			}
 			else{
-				rtrn.put(gene, new ScanStatisticScore(model, gene).getScores());
+				rtrn.put(gene, new ScanStatisticScore(model, gene,true).getScores());
 			}
 		}
 		return rtrn;

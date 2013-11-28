@@ -31,7 +31,10 @@ import nextgen.core.model.score.WindowScoreIterator;
 import nextgen.core.normalize.NormalizedCount;
 import nextgen.core.normalize.RawCounts;
 import nextgen.core.normalize.TranscriptAverageNormalization;
+import nextgen.core.readFilters.FirstOfPairFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
+import nextgen.core.readFilters.ProperPairFilter;
+import nextgen.core.readFilters.SecondOfPairFilter;
 
 /**
  * @author prussell
@@ -152,10 +155,17 @@ public class WigWriter {
 	 * @throws IOException
 	 */
 	public WigWriter(String bamFile, String geneBedFile, String chrSizeFile, String singlePositionOnly, boolean useFragments, boolean nor, String chrToWrite) throws IOException {
+		
+		if(geneBedFile != null) {
+			if(geneBedFile.equals("null")) {
+				geneBedFile = null;
+			}
+		}
+		
 		if (geneBedFile == null && chrSizeFile == null) {
 			throw new IllegalArgumentException("Choose one or both: gene bed file or chromosome size file");
 		}
-		if((geneBedFile != null && chrSizeFile != null)) {
+		if(geneBedFile != null && chrSizeFile != null) {
 			//logger.info("constructing using both bed and size files.");
 			genomeSpace = new GenomicSpace(chrSizeFile);
 			genesByChr = BEDFileParser.loadDataByChr(new File(geneBedFile));
@@ -237,7 +247,7 @@ public class WigWriter {
 	}
 	
 	private void initParams(String singlePositionOnly, boolean nor, AlignmentModel alignmentData) {
-		readSinglePositionOnly = singlePositionOnly != null;
+		readSinglePositionOnly = (singlePositionOnly != null);
 		if(readSinglePositionOnly) {
 			positionWithinAlignment = getPositionWithinAlignment(singlePositionOnly);
 		}
@@ -538,6 +548,9 @@ public class WigWriter {
 		p.addStringArg("-sp", "Single position of each read to count. Valid position descriptions: " + BEGINNING_POSITION_DESCRIPTION + ", " + MIDPOINT_POSITION_DESCRIPTION, false, null);
 		p.addBooleanArg("-pe", "Convert paired ends to fragments", false, DEFAULT_USE_FRAGMENTS);
 		p.addBooleanArg("-n",  "Normalize position counts by average counts over region", false, false);
+		p.addBooleanArg("-pp", "Proper pairs only", false, false);
+		p.addBooleanArg("-r1", "Read 1 only", false, false);
+		p.addBooleanArg("-r2", "Read 2 only", false, false);
 		
 		p.parse(args);
 		return p;
@@ -563,11 +576,17 @@ public class WigWriter {
 		int maxGenomicSpan = p.getIntArg("-mg");
 		String singlePos = p.getStringArg("-sp");
 		boolean normalize = p.getBooleanArg("-n");
+		boolean properPairs = p.getBooleanArg("-pp");
+		boolean read1 = p.getBooleanArg("-r1");
+		boolean read2 = p.getBooleanArg("-r2");
 		
 		WigWriter ww = new WigWriter(bamFile, bedFile, chrSizeFile, singlePos, fragments, normalize, singleChr);
 		
 		//ww.addReadFilter(new FragmentLengthFilter(ww.data.getCoordinateSpace(), maxFragmentLength));
 		ww.addReadFilter(new GenomicSpanFilter(maxGenomicSpan));
+		if(properPairs) ww.addReadFilter(new ProperPairFilter());
+		if(read1) ww.addReadFilter(new FirstOfPairFilter());
+		if(read2) ww.addReadFilter(new SecondOfPairFilter());
 		
 		return ww; 
 	}

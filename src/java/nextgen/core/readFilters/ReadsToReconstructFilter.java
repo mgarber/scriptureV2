@@ -29,7 +29,7 @@ public class ReadsToReconstructFilter implements Predicate<Alignment> {
 						refName = mates.next().getReferenceName();
 					else
 						if(refName.equals(mates.next().getReferenceName())){
-							return true;
+							return true
 						}
 				}
 			}

@@ -240,7 +240,7 @@ public class PairedEndWriter {
 			
 			if(pair.hasValue1() && pair.hasValue2()){
 				//throw new IllegalStateException("There are samples in both pairs that are unaccounted for: "+name);
-				logger.debug("There are samples in both pairs that are unaccounted for: "+name);
+				logger.error("There are samples in both pairs that are unaccounted for: "+name);
 				
 				Collection<SAMRecord> fragmentRecords = tempCollection.get(name).makePairs();
 				//write to output

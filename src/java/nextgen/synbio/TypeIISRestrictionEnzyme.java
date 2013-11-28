@@ -89,5 +89,10 @@ public class TypeIISRestrictionEnzyme {
 		return bottomStrandCleavageSite;
 	}
 	
+	@Override
+	public String toString() {
+		return getName();
+	}
+	
 
 }

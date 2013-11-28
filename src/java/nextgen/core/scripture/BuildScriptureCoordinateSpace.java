@@ -194,7 +194,7 @@ public class BuildScriptureCoordinateSpace {
 		
 		Map<String, Collection<Gene>> rtrn=getPaths();
 		try {
-			FileWriter writer=new FileWriter(outName+".graph.all.paths.bed");
+			FileWriter writer=new FileWriter(outName+".08graph.all.paths.bed");
 			for(Gene g:rtrn.get(chr)){
 				writer.write(g.toBED()+"\n");
 			}			

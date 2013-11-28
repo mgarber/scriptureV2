@@ -94,16 +94,10 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 	
 	
 	private boolean isCompatiblePair(SAMRecord r1, SAMRecord r2) {
-		if(r1.getReferenceName()==r2.getReferenceName()){
-			if((r1.getAlignmentStart()==r2.getMateAlignmentStart())&& (r1.getMateAlignmentStart()==r2.getAlignmentStart())){
-				if(r1.getMateNegativeStrandFlag()==r2.getReadNegativeStrandFlag() && r1.getReadNegativeStrandFlag()==r2.getMateNegativeStrandFlag()){
-					if(r1.getMateReferenceName().equalsIgnoreCase(r2.getReferenceName()) && r2.getMateReferenceName().equalsIgnoreCase(r1.getReferenceName())){
-						return true;
-					}
-				}
-			}
-		}
-		return false;
+
+		return r1.getReferenceName()==r2.getReferenceName() && 
+				r1.getMateNegativeStrandFlag()==r2.getReadNegativeStrandFlag() && r1.getReadNegativeStrandFlag()==r2.getMateNegativeStrandFlag() &&
+						r1.getMateReferenceName().equalsIgnoreCase(r2.getReferenceName()) && r2.getMateReferenceName().equalsIgnoreCase(r1.getReferenceName()) ;
 	}
 
 

@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -116,6 +117,21 @@ public class FastaSequenceIO {
 		return rtrn;
 	}
 	
+	
+	public static Collection<String> getSequenceNames(String fasta) throws IOException {
+		FileReader r = new FileReader(fasta);
+		BufferedReader b = new BufferedReader(r);
+		Collection<String> rtrn = new ArrayList<String>();
+		while(b.ready()) {
+			String line = b.readLine();
+			if(line.contains(">")) {
+				rtrn.add(line.replace(">", ""));
+			}
+		}
+		r.close();
+		b.close();
+		return rtrn;
+	}
 	
 	/**
 	 * @param genomeFasta Fasta file of chromosomes
@@ -657,6 +673,17 @@ public class FastaSequenceIO {
 			}
 			
 		});
+	}
+
+	public static String createSizeFile(String refFasta) throws IOException {
+		String outFile = refFasta + ".sizes";
+		Map<String, Sequence> seqs = getChrSequencesFromFasta(refFasta);
+		FileWriter w = new FileWriter(outFile);
+		for(String name : seqs.keySet()) {
+			w.write(name + "\t" + seqs.get(name).getLength() + "\n");
+		}
+		w.close();
+		return outFile;
 	}
 
 

@@ -25,6 +25,16 @@ public class RestrictionEnzymeFactory {
 		switch(r) {
 		case BSAI:
 			return new TypeIISRestrictionEnzyme(RestrictionEnzymeName.BSAI, "GGTCTC", 7, -5);
+		case SAPI:
+			return new TypeIISRestrictionEnzyme(RestrictionEnzymeName.SAPI, "GCTCTTC", 8, -4);
+		case BSMBI:
+			return new TypeIISRestrictionEnzyme(RestrictionEnzymeName.BSMBI, "CGTCTC", 7, -5);
+		case BBSI:
+			return new TypeIISRestrictionEnzyme(RestrictionEnzymeName.BBSI, "GAAGAC", 8, -6);
+		case BTSI:
+			return new TypeIISRestrictionEnzyme(RestrictionEnzymeName.BTSI, "GCAGTG", 8, 0);
+		case BMRI:
+			return new TypeIISRestrictionEnzyme(RestrictionEnzymeName.BMRI, "ACTGGG", 11, -4);
 		default:
 			throw new IllegalStateException("Enzyme " + r.toString() + " not supported.");
 		}
@@ -61,7 +71,32 @@ public class RestrictionEnzymeFactory {
 		/**
 		 * BsaI
 		 */
-		BSAI;
+		BSAI,
+		
+		/**
+		 * SapI
+		 */
+		SAPI,
+		
+		/**
+		 * BsmBI
+		 */
+		BSMBI,
+		
+		/**
+		 * BbsI
+		 */
+		BBSI,
+		
+		/**
+		 * BtsI
+		 */
+		BTSI,
+		
+		/**
+		 * BmRI
+		 */
+		BMRI;
 		
 		/**
 		 * Get a comma separated list of all available names
@@ -97,6 +132,16 @@ public class RestrictionEnzymeFactory {
 			switch(this) {
 			case BSAI:
 				return "BsaI";
+			case SAPI:
+				return "SapI";
+			case BSMBI:
+				return "BsmBI";
+			case BBSI:
+				return "BbsI";
+			case BTSI:
+				return "BtsI";
+			case BMRI:
+				return "BmRI";
 			default:
 				throw new IllegalStateException("Element not supported.");
 			}

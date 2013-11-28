@@ -2041,7 +2041,7 @@ public class AddEndRNASeqToScripture {
 					//logger.info(edited.toBED());
 					bwBed.write(edited.toBED()+"\n");
 					
-					if(count%1000==0){
+					if(count%500==0){
 						logger.info("Trimming best isoform done for "+count+" genes");
 					}
 				}
@@ -2219,7 +2219,7 @@ public class AddEndRNASeqToScripture {
 						}
 					}
 					//logger.info(edited.toBED());
-					if(count%1000==0){
+					if(count%500==0){
 						logger.info("Trimming all isoforms done for "+count+" genes");
 					}
 				}

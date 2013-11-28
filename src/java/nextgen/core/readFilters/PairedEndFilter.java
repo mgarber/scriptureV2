@@ -11,9 +11,7 @@ public class PairedEndFilter implements Predicate<Alignment> {
 	@Override
 	public boolean evaluate(Alignment read) {
 		//check if the read is paired and both mates on same chromosome
-		
 		if(read.isPaired()){
-			//TODO: SK: REMOVE THIS CHECK ONCE IT IS SURE THAT PAIREDENDWRITER IS NOT WRITING THESE READS AT ALL
 			Iterator<Annotation> mates = read.getReadAlignments(null).iterator();
 			String refName = null;
 			while(mates.hasNext()){
