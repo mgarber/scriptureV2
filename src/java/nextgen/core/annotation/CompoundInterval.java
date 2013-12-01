@@ -204,7 +204,7 @@ public class CompoundInterval implements Comparable<CompoundInterval>, java.io.S
 				SingleInterval curr = itr.next();
 				if (end <= curr.getStart()) { //MG: changed <= to < since our intervals are closed/open so if end is equal to start the interval [s,s) is valid, it is a single point.
 					// interval is entirely after the new end point - remove it.
-					logger.info("Trying to set a short end "+end+" to interval which will remove the current block: " + curr);
+					logger.debug("Trying to set a short end "+end+" to interval which will remove the current block: " + curr);
 					itr.remove();
 				} else {
 					// extend the new last interval to the new end point

@@ -86,6 +86,12 @@ public class Statistics {
 	public static double quantile(List<? extends Number> list, double pct) {
 		if(list.size() == 1) { return list.get(0).doubleValue();}
 		if(list.size() == 0) { return 0;}
+		if(pct==0.0){
+			return (list.get(0).doubleValue());
+		}
+		if(pct==1.0){
+			return list.get(list.size()-1).doubleValue();
+		}
 		int idx = (int)  Math.floor( pct * (list.size() - 1));
 		double reminder = pct * (list.size() - 1) - idx;
 		double idxthTerm = list.get(idx).doubleValue();

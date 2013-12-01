@@ -1,4 +1,4 @@
-package nextgen.editing;
+package nextgen.synbio;
 
 import java.io.BufferedWriter;
 import java.io.File;

@@ -16,7 +16,7 @@ import broad.core.sequence.Sequence;
  */
 public class SimplePoolScheme implements PoolScheme {
 	
-	private ProbeLayout layout;
+	protected ProbeLayout layout;
 	
 	/**
 	 * 

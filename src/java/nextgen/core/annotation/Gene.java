@@ -22,6 +22,7 @@ import broad.core.annotation.GFF;
 import broad.core.annotation.LightweightGenomicAnnotation;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
+import broad.core.parser.StringParser;
 import broad.core.sequence.Sequence;
 import broad.pda.datastructures.Alignments;
 import broad.pda.rnai.ExtractSequence;
@@ -2355,7 +2356,9 @@ public class Gene extends BasicAnnotation {
 	
 	
 	private static Gene makeFromBED(String rawData) {
-       	String[] tokens=rawData.split("\t");
+		StringParser s = new StringParser();
+		s.parse(rawData);
+		String[] tokens = s.getStringArray();
 		String chr=(tokens[0]);
 		int start=new Integer(tokens[1]);
 		int end=new Integer(tokens[2]);

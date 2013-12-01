@@ -13,14 +13,8 @@ import java.util.TreeSet;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import nextgen.core.capture.arrayscheme.PoolScheme;
-import nextgen.core.capture.arrayscheme.ProbeLayout;
-import nextgen.core.capture.arrayscheme.SimplePoolScheme;
-import nextgen.core.capture.arrayscheme.SingleTilingProbeLayout;
-import nextgen.core.capture.arrayscheme.StackedSimplePoolScheme;
-import nextgen.core.capture.filter.PrimerFilter;
-import nextgen.core.capture.filter.ProbeFilter;
-import nextgen.core.capture.filter.RepeatFilter;
+import nextgen.core.capture.arrayscheme.*;
+import nextgen.core.capture.filter.*;
 import nextgen.core.pipeline.ConfigFile;
 import nextgen.core.pipeline.ConfigFileOption;
 import nextgen.core.pipeline.ConfigFileOptionValue;
@@ -44,8 +38,9 @@ public class OligoPool {
 	private ConfigFile configFile;
 	private PoolScheme poolScheme;
 	private Collection<Sequence> transcripts;
-	private Collection<ProbeFilter> probeFilters;
+	private List<ProbeFilter> probeFilters;
 	private Collection<PrimerFilter> primerFilters;
+	private Map<PrimerPair,Integer> primerCounts;
 	private Collection<Oligo> oligos;
 	private int primerSize;
 	private String primer3corePath;
@@ -112,7 +107,7 @@ public class OligoPool {
 	private static ConfigFileOption probeFilterOption = new ConfigFileOption(probeFilterOptionFlag, 5, true, true, false);
 	private static String probeFiltersSectionFlag = "Probe_filters";
 	private static ConfigFileSection probeFiltersSection = new ConfigFileSection(probeFiltersSectionFlag, false);
-	private static String primerFilterOptionFlag = "primer_filter";
+	public static String primerFilterOptionFlag = "primer_filter";
 	private static ConfigFileOption primerFilterOption = new ConfigFileOption(primerFilterOptionFlag, 5, true, true, false);
 	private static String primerFiltersSectionFlag = "Primer_filters";
 	private static ConfigFileSection primerFiltersSection = new ConfigFileSection(primerFiltersSectionFlag, false);
@@ -144,26 +139,35 @@ public class OligoPool {
 	}
 	
 	private static ProbeFilter getProbeFilterFromConfigFileValue(ConfigFileOptionValue value) {
-		// Repeat filter
-		RepeatFilter repeatFilter = new RepeatFilter();
-		if(repeatFilter.validConfigFileValue(value)) {
-			repeatFilter.setParametersFromConfigFile(value);
-			logger.info("Got filter " + repeatFilter.toString());
-			return repeatFilter;
-		}
-		// Probe filter 2 (can pass pointer to this as argument in constructor)
 		
-		// ...
+		// Add additional filter classes to this array:
+		ProbeFilter[] filters = new ProbeFilter[] { new RepeatFilter(), new PolyBaseFilter() };
+		
+		for (ProbeFilter filter : filters) {
+			if(filter.validConfigFileValue(value)) {
+				filter.setParametersFromConfigFile(value);
+				logger.info("Got filter " + filter.toString());
+				return filter;
+			}
+		}
+		
 		throw new IllegalArgumentException("Probe filter not connected to this method: " + value.getFullOptionLine() + ". Need to implement.");
 	}
 
 	private static PrimerFilter getPrimerFilterFromConfigFileValue(@SuppressWarnings("unused") ConfigFileOptionValue value) {
-		// Primer filter 1 (can pass pointer to this as argument in constructor)
 		
-		// Primer filter 2 (can pass pointer to this as argument in constructor)
+		// Add additional filter classes to this array:
+		PrimerFilter[] filters = new PrimerFilter[] { new PolyBaseFilter() };
 		
-		// ...
-		throw new IllegalStateException("No primer filters are connected to this method. Need to implement.");
+		for (PrimerFilter filter : filters) {
+			if(filter.validConfigFileValue(value)) {
+				filter.setParametersFromConfigFile(value);
+				logger.info("Got filter " + filter.toString());
+				return filter;
+			}
+		}
+		
+		throw new IllegalStateException("Primer filter not connected to this method: " + value.getFullOptionLine() + ". Need to implement.");
 	}
 	
 	private static ProbeLayout getProbeLayoutFromConfigFileValue(ConfigFileOptionValue value) {
@@ -197,25 +201,18 @@ public class OligoPool {
 	
 	private PoolScheme getPoolSchemeFromConfigFile() {
 		ConfigFileOptionValue poolSchemeVal = configFile.getSingleValue(arraySchemeSection, poolSchemeOption);
-		// Simple pool scheme
-		SimplePoolScheme simplePoolScheme = new SimplePoolScheme();
-		if(simplePoolScheme.validConfigFileValue(poolSchemeVal)) {
-			simplePoolScheme.setFromConfigFile(configFile);
-			logger.info("Got pool scheme " + simplePoolScheme.toString());
-			return simplePoolScheme;
-		}
-		// Stacked simple pool scheme
-		StackedSimplePoolScheme stackedSimplePoolScheme = new StackedSimplePoolScheme();
-		if(stackedSimplePoolScheme.validConfigFileValue(poolSchemeVal)) {
-			stackedSimplePoolScheme.setFromConfigFile(configFile);
-			logger.info("Got pool scheme " + stackedSimplePoolScheme.toString());
-			return stackedSimplePoolScheme;
-		}
-		// Pool scheme 3
 		
-		// Pool scheme 4
+		// Add additional scheme classes to this array:
+		PoolScheme[] schemes = new PoolScheme[] { new SimplePoolScheme(), new StackedSimplePoolScheme(), new GenePoolScheme() };
 		
-		// ...
+		for (PoolScheme scheme : schemes) {
+			if (scheme.validConfigFileValue(poolSchemeVal)) {
+				scheme.setFromConfigFile(configFile);
+				logger.info("Got pool scheme " + scheme.toString());
+				return scheme;
+			}
+		}
+		
 		throw new IllegalArgumentException("Pool scheme not connected to this method: " + poolSchemeVal.getFullOptionLine() + ". Need to implement.");
 	}
 	
@@ -233,8 +230,8 @@ public class OligoPool {
 		return rtrn;
 	}
 	
-	private Collection<ProbeFilter> getProbeFiltersFromConfigFile() {
-		Collection<ProbeFilter> rtrn = new ArrayList<ProbeFilter>();
+	private List<ProbeFilter> getProbeFiltersFromConfigFile() {
+		List<ProbeFilter> rtrn = new ArrayList<ProbeFilter>();
 		Collection<ConfigFileOptionValue> probeFilterVals = configFile.getOptionValues(probeFiltersSection, probeFilterOption);
 		if(probeFilterVals == null) {
 			return rtrn;
@@ -242,6 +239,7 @@ public class OligoPool {
 		for(ConfigFileOptionValue val : probeFilterVals) {
 			rtrn.add(getProbeFilterFromConfigFileValue(val));
 		}
+		rtrn.add(new SynthesisFilter());
 		return rtrn;
 	}
 	
@@ -257,10 +255,11 @@ public class OligoPool {
 		return rtrn;
 	}
 	
-	private void createOligos() throws IOException {
+	private void createOligos(String outFilePrefix) throws IOException {
 		logger.info("");
 		logger.info("Creating oligos...");
 		Collection<ProbeSet> probeSets = poolScheme.getProbes(transcripts);
+		primerCounts = new TreeMap<PrimerPair,Integer>();
 		int numProbes = 0;
 		for(ProbeSet probeSet : probeSets) {
 			numProbes += probeSet.getProbes().size();
@@ -268,24 +267,53 @@ public class OligoPool {
 		logger.info("There are " + probeSets.size() + " probe sets with a total of " + numProbes + " probes.");
 		// Filter probes
 		logger.info("Filtering probes...");
+		
+		// Output statistics about which filters are removing probes
+		// TODO:  Move this to the ProbeLayout or ProbeSet code so you can control how to aggregate the stats
+		FileWriter w = new FileWriter(outFilePrefix + ".filter_results.txt");
+		w.write("ProbeSet\tpassed");
+		for (ProbeFilter filter : probeFilters) {
+			w.write("\t" + filter.toString());
+			filter.setup(probeSets);
+		}
+		w.write("\n");
+		
 		int removed = 0;
 		int remaining = 0;
 		for(ProbeSet probeSet : probeSets) {
+			w.write(probeSet.getProbes().iterator().next().getID());
 			Iterator<Probe> iter = probeSet.iter();
+			
+			int[] counts = new int[probeFilters.size()+1];
+			
 			while(iter.hasNext()) {
 				Probe probe = iter.next();
 				boolean rejected = false;
-				for(ProbeFilter filter : probeFilters) {
+				
+				for(int i = 0; i < probeFilters.size(); i++) {
+					ProbeFilter filter = probeFilters.get(i);
 					if(filter.rejectProbe(probe)) {
-						iter.remove();
 						rejected = true;
-						removed++;
-						break;
+						counts[i+1]++;
 					}
 				}
-				if(!rejected) remaining++;
+				
+				if (rejected) {
+					iter.remove();
+					removed++;
+				} else {
+					remaining++;
+					counts[0]++;
+				}
 			}
+			for (int count : counts) { 
+				w.write("\t" + count);
+			}
+			w.write("\n");
 		}
+		w.close();
+		
+		
 		logger.info("Done filtering probes. Removed " + removed + " probes. " + remaining + " probes remain.");
 		// Assign and filter primers
 		logger.info("Assigning primers to " + probeSets.size() + " probe sets...");
@@ -310,6 +338,7 @@ public class OligoPool {
 					}
 					succeeded++;
 					foundPrimer = true;
+					primerCounts.put(primer, probeSet.getProbes().size());
 				}
 			}
 		}
@@ -366,6 +395,9 @@ public class OligoPool {
 		logger.info("Writing list of full oligo sequences to file " + outFile);
 		FileWriter w = new FileWriter(outFile);
 		for(Oligo oligo : oligos) {
+			if (oligo.getOligoBases().toUpperCase().indexOf("GNIL") != -1) {
+				throw new IllegalArgumentException("found GNIL");
+			}
 			w.write(oligo.getOligoBases() + "\n");
 		}
 		w.close();
@@ -397,6 +429,7 @@ public class OligoPool {
 		FileWriter w = new FileWriter(outFile);
 		String header = "Probe_ID\t";
 		header += "Parent_sequence\t";
+		header += "Probeset_size\t";
 		header += "Start\t";
 		header += "End\t";
 		header += "Orientation\t";
@@ -411,6 +444,7 @@ public class OligoPool {
 			PrimerPair primer = oligo.getPrimer();
 			String line = probe.getID() + "\t";
 			line += probe.getParentTranscript().getId() + "\t";
+			line += primerCounts.get(primer) + "\t";
 			line += probe.getStartPosOnTranscript() + "\t";
 			int end = probe.getEndPosOnTranscript() - 1;
 			line += end + "\t";
@@ -447,7 +481,7 @@ public class OligoPool {
 		OligoPool oligoPool = new OligoPool(configFile);
 		
 		// Create oligos
-		oligoPool.createOligos();
+		oligoPool.createOligos(outFilePrefix);
 		
 		// Write files
 		oligoPool.writeFiles(outFilePrefix);

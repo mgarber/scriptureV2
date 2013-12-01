@@ -1,4 +1,4 @@
-package nextgen.editing;
+package nextgen.synbio;
 
 import broad.core.sequence.Sequence;
 
