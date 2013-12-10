@@ -19,7 +19,7 @@ public class ConfigFileOption {
 	 * @param numValues Number of values including flag
 	 * @param fewerValuesOK Can have any number of values between 1 and the specified number
 	 * @param isRepeatable Whether the option can be specified multiple times in the file
-	 * @param isRequired Whether the option is required
+	 * @param isRequired Whether the option is required for the section it's in
 	 */
 	public ConfigFileOption(String optionFlag, int numValues, boolean fewerValuesOK, boolean isRepeatable, boolean isRequired) {
 		this(optionFlag, numValues, fewerValuesOK, isRepeatable, isRequired, null);
@@ -30,7 +30,7 @@ public class ConfigFileOption {
 	 * @param numValues Number of values including flag
 	 * @param fewerValuesOK Can have any number of values between 1 and the specified number
 	 * @param isRepeatable Whether the option can be specified multiple times in the file
-	 * @param isRequired Whether the option is required
+	 * @param isRequired Whether the option is required for the section it's in
 	 * @param defaultValue Default value not including the flag itself
 	 */
 	public ConfigFileOption(String optionFlag, int numValues, boolean fewerValuesOK, boolean isRepeatable, boolean isRequired, String defaultValue) {

@@ -16,10 +16,12 @@ import java.util.TreeMap;
 import nextgen.core.job.Job;
 import nextgen.core.job.JobUtils;
 import nextgen.core.job.LSFJob;
+import nextgen.core.job.OGSJob;
 import nextgen.core.pipeline.Scheduler;
 
 import org.apache.log4j.Logger;
 import org.ggf.drmaa.DrmaaException;
+import org.ggf.drmaa.Session;
 
 import broad.core.parser.StringParser;
 
@@ -149,10 +151,12 @@ public class AlignmentUtils {
 	 * @param bowtie2BuildExecutable The bowtie2-build executable
 	 * @param bsubOutputDir Output directory for bsub file
 	 * @param scheduler Scheduler
+	 * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method. 
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void makeBowtie2Index(String fastaFile, String outBtIndexBase, String bowtie2BuildExecutable, String bsubOutputDir, Scheduler scheduler) throws IOException, InterruptedException {
+	public static void makeBowtie2Index(String fastaFile, String outBtIndexBase, String bowtie2BuildExecutable, String bsubOutputDir, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
 		logger.info("");
 		logger.info("Writing bowtie2 index for file " + fastaFile + " to files " + outBtIndexBase);
 		File bsubDir = new File(bsubOutputDir);
@@ -183,10 +187,19 @@ public class AlignmentUtils {
 		String output = bsubOutputDir + "/make_bowtie_index_" + jobID + ".bsub";
 		switch(scheduler) {
 			case LSF:
-				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
-				job.submit();
-				job.waitFor();
+				LSFJob lsfJob = new LSFJob(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
+				lsfJob.submit();
+				lsfJob.waitFor();
 				break;
+            case OGS:
+                if(drmaaSession == null) {
+                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+                }
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "bowtie2_index");
+                ogsJob.submit();
+                logger.info("OGS job ID is " + ogsJob.getID() + ".");
+                ogsJob.waitFor();
+                break;
 			default:
 				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
@@ -203,12 +216,14 @@ public class AlignmentUtils {
 	 * @param bowtie2Executable Bowtie2 executable
 	 * @param bsubOutDir Output directory for bsub file
 	 * @param scheduler Scheduler
+     * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method.
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @return The job object
+	 * @throws DrmaaException 
 	 */
-	public static Job runBowtie2(String bowtie2IndexBase, Map<String, String> options, String reads, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, Scheduler scheduler) throws IOException, InterruptedException {
-		return runBowtie2(bowtie2IndexBase, options, reads, null, outSamFile, outUnalignedFastq, bowtie2Executable, bsubOutDir, false, scheduler);
+	public static Job runBowtie2(String bowtie2IndexBase, Map<String, String> options, String reads, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
+		return runBowtie2(bowtie2IndexBase, options, reads, null, outSamFile, outUnalignedFastq, bowtie2Executable, bsubOutDir, false, scheduler, drmaaSession);
 	}
 
 	
@@ -223,12 +238,14 @@ public class AlignmentUtils {
 	 * @param bowtie2Executable Bowtie2 executable
 	 * @param bsubOutDir Output directory for bsub file
 	 * @param scheduler Scheduler
+     * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method.
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @return The job object
+	 * @throws DrmaaException 
 	 */
-	public static Job runBowtie2(String bowtie2IndexBase, Map<String, String> options, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, Scheduler scheduler) throws IOException, InterruptedException {
-		return runBowtie2(bowtie2IndexBase, options, read1Fastq, read2Fastq, outSamFile, outUnalignedFastq, bowtie2Executable, bsubOutDir, true, scheduler);
+	public static Job runBowtie2(String bowtie2IndexBase, Map<String, String> options, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
+		return runBowtie2(bowtie2IndexBase, options, read1Fastq, read2Fastq, outSamFile, outUnalignedFastq, bowtie2Executable, bsubOutDir, true, scheduler, drmaaSession);
 	}
 	
 	/**
@@ -243,11 +260,13 @@ public class AlignmentUtils {
 	 * @param bsubOutDir Output directory for bsub files
 	 * @param readsPaired Whether the reads are paired
 	 * @param scheduler Scheduler
+     * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method.
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @return The bsub job ID
+	 * @throws DrmaaException 
 	 */
-	public static Job runBowtie2(String bowtie2IndexBase, Map<String, String> options, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, boolean readsPaired, Scheduler scheduler) throws IOException, InterruptedException {
+	public static Job runBowtie2(String bowtie2IndexBase, Map<String, String> options, String read1Fastq, String read2Fastq, String outSamFile, String outUnalignedFastq, String bowtie2Executable, String bsubOutDir, boolean readsPaired, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
 
 		File bsubOutDirectory = new File(bsubOutDir);
 		@SuppressWarnings("unused")
@@ -283,10 +302,18 @@ public class AlignmentUtils {
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 				String output = bsubOutDir + "/run_bowtie_" + jobID + ".bsub";
 				logger.info("Writing bsub output to file " + output);
-				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
-				job.submit();
+				LSFJob lsfJob = new LSFJob(Runtime.getRuntime(), jobID, cmmd, output, "week", 4);
+				lsfJob.submit();
 				logger.info("Job ID is " + jobID);
-				return job;
+				return lsfJob;
+            case OGS:
+                if(drmaaSession == null) {
+                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+                }
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "bowtie2");
+                ogsJob.submit();
+                logger.info("OGS job ID is " + ogsJob.getID() + ".");
+                return ogsJob;
 			default:
 				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 		}
@@ -297,39 +324,18 @@ public class AlignmentUtils {
 	 * Run tophat for single end reads against genome and count alignments
 	 * @param tophatExecutable Tophat executable
 	 * @param samtools Samtools executable
-	 * @param sampleNames Collection of sample names
 	 * @param leftFastqs Map of sample name to read1
 	 * @param tophatOptions Mapping of tophat flags to values
 	 * @param tophatDirsPerSample Directory to write tophat output to, by sample name
-	 * @param tophatBamFinalPath Final bam file for tophat output, by sample name
-	 * @param genomeIndex Genome fasta index
-	 * @param queueName LSF queue name
-	 * @param outputDir Output directory
-	 * @param scheduler Scheduler
-	 * @return Map of sample name to bam file generated from this TopHat run
-	 * @throws IOException
-	 * @throws InterruptedException
-	 * @throws DrmaaException 
-	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Collection<String> sampleNames, Map<String, String> leftFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
-		return runTophat(tophatExecutable, samtools, sampleNames, leftFastqs, null, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, queueName, outputDir, scheduler);
-	}
-
-	/**
-	 * Run tophat for single end reads against genome and count alignments
-	 * @param tophatExecutable Tophat executable
-	 * @param samtools Samtools executable
-	 * @param leftFastqs Map of sample name to read1
-	 * @param tophatOptions Mapping of tophat flags to values
-	 * @param tophatDirsPerSample Directory to write tophat output to, by sample name
+	 * @param tophatOutputBamPerSample Bam file to write by sample name
 	 * @param tophatBamFinalPath Final bam file for tophat output, by sample name
 	 * @param genomeIndex Genome fasta index
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex) throws IOException, InterruptedException {
-		return runTophat(tophatExecutable, samtools, leftFastqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex);
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatOutputBamPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex) throws IOException, InterruptedException {
+		return runTophat(tophatExecutable, samtools, leftFastqs, tophatOptions, tophatDirsPerSample, tophatOutputBamPerSample, tophatBamFinalPath, genomeIndex);
 	}
 	
 	/**
@@ -340,16 +346,18 @@ public class AlignmentUtils {
 	 * @param rightFastqs Map of sample name to read2 for samples with paired reads, or null if no samples are paired
 	 * @param tophatOptions Mapping of tophat flags to values
 	 * @param tophatDirsPerSample Directory to write tophat output to, by sample name
+	 * @param tophatOutputBamPerSample Bam file to write by sample name
 	 * @param tophatBamFinalPath Final bam file for tophat output, by sample name
 	 * @param genomeIndex Genome fasta index
 	 * @param scheduler Scheduler
+     * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method.
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
-		return runTophat(tophatExecutable, samtools, leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, ".", scheduler);
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatOutputBamPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
+		return runTophat(tophatExecutable, samtools, leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatOutputBamPerSample, tophatBamFinalPath, genomeIndex, ".", scheduler, drmaaSession);
 	}
 	
 	/**
@@ -361,17 +369,19 @@ public class AlignmentUtils {
 	 * @param rightFastq Right fastq
 	 * @param tophatOptions Mapping of tophat flags to values
 	 * @param tophatDir Tophat directory
+	 * @param tophatBamOutput Bam file to write
 	 * @param finalTophatBam Final bam file; skip if already exists
 	 * @param genomeIndex Genome fasta index
 	 * @param outputDir Output directory
 	 * @param scheduler Scheduler
+     * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method.
 	 * @return Bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @throws DrmaaException 
 	 */
-	public static String runTophat(String tophatExecutable, String samtools, String sampleName, String leftFastq, String rightFastq, Map<String, String> tophatOptions, String tophatDir, String finalTophatBam, String genomeIndex, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
-		return runTophat(tophatExecutable, samtools, sampleName, leftFastq, rightFastq, tophatOptions, tophatDir, finalTophatBam, genomeIndex, "week", outputDir, scheduler);
+	public static String runTophat(String tophatExecutable, String samtools, String sampleName, String leftFastq, String rightFastq, Map<String, String> tophatOptions, String tophatDir, String tophatBamOutput, String finalTophatBam, String genomeIndex, String outputDir, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
+		return runTophat(tophatExecutable, samtools, sampleName, leftFastq, rightFastq, tophatOptions, tophatDir, tophatBamOutput, finalTophatBam, genomeIndex, "week", outputDir, scheduler, drmaaSession);
 	}
 	
 	/**
@@ -382,17 +392,19 @@ public class AlignmentUtils {
 	 * @param rightFastqs Map of sample name to read2 for samples with paired reads, or null if no samples are paired
 	 * @param tophatOptions Mapping of tophat flags to values
 	 * @param tophatDirsPerSample Directory to write tophat output to, by sample name
+	 * @param tophatOutputBamPerSample Bam file to write by sample name
 	 * @param tophatBamFinalPath Final bam file for tophat output, by sample name
 	 * @param genomeIndex Genome fasta index
 	 * @param outputDir Output directory
 	 * @param scheduler Scheduler
+     * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method.
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
-		return runTophat(tophatExecutable, samtools, leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, "week", outputDir, scheduler);
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatOutputBamPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String outputDir, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
+		return runTophat(tophatExecutable, samtools, leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatOutputBamPerSample, tophatBamFinalPath, genomeIndex, "week", outputDir, scheduler, drmaaSession);
 	}
 	
 	/**
@@ -403,18 +415,20 @@ public class AlignmentUtils {
 	 * @param rightFastqs Map of sample name to read2 for samples with paired reads, or null if no samples are paired
 	 * @param tophatOptions Mapping of tophat flags to values
 	 * @param tophatDirsPerSample Directory to write tophat output to, by sample name
+	 * @param tophatOutputBamPerSample Bam file to write by sample name
 	 * @param tophatBamFinalPath Final bam file for tophat output, by sample name
 	 * @param genomeIndex Genome fasta index
 	 * @param queueName LSF queue name
 	 * @param outputDir Output directory
 	 * @param scheduler Scheduler
+     * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method.
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
-		return runTophat(tophatExecutable, samtools, leftFastqs.keySet(), leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, queueName, outputDir, scheduler);
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatOutputBamPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
+		return runTophat(tophatExecutable, samtools, leftFastqs.keySet(), leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatOutputBamPerSample, tophatBamFinalPath, genomeIndex, queueName, outputDir, scheduler, drmaaSession);
 	}
 	
 	/**
@@ -426,28 +440,32 @@ public class AlignmentUtils {
 	 * @param rightFastq Right fastq
 	 * @param tophatOptions Mapping of tophat flags to values
 	 * @param tophatDir Tophat directory
+	 * @param tophatOutputBam Bam file to write
 	 * @param finalTophatBam Final bam file; skip if already exists
 	 * @param genomeIndex Genome fasta index
 	 * @param queueName LSF queue name
 	 * @param outputDir Output directory
 	 * @param scheduler Scheduler
+     * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method.
 	 * @return Bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @throws DrmaaException 
 	 */
-	public static String runTophat(String tophatExecutable, String samtools, String sampleName, String leftFastq, String rightFastq, Map<String, String> tophatOptions, String tophatDir, String finalTophatBam, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static String runTophat(String tophatExecutable, String samtools, String sampleName, String leftFastq, String rightFastq, Map<String, String> tophatOptions, String tophatDir, String tophatOutputBam, String finalTophatBam, String genomeIndex, String queueName, String outputDir, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
 		Collection<String> sampleNames = new ArrayList<String>();
 		sampleNames.add(sampleName);
 		Map<String, String> leftFastqs = new TreeMap<String, String>();
 		Map<String, String> rightFastqs = new TreeMap<String, String>();
 		Map<String, String> tophatDirsPerSample = new TreeMap<String, String>();
 		Map<String, String> tophatBamFinalPath = new TreeMap<String, String>();
+		Map<String, String> tophatOutputBamPerSample = new TreeMap<String, String>();
+		tophatOutputBamPerSample.put(sampleName, tophatOutputBam);
 		leftFastqs.put(sampleName, leftFastq);
 		rightFastqs.put(sampleName, rightFastq);
 		tophatDirsPerSample.put(sampleName, tophatDir);
 		tophatBamFinalPath.put(sampleName, finalTophatBam);
-		return runTophat(tophatExecutable, samtools, sampleNames, leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, queueName, outputDir, scheduler).values().iterator().next();
+		return runTophat(tophatExecutable, samtools, sampleNames, leftFastqs, rightFastqs, tophatOptions, tophatDirsPerSample, tophatOutputBamPerSample, tophatBamFinalPath, genomeIndex, queueName, outputDir, scheduler, drmaaSession).values().iterator().next();
 	}
 	
 	/**
@@ -459,17 +477,19 @@ public class AlignmentUtils {
 	 * @param rightFastqs Map of sample name to read2 for samples with paired reads, or null if no samples are paired
 	 * @param tophatOptions Mapping of tophat flags to values
 	 * @param tophatDirsPerSample Directory to write tophat output to, by sample name
-	 * @param tophatBamFinalPath Final bam file for tophat output, by sample name
+	 * @param tophatOutputBamPerSample Bam file to write by sample name
+	 * @param tophatBamFinalPath Final bam file for tophat output by sample name. Tophat is not run if this file already exists.
 	 * @param genomeIndex Genome fasta index
 	 * @param queueName LSF queue name
 	 * @param outputDir Output directory
 	 * @param scheduler Scheduler
+     * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method.
 	 * @return Map of sample name to bam file generated from this TopHat run
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @throws DrmaaException 
 	 */
-	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Collection<String> sampleNames, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public static Map<String, String> runTophat(String tophatExecutable, String samtools, Collection<String> sampleNames, Map<String, String> leftFastqs, Map<String, String> rightFastqs, Map<String, String> tophatOptions, Map<String, String> tophatDirsPerSample, Map<String, String> tophatOutputBamPerSample, Map<String, String> tophatBamFinalPath, String genomeIndex, String queueName, String outputDir, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
 		
 		Map<String, String> rtrn = new TreeMap<String, String>();
 		
@@ -481,6 +501,12 @@ public class AlignmentUtils {
 		for(String sample : sampleNames) {
 			File outdir = new File(tophatDirsPerSample.get(sample));
 			outdir.mkdir();
+			File tmpBamFile = new File(tophatOutputBamPerSample.get(sample));
+			// Check if tophat has already been run
+			if(tmpBamFile.exists()) {
+				logger.warn("Alignment file " +tophatOutputBamPerSample.get(sample) + " already exists. Not rerunning alignment.");
+				continue;
+			}
 			File finalBamFile = new File(tophatBamFinalPath.get(sample));
 			// Check if tophat has already been run
 			if(finalBamFile.exists()) {
@@ -506,12 +532,21 @@ public class AlignmentUtils {
 			switch(scheduler) {
 			case LSF:
 				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, tophatCmmd, outdir + "/tophat_" + jobID + ".bsub", queueName, 16);
-				tophatJobs.add(job);
+				LSFJob lsfJob = new LSFJob(Runtime.getRuntime(), jobID, tophatCmmd, outdir + "/tophat_" + jobID + ".bsub", queueName, 16);
+				tophatJobs.add(lsfJob);
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
-				job.submit();
+				lsfJob.submit();
 				break;
+            case OGS:
+                if(drmaaSession == null) {
+                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+                }
+                OGSJob ogsJob = new OGSJob(drmaaSession, tophatCmmd, "tophat");
+                ogsJob.submit();
+                logger.info("OGS job ID is " + ogsJob.getID() + ".");
+                tophatJobs.add(ogsJob);
+                break;
 			default:
 				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
@@ -525,11 +560,11 @@ public class AlignmentUtils {
 		logger.info("");
 		logger.info("Moving all tophat bam files to directory " + outputDir + "...");
 		for(String sample : sampleNames) {
-			String cmmd = "mv " + tophatDirsPerSample.get(sample) + "/accepted_hits.bam " + tophatBamFinalPath.get(sample);
+			String cmmd = "mv " + tophatDirsPerSample.get(sample) + "/accepted_hits.bam " + tophatOutputBamPerSample.get(sample);
 			Process p = Runtime.getRuntime().exec(cmmd, null);
 			p.waitFor();
 			// Update current bam files
-			rtrn.put(sample, tophatBamFinalPath.get(sample));
+			rtrn.put(sample, tophatOutputBamPerSample.get(sample));
 		}
 		
 		// Count aligned and unaligned reads
@@ -552,9 +587,9 @@ public class AlignmentUtils {
 			w.write(header);
 			wp.write(header);
 			for(String sample : sampleNames) {
-				int mapped = countAlignments(samtools, outputDir + "/" + sample + ".bam", tophatDirsPerSample.get(sample), false);
+				int mapped = countAlignments(samtools, tophatOutputBamPerSample.get(sample), tophatDirsPerSample.get(sample), false);
 				int unmapped = 0;
-				if(version2) countAlignments(samtools, tophatDirsPerSample.get(sample) + "/unmapped.bam", tophatDirsPerSample.get(sample), true, false);
+				if(version2) unmapped = countAlignments(samtools, tophatDirsPerSample.get(sample) + "/unmapped.bam", tophatDirsPerSample.get(sample), true, false);
 				else {
 					// Tophat version 1 writes separate unmapped fastq files
 					// Unzip files
@@ -610,46 +645,6 @@ public class AlignmentUtils {
 		
 		return rtrn;
 		
-	}
-
-	/**
-	 * Index a set of bam files
-	 * @param bamFiles Map of sample name to bam file to index
-	 * @param samtools Samtools executable
-	 * @param scheduler Scheduler
-	 * @throws IOException
-	 * @throws InterruptedException
-	 * @throws DrmaaException 
-	 */
-	public static void indexBamFiles(Map<String, String> bamFiles, String samtools, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
-		ArrayList<Job> indexJobs = new ArrayList<Job>();
-		for(String sample : bamFiles.keySet()) {
-			String bam = bamFiles.get(sample);
-			String index = bam + ".bai";
-			File indexfile = new File(index);
-			// Check if bai files exist
-			if(indexfile.exists()) {
-				logger.warn("Index " + index + " already exists. Not re-indexing bam file.");
-				continue;
-			}
-			String cmmd = samtools + " index " + bam + " " + index;
-			logger.info("Running samtools command: " + cmmd);
-			switch(scheduler) {
-				case LSF:
-					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-					logger.info("LSF job ID is " + jobID + ".");
-					// Submit job
-					LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, indexfile.getParent() + "/index_bam_" + jobID + ".bsub", "hour", 1);
-					indexJobs.add(job);
-					job.submit();
-					break;
-				default:
-					throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
-			}
-			
-		}
-		logger.info("Waiting for samtools jobs to finish...");
-		JobUtils.waitForAll(indexJobs);
 	}
 
 	

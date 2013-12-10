@@ -335,6 +335,7 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	 *
 	 */
 	public static enum TranscriptionRead implements java.io.Serializable{
+		
 		/**
 		 * 
 		 */
@@ -346,7 +347,46 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		/**
 		 * 
 		 */
-		UNSTRANDED
+		UNSTRANDED;
+		
+		private static String FIRST_NAME = "first";
+		private static String SECOND_NAME = "second";
+		private static String UNSTRANDED_NAME = "unstranded";
+		
+		public static String commaSeparatedList() {
+			String rtrn = values()[0].toString();
+			for(int i=1; i<values().length; i++) {
+				rtrn += ", " + values()[i].toString();
+			}
+			return rtrn;
+		}
+		
+		public String toString() {
+			switch(this) {
+			case FIRST_OF_PAIR:
+				return FIRST_NAME;
+			case SECOND_OF_PAIR:
+				return SECOND_NAME;
+			case UNSTRANDED:
+				return UNSTRANDED_NAME;
+			default:
+				throw new IllegalArgumentException("Transcription read " + this + " not recognized.");
+			}
+		}
+
+		public static TranscriptionRead fromString(String name) {
+			if(name.equals(FIRST_NAME)) {
+				return FIRST_OF_PAIR;
+			} else if(name.equals(SECOND_NAME)) {
+				return SECOND_OF_PAIR;
+			} else if(name.equals(UNSTRANDED_NAME)) {
+				return UNSTRANDED;
+			} else {
+				throw new IllegalArgumentException("Transcription read " + name + " not recognized. Options: " + commaSeparatedList());
+			}
+
+		}
+		
 	}
 
 	@Override

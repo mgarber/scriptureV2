@@ -3,6 +3,8 @@ package nextgen.core.job;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 import nextgen.core.pipeline.OGSUtils;
 
@@ -140,10 +142,17 @@ public class OGSJob implements Job {
 		String workingDirectory = System.getProperty("user.dir");
 		jobTemplate.setWorkingDirectory(workingDirectory);
 		String time = Long.valueOf(System.currentTimeMillis()).toString();
-		String uniqueName = jobName == null ? time : jobName + "_" + time;
+		String uniqueName = jobName == null ? "OGS_job_" + time : jobName + "_" + time;
 		jobTemplate.setJobName(uniqueName);
 		jobTemplate.setErrorPath(":" + uniqueName + ".err");
 		jobTemplate.setOutputPath(":" + uniqueName + ".out");
+		// Use the current environment variables
+		Map<String, String> environment = System.getenv();
+		Properties properties = new Properties();
+		for(String varName : environment.keySet()) {
+			properties.setProperty(varName, environment.get(varName));
+		}
+		jobTemplate.setJobEnvironment(properties);
 		
 		scriptFile = script;
 		jobTemplate.setRemoteCommand(scriptFile.getAbsolutePath());
@@ -160,11 +169,10 @@ public class OGSJob implements Job {
 	
 	@Override
 	public String getID() {
-		try {
-			return jobID;
-		} catch (NullPointerException e) {
+		if(jobID == null) {
 			throw new IllegalStateException("OGS job doesn't have ID until submitted");
 		}
+		return jobID;
 	}
 
 	@Override
@@ -175,17 +183,34 @@ public class OGSJob implements Job {
 			logger.info("Command: " + command);
 		}
 		session.deleteJobTemplate(jobTemplate);
-		if(deleteScriptAfterSubmitting) OGSUtils.deleteScriptFile(scriptFile);
+		// Attach a shutdown hook to delete the script when the program has finished running
+		// If it is deleted right after submission, the job will fail
+		if(deleteScriptAfterSubmitting) {
+			Runtime.getRuntime().addShutdownHook(new Thread() {
+				@Override
+				public void run() {
+					OGSUtils.deleteScriptFile(scriptFile);					
+				}
+			});
+		}
 	}
 
+	/**
+	 * The routine reaps jobs on a successful call, so any subsequent calls to waitFor() will fail, throwing an InvalidJobException, meaning that the job has already been reaped. This exception is the same as if the job were unknown.
+	 */
 	@Override
 	public void waitFor() throws IOException, InterruptedException, DrmaaException {
 		logger.info("Waiting for job " + jobID + "...");
-		@SuppressWarnings("unused")
 		JobInfo info = session.wait(jobID, Session.TIMEOUT_WAIT_FOREVER);
-		logger.info("Done waiting for job.");
+		logger.info("Done waiting for job. Exit status " + info.getExitStatus() + ".");
+		if(info.hasSignaled() || info.wasAborted() || info.getExitStatus() != 0) {
+			throw new IllegalStateException("Job " + jobID + " failed.");
+		}
 	}
 
+	/**
+	 * The routine reaps jobs on a successful call, so any subsequent calls to waitFor() will fail, throwing an InvalidJobException, meaning that the job has already been reaped. This exception is the same as if the job were unknown.
+	 */
 	@Override
 	public void waitFor(int interval) throws IOException, InterruptedException, DrmaaException {
 		waitFor();
