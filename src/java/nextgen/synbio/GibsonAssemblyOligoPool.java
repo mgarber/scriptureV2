@@ -5,6 +5,7 @@ package nextgen.synbio;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -100,25 +101,29 @@ public class GibsonAssemblyOligoPool {
 	private static void designOligosAndWriteOutput(String outPrefix, Map<String, Collection<Sequence>> sequenceSets, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable, boolean divideSetsByCompatibleOligos) throws IOException {
 		logger.info("Designing oligo sets and writing output...");
 		boolean writeHeader = true;
+		String errorFile = outPrefix + "_ERROR";
+		logger.warn("Writing important error messages to " + errorFile + ".");
+		FileWriter errorWriter = new FileWriter(errorFile);
 		for(String setId : sequenceSets.keySet()) {
 			logger.info("");
 			logger.info("***** " + setId + " *****");
 			if(divideSetsByCompatibleOligos) {
-				Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> subsetsByEnzyme = GibsonAssemblyOligoSet.divideByCompatibleEnzymes(sequenceSets.get(setId), enzymes, oligoSize, overlapSize, primerLength, primer3coreExecutable);
+				Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> subsetsByEnzyme = GibsonAssemblyOligoSet.divideByCompatibleEnzymes(sequenceSets.get(setId), enzymes, oligoSize, overlapSize, primerLength, primer3coreExecutable, errorWriter);
 				for(TypeIISRestrictionEnzyme enzyme : subsetsByEnzyme.keySet()) {
 					String prefix = setId + "_" + enzyme.getName();
 					GibsonAssemblyOligoSet oligoSet = subsetsByEnzyme.get(enzyme);
-					Collection<FullOligo> oligos = oligoSet.designOligoSet();
+					Collection<FullOligo> oligos = oligoSet.designOligoSet(errorWriter);
 					GibsonAssemblyOligoSet.writeOutput(oligos, prefix, outPrefix, writeHeader, !writeHeader);
 					writeHeader = false;
 				}
 			} else {
 				GibsonAssemblyOligoSet oligoSet = new GibsonAssemblyOligoSet(sequenceSets.get(setId), enzymes, oligoSize, overlapSize, primerLength, primer3coreExecutable);
-				Collection<FullOligo> oligos = oligoSet.designOligoSet();
+				Collection<FullOligo> oligos = oligoSet.designOligoSet(errorWriter);
 				GibsonAssemblyOligoSet.writeOutput(oligos, setId, outPrefix, writeHeader, !writeHeader);
 				writeHeader = false;
 			}
 		}
+		errorWriter.close();
 		logger.info("Done writing oligo pool.");
 	}
 	

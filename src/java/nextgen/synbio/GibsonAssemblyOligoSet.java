@@ -43,6 +43,7 @@ public class GibsonAssemblyOligoSet {
 	static Logger logger = Logger.getLogger(GibsonAssemblyOligoSet.class.getName());
 	private String primer3core;
 	
+	
 	/**
 	 * @param seqs Sequences to assemble
 	 * @param enzymes Possible restriction enzymes to use
@@ -101,10 +102,12 @@ public class GibsonAssemblyOligoSet {
 	 * @param overlapSize Size of overlap for Gibson assembly
 	 * @param primerLength Length of primers to amplify oligos
 	 * @param primer3coreExecutable primer3core executable file
+	 * @param errorStream File writer to write errors to e.g. sequences with no compatible enzyme
 	 * @return Map of enzyme to oligo set object using only that enzyme
+	 * @throws IOException 
 	 */
-	public static Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> divideByCompatibleEnzymes(Collection<Sequence> seqs, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable) {
-		Map<TypeIISRestrictionEnzyme, Collection<Sequence>> sequenceSetsByEnzyme = divideByCompatibleEnzymes(seqs, enzymes);
+	public static Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> divideByCompatibleEnzymes(Collection<Sequence> seqs, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable, FileWriter errorStream) throws IOException {
+		Map<TypeIISRestrictionEnzyme, Collection<Sequence>> sequenceSetsByEnzyme = divideByCompatibleEnzymes(seqs, enzymes, errorStream);
 		Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> rtrn = new HashMap<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet>();
 		for(TypeIISRestrictionEnzyme enzyme : sequenceSetsByEnzyme.keySet()) {
 			Collection<TypeIISRestrictionEnzyme> thisEnzyme = new ArrayList<TypeIISRestrictionEnzyme>();
@@ -133,9 +136,11 @@ public class GibsonAssemblyOligoSet {
 	 * Divide sequence set into subsets such that each subset shares a common compatible restriction enzyme
 	 * @param seqs The sequences
 	 * @param enzymes Available enzymes
+	 * @param errorStream File writer to write errors to e.g. sequences with no compatible enzyme
 	 * @return Map of enzymes to collection of sequences compatible with the enzyme
+	 * @throws IOException 
 	 */
-	private static Map<TypeIISRestrictionEnzyme, Collection<Sequence>> divideByCompatibleEnzymes(Collection<Sequence> seqs, Collection<TypeIISRestrictionEnzyme> enzymes) {
+	private static Map<TypeIISRestrictionEnzyme, Collection<Sequence>> divideByCompatibleEnzymes(Collection<Sequence> seqs, Collection<TypeIISRestrictionEnzyme> enzymes, FileWriter errorStream) throws IOException {
 		logger.info("Dividing set of " + seqs.size() + " sequences into subsets sharing common compatible enzymes...");
 		logger.info("Checking that nucleotides are valid...");
 		for(Sequence seq : seqs) {
@@ -184,7 +189,8 @@ public class GibsonAssemblyOligoSet {
 				break;
 			}
 			if(!foundEnzyme) {
-				throw new IllegalArgumentException("Couldn't find a compatible enzyme for sequence " + seq.getId() + ".");
+				logger.warn("NO_COMPATIBLE_ENZYME\t" + seq.getId());
+				errorStream.write("NO_COMPATIBLE_ENZYME\t" + seq.getId() + "\n");
 			}
 		}
 		logger.info("Divided into " + rtrn.size() + " subsets.");
@@ -237,9 +243,11 @@ public class GibsonAssemblyOligoSet {
 	 * Break the transcript into overlapping subsequences for Gibson assembly
 	 * @param parentSequence The transcript
 	 * @param length Length of subsequences
+	 * @param errorStream File writer to write errors to e.g. sequences with no compatible enzyme
 	 * @return The subsequences with appropriate overlaps
+	 * @throws IOException 
 	 */
-	private Collection<Subsequence> designOverlappingSequences(Sequence parentSequence, int length) {
+	private Collection<Subsequence> designOverlappingSequences(Sequence parentSequence, int length, FileWriter errorStream) throws IOException {
 		logger.info("Designing overlapping subsequences of length " + length + " for transcript " + parentSequence.getId() + "...");
 		if(length <= assemblyOverlapSize) {
 			throw new IllegalArgumentException("Subsequence length (" + length + ") must be larger than overlap size (" + assemblyOverlapSize + ")");
@@ -282,13 +290,15 @@ public class GibsonAssemblyOligoSet {
 			firstSubseq.moveEndAndChangeSize(-1);
 			logger.debug("Right end is not unique. Trying " + firstSubseq.getSequence() + ".");
 		}
-		logger.debug("Adding " + firstSubseq.getSequence() + " with start position " + firstSubseq.getStartOnParent() + ".");
+		logger.debug("Adding initial subsequence " + firstSubseq.getSequence() + " with start position " + firstSubseq.getStartOnParent() + ".");
 		subsequences.add(firstSubseq);
 		int currentSubseq = 1;
 		int lastSubseqEnd = subsequences.get(currentSubseq - 1).getEndOnParent();
 		
 		// Go through entire transcript
 		while(lastSubseqEnd - assemblyOverlapSize < parentSequence.getLength() - length) {
+			
+			logger.debug("lastSubseqEnd\t" + lastSubseqEnd + "\tparentSequenceLength\t" + parentSequence.getLength() + "\tlength\t" + length);
 			
 			Subsequence newSubseq = new Subsequence(parentSequence, lastSubseqEnd - assemblyOverlapSize, length);
 			logger.debug("Trying subsequence " + newSubseq.getSequence() + ".");
@@ -301,7 +311,16 @@ public class GibsonAssemblyOligoSet {
 				}
 				newSubseq.shift(-1);
 				subsequences.get(currentSubseq - 1).moveEndAndChangeSize(-1);
-				logger.debug("Left end is not unique. Changing to " + newSubseq.getSequence() + " and changing previous sequence to " + subsequences.get(currentSubseq - 1).getSequence() + ".");
+				if(newSubseq.getStartOnParent() == subsequences.get(currentSubseq - 1).getStartOnParent()) {
+					// Region has no unique k-mers and we have backed up all the way to the previous subsequence
+					// Save an error message and return empty set
+					errorStream.write("REGION_WITH_NO_UNIQUE_KMERS\t" + parentSequence.getId() + "\n");
+					logger.warn("REGION_WITH_NO_UNIQUE_KMERS\t" + parentSequence.getId());
+					Collection<Subsequence> emptySet = new ArrayList<Subsequence>();
+					return emptySet;
+				}
+				logger.debug("newSubseqStart\t" + newSubseq.getStartOnParent() + "\tpreviousSubseqEnd\t" + subsequences.get(currentSubseq - 1).getEndOnParent());
+				logger.debug(parentSequence.getId() + "\tLeft end is not unique. Changing to " + newSubseq.getSequence() + " and changing previous sequence to " + subsequences.get(currentSubseq - 1).getSequence() + ".");
 			}
 			logger.debug("Adding " + newSubseq.getSequence() + " with start position " + newSubseq.getStartOnParent() + ".");
 			subsequences.add(newSubseq);
@@ -450,12 +469,14 @@ public class GibsonAssemblyOligoSet {
 	/**
 	 * Design overlapping subsequences for all the sequences
 	 * @param length Subsequence length
+	 * @param errorStream File writer to write errors to e.g. sequences with no compatible enzyme
 	 * @return All the overlapping subsequences for all transcripts in a single collection
+	 * @throws IOException 
 	 */
-	private Collection<Subsequence> designOverlappingSequences(int length) {
+	private Collection<Subsequence> designOverlappingSequences(int length, FileWriter errorStream) throws IOException {
 		Collection<Subsequence> rtrn = new TreeSet<Subsequence>();
 		for(Sequence seq : sequences) {
-			rtrn.addAll(designOverlappingSequences(seq, length));
+			rtrn.addAll(designOverlappingSequences(seq, length, errorStream));
 		}
 		return rtrn;
 	}
@@ -576,13 +597,14 @@ public class GibsonAssemblyOligoSet {
 	/**
 	 * Design the full oligo set for all transcripts
 	 * @return All oligos in the full oligo set
+	 * @param errorStream File writer to write errors to e.g. sequences with no compatible enzyme
 	 * @throws IOException 
 	 */
-	public Collection<FullOligo> designOligoSet() throws IOException {
+	public Collection<FullOligo> designOligoSet(FileWriter errorStream) throws IOException {
 		logger.info("");
 		logger.info("Designing oligo set...");
 		TypeIISRestrictionEnzyme enzyme = chooseEnzyme();
-		Collection<Subsequence> subsequences = designOverlappingSequences(getCoreSequenceLengthWithinOligo(enzyme));
+		Collection<Subsequence> subsequences = designOverlappingSequences(getCoreSequenceLengthWithinOligo(enzyme), errorStream);
 		Collection<FullOligo> oligos = designOligos(subsequences, enzyme);
 		logger.info("");
 		logger.info("Done designing oligo set. Designed	" + oligos.size() + " oligos.");
@@ -688,7 +710,10 @@ public class GibsonAssemblyOligoSet {
 		 * @param newRelStart New start relative to old start
 		 */
 		public void shift(int newRelStart) {
-			setStartOnParent(startOnParent + newRelStart);
+			int newStart = startOnParent + newRelStart;
+			if(newStart < 0) throw new IllegalArgumentException("Can't set start position on parent to " + newStart + " which is < 0.");
+			if(newStart > parent.getLength() - 1) throw new IllegalArgumentException("Can't set start position on parent to " + newStart + ". Parent sequence length is " + parent.getLength() + ".");
+			setStartOnParent(newStart);
 		}
 
 		/**
@@ -881,7 +906,9 @@ public class GibsonAssemblyOligoSet {
 		FastaSequenceIO fsio = new FastaSequenceIO(p.getStringArg("-f"));
 		Collection<Sequence> seqs = fsio.loadAll();
 		GibsonAssemblyOligoSet g = new GibsonAssemblyOligoSet(seqs, enzymes, oligoSize, overlapSize, primerLength, primer3core);
-		writeOutput(g.designOligoSet(), outPrefix);
+		FileWriter errorWriter = new FileWriter(outPrefix + "_ERROR");
+		writeOutput(g.designOligoSet(errorWriter), outPrefix);
+		errorWriter.close();
 		
 		logger.info("");
 		logger.info("All done.");

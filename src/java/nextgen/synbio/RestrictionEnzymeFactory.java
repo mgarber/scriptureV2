@@ -92,7 +92,7 @@ public class RestrictionEnzymeFactory {
 		 * BtsI
 		 */
 		BTSI,
-		
+				
 		/**
 		 * BmRI
 		 */
