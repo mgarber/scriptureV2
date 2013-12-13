@@ -780,7 +780,7 @@ public class MultiSamplePeakCaller implements PeakCaller {
 				extraFields[0] = score.getCount();
 				extraFields[1] = score.getCtrlCount();
 				extraFields[2] = score.getSampleRegionCount();
-				extraFields[3] = score.getCtrlCount();
+				extraFields[3] = score.getCtrlRegionCount();
 				extraFields[4] = geneEnrichment;
 				extraFields[5] = window.size();
 				extraFields[6] = (double) geneSize;
@@ -818,7 +818,6 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	 * @return Hash of score_name : significant_windows
 	 * @throws IOException
 	 */
-	@SuppressWarnings("unchecked")
 	private Map<String,TreeSet<Annotation>> findSignificantWindows(SampleData sample, Gene gene, FileWriter windowCountRejectFileWriter, Map<String,FileWriter> rejectFileWriterAllFragments, Map<String,FileWriter> rejectFileWriterFragmentLengthFilter) throws IOException {
 		Map<String,TreeSet<Annotation>> rtrn = new HashMap<String,TreeSet<Annotation>>();
 		for (String scoreName : scoresToUse) {
