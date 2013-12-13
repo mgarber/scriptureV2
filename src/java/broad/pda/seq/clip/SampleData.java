@@ -72,7 +72,9 @@ public class SampleData {
 		read1TranscriptionStrand = firstReadTranscriptionStrand;
 		StringParser p = new StringParser();
 		p.parse(bamFile, "\\.");
-		sampleName = p.asString(0);
+		String withoutSuffix = p.asString(0);
+		p.parse(withoutSuffix, "/");
+		sampleName = p.asString(p.getFieldCount() - 1);
 		for(int i = 1 ; i < p.getFieldCount() - 1; i++) {
 			sampleName += "." + p.asString(i);
 		}

@@ -110,7 +110,7 @@ public class BinomialEnrichmentScore extends CountScore {
 			setPvalue(calculatePVal(new Double(getSampleCount()), new Double(getCtrlCount()), sampleRegionCount, ctrlRegionCount, regionLength, annotation.getSize()));
 		} catch(Exception e) {
 			logger.info("Could not set scan P value for annotation " + annotation.getName());
-			logger.info(getSampleCount() + " " + getCtrlCount() + " " + sampleRegionCount + " " + ctrlRegionCount + " " + regionLength + " " + annotation.getSize());
+			logger.info("Sample count " + getSampleCount() + " control count " + getCtrlCount() + " sample region count " + sampleRegionCount + " control region count " + ctrlRegionCount + " region length " + regionLength + " annotation size " + annotation.getSize());
 		}
 	}
 	
