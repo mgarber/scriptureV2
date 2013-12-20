@@ -10,6 +10,7 @@ import java.util.TreeMap;
 
 import org.apache.log4j.Logger;
 
+import nextgen.core.annotation.Annotation;
 import nextgen.core.writers.WigWriter;
 
 import broad.core.parser.CommandLineParser;
@@ -44,6 +45,19 @@ public class WigReader {
 	 */
 	public Map<String, TreeMap<Integer,Double>> getAllValues() {
 		return data;
+	}
+	
+	/**
+	 * Get values on the exons of an annotation
+	 * @param region The annotation
+	 * @return Wig values on the exons by genomic position
+	 */
+	public TreeMap<Integer, Double> getValues(Annotation region) {
+		TreeMap<Integer, Double> rtrn = new TreeMap<Integer, Double>();
+		for(Annotation block : region.getBlocks()) {
+			rtrn.putAll(getValues(region.getChr(), block.getStart(), block.getEnd()));
+		}
+		return rtrn;
 	}
 	
 	/**

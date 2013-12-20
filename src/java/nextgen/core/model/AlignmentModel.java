@@ -30,7 +30,6 @@ import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
 import nextgen.core.general.CloseableFilterIterator;
 import nextgen.core.model.score.WindowScore;
-import nextgen.core.readFilters.PairedAndProperFilter;
 import nextgen.core.readFilters.PairedEndFilter;
 import nextgen.core.readFilters.SameOrientationFilter;
 import nextgen.core.readFilters.SplicedReadFilter;
@@ -858,6 +857,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	}
 	
 	
+	
 	private class ShuffledIterator extends nextgen.core.coordinatesystem.ShuffledIterator<Alignment> {
 		public ShuffledIterator(CloseableIterator<Alignment> itr, Annotation region) {
 			super(itr, coordinateSpace, region);
@@ -1303,6 +1303,34 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return new UnpackingIterator(iter);
 	}
 	
+	/**
+	 * Get the span covered by all reads overlapping a region
+	 * @param parent Parent annotation of the region of interest
+	 * @param region The region of interest
+	 * @param fullyContained Fully contained reads only
+	 * @return The subregion of the parent gene enclosing all reads overlapping the region or null if no overlappers
+	 */
+	public Annotation getPeak(Annotation parent, Annotation region, boolean fullyContained) {
+		if(!parent.contains(region)) {
+			throw new IllegalArgumentException("Parent annotation must contain smaller region");
+		}
+		CloseableIterator<Alignment> overlappers = getOverlappingReads(region, fullyContained);
+		if(!overlappers.hasNext()) {
+			logger.warn("Region " + region.toUCSC() + " has no overlappers.");
+			return null;
+		}
+		int min=Integer.MAX_VALUE;
+		int max=Integer.MIN_VALUE;
+		while(overlappers.hasNext()) {
+			Alignment read = overlappers.next();
+			min = Math.min(min, read.getAlignmentStart());
+			max = Math.max(max, read.getAlignmentEnd());
+		}
+		min = Math.max(parent.getStart(), min);
+		max = Math.min(parent.getEnd(), max);
+		BasicAnnotation span = new BasicAnnotation(region.getChr(), min, max);
+		return parent.intersect(span);
+	}
 
 	/**
 	 * This will unpack the alignment counts into the full alignments that made them
