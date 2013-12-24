@@ -22,6 +22,7 @@ import java.util.TreeSet;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.ggf.drmaa.DrmaaException;
+import org.ggf.drmaa.Session;
 
 import broad.core.math.MathUtil;
 import broad.core.math.Statistics;
@@ -39,11 +40,14 @@ import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.job.Job;
 import nextgen.core.job.JobUtils;
 import nextgen.core.job.LSFJob;
+import nextgen.core.job.OGSJob;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.MultiScore;
 import nextgen.core.model.score.WindowProcessor;
 import nextgen.core.model.score.WindowScoreIterator;
+import nextgen.core.pipeline.OGSUtils;
+import nextgen.core.pipeline.Scheduler;
 import nextgen.core.utils.AlignmentUtils;
 import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.feature.GeneWindow;
@@ -72,6 +76,7 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	protected int windowSize;
 	protected int stepSize;
 	protected ArrayList<String> scoresToUse;
+	private static String COMMENT_CHAR = "#";
 	private static int DEFAULT_WINDOW_SIZE = 20;
 	private static int DEFAULT_STEP_SIZE = 1;
 	private static double DEFAULT_PEAK_SCAN_P_VALUE_CUTOFF = 0.001;
@@ -102,6 +107,8 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	protected String sizeFile;
 	private boolean firstReadTranscriptionStrand;
 	private double peakCutoffMaxReplicatePct;
+	private Scheduler scheduler;
+	private static Session drmaaSession;
 	private static int RGB_RED_WITH_GENE = 106;
 	private static int RGB_GREEN_WITH_GENE = 7;
 	private static int RGB_BLUE_WITH_GENE = 205;
@@ -133,8 +140,9 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	 * Instantiate from another MultiSamplePeakCaller
 	 * @param other 
 	 * @throws IOException
+	 * @throws DrmaaException 
 	 */
-	protected MultiSamplePeakCaller(MultiSamplePeakCaller other) throws IOException {
+	protected MultiSamplePeakCaller(MultiSamplePeakCaller other) throws IOException, DrmaaException {
 		this(other.sampleFile, other.bedAnnotationFile, other.sizeFile, other.windowSize, other.stepSize);
 		copyParameters(other);
 	}
@@ -144,9 +152,10 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	 * @param sampleListFile File containing sample list
 	 * @param bedFile Bed gene annotation
 	 * @throws IOException
+	 * @throws DrmaaException 
 	 */
 	@SuppressWarnings("unused")
-	private MultiSamplePeakCaller(String sampleListFile, String bedFile, String chrSizeFile) throws IOException {
+	private MultiSamplePeakCaller(String sampleListFile, String bedFile, String chrSizeFile) throws IOException, DrmaaException {
 		this(sampleListFile, bedFile, chrSizeFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE);
 	}
 	
@@ -158,8 +167,9 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	 * @param window Window size
 	 * @param step Step size
 	 * @throws IOException
+	 * @throws DrmaaException 
 	 */
-	public MultiSamplePeakCaller(String sampleListFile, String bedFile, String chrSizeFile, int window, int step) throws IOException {
+	public MultiSamplePeakCaller(String sampleListFile, String bedFile, String chrSizeFile, int window, int step) throws IOException, DrmaaException {
 		
 		sampleFile = sampleListFile;
 		bedAnnotationFile = bedFile;
@@ -194,8 +204,9 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	 * @param bedFile Bed gene annotation
 	 * @param chrSizeFile Chromosome size file
 	 * @throws IOException
+	 * @throws DrmaaException 
 	 */
-	public MultiSamplePeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile) throws IOException {
+	public MultiSamplePeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile) throws IOException, DrmaaException {
 		this(expressionBamFile, signalBamFile, bedFile, chrSizeFile, DEFAULT_WINDOW_SIZE, DEFAULT_STEP_SIZE);
 	}
 	
@@ -208,8 +219,9 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	 * @param window Window size
 	 * @param step Step size
 	 * @throws IOException
+	 * @throws DrmaaException 
 	 */
-	public MultiSamplePeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile, int window, int step) throws IOException {
+	public MultiSamplePeakCaller(String expressionBamFile, String signalBamFile, String bedFile, String chrSizeFile, int window, int step) throws IOException, DrmaaException {
 		this(null, bedFile, chrSizeFile, window, step);
 		initializeWithSingleSample(expressionBamFile, signalBamFile, chrSizeFile);
 		initializeScoreMaps();
@@ -318,9 +330,15 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	protected void initializeFilterRejectWriters(String commonSuffix, String outDir) throws IOException {
 		File dir = new File(outDir);
 		boolean madeDir = dir.mkdir();
+		if(!dir.exists()) {
+			throw new IllegalStateException("Could not make directory " + outDir + ".");
+		}
 		for (String scoreName : scoresToUse) {
 			File scoreDir = new File(outDir + "/" + scoreName);
 			boolean madeScoreDir = scoreDir.mkdir();
+			if(!scoreDir.exists()) {
+				throw new IllegalStateException("Could not make directory " + scoreDir + ".");
+			}
 		}
 		logger.info("");
 		logger.info("Writing regions rejected by filters to files in directory " + outDir);
@@ -412,13 +430,32 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	 * Set which scores to compute peaks for
 	 * @param scoreList List of keys of scores
 	 */
-	public void setScoreList(ArrayList<String> scoreList) { scoresToUse = scoreList; }
+	public void setScoreList(ArrayList<String> scoreList) { 
+		scoresToUse = scoreList; 
+		String listString = "";
+		for(String score : scoresToUse) {
+			listString += score + " ";
+		}
+		logger.info("USING SCORES: " + listString);
+	}
 	
 	/**
 	 * Set cutoff for the percentage of fragments overlapping a peak that come from the most common replicate fragment
 	 * @param maxPct The max percentage
 	 */
 	public void setPeakCutoffMostCommonReplicate(double maxPct) { peakCutoffMaxReplicatePct = maxPct; }
+	
+	/**
+	 * Set the scheduler
+	 * @param sched Scheduler
+	 * @throws DrmaaException 
+	 */
+	public void setScheduler(Scheduler sched) throws DrmaaException { 
+		scheduler = sched;
+		if(scheduler.equals(Scheduler.OGS)) {
+			drmaaSession = OGSUtils.getDrmaaSession();
+		}
+	}
 	
 	/**
 	 * Set quantile for trim max contiguous algorithm for peak calling
@@ -517,6 +554,8 @@ public class MultiSamplePeakCaller implements PeakCaller {
 				s.parse(line);
 				if(s.getFieldCount() == 0) continue;
 				if(!genes.keySet().contains(line)) {
+					r.close();
+					b.close();
 					throw new IllegalArgumentException("Chromosome name " + line + " not recognized.");
 				}
 				chrs.add(line);
@@ -547,12 +586,25 @@ public class MultiSamplePeakCaller implements PeakCaller {
 				String cmmd = "java -jar -Xmx" + xmx + "g -Xms" + xms + "g -Xmn" + xmn + "g " + jar + " " + args;
 				logger.info("Running command: " + cmmd);
 				String jobID = sample.getSampleName() + "_" + chr + "_" + Long.valueOf(System.currentTimeMillis()).toString();
-				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, outDir + "/" + jobID + ".bsub", "week", memRequestGb);
-				jobs.add(job);
-				cmmds.put(jobID, cmmd);
-				logger.info("LSF job ID is " + jobID + ".");
-				// Submit job
-				job.submit();
+				switch(scheduler) {
+				case LSF:
+					LSFJob lsfJob = new LSFJob(Runtime.getRuntime(), jobID, cmmd, outDir + "/" + jobID + ".bsub", "week", memRequestGb);
+					jobs.add(lsfJob);
+					cmmds.put(jobID, cmmd);
+					logger.info("LSF job ID is " + jobID + ".");
+					// Submit job
+					lsfJob.submit();
+					break;
+				case OGS:
+					OGSJob ogsJob = new OGSJob(drmaaSession, cmmd);
+					jobs.add(ogsJob);
+					ogsJob.submit();
+					logger.info("OGS job ID is " + ogsJob.getID());
+					cmmds.put(ogsJob.getID(), cmmd);
+					break;
+				default:
+					throw new IllegalStateException("Case fall through in switch on scheduler value");
+				}
 			}
 		}
 		
@@ -818,7 +870,6 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	 * @return Hash of score_name : significant_windows
 	 * @throws IOException
 	 */
-	@SuppressWarnings("unchecked")
 	private Map<String,TreeSet<Annotation>> findSignificantWindows(SampleData sample, Gene gene, FileWriter windowCountRejectFileWriter, Map<String,FileWriter> rejectFileWriterAllFragments, Map<String,FileWriter> rejectFileWriterFragmentLengthFilter) throws IOException {
 		Map<String,TreeSet<Annotation>> rtrn = new HashMap<String,TreeSet<Annotation>>();
 		for (String scoreName : scoresToUse) {
@@ -1301,11 +1352,12 @@ public class MultiSamplePeakCaller implements PeakCaller {
 		p.addBooleanArg("-sf", "Apply strand filter using read strand info", false, DEFAULT_FILTER_BY_STRAND);
 		p.addBooleanArg("-ef", "Print additional info in BED file", false, DEFAULT_EXTRA_FIELDS);
 		p.addStringListArg("-score", "Score to use in peak calling. Can be used multiple times. Possible values: binomial, scan_statistic", false, new ArrayList<String>(Arrays.asList(DEFAULT_SCORES)));
+		p.addStringArg("-sc", "Scheduler (options: " + Scheduler.getCommaSeparatedList() + ")", false, Scheduler.OGS.toString());
 		p.parse(commandArgs,true);
 		return p;
 	}
 	
-	protected static MultiSamplePeakCaller createFromCommandArgs(String[] commandArgs) throws IOException {
+	protected static MultiSamplePeakCaller createFromCommandArgs(String[] commandArgs) throws IOException, DrmaaException {
 		CommandLineParser p = getCommandLineParser(commandArgs);
 		String sampleListFile = p.getStringArg("-l");
 		String bedFile = p.getStringArg("-b");
@@ -1320,6 +1372,7 @@ public class MultiSamplePeakCaller implements PeakCaller {
 		double maxPctMostCommonReplicatePerPeak = p.getDoubleArg("-r");
 		boolean useStrandFilter = p.getBooleanArg("-sf");
 		boolean extraFields =  p.getBooleanArg("-ef");
+		Scheduler scheduler = Scheduler.fromString(p.getStringArg("-sc"));
 		ArrayList<String> scoresToUse = p.getStringListArg("-score");
 		
 		ArrayList<String> validScoreNames = new ArrayList<String>(Arrays.asList(DEFAULT_SCORES));
@@ -1337,6 +1390,7 @@ public class MultiSamplePeakCaller implements PeakCaller {
 		m.setFilterByStrand(useStrandFilter);
 		m.setExtraFields(extraFields);
 		m.setScoreList(scoresToUse);
+		m.setScheduler(scheduler);
 		
 		return m;
 		 
@@ -1449,18 +1503,16 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	
 	/**
 	 * @param args
-	 * @throws IOException 
-	 * @throws InterruptedException 
-	 * @throws DrmaaException 
+	 * @throws Exception 
 	 */
-	public static void main(String[] args) throws IOException, InterruptedException, DrmaaException {
-
+	public static void main(String[] args) throws Exception {
+		
 		MultiSamplePeakCaller m = createFromCommandArgs(args);
 		
 		if(commandLineHasDebugFlag(args)) {
 			m.setLoggerLevel(Level.DEBUG);
 		}
-		
+			
 		if(commandLineHasBatchFlag(args)) {
 			m.batchWriteSingleSamplePeaksAllSamples(args, commandLineBatchChrList(args), commandLineBatchMemRequest(args));
 		} else {
@@ -1468,10 +1520,9 @@ public class MultiSamplePeakCaller implements PeakCaller {
 			m.writeSingleSamplePeaksAllSamples(commandLineOutDir(args));
 			m.closeFilterRejectWriters();
 		}
-		
-		
+				
 		logger.info("");
-		logger.info("All done.");
+		logger.info("All done.");	
 		
 	}
 	
@@ -1666,6 +1717,7 @@ public class MultiSamplePeakCaller implements PeakCaller {
 				s.parse(line);
 				
 				if(s.getFieldCount() == 0) continue;
+				if(line.substring(0, 1).equals(COMMENT_CHAR)) continue;
 				
 				String label = s.asString(0);
 				String bamFile = s.asString(1);
@@ -1774,6 +1826,8 @@ public class MultiSamplePeakCaller implements PeakCaller {
 			logger.error(CONTROL_LABEL + "\t<bam_file_name>\t" + FIRST_READ_TRANSCRIPTION_STRAND_LABEL + " OR " + SECOND_READ_TRANSCRIPTION_STRAND_LABEL);
 			logger.error("- or -");
 			logger.error(SIGNAL_LABEL + "\t<bam_file_name>" + FIRST_READ_TRANSCRIPTION_STRAND_LABEL + " OR " + SECOND_READ_TRANSCRIPTION_STRAND_LABEL);
+			logger.error("- or -");
+			logger.error(COMMENT_CHAR + "\tcomment");
 			logger.error("");
 			logger.error("**********");
 			logger.error("");

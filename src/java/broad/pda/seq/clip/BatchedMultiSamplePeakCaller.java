@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.Map;
 
 import org.apache.log4j.Level;
+import org.ggf.drmaa.DrmaaException;
 
 /**
  * @author shari
@@ -19,7 +20,7 @@ public class BatchedMultiSamplePeakCaller extends MultiSamplePeakCaller {
 	private String chr;
 	private SampleData sampleData;
 	
-	private BatchedMultiSamplePeakCaller(MultiSamplePeakCaller m, String sample, String chrName) throws IOException {
+	private BatchedMultiSamplePeakCaller(MultiSamplePeakCaller m, String sample, String chrName) throws IOException, DrmaaException {
 		super(m);
 		sampleName = sample;
 		chr = chrName;
@@ -74,8 +75,9 @@ public class BatchedMultiSamplePeakCaller extends MultiSamplePeakCaller {
 	/**
 	 * @param args
 	 * @throws IOException 
+	 * @throws DrmaaException 
 	 */
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException, DrmaaException {
 		
 		
 		String[] superArgs = getSuperCommandArgs(args);
