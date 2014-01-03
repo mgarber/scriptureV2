@@ -675,13 +675,16 @@ public class Gene extends BasicAnnotation {
 		for(Annotation exon: exons) {
 			//logger.info("Exon: " + exon.toUCSC());
 			// If the exon is larger than the input window size
-			if(exon.getSize() > windowSize) {
+			if(exon.getSize() >= windowSize) { //TODO should be >= ?
+				logger.debug(this.toUCSC() + "\texon_size\t" + exon.getSize() + "\twindow_size\t" + windowSize);
 				for(int i = exon.getStart(); i <= exon.getEnd() - windowSize; i++) {
+					logger.debug(this.toUCSC() + "\ti\t" + i);
 					GeneWindow subGene = new GeneWindow(new Gene(getChr(), i, i + windowSize));
 					subGene.addSourceAnnotation(this);
 					subGene.setOrientation(this.getOrientation());
 					// GeneWindow subGene = new Basic(getChr(), i, i + windowSize);
 					subGenes.add(subGene);
+					logger.debug(this.toUCSC() + "\tadded\t" + subGene.toUCSC());
 				}
 			}
 			
@@ -689,14 +692,16 @@ public class Gene extends BasicAnnotation {
 				//logger.info("Size: " + this.getSize() + " ExonSize: " + exon.getSize() + " " + i + " start: " + exon.getStart() + " end: " + exon.getEnd());
 				int relativeStart = getPositionAtReferenceCoordinate(i, true);
 				int size = relativeStart + windowSize;
-				if(relativeStart + windowSize < this.getSize()) {
-					Gene exonGene =  new Gene(exon);
+				logger.debug(this.toUCSC() + "\ti\t" + i + "\trel_start\t" + relativeStart + "\tsize\t" + size);
+				if(relativeStart + windowSize < this.getSize()) { //TODO should be <= ?
+					//Gene exonGene =  new Gene(exon);
 					//GeneWindow subGene = this.trimAbsolute(i, i+windowSize);
 					GeneWindow subGene = this.trimGene(relativeStart, relativeStart + windowSize);
 					//GeneWindow subGene = this.trimGeneNew(exonGene, relativeStart, relativeStart+windowSize);
 					subGene.setOrientation(this.getOrientation());
 					subGenes.add(subGene);
 					//logger.info("" + subGene.toBED());
+					logger.debug(this.toUCSC() + "\tsubgene\t" + subGene.toUCSC());
 				}
 			}	
 		}
