@@ -40,7 +40,7 @@ public class SingleTilingProbeLayout implements ProbeLayout {
 	
 	@Override
 	public ProbeSet getProbes(Sequence transcript) {
-		ProbeSet rtrn = new ProbeSet();
+		ProbeSet rtrn = new ProbeSet(name());
 		int startPos = start;
 		while(startPos + size <= transcript.getLength()) {
 			int endPos = startPos + size - 1;

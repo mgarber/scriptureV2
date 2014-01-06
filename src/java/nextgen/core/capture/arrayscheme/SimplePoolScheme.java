@@ -16,7 +16,7 @@ import broad.core.sequence.Sequence;
  */
 public class SimplePoolScheme implements PoolScheme {
 	
-	protected ProbeLayout layout;
+	private ProbeLayout layout;
 	
 	/**
 	 * 
@@ -32,7 +32,7 @@ public class SimplePoolScheme implements PoolScheme {
 	
 	@Override
 	public Collection<ProbeSet> getProbes(Collection<Sequence> transcripts) {
-		ProbeSet probeSet = new ProbeSet();
+		ProbeSet probeSet = new ProbeSet(name());
 		for(Sequence transcript : transcripts) {
 			ProbeSet probesThisSequence = layout.getProbes(transcript);
 			probeSet.addAll(probesThisSequence);
