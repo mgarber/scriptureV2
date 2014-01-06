@@ -46,6 +46,7 @@ public class SimplePoolScheme implements PoolScheme {
 	public String name() {
 		return "simple_pool_scheme";
 	}
+	
 
 	@Override
 	public String configFileLineDescription() {

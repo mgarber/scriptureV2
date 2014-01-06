@@ -278,6 +278,7 @@ public class OligoPool {
 		}
 		w.write("\n");
 		
+		
 		int removed = 0;
 		int remaining = 0;
 		for(ProbeSet probeSet : probeSets) {

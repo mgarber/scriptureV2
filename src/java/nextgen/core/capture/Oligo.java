@@ -13,6 +13,7 @@ public class Oligo implements Comparable<Oligo> {
 	private PrimerPair primer;
 	private ProbeSet probeSet;
 	
+	
 	/**
 	 * @param pr Probe
 	 */
