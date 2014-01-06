@@ -73,6 +73,7 @@ public class AddEndRNASeqToScripture {
 	private double THRESHOLD = 7.0;
 	private static final double DEFAULT_THRESHOLD = 7.0;
 	private boolean singleEnd3p;
+	private boolean singleEnd5p;
 	
 	static final String usage = "Usage: AddEndRNASeqToScripture -task <task name> "+
 			"\n\tcompleteTranscripts"+
@@ -109,7 +110,8 @@ public class AddEndRNASeqToScripture {
 			"\n\t\t-extension <Specifies the size of the fixed window use to scan the genome. We recommend a size of 2-5bp for better resolution of gene ends> "+
 			"\n\t\t-strand3p <Specifies the mate that is in the direction of trnascription for 3' data. Options: first,second,unstranded. Default: Unstranded> "+
 			"\n\t\t-strand5p <Specifies the mate that is in the direction of trnascription for 5' data. Options: first,second,unstranded. Default: Unstranded> "+
-			"\n\t\t-singleEnd <if specified, means that 3' data is single end"+
+			"\n\t\t-singleEnd3p <if specified, means that 3' data is single end"+
+			"\n\t\t-singleEnd5p <if specified, means that 5' data is single end"+
 			"\n";
 	
 	/**
@@ -172,7 +174,7 @@ public class AddEndRNASeqToScripture {
 		}	
 
 		//Determine if 3' end is single ended
-		if(argMap.isPresent("singleEnd")){
+		if(argMap.isPresent("singleEnd3p")){
 			logger.info("3' data is single ended");
 			singleEnd3p=true;
 		}
@@ -206,8 +208,18 @@ public class AddEndRNASeqToScripture {
 			else
 				logger.warn("5' data is unstranded");
 		}	
-
-		AlignmentModel model=new AlignmentModel(new File(argMap.getMandatory("5p")).getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand5p,false); 
+		
+		//Determine if 3' end is single ended
+		if(argMap.isPresent("singleEnd5p")){
+			logger.info("5' data is single ended");
+			singleEnd5p=true;
+		}
+		else{
+			logger.info("5' data is paired ended");
+			singleEnd5p =false;
+		}		
+				
+		AlignmentModel model=new AlignmentModel(new File(argMap.getMandatory("5p")).getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),!singleEnd5p,strand5p,false); 
 		
 		return model;
 	}
@@ -1078,6 +1090,7 @@ public class AddEndRNASeqToScripture {
 	
 	private double get5pWindowCount(Annotation window,Strand orientation){
 		double windowCount = 0.0;
+		//EVEN IF SINGLE END, 5' DATA IN SAME ORIENTATION
 		//Get the reads in the window
 		window.setOrientation(orientation);
 		//Iterator<AlignmentCount> readiter = model5p.getOverlappingReadCountsStranded(window, false);
@@ -1148,7 +1161,7 @@ public class AddEndRNASeqToScripture {
 			//Get the reads in the window
 			//For each block in the window
 			for(Annotation block: window.getBlocks()){
-				
+				block.setOrientation(window.getOrientation());
 				CloseableIterator<Alignment> readiter = model5p.getOverlappingReads(block,false);
 				//for all reads in the window
 				while(readiter.hasNext()){
@@ -1256,13 +1269,23 @@ public class AddEndRNASeqToScripture {
 		
 		if(SingleEndAlignment.class.isInstance(read)){
 			SingleEndAlignment align = (SingleEndAlignment) read;
-			//Check if read is the correct read
-			//if read starts in window
-			if(((strand5p==(TranscriptionRead.FIRST_OF_PAIR) && align.getIsFirstMate()) || 
-					(strand5p==(TranscriptionRead.SECOND_OF_PAIR) && !align.getIsFirstMate())) 
-						&& (readStartFallsInWindow(read,window))
-							&& (read.getOrientation().equals(orientation))){
-				return true;
+			//if data is single end
+			if(singleEnd5p){
+				if((readStartFallsInWindow(read,window))
+						//Single end alignment. Orientation is already corrected.
+						&& (read.getOrientation().equals(orientation)))
+					return true;
+			}
+			//Single end but data is paired
+			else{
+				//Check if read is the correct read
+				//if read starts in window
+				if(((strand5p==(TranscriptionRead.FIRST_OF_PAIR) && align.getIsFirstMate()) || 
+						(strand5p==(TranscriptionRead.SECOND_OF_PAIR) && !align.getIsFirstMate())) 
+							&& (readStartFallsInWindow(read,window))
+								&& (read.getOrientation().equals(orientation))){
+					return true;
+				}
 			}
 		}
 		//ELSE PAIRED
