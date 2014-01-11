@@ -13,21 +13,34 @@ public class Oligo implements Comparable<Oligo> {
 	private PrimerPair primer;
 	private ProbeSet probeSet;
 	
+	
 	/**
 	 * @param pr Probe
 	 */
 	public Oligo(Probe pr) {
-		this(pr, null);
+		this(pr, null, null);
 	}
 	
 	/**
 	 * @param pr Probe
+	 * @param ps Probe set
+	 */
+	public Oligo(Probe pr, ProbeSet ps) {
+		this(pr, ps, null);
+	}
+	
+	/**
+	 * @param pr Probe
+	 * @param ps Probe set
 	 * @param primerPair Primer pair
 	 */
-	public Oligo(Probe pr, PrimerPair primerPair) {
+	public Oligo(Probe pr, ProbeSet ps, PrimerPair primerPair) {
 		probe = pr;
+		probeSet = ps;
 		primer = primerPair;
 	}
+	
+	
 	
 	/**
 	 * @return Probe

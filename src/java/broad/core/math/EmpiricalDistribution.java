@@ -522,6 +522,18 @@ public class EmpiricalDistribution {
 		return intervalDataNumber[bin];
 	}
 	
+	/**
+	 * Get distribution of number of observations per bin
+	 * @return Distribution of number of observations per bin
+	 */
+	public EmpiricalDistribution getDistributionOfHistogramValues() {
+		Collection<Double> counts = new ArrayList<Double>();
+		for(int i = 0; i < intervalDataNumber.length; i++) {
+			counts.add(Double.valueOf(getHistogram(i)));
+		}
+		return new EmpiricalDistribution(counts);
+	}
+	
 	public double getRawDensity(int bin) {
 		int total = getTotalObservations(); //must store this as a class field.
 		return intervalDataNumber[bin]/((double)total);
@@ -917,11 +929,15 @@ public class EmpiricalDistribution {
 		return prob;
 	}
 
+	public double getPValue(double score) {
+		return getPValue(score, 0);
+	}
+
+	
 	public double getPValue(double score, double min) {
-		double prob=this.getCumulativeProbability(score);
-		double p=Math.min(prob, 1-prob);
-		if(p==0){return min;}
-		return p;
+		double prob= 1 - this.getCumulativeProbability(score);
+		if(prob < min){return min;}
+		return prob;
 	}
 	
 	/**
@@ -957,5 +973,18 @@ public class EmpiricalDistribution {
 		double controlVariance = this.getStandardDeviation();
 		return (value - mean)*Math.sqrt((double)this.intervalDataNumber.length)/(controlVariance);
 	}
+	
+	
+	public static EmpiricalDistribution getEmpiricalMaxStatisticDistribution(Collection<EmpiricalDistribution> distributions) {
+		
+		Collection<Double> maxVals = new ArrayList<Double>();
+		for(EmpiricalDistribution dist : distributions) {
+			maxVals.add(Double.valueOf(dist.getMax()));
+		}
+		
+		return new EmpiricalDistribution(maxVals, 1000);
+		
+	}
+
 	
 }

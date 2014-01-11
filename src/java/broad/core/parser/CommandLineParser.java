@@ -569,6 +569,12 @@ public final class CommandLineParser {
 			else msg += " (default=" + stringArgDefaults.get(key) + ")\n";
 			args.add(msg); 
 		}
+		for(String key : stringListArgDescriptions.keySet()) {
+			String msg = key + " <String (repeatable)>\t" + stringListArgDescriptions.get(key);
+			if(requiredArgs.contains(key)) msg += " (required)\n";
+			else msg += " (default=" + stringArgDefaults.get(key) + ")\n";
+			args.add(msg);
+		}
 		for(String key : intArgDescriptions.keySet()) {
 			String msg = key + " <int>\t" + intArgDescriptions.get(key);
 			if(requiredArgs.contains(key)) msg += " (required)\n";
@@ -607,7 +613,7 @@ public final class CommandLineParser {
 	 * @return true if and only if flag has already been used
 	 */
 	private boolean hasFlag(String flag) {
-		return (stringArgDescriptions.containsKey(flag) || intArgDescriptions.containsKey(flag) || floatArgDescriptions.containsKey(flag) || doubleArgDescriptions.containsKey(flag) || boolArgDescriptions.containsKey(flag));
+		return (stringListArgDescriptions.containsKey(flag) || stringArgDescriptions.containsKey(flag) || intArgDescriptions.containsKey(flag) || floatArgDescriptions.containsKey(flag) || doubleArgDescriptions.containsKey(flag) || boolArgDescriptions.containsKey(flag));
 	}
 	
 	/**

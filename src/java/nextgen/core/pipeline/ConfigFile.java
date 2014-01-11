@@ -66,6 +66,29 @@ public class ConfigFile {
 	}
 	
 	/**
+	 * Whether the file includes the section
+	 * @param section The section
+	 * @return Whether the section is specified in the file
+	 */
+	public boolean hasSection(ConfigFileSection section) {
+		return optionsFromFile.containsKey(section);
+	}
+	
+	/**
+	 * Get string values for all the config file option values
+	 * @param values Config file option value objects
+	 * @param fieldNumber Field number to use from each value object
+	 * @return This field from each option as a string
+	 */
+	public static Collection<String> valuesAsStrings(Collection<ConfigFileOptionValue> values, int fieldNumber) {
+		Collection<String> rtrn = new ArrayList<String>();
+		for(ConfigFileOptionValue value : values) {
+			rtrn.add(value.asString(fieldNumber));
+		}
+		return rtrn;
+	}
+	
+	/**
 	 * Get all values for the option in the file
 	 * @param section File section
 	 * @param option The option
@@ -247,7 +270,8 @@ public class ConfigFile {
 				if(section.isRequired()) {
 					exitWithMessageAndHelpMenu("Required section " + sectionName + " is missing.");
 				} else {
-					optionsFromFile.put(section, new HashMap<ConfigFileOption, Collection<ConfigFileOptionValue>>());
+					continue;
+					//optionsFromFile.put(section, new HashMap<ConfigFileOption, Collection<ConfigFileOptionValue>>());
 				}
 			}
 			for(ConfigFileOption option : section.getAllowableOptions()) {

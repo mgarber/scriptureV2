@@ -58,4 +58,6 @@ public class ScanStatistics {
 		p=Math.min(1, p);
 		return p;
 	}
+	
+	
 }

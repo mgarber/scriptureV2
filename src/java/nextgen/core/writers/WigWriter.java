@@ -35,6 +35,7 @@ import nextgen.core.readFilters.FirstOfPairFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.ProperPairFilter;
 import nextgen.core.readFilters.SecondOfPairFilter;
+import nextgen.core.utils.CountLogger;
 
 /**
  * @author prussell
@@ -381,10 +382,15 @@ public class WigWriter {
 		if(!isTranscriptomeSpace) {
 			throw new IllegalStateException("Must instantiate alignment model with a transcriptome space");
 		}
+	
 		TreeMap<Integer, Double> rtrn = new TreeMap<Integer, Double>();
+	
+		int numGenes = genesByChr.get(chr).size();
+		CountLogger c = new CountLogger(numGenes, 10);
 		
 		for(Gene gene : genesByChr.get(chr)) {
 			rtrn.putAll(getCounts(gene));
+			c.advance();
 		}
 		return rtrn;
 	}
@@ -399,6 +405,7 @@ public class WigWriter {
 		if(isTranscriptomeSpace) {
 			throw new IllegalStateException("Must instantiate alignment model with a genome space");
 		}
+		logger.info("Getting counts for entire chromosome " + chr);
 		return getCounts(genomeSpace.getEntireChromosome(chr));
 	}
 	
@@ -566,9 +573,25 @@ public class WigWriter {
 		CommandLineParser p = getCommandLineParser(args);
 		
 		String bamFile = p.getStringArg("-b");
-		String bedFile = p.getStringArg("-g");
-		String chrSizeFile = p.getStringArg("-c");
-		String singleChr = p.getStringArg("-chr");
+		String bedFile = null;
+		String chrSizeFile = null;
+		String singleChr = null;
+		if(p.getStringArg("-g") != null) {
+			if(!p.getStringArg("-g").equals("null")) {
+				bedFile = p.getStringArg("-g");
+			}
+		}
+		if(p.getStringArg("-c") != null) {
+			if(!p.getStringArg("-c").equals("null")) {
+				chrSizeFile = p.getStringArg("-c");
+			}
+		}
+		if(p.getStringArg("-chr") != null) {
+			if(!p.getStringArg("-chr").equals("null")) {
+				singleChr = p.getStringArg("-chr");
+			}
+		}
+		
 
 		@SuppressWarnings("unused")
 		int maxFragmentLength = p.getIntArg("-mf");
