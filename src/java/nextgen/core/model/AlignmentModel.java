@@ -57,7 +57,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	protected CoordinateSpace coordinateSpace;
 	PairedEndReader  reader;
 	String bamFile;
-	boolean hasSize=false;
+	//boolean hasSize=false;
 	int size;
 	Collection<Predicate<Alignment>> readFilters = new ArrayList<Predicate<Alignment>>();
 	private double globalLength = -99;
@@ -518,7 +518,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 */
 	public CloseableIterator<AlignmentCount> getOverlappingReadCounts(Annotation region, boolean fullyContained) {
 		//get Alignments over the whole region
-		if(strand.equals(TranscriptionRead.UNSTRANDED)){
+		if(strand.equals(TranscriptionRead.UNSTRANDED)) {
 			return this.cache.query(region, fullyContained, this.coordinateSpace);
 		}
 		else{
@@ -831,7 +831,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			return previousNext;
 		}
 
-		private AlignmentCount getNext(){
+		private AlignmentCount getNext(){		
 			AlignmentCount alignment=iter.next();
 			if(isValid(alignment.getRead())){
 				if(this.hasWindow) {
@@ -951,6 +951,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		 * @param end
 		 */
 		private void updateCache(String chr, int start, int end, boolean fullyContained) {
+			//logger.info("Updating cache: " + chr + ":" + start + "-" + end);
 			int newStart=start;
 			int newEnd=end;
 
@@ -1077,15 +1078,18 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 
 	@Override
 	public int size() {
+		return (int) getGlobalCount();
+		/*
 		// WARNING: slow
-		
 		if (!this.hasSize) {
 			computeSize();
 		}
 		return this.size;
+		*/
 	}
 	
 
+	/*
 	private void computeSize() {
 		int size=0;
 
@@ -1103,6 +1107,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		this.hasSize=true;
 		this.size=size;
 	}
+	*/
 
 
 	@Override

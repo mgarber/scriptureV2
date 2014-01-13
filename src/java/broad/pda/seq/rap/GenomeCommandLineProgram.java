@@ -173,7 +173,7 @@ public abstract class GenomeCommandLineProgram extends CommandLineProgram {
 		}
 		model.addFilter(new ChimeraFilter());
 		model.addFilter(new DuplicateFilter());
-		model.addFilter(new ProperPairFilter());
+		//model.addFilter(new ProperPairFilter());
 		model.addFilter(new MappingQualityFilter(MIN_MAPPING_QUALITY));
 	
 		// TODO need to modify PairedEndWriter to save information about the other read

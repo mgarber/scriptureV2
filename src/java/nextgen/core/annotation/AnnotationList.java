@@ -157,6 +157,18 @@ public class AnnotationList<T extends Annotation> extends AbstractAnnotationColl
 		return new CloseableFilterIterator<T>(itr, filter);
 	}
 	
+
+	public int getNumOverlappingAnnotations(Annotation region) {
+		int i = 0;
+		CloseableIterator<T> itr = getOverlappingAnnotations(region);
+		while (itr.hasNext()) {
+			itr.next();
+			i++;
+		}
+		itr.close();
+		return i;
+	}
+	
 	
 	@Override
 	public CloseableIterator<T> getPermutedAnnotations(Annotation region) {

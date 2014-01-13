@@ -27,7 +27,7 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
     private static final Log log = Log.getInstance(PlotAggregateRegions.class);
     
     @Usage
-    public String USAGE = "Plot scores as as a function of position from / in a target.";
+    public String USAGE = "Plot scores as as a function of position from / in a target.  Scans through introns in the annotation file";
     
     @Option(doc="Output file", shortName="O")
     public File OUTPUT;
@@ -55,6 +55,7 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 	
 	@Option(doc="Eliminate windows in the inner and middle subregions that are outside the boundaries of the annotation")
 	public boolean CLIP_AT_BOUNDARIES=true;
+
 	
 	
 	private int regionCounter = 0;
@@ -91,7 +92,13 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 				Iterator<Annotation> itr = targets.getOverlappingAnnotations(region);
 				while (itr.hasNext()) {
 					
+					// Use the genomic coordinate space to fill in the target (for Genomic Space)
 					Annotation target = itr.next();
+					Annotation fragment = maskedSpace.getFragment(target).iterator().next();
+					fragment.setOrientation(target.getOrientation());
+					fragment.setName(target.getName());
+					target = fragment;
+					
 					PlotRegions subregions = generateSubregions(target);
 					regionCounter += 1;
 
@@ -178,7 +185,8 @@ public class PlotAggregateRegions extends GenomeScoringProgram {
 	 * @throws IOException
 	 */
 	private int scanAndPrint(final Annotation target, Annotation subregion, final String name, WindowProcessor<? extends WindowScore> processor, final GenomicSpace maskedSpace, BufferedWriter bw, Integer counter, boolean clip) throws IOException {
-		Iterator<? extends Annotation> windowIterator = getCoordinateSpace().getWindowIterator(subregion, WINDOW, OVERLAP);
+		//log.info("starting " + name + " " + subregion.toUCSC());
+		Iterator<? extends Annotation> windowIterator = ((GenomicSpace) getCoordinateSpace()).getWindowIterator(subregion, WINDOW, OVERLAP, true);
 		WindowScoreIterator<? extends WindowScore> itr = new WindowScoreIterator(windowIterator, processor, subregion);
 		while (itr.hasNext()) {
 			
