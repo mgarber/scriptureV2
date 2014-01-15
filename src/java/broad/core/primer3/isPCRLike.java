@@ -1,12 +1,17 @@
 package broad.core.primer3;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 import nextgen.core.alignment.SmatchLike;
+import nextgen.core.annotation.BasicAnnotation;
+import nextgen.core.annotation.Gene;
+import nextgen.core.annotation.Annotation.Strand;
 
 
 import broad.core.datastructures.Pair;
@@ -27,7 +32,30 @@ public class isPCRLike {
 		this.sequences=sequences;
 	}
 	
-	public Collection<Alignments> getAllPossibleAmplicons() throws SearchException{
+	/**
+	 * Get all possible amplicons as subsequences of the original sequences
+	 * Name of subsequence is equal to the name of the parent sequence
+	 * @return Collection of possible amplicons
+	 * @throws SearchException
+	 */
+	public Collection<Sequence> getAllPossibleAmplicons() throws SearchException {
+		Collection<Alignments> a = getAllPossibleAmpliconsAsAlignments();
+		Map<String, Sequence> seqsByName = new TreeMap<String, Sequence>();
+		for(Sequence seq : sequences) {
+			seqsByName.put(seq.getId(), seq);
+		}
+		Collection<Sequence> rtrn = new ArrayList<Sequence>();
+		for(Alignments al : a) {
+			BasicAnnotation b = new BasicAnnotation(al.getChr(), al.getStart(), al.getEnd(), Strand.POSITIVE);
+			Sequence seq = seqsByName.get(b.getChr());
+			Sequence subseq = seq.getSubsequence(b);
+			subseq.setId(seq.getId());
+			rtrn.add(subseq);
+		}
+		return rtrn;
+	}
+	
+	private Collection<Alignments> getAllPossibleAmpliconsAsAlignments() throws SearchException{
 		Collection<Alignments> rtrn=new TreeSet<Alignments>();
 		
 		String kmer=Sequence.get3Prime(primers.getValue1(), this.minPerfectMatch);
@@ -89,7 +117,7 @@ public class isPCRLike {
 		Pair<String> primers=new Pair<String>("GAGTTCTGCGGAGGGATGGCA", Sequence.reverseSequence("ATCCTTTCCTCTGCCCCCAGGTCC"));
 		List<Sequence> geneSequences=initializeGeneSequence(args[0]);
 		isPCRLike isPCR=new isPCRLike(primers, geneSequences);
-		Collection<Alignments> amplicons=isPCR.getAllPossibleAmplicons();
+		Collection<Alignments> amplicons=isPCR.getAllPossibleAmpliconsAsAlignments();
 		
 		for(Alignments amplicon: amplicons){
 			System.err.println(amplicon);
