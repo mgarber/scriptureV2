@@ -26,6 +26,8 @@ import nextgen.editing.RestrictionEnzymeFactory;
 import nextgen.editing.RestrictionEnzymePair;
 import nextgen.editing.SingleCleavageTypeIIRestrictionEnzyme;
 import nextgen.editing.TypeIISRestrictionEnzyme;
+import nextgen.editing.crispr.score.GuideEfficacyScore;
+import nextgen.editing.crispr.score.GuideOffTargetScore;
 
 /**
  * Design guide RNA pairs for a double nick strategy of CRISPR editing
@@ -39,7 +41,7 @@ public class DoubleNickCRISPRDesigner {
 	
 	private static int MIN_UPSTREAM_DISTANCE = 1;
 	private static int MAX_UPSTREAM_DISTANCE = 500;
-	private static int MIN_DOWNSTREAM_DISTANCE = 1000;
+	private static int MIN_DOWNSTREAM_DISTANCE = 500;
 	private static int MAX_DOWNSTREAM_DISTANCE = 5000;
 	private static int MIN_DIST_TO_NEAREST_GENE = 3000;
 	private static int MAX_INNER_DIST_CUT_SITE_PAIRS = 150;
@@ -50,6 +52,12 @@ public class DoubleNickCRISPRDesigner {
 	private static boolean ENFORCE_MIN_OFF_TARGET_SCORE = true;
 	private static boolean ENFORCE_MAX_GUIDE_EFFICACY_SCORE = true;
 	private static double MAX_GUIDE_EFFICACY_SCORE = 0.6;
+	private static boolean WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS = false;
+	private FileWriter failedUpstreamPairBedWriter;
+	private FileWriter failedDownstreamPairBedWriter;
+	private FileWriter failedUpstreamPairTableWriter;
+	private FileWriter failedDownstreamPairTableWriter;
+	
 	
 	/**
 	 * Full gene annotation
@@ -88,53 +96,37 @@ public class DoubleNickCRISPRDesigner {
 	 * @param target Target gene for the guide pair
 	 * @param pair The guide RNA pair
 	 * @param minDistToNearestGene Minimum required distance to nearest gene other than target gene
-	 * @param guideEfficacyScore Guide efficacy score object, preferably instantiated with all guide RNAs of interest (faster), or null if not using
+	 * @param guideEfficacy Guide efficacy object, preferably with score instantiated with all guide RNAs of interest (faster), or null if not using
 	 * @return Whether the pair passes the filters
 	 * @throws InterruptedException 
 	 * @throws IOException 
 	 */
-	private boolean guidePairPassesAllBasicFilters(Gene target, GuideRNAPair pair, GuideEfficacyScore guideEfficacyScore) throws IOException, InterruptedException {
+	private boolean guidePairPassesAllBasicFilters(Gene target, GuideRNAPair pair, GuideSufficientEfficacy guideEfficacy) throws IOException, InterruptedException {
 		
 		if(ENFORCE_DOUBLE_NICK_CONFIGURATION) {
 			// Check that the pair are arranged correctly
-			DoubleNickConfiguration dnc = new DoubleNickConfiguration();
+			GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration();
 			if(!dnc.evaluate(pair)) {
 				//logger.debug("PAIR_FAILS_DOUBLE_NICK_CONFIGURATION\t" + pair.toString());
 				return false;
 			}
 		}
-		
-		if(ENFORCE_MIN_DIST_TO_NEAREST_GENE) {
-			// Check that the pair is not too close to another gene
-			// Ignore all overlappers of the target gene
-			SufficientIsolation si = new SufficientIsolation(annotation, target, MIN_DIST_TO_NEAREST_GENE);
-			if(!si.evaluate(pair.getLeftGuideRNA())) {
-				//logger.debug("LEFT_GUIDE_FAILS_MIN_DIST_TO_NEAREST_GENE\t" + pair.toString());
-				return false;
-			}
-			if(!si.evaluate(pair.getRightGuideRNA())) {
-				//logger.debug("RIGHT_GUIDE_FAILS_MIN_DIST_TO_NEAREST_GENE\t" + pair.toString());
-				return false;
-			}
-		}
-		
+				
 		if(ENFORCE_MAX_GUIDE_EFFICACY_SCORE) {
-			if(guideEfficacyScore == null) {
+			if(guideEfficacy == null) {
 				throw new IllegalArgumentException("Must pass valid guide efficacy score object");
 			}
-			double leftGeScore = guideEfficacyScore.getScore(pair.getLeftGuideRNA());
-			double rightGeScore = guideEfficacyScore.getScore(pair.getRightGuideRNA());
-			if(leftGeScore > MAX_GUIDE_EFFICACY_SCORE) {
-				logger.debug("LEFT_GUIDE_FAILS_GUIDE_EFFICACY\t" + pair.toString() + "\t" + leftGeScore);
+			if(!guideEfficacy.evaluate(pair.getLeftGuideRNA())) {
+				logger.debug("LEFT_GUIDE_FAILS_GUIDE_EFFICACY\t" + pair.toString());
 				return false;
 			}
-			if(rightGeScore > MAX_GUIDE_EFFICACY_SCORE) {
-				logger.debug("RIGHT_GUIDE_FAILS_GUIDE_EFFICACY\t" + pair.toString() + "\t" + rightGeScore);
+			if(!guideEfficacy.evaluate(pair.getRightGuideRNA())) {
+				logger.debug("RIGHT_GUIDE_FAILS_GUIDE_EFFICACY\t" + pair.toString());
 				return false;
 			}
 		} else {
-			if(guideEfficacyScore == null) {
-				logger.warn("You provided a guide efficacy score object but score is not being used because ENFORCE_MAX_GUIDE_EFFICACY_SCORE is false");
+			if(guideEfficacy == null) {
+				logger.warn("You provided a guide efficacy object but it is not being used because ENFORCE_MAX_GUIDE_EFFICACY_SCORE is false");
 			}
 		}
 		
@@ -148,6 +140,16 @@ public class DoubleNickCRISPRDesigner {
 	}
 	
 	private void writeValidGuidePairsAllGenes(String outFilePrefix) throws IOException, InterruptedException {
+		
+		if(WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS) {
+			failedUpstreamPairBedWriter = new FileWriter(outFilePrefix + "_upstream_guide_pairs_failing_filters.bed");
+			failedDownstreamPairBedWriter = new FileWriter(outFilePrefix + "_downstream_guide_pairs_failing_filters.bed");
+			failedUpstreamPairTableWriter = new FileWriter(outFilePrefix + "_upstream_guide_pairs_failing_filters_oligos.out");
+			failedDownstreamPairTableWriter = new FileWriter(outFilePrefix + "_downstream_guide_pairs_failing_filters_oligos.out");
+			String header = "target_gene\toligo_ID\t" + GuideRNAPair.getOligoFieldNames();
+			failedUpstreamPairTableWriter.write(header + "\n");
+			failedDownstreamPairTableWriter.write(header + "\n");
+		}
 		
 		// Get the valid pairs
 		Collection<GuideRNAPair> downstreamPairs = findValidDownstreamPairsAllGenes();
@@ -168,6 +170,13 @@ public class DoubleNickCRISPRDesigner {
 		logger.info("Writing oligos to " + upstreamOligoTable + " and " + downstreamOligoTable);
 		GuideRNAPair.writeOligoTable(upstreamPairs, upstreamOligoTable);
 		GuideRNAPair.writeOligoTable(downstreamPairs, downstreamOligoTable);
+		
+		if(WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS) {
+			failedUpstreamPairBedWriter.close();
+			failedDownstreamPairBedWriter.close();
+			failedUpstreamPairTableWriter.close();
+			failedDownstreamPairTableWriter.close();
+		}
 		
 	}
 	
@@ -282,9 +291,9 @@ public class DoubleNickCRISPRDesigner {
 			return new ArrayList<GuideRNAPair>();
 		}
 		
-		GuideEfficacyScore geScore = null;
+		GuideSufficientEfficacy ge = null;
 		if(ENFORCE_MAX_GUIDE_EFFICACY_SCORE) {
-			geScore = new GuideEfficacyScore(GuideRNAPair.getIndividualGuideRNAs(allPairs));
+			ge = new GuideSufficientEfficacy(new GuideEfficacyScore(GuideRNAPair.getIndividualGuideRNAs(allPairs)), MAX_GUIDE_EFFICACY_SCORE);
 		}
 		
 		logger.debug("Before filters there are " + allPairs.size() + " pairs downstream of transcription stop.");
@@ -299,15 +308,33 @@ public class DoubleNickCRISPRDesigner {
 		
 		for(GuideRNAPair pair : allPairs) {
 			boolean passes = true;
-			if(!guidePairPassesAllBasicFilters(gene, pair, geScore)) {
+			if(!guidePairPassesAllBasicFilters(gene, pair, ge)) {
 				passes = false;
 			}
 			
-			if(ENFORCE_DOWNSTREAM_PROXIMITY_TO_RESTRICTION_ENZYME) {
-				ProximityToNearestRegion p = new ProximityToNearestRegion(restrictionSites, MAX_DIST_TO_RESTRICTION_SITE);
-				boolean ok = p.evaluate(pair.getLeftGuideRNA()) || p.evaluate(pair.getRightGuideRNA());
-				if(!ok) {
-					passes = false;
+			if(passes) {
+				if(ENFORCE_DOWNSTREAM_PROXIMITY_TO_RESTRICTION_ENZYME) {
+					GuideProximityToNearestRegion p = new GuideProximityToNearestRegion(restrictionSites, MAX_DIST_TO_RESTRICTION_SITE, "proximity_to_restriction_enzyme_site");
+					boolean ok = p.evaluate(pair.getLeftGuideRNA()) || p.evaluate(pair.getRightGuideRNA());
+					if(!ok) {
+						passes = false;
+					}
+				}
+			}
+			
+			if(passes) {
+				if(ENFORCE_MIN_DIST_TO_NEAREST_GENE) {
+					// Check that the pair is not too close to another gene
+					// Ignore all overlappers of the target gene
+					GuideSufficientIsolation si = new GuideSufficientIsolation(annotation, gene, MIN_DIST_TO_NEAREST_GENE, true, "distance_from_nearest_downstream_gene");
+					if(!si.evaluate(pair.getLeftGuideRNA())) {
+						//logger.debug("LEFT_GUIDE_FAILS_MIN_DIST_TO_NEAREST_GENE\t" + pair.toString());
+						passes = false;
+					}
+					if(!si.evaluate(pair.getRightGuideRNA())) {
+						//logger.debug("RIGHT_GUIDE_FAILS_MIN_DIST_TO_NEAREST_GENE\t" + pair.toString());
+						passes = false;
+					}
 				}
 			}
 			
@@ -318,6 +345,44 @@ public class DoubleNickCRISPRDesigner {
 		}
 		if(rtrn.isEmpty()) {
 			logger.warn("NO_VALID_DOWNSTREAM_GUIDE_PAIRS\t" + gene.getName());
+			
+			if(WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS) {
+				
+				logger.warn("WRITING_FAILED_PAIRS\t" + gene.getName());
+				GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration();
+				
+				for(GuideRNAPair pair : allPairs) {
+					
+					if(!dnc.evaluate(pair)) {
+						continue;
+					}
+					
+					String bedName = pair.toString() + ":" + getFailureMessageBasicFilters(pair, ge);
+					
+					if(ENFORCE_DOWNSTREAM_PROXIMITY_TO_RESTRICTION_ENZYME) {
+						GuideProximityToNearestRegion p = new GuideProximityToNearestRegion(restrictionSites, MAX_DIST_TO_RESTRICTION_SITE, "proximity_to_restriction_enzyme_site");
+						boolean ok = p.evaluate(pair.getLeftGuideRNA()) || p.evaluate(pair.getRightGuideRNA());
+						if(!ok) {
+							bedName += p.getShortFailureMessage() + ":";
+						}
+					}
+
+					if(ENFORCE_MIN_DIST_TO_NEAREST_GENE) {
+						// Check that the pair is not too close to another gene
+						// Ignore all overlappers of the target gene
+						GuideSufficientIsolation si = new GuideSufficientIsolation(annotation, gene, MIN_DIST_TO_NEAREST_GENE, true, "distance_from_nearest_downstream_gene");
+						if(!si.evaluate(pair.getLeftGuideRNA()) || !si.evaluate(pair.getRightGuideRNA())) {
+							bedName += si.getShortFailureMessage() + ":";
+						}
+					}
+					
+					failedDownstreamPairBedWriter.write(pair.toBED(bedName) + "\n");
+					failedDownstreamPairTableWriter.write(gene.getName() + "\t" + pair.toString() + "\t" + pair.getOligos() + "\n");
+
+				}
+			}
+			
+
 		}
 		return rtrn;
 	}
@@ -336,15 +401,16 @@ public class DoubleNickCRISPRDesigner {
 			return new ArrayList<GuideRNAPair>();
 		}
 		
-		GuideEfficacyScore geScore = null;
+		GuideSufficientEfficacy ge = null;
 		if(ENFORCE_MAX_GUIDE_EFFICACY_SCORE) {
-			geScore = new GuideEfficacyScore(GuideRNAPair.getIndividualGuideRNAs(allPairs));
+			ge = new GuideSufficientEfficacy(new GuideEfficacyScore(GuideRNAPair.getIndividualGuideRNAs(allPairs)), MAX_GUIDE_EFFICACY_SCORE);
 		}
+
 		
 		Collection<GuideRNAPair> rtrn = new ArrayList<GuideRNAPair>();
 		for(GuideRNAPair pair : allPairs) {
 			boolean passes = true;
-			if(!guidePairPassesAllBasicFilters(gene, pair, geScore)) {
+			if(!guidePairPassesAllBasicFilters(gene, pair, ge)) {
 				passes = false;
 			}
 			
@@ -355,11 +421,65 @@ public class DoubleNickCRISPRDesigner {
 		}
 		if(rtrn.isEmpty()) {
 			logger.warn("NO_VALID_UPSTREAM_GUIDE_PAIRS\t" + gene.getName());
+			
+			if(WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS) {
+				logger.warn("WRITING_FAILED_PAIRS\t" + gene.getName());
+				GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration();
+				for(GuideRNAPair pair : allPairs) {
+					if(!dnc.evaluate(pair)) {
+						continue;
+					}
+					String bedName = pair.toString() + ":" + getFailureMessageBasicFilters(pair, ge);
+					failedUpstreamPairBedWriter.write(pair.toBED(bedName) + "\n");
+					failedUpstreamPairTableWriter.write(gene.getName() + "\t" + pair.toString() + "\t" + pair.getOligos() + "\n");
+				}
+			}
+			
 		}
 		return rtrn;
 	}
 	
+	/**
+	 * Get a string describing which basic filters the guide pair fails
+	 * @param pair Guide pair
+	 * @param ge Guide efficacy object or null if not using
+	 * @return String with all failed filters or empty string if passes all basic filters
+	 */
+	private static String getFailureMessageBasicFilters(GuideRNAPair pair, GuideSufficientEfficacy ge) {
+		
+		String rtrn = "";
+		
+		if(ENFORCE_DOUBLE_NICK_CONFIGURATION) {
+			// Check that the pair are arranged correctly
+			GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration();
+			if(!dnc.evaluate(pair)) {
+				rtrn += dnc.getShortFailureMessage() + ":";
+			}
+		}
+				
+		if(ENFORCE_MAX_GUIDE_EFFICACY_SCORE) {
+			if(ge == null) {
+				throw new IllegalArgumentException("Must pass valid guide efficacy score object");
+			}
+			if(!ge.evaluate(pair.getLeftGuideRNA())) {
+				rtrn += "left_" + ge.getShortFailureMessage() + ":";
+			}
+			if(!ge.evaluate(pair.getRightGuideRNA())) {
+				rtrn += "right_" + ge.getShortFailureMessage() + ":";
+			}
+		} else {
+			if(ge == null) {
+				logger.warn("You provided a guide efficacy object but it is not being used because ENFORCE_MAX_GUIDE_EFFICACY_SCORE is false");
+			}
+		}
+		
+		if(ENFORCE_MIN_OFF_TARGET_SCORE) {
+			// TODO off-target score filter
+		}
 
+		return rtrn;
+		
+	}
 
 	
 	
@@ -406,6 +526,7 @@ public class DoubleNickCRISPRDesigner {
 	}
 	
 	
+	
 
 	
 	private static void validateMinMaxDist(int minDistance, int maxDistance) {
@@ -446,6 +567,7 @@ public class DoubleNickCRISPRDesigner {
 		p.addDoubleArg("-mge", "Max guide efficacy score", false, MAX_GUIDE_EFFICACY_SCORE);
 		p.addStringArg("-se", "File containing list of restriction enzymes for single cut sites for downstream proximity filter", false, null);
 		p.addStringArg("-pe", "File containing list of restriction enzyme pairs for paired cut sites for downstream proximity filter (line format: left_enzyme right_enzyme)", false, null);
+		p.addBooleanArg("-fp", "For regions with no guide RNA pairs passing all filters, write all failed pairs to bed file", false, WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS);
 		
 		p.parse(args);
 		
@@ -453,13 +575,13 @@ public class DoubleNickCRISPRDesigner {
 			RestrictionEnzymeCutSite.logger.setLevel(Level.DEBUG);
 			RestrictionEnzymeFactory.logger.setLevel(Level.DEBUG);
 			TypeIISRestrictionEnzyme.logger.setLevel(Level.DEBUG);
-			DoubleNickConfiguration.logger.setLevel(Level.DEBUG);
+			GuidePairDoubleNickConfiguration.logger.setLevel(Level.DEBUG);
 			DoubleNickCRISPRDesigner.logger.setLevel(Level.DEBUG);
 			GuideEfficacyScore.logger.setLevel(Level.DEBUG);
 			GuideOffTargetScore.logger.setLevel(Level.DEBUG);
 			GuideRNA.logger.setLevel(Level.DEBUG);
 			GuideRNAPair.logger.setLevel(Level.DEBUG);
-			SufficientIsolation.logger.setLevel(Level.DEBUG);
+			GuideSufficientIsolation.logger.setLevel(Level.DEBUG);
 		}
 		String genomeFasta = p.getStringArg("-g");
 		String annotBed = p.getStringArg("-ba");
@@ -477,6 +599,7 @@ public class DoubleNickCRISPRDesigner {
 		MAX_INNER_DIST_CUT_SITE_PAIRS = p.getIntArg("-maxp");
 		MAX_DIST_TO_RESTRICTION_SITE = p.getIntArg("-maxre");
 		MAX_GUIDE_EFFICACY_SCORE = p.getDoubleArg("-mge");
+		WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS = p.getBooleanArg("-fp");
 		String outPrefix = p.getStringArg("-o");
 		String listFileSingleEnzymes = p.getStringArg("-se");
 		String listFilePairedEnzymes = p.getStringArg("-pe");

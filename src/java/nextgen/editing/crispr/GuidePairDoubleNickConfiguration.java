@@ -1,17 +1,16 @@
 package nextgen.editing.crispr;
 
-import org.apache.commons.collections15.Predicate;
 import org.apache.log4j.Logger;
 
 /**
  * Check whether a guide RNA pair is correctly laid out for double nick strategy
  * @author prussell
  */
-public class DoubleNickConfiguration implements Predicate<GuideRNAPair> {
+public class GuidePairDoubleNickConfiguration implements GuideRNAPairPredicate {
 	
-	public static Logger logger = Logger.getLogger(DoubleNickConfiguration.class.getName());
+	public static Logger logger = Logger.getLogger(GuidePairDoubleNickConfiguration.class.getName());
 
-	public DoubleNickConfiguration() {}
+	public GuidePairDoubleNickConfiguration() {}
 	
 	@Override
 	public boolean evaluate(GuideRNAPair guideRnaPair) {
@@ -38,6 +37,16 @@ public class DoubleNickConfiguration implements Predicate<GuideRNAPair> {
 		// If all the criteria are met return true
 		//logger.debug("VALID_PAIR\t" + guideRnaPair.toString());
 		return true;
+	}
+
+	@Override
+	public String getPredicateName() {
+		return "valid_double_nick_configuration";
+	}
+
+	@Override
+	public String getShortFailureMessage() {
+		return("not_valid_double_nick_configuration");
 	}
 
 }

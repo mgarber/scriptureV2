@@ -1,4 +1,4 @@
-package nextgen.editing.crispr;
+package nextgen.editing.crispr.score;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -16,6 +16,7 @@ import java.util.TreeSet;
 
 
 import nextgen.core.pipeline.OGSUtils;
+import nextgen.editing.crispr.GuideRNA;
 
 import org.apache.log4j.Logger;
 
@@ -2749,6 +2750,11 @@ public class GuideEfficacyScore implements GuideRNAScore {
 		w.write("RPL11_m24022351\t40\t423\t0\t3.528534811\tRPL11\t0\t1\t0\t0\t0\t0\t1\t0\t0\t1\t0\t0\t0\t0\t1\t0\t0\t0\t1\t0\t0\t0\t1\t0\t0\t0\t0\t1\t0\t1\t0\t0\t0\t0\t1\t0\t0\t0\t0\t1\t1\t0\t0\t0\t0\t0\t1\t0\t0\t0\t1\t0\t0\t1\t0\t0\t0\t0\t1\t0\t0\t0\t0\t1\t0\t0\t1\t0\t0\t0\t0\t1\t0\t0\t1\t0\t0\t0\t1\t0\t5.778994943\n");
 		w.write("RPL18_m49121112\t28\t754\t1\t4.877014844\tRPL18\t1\t0\t0\t0\t0\t0\t0\t1\t0\t0\t1\t0\t0\t0\t0\t1\t0\t0\t0\t1\t1\t0\t0\t0\t0\t1\t0\t0\t1\t0\t0\t0\t0\t0\t1\t0\t0\t1\t0\t0\t0\t1\t0\t0\t0\t0\t0\t1\t0\t1\t0\t0\t0\t1\t0\t0\t1\t0\t0\t0\t0\t0\t1\t0\t1\t0\t0\t0\t1\t0\t0\t0\t0\t1\t0\t0\t1\t0\t0\t0\t6.427531701\n");
 		w.close();
+	}
+
+	@Override
+	public String getScoreName() {
+		return "guide_efficacy_score";
 	}
 
 	

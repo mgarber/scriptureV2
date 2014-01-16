@@ -1,4 +1,6 @@
-package nextgen.editing.crispr;
+package nextgen.editing.crispr.score;
+
+import nextgen.editing.crispr.GuideRNA;
 
 import org.apache.log4j.Logger;
 
@@ -14,6 +16,11 @@ public class GuideOffTargetScore implements GuideRNAScore {
 	public double getScore(GuideRNA guideRNA) {
 		// TODO
 		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public String getScoreName() {
+		return "guide_off_target_score";
 	}
 
 }

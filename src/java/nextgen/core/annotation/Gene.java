@@ -1698,11 +1698,11 @@ public class Gene extends BasicAnnotation {
 	 * @param end Window end
 	 * @return All genes overlapping the window, not necessarily fully contained
 	 */
-	public static Collection<Gene> getOverlappers(Collection<Gene> genes, String chr, int start, int end) {
-		Gene window = new Gene(chr, start, end);
+	public static Collection<Gene> getOverlappers(Collection<Gene> genes, String chr, int start, int end, Strand strand, boolean ignoreOrientation) {
+		Gene window = new Gene(new BasicAnnotation(chr, start, end, strand));
 		Collection<Gene> rtrn = new TreeSet<Gene>();
 		for(Gene gene : genes) {
-			if(gene.overlaps(window, true))	{
+			if(gene.overlaps(window, ignoreOrientation))	{
 				rtrn.add(gene);
 			}
 		}
