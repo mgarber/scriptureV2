@@ -1691,6 +1691,73 @@ public class Gene extends BasicAnnotation {
 	}
 	
 	/**
+	 * Get all genes overlapping a window
+	 * @param genes The genes
+	 * @param chr Window chr
+	 * @param start Window start
+	 * @param end Window end
+	 * @return All genes overlapping the window, not necessarily fully contained
+	 */
+	public static Collection<Gene> getOverlappers(Collection<Gene> genes, String chr, int start, int end) {
+		Gene window = new Gene(chr, start, end);
+		Collection<Gene> rtrn = new TreeSet<Gene>();
+		for(Gene gene : genes) {
+			if(gene.overlaps(window, true))	{
+				rtrn.add(gene);
+			}
+		}
+		return rtrn;
+	}
+	
+	/**
+	 * Get inner distance between this gene and its nearest neighbor in a collection
+	 * Ignore genes that overlap this gene in any orientation
+	 * Looks at entire gene span, not just exons
+	 * @param others Other genes to check
+	 * @return Min distance to a non-overlapper in the collection, or -1 if no other genes on same chromosome
+	 */
+	public int distanceToNearestNonOverlapper(Collection<Annotation> others) {
+		TreeSet<Gene> thisChr = new TreeSet<Gene>();
+		for(Annotation g : others) {
+			if(g.getChr().equals(getChr())) {
+				thisChr.add(new Gene(g.getChr(), g.getStart(), g.getEnd(), g.getName()));
+			}
+		}
+		if(thisChr.isEmpty()) {
+			return -1;
+		}
+		int minDist = Integer.MAX_VALUE;
+		Iterator<Gene> headSetDescending = ((TreeSet<Gene>) thisChr.headSet(this)).descendingIterator();
+		while(headSetDescending.hasNext()) {
+			Gene g = headSetDescending.next();
+			if(overlaps(g, true)) {
+				continue;
+			}
+			int dist = getStart() - g.getEnd();
+			if(dist < minDist) {
+				minDist = Math.max(0, dist);
+				break;
+			}
+		}
+		Iterator<Gene> tailSetAscending = ((TreeSet<Gene>) thisChr.tailSet(this)).iterator();
+		while(tailSetAscending.hasNext()) {
+			Gene g = tailSetAscending.next();
+			if(overlaps(g, true)) {
+				continue;
+			}
+			int dist = g.getStart() - getEnd();
+			if(dist < minDist) {
+				minDist = dist;
+				break;
+			}
+		}
+		if(minDist == Integer.MAX_VALUE) {
+			throw new IllegalStateException("No min distance found");
+		}
+		return minDist;
+	}
+	
+	/**
 	 * Whether an exon of this gene overlaps an exon of other gene
 	 * @param other Other gene
 	 * @param ignoreOrientation Ignore orientation. If set to false, orientations must be equal or at least one orientation must be unknown.

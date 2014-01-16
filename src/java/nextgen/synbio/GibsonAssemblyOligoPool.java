@@ -12,6 +12,8 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
 
+import nextgen.editing.RestrictionEnzymeFactory;
+import nextgen.editing.TypeIISRestrictionEnzyme;
 import nextgen.synbio.GibsonAssemblyOligoSet.FullOligo;
 
 import org.apache.log4j.Level;
@@ -149,7 +151,7 @@ public class GibsonAssemblyOligoPool {
 			logger.setLevel(Level.DEBUG);
 			GibsonAssemblyOligoSet.logger.setLevel(Level.DEBUG);
 		}
-		Collection<TypeIISRestrictionEnzyme> enzymes = RestrictionEnzymeFactory.readFromFile(p.getStringArg("-e"));
+		Collection<TypeIISRestrictionEnzyme> enzymes = RestrictionEnzymeFactory.readFromFileAsTypeIIS(p.getStringArg("-e"));
 		int oligoSize = p.getIntArg("-s");
 		int overlapSize = p.getIntArg("-v");
 		int primerLength = p.getIntArg("-p");

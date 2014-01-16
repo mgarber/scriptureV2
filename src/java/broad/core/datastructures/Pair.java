@@ -33,17 +33,23 @@ public class Pair<T1>{
 		if(value1==null && value2==null){return true;}
 		return false;
 	}
+	
+	public boolean equals(Pair<T1> other){
+		if(other.value1.equals(value1) && other.value2.equals(value2)){return true;}
+		return false;
+	}
 
-	/*public boolean equals(Object other){
+
+	public boolean equals(Object other){
 		Pair<T1> t=(Pair<T1>)other;
 		return equals(t);
 	}
 	
-	public boolean equals(Pair<T1> other){
-		System.err.println("Calling equals");
-		if(other.value1.equals(value1) && other.value2.equals(value2)){return true;}
-		return false;
-	}*/
+	public int hashCode() {
+		String h = Integer.valueOf(value1.hashCode()).toString() + "_" + Integer.valueOf(value2.hashCode()).toString();
+		return h.hashCode();
+	}
+	
 
 	/*public int compareTo(Object o) {
 		return compareTo((Pair<T1>)o);

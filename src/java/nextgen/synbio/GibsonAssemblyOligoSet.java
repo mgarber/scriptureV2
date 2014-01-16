@@ -12,6 +12,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import nextgen.editing.RestrictionEnzymeFactory;
+import nextgen.editing.TypeIISRestrictionEnzyme;
+
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -406,7 +409,7 @@ public class GibsonAssemblyOligoSet {
 	 * @return The core sequence length to use
 	 */
 	private int getCoreSequenceLengthWithinOligo(TypeIISRestrictionEnzyme enzyme) {
-		int rtrn = fullOligoSize - 2 * primerSize - enzyme.getTopStrandRecognitionSite().length() - enzyme.getBottomStrandRecognitionSite().length() - 2 * getNumThrowawayBases(enzyme);
+		int rtrn = fullOligoSize - 2 * primerSize - enzyme.getTopStrandRecognitionSequence().length() - enzyme.getBottomStrandRecognitionSequence().length() - 2 * getNumThrowawayBases(enzyme);
 		if(rtrn <= 0) {
 			throw new IllegalArgumentException("Pieces other than core sequence add up to >= the full oligo size");
 		}
@@ -420,7 +423,7 @@ public class GibsonAssemblyOligoSet {
 	 * @return Whether the sequence contains the enzyme recognition sequence
 	 */
 	private static boolean sequenceContainsEnzymeRecognitionSequence(Sequence seq, TypeIISRestrictionEnzyme enzyme) {
-		String r = enzyme.getTopStrandRecognitionSite();
+		String r = enzyme.getTopStrandRecognitionSequence();
 		if(seq.contains(r)) {
 			logger.debug("Sequence " + seq.getId() + " contains " + enzyme.getName() + " recognition sequence " + r + ".");
 			return true;
@@ -461,7 +464,7 @@ public class GibsonAssemblyOligoSet {
 				throw new IllegalArgumentException("Couldn't find a restriction enzyme whose recognition sequence is not contained in any transcript.");
 			}
 			int length = getCoreSequenceLengthWithinOligo(enzyme);
-			String recognitionSeq = enzyme.getTopStrandRecognitionSite();
+			String recognitionSeq = enzyme.getTopStrandRecognitionSequence();
 			logger.info("Using enzyme " + enzyme.getName() + ". Recognition sequence is " + recognitionSeq + ". Overlapping subsequence length for this enzyme and this oligo setup is " + length + ".");
 			return enzyme;
 	}
@@ -492,7 +495,7 @@ public class GibsonAssemblyOligoSet {
 		
 		logger.info("Looking for compatible primer pair...");
 		
-		String recognitionSeq = enzyme.getTopStrandRecognitionSite();
+		String recognitionSeq = enzyme.getTopStrandRecognitionSequence();
 		String rcRecognitionSeq = Sequence.reverseSequence(recognitionSeq);
 		
 		/*
@@ -662,8 +665,8 @@ public class GibsonAssemblyOligoSet {
 			}
 			line += oligo.getParentSequence().getId() + "\t";
 			line += oligo.getEnzyme().getName() + "\t";
-			line += oligo.getEnzyme().getTopStrandRecognitionSite() + "\t";
-			line += oligo.getEnzyme().getBottomStrandRecognitionSite() + "\t";
+			line += oligo.getEnzyme().getTopStrandRecognitionSequence() + "\t";
+			line += oligo.getEnzyme().getBottomStrandRecognitionSequence() + "\t";
 			line += oligo.getPrimerPair().getLeftPrimer() + "\t";
 			line += oligo.getPrimerPair().getRightPrimer() + "\t";
 			line += oligo.getCoreTranscriptSubsequence().getCurrentId() + "\t";
@@ -850,7 +853,7 @@ public class GibsonAssemblyOligoSet {
 				throwawaySeq += THROWAWAY_BASE;
 			}
 			String rightPrimerRC = Sequence.reverseSequence(primerPair.getRightPrimer());
-			String recognitionSeq = restrictionEnzyme.getTopStrandRecognitionSite();
+			String recognitionSeq = restrictionEnzyme.getTopStrandRecognitionSequence();
 			String reverseRecognitionSeq = Sequence.reverseSequence(recognitionSeq);
 			Sequence rtrn = new Sequence(coreTranscriptSequence.getCurrentId());
 			rtrn.setSequenceBases(primerPair.getLeftPrimer() + recognitionSeq + throwawaySeq + coreTranscriptSequence.getSequence() + throwawaySeq + reverseRecognitionSeq + rightPrimerRC);
@@ -897,7 +900,7 @@ public class GibsonAssemblyOligoSet {
 		if(p.getBooleanArg("-d")) {
 			logger.setLevel(Level.DEBUG);
 		}
-		Collection<TypeIISRestrictionEnzyme> enzymes = RestrictionEnzymeFactory.readFromFile(p.getStringArg("-e"));
+		Collection<TypeIISRestrictionEnzyme> enzymes = RestrictionEnzymeFactory.readFromFileAsTypeIIS(p.getStringArg("-e"));
 		int oligoSize = p.getIntArg("-s");
 		int overlapSize = p.getIntArg("-v");
 		int primerLength = p.getIntArg("-p");
