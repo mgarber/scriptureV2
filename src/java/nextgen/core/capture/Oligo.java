@@ -42,13 +42,22 @@ public class Oligo implements Comparable<Oligo> {
 	
 	/**
 	 * Check whether a primer pair is compatible with a probe
-	 * @param primer The primer pair
+	 * @param primerPair Primer pair
 	 * @param probeSequenceExcludingPrimers Probe sequence without primers
 	 * @return True if there are no matches of the primers to the probe
 	 */
-	public static boolean primerPairCompatibleWithProbe(PrimerPair primer, String probeSequenceExcludingPrimers) {
-		String leftPrimer = primer.getLeftPrimer();
-		String rightPrimer = primer.getRightPrimer();
+	public static boolean primerPairCompatibleWithProbe(PrimerPair primerPair, String probeSequenceExcludingPrimers) {
+		return primerPairCompatibleWithProbe(primerPair.getLeftPrimer(), primerPair.getRightPrimer(), probeSequenceExcludingPrimers);
+	}
+	
+	/**
+	 * Check whether a primer pair is compatible with a probe
+	 * @param leftPrimer Left primer
+	 * @param rightPrimer Right primer
+	 * @param probeSequenceExcludingPrimers Probe sequence without primers
+	 * @return True if there are no matches of the primers to the probe
+	 */
+	public static boolean primerPairCompatibleWithProbe(String leftPrimer, String rightPrimer, String probeSequenceExcludingPrimers) {
 		String leftPrimer3primeEnd = leftPrimer.substring(leftPrimer.length() - 8);
 		String leftPrimer3primeEndRC = Sequence.reverseSequence(leftPrimer3primeEnd);
 		String rightPrimer3primeEnd = rightPrimer.substring(rightPrimer.length() - 8);
@@ -69,16 +78,25 @@ public class Oligo implements Comparable<Oligo> {
 		}
 		return true;
 	}
-
+	
 	/**
 	 * Check whether a primer pair is compatible with a full oligo sequence
-	 * @param primer The primer pair
+	 * @param primerPair Primer pair
 	 * @param oligoSequenceIncludingPrimers Full oligo sequence including this primer pair at the ends
 	 * @return True if there are no nonspecific matches of the primers to the oligo
 	 */
-	public static boolean primerPairCompatibleWithFullOligo(PrimerPair primer, String oligoSequenceIncludingPrimers) {
-		String leftPrimer = primer.getLeftPrimer();
-		String rightPrimer = primer.getRightPrimer();
+	public static boolean primerPairCompatibleWithFullOligo(PrimerPair primerPair, String oligoSequenceIncludingPrimers) {
+		return primerPairCompatibleWithFullOligo(primerPair.getLeftPrimer(), primerPair.getRightPrimer(), oligoSequenceIncludingPrimers);
+	}
+
+	/**
+	 * Check whether a primer pair is compatible with a full oligo sequence
+	 * @param leftPrimer Left primer
+	 * @param rightPrimer Right primer
+	 * @param oligoSequenceIncludingPrimers Full oligo sequence including this primer pair at the ends
+	 * @return True if there are no nonspecific matches of the primers to the oligo
+	 */
+	public static boolean primerPairCompatibleWithFullOligo(String leftPrimer, String rightPrimer, String oligoSequenceIncludingPrimers) {
 		String leftPrimer3primeEnd = leftPrimer.substring(leftPrimer.length() - 8);
 		String leftPrimer3primeEndRC = Sequence.reverseSequence(leftPrimer3primeEnd);
 		String rightPrimer3primeEnd = rightPrimer.substring(rightPrimer.length() - 8);
