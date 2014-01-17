@@ -104,7 +104,7 @@ public class GuideSufficientIsolation implements GuideRNAPredicate {
 	}
 
 	@Override
-	public String getShortFailureMessage() {
+	public String getShortFailureMessage(GuideRNA g) {
 		return(name + "_within_" + minDistance + "_of_nearest_gene");
 	}
 

@@ -48,7 +48,7 @@ public class GuideRNAPair {
 	 */
 	public static Collection<GuideRNAPair> findAll(Sequence chr, int start, int end, Gene targetGene) {
 		Collection<GuideRNA> all = GuideRNA.findAll(chr, start, end, targetGene);
-		logger.debug("There are " + all.size() + " total guide RNAs in " + chr.getId() + ":" + start + "-" + end);
+		//logger.debug("There are " + all.size() + " total guide RNAs in " + chr.getId() + ":" + start + "-" + end);
 		Collection<GuideRNA> plus = new ArrayList<GuideRNA>();
 		Collection<GuideRNA> minus = new ArrayList<GuideRNA>();
 		Collection<GuideRNAPair> rtrn = new ArrayList<GuideRNAPair>();
@@ -75,7 +75,7 @@ public class GuideRNAPair {
 	}
 	
 	public String toString() {
-		return target.getName() + ":" + plusStrandGuideRNA.toString() + "," + minusStrandGuideRNA.toString();
+		return target.getName() + ":" + asAnnotation("").getStart() + "-" + asAnnotation("").getEnd();
 	}
 	
 	public GuideRNA getPlusStrandGuideRNA() {

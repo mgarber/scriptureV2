@@ -37,8 +37,8 @@ public class GuideSufficientEfficacy implements GuideRNAPredicate {
 	}
 
 	@Override
-	public String getShortFailureMessage() {
-		return "guide_efficacy_score_exceeds_" + maxScore;
+	public String getShortFailureMessage(GuideRNA g) throws IOException, InterruptedException {
+		return "guide_efficacy_score_" + score.getScore(g);
 	}
 
 	

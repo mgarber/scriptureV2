@@ -41,7 +41,7 @@ public class GuideProximityToNearestRegion implements GuideRNAPredicate {
 	}
 
 	@Override
-	public String getShortFailureMessage() {
+	public String getShortFailureMessage(GuideRNA g) {
 		return(name + "_not_within_" + maxDistance);
 	}
 

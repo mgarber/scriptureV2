@@ -27,7 +27,7 @@ public class GuidePairDoubleNickConfiguration implements GuideRNAPairPredicate {
 		// The distance between the guide RNAs' 5' ends must be at most 40
 		int innerDist = guideRnaPair.getInnerDistance();
 		if(innerDist < 0) {
-			logger.debug("INVALID_PAIR\tInner distance < 0:\t" + guideRnaPair.toString());
+			//logger.debug("INVALID_PAIR\tInner distance < 0:\t" + guideRnaPair.toString());
 			return false;
 		}
 		if(innerDist > 40) {
@@ -45,7 +45,7 @@ public class GuidePairDoubleNickConfiguration implements GuideRNAPairPredicate {
 	}
 
 	@Override
-	public String getShortFailureMessage() {
+	public String getShortFailureMessage(GuideRNAPair g) {
 		return("not_valid_double_nick_configuration");
 	}
 

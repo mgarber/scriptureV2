@@ -62,7 +62,9 @@ public class GuideRNA {
 			end23 = annot.getEnd();
 		}
 		Sequence shortSeq = chromosome.getSubSequence("", start20, end20);
+		shortSeq.setSequenceBases(shortSeq.getSequenceBases().toUpperCase());
 		Sequence longSeq = chromosome.getSubSequence("", start23, end23);
+		longSeq.setSequenceBases(longSeq.getSequenceBases().toUpperCase());
 		sequence20 = strand.equals(Strand.POSITIVE) ? shortSeq : Sequence.reverseSequence(shortSeq);
 		sequence23 = strand.equals(Strand.POSITIVE) ? longSeq : Sequence.reverseSequence(longSeq);
 		//logger.debug(name + "\tsequence20\t" + sequence20.getSequenceBases() + "\tsequence23\t" + sequence23.getSequenceBases());
@@ -130,10 +132,10 @@ public class GuideRNA {
 	 * @return All guide RNAs followed by NGG whose 20nt sequence is fully contained in the window
 	 */
 	public static Collection<GuideRNA> findAll(Sequence chr, int start, int end, Gene targetGene) {
-		logger.debug("");
+		//logger.debug("");
 		Collection<GuideRNA> rtrn = new ArrayList<GuideRNA>();
 		Collection<Annotation> nggs = findAllNGGs(chr, start, end);
-		logger.debug("There are " + nggs.size() + " NGGs in " + chr.getId() + ":" + start + "-" + end);
+		//logger.debug("There are " + nggs.size() + " NGGs in " + chr.getId() + ":" + start + "-" + end);
 		for(Annotation ngg : nggs) {
 			GuideRNA g = adjacentGuideRNA(chr, start, end, ngg, targetGene);
 			if(g != null) {
@@ -188,7 +190,7 @@ public class GuideRNA {
 			throw new IllegalArgumentException("Must have one block");
 		}
 		Sequence seq = chr.getSubsequence(ngg);
-		if(!seq.getSequenceBases().substring(1).equals("GG")) {
+		if(!seq.getSequenceBases().substring(1).toUpperCase().equals("GG")) {
 			throw new IllegalArgumentException("Sequence must be NGG. Is " + seq.getSequenceBases());
 		}
 	}
@@ -205,15 +207,15 @@ public class GuideRNA {
 		Collection<Annotation> rtrn = new TreeSet<Annotation>();
 		
 		// Find all NGGs
-		int i = 0;
-		while(i < seq.length()) {
-			int pos = seq.indexOf("GG", i);
+		int i1 = 0;
+		while(i1 < seq.length()) {
+			int pos = seq.indexOf("GG", i1);
 			if(pos == -1) {
 				break;
 			}
 			if(pos == 0) {
 				// Won't be fully contained
-				i++;
+				i1++;
 				continue;
 			}
 			if(pos + 2 > seq.length()) {
@@ -224,13 +226,79 @@ public class GuideRNA {
 			Annotation ngg = new BasicAnnotation(chr.getId(), start + pos - 1, start + pos + 2, Strand.POSITIVE);
 			//logger.debug("NGG in " + chr.getId() + ":" + start + "-" + end + "\t" + ngg.toUCSC() + ":" + ngg.getOrientation().toString());
 			rtrn.add(ngg);
-			i = pos + 1;
+			i1 = pos + 1;
+		}
+		
+		int i2 = 0;
+		while(i2 < seq.length()) {
+			int pos = seq.indexOf("gg", i2);
+			if(pos == -1) {
+				break;
+			}
+			if(pos == 0) {
+				// Won't be fully contained
+				i2++;
+				continue;
+			}
+			if(pos + 2 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation ngg = new BasicAnnotation(chr.getId(), start + pos - 1, start + pos + 2, Strand.POSITIVE);
+			//logger.debug("NGG in " + chr.getId() + ":" + start + "-" + end + "\t" + ngg.toUCSC() + ":" + ngg.getOrientation().toString());
+			rtrn.add(ngg);
+			i2 = pos + 1;
+		}
+		
+		int i3 = 0;
+		while(i3 < seq.length()) {
+			int pos = seq.indexOf("Gg", i3);
+			if(pos == -1) {
+				break;
+			}
+			if(pos == 0) {
+				// Won't be fully contained
+				i3++;
+				continue;
+			}
+			if(pos + 2 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation ngg = new BasicAnnotation(chr.getId(), start + pos - 1, start + pos + 2, Strand.POSITIVE);
+			//logger.debug("NGG in " + chr.getId() + ":" + start + "-" + end + "\t" + ngg.toUCSC() + ":" + ngg.getOrientation().toString());
+			rtrn.add(ngg);
+			i3 = pos + 1;
+		}
+		
+		int i4 = 0;
+		while(i4 < seq.length()) {
+			int pos = seq.indexOf("gG", i4);
+			if(pos == -1) {
+				break;
+			}
+			if(pos == 0) {
+				// Won't be fully contained
+				i4++;
+				continue;
+			}
+			if(pos + 2 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation ngg = new BasicAnnotation(chr.getId(), start + pos - 1, start + pos + 2, Strand.POSITIVE);
+			//logger.debug("NGG in " + chr.getId() + ":" + start + "-" + end + "\t" + ngg.toUCSC() + ":" + ngg.getOrientation().toString());
+			rtrn.add(ngg);
+			i4 = pos + 1;
 		}
 		
 		// Find all CCNs
-		int j = 0;
-		while(j < seq.length()) {
-			int pos = seq.indexOf("CC", j);
+		int j1 = 0;
+		while(j1 < seq.length()) {
+			int pos = seq.indexOf("CC", j1);
 			if(pos == -1) break;
 			if(pos + 3 > seq.length()) {
 				// Won't be fully contained
@@ -240,7 +308,52 @@ public class GuideRNA {
 			Annotation ccn = new BasicAnnotation(chr.getId(), start + pos, start + pos + 3, Strand.NEGATIVE);
 			//logger.debug("NGG in " + chr.getId() + ":" + start + "-" + end + "\t" + ccn.toUCSC() + ":" + ccn.getOrientation().toString());
 			rtrn.add(ccn);
-			j = pos + 1;
+			j1 = pos + 1;
+		}
+		
+		int j2 = 0;
+		while(j2 < seq.length()) {
+			int pos = seq.indexOf("cC", j2);
+			if(pos == -1) break;
+			if(pos + 3 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation ccn = new BasicAnnotation(chr.getId(), start + pos, start + pos + 3, Strand.NEGATIVE);
+			//logger.debug("NGG in " + chr.getId() + ":" + start + "-" + end + "\t" + ccn.toUCSC() + ":" + ccn.getOrientation().toString());
+			rtrn.add(ccn);
+			j2 = pos + 1;
+		}
+		
+		int j3 = 0;
+		while(j3 < seq.length()) {
+			int pos = seq.indexOf("cc", j3);
+			if(pos == -1) break;
+			if(pos + 3 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation ccn = new BasicAnnotation(chr.getId(), start + pos, start + pos + 3, Strand.NEGATIVE);
+			//logger.debug("NGG in " + chr.getId() + ":" + start + "-" + end + "\t" + ccn.toUCSC() + ":" + ccn.getOrientation().toString());
+			rtrn.add(ccn);
+			j3 = pos + 1;
+		}
+		
+		int j4 = 0;
+		while(j4 < seq.length()) {
+			int pos = seq.indexOf("Cc", j4);
+			if(pos == -1) break;
+			if(pos + 3 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation ccn = new BasicAnnotation(chr.getId(), start + pos, start + pos + 3, Strand.NEGATIVE);
+			//logger.debug("NGG in " + chr.getId() + ":" + start + "-" + end + "\t" + ccn.toUCSC() + ":" + ccn.getOrientation().toString());
+			rtrn.add(ccn);
+			j4 = pos + 1;
 		}
 		
 		return rtrn;
