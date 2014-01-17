@@ -45,6 +45,7 @@ public class GibsonAssemblyOligoSet {
 	protected static String THROWAWAY_BASE = "T";
 	static Logger logger = Logger.getLogger(GibsonAssemblyOligoSet.class.getName());
 	private String primer3core;
+	private double optimalTm;
 	
 	
 	/**
@@ -55,7 +56,8 @@ public class GibsonAssemblyOligoSet {
 	 * @param primerLength Length of primers to amplify oligos
 	 * @param primer3coreExecutable primer3core executable file
 	 */
-	public GibsonAssemblyOligoSet(Collection<Sequence> seqs, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable) {
+	public GibsonAssemblyOligoSet(Collection<Sequence> seqs, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable, double optimalMeltingTemp) {
+		optimalTm = optimalMeltingTemp;
 		logger.info("");
 		logger.info("Constructing oligo pool object...");
 		if(overlapSize + 2*primerLength >= oligoSize) {
@@ -109,13 +111,13 @@ public class GibsonAssemblyOligoSet {
 	 * @return Map of enzyme to oligo set object using only that enzyme
 	 * @throws IOException 
 	 */
-	public static Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> divideByCompatibleEnzymes(Collection<Sequence> seqs, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable, FileWriter errorStream) throws IOException {
+	public static Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> divideByCompatibleEnzymes(Collection<Sequence> seqs, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable, FileWriter errorStream, double optimalTm) throws IOException {
 		Map<TypeIISRestrictionEnzyme, Collection<Sequence>> sequenceSetsByEnzyme = divideByCompatibleEnzymes(seqs, enzymes, errorStream);
 		Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> rtrn = new HashMap<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet>();
 		for(TypeIISRestrictionEnzyme enzyme : sequenceSetsByEnzyme.keySet()) {
 			Collection<TypeIISRestrictionEnzyme> thisEnzyme = new ArrayList<TypeIISRestrictionEnzyme>();
 			thisEnzyme.add(enzyme);
-			rtrn.put(enzyme, new GibsonAssemblyOligoSet(sequenceSetsByEnzyme.get(enzyme), thisEnzyme, oligoSize, overlapSize, primerLength, primer3coreExecutable));
+			rtrn.put(enzyme, new GibsonAssemblyOligoSet(sequenceSetsByEnzyme.get(enzyme), thisEnzyme, oligoSize, overlapSize, primerLength, primer3coreExecutable, optimalTm));
 		}
 		return rtrn;
 	}
@@ -507,7 +509,7 @@ public class GibsonAssemblyOligoSet {
 		boolean foundPrimer = false;
 		Collection<FullOligo> rtrn = new TreeSet<FullOligo>();
 		while(!foundPrimer) {
-			PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(primerSize, primer3core);
+			PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(primerSize, primer3core, optimalTm);
 			String leftPrimer = primer.getLeftPrimer();
 			String rightPrimer = primer.getRightPrimer();
 			String leftPrimer3primeEnd = leftPrimer.substring(leftPrimer.length() - 8);
@@ -896,6 +898,7 @@ public class GibsonAssemblyOligoSet {
 		p.addIntArg("-p", "Primer length", false, DEFAULT_PRIMER_SIZE);
 		p.addStringArg("-o", "Output file prefix", true);
 		p.addStringArg("-p3", "Primer3core executable", true);
+		p.addDoubleArg("-tm", "Optimal TM for primers", true);
 		p.parse(args);
 		if(p.getBooleanArg("-d")) {
 			logger.setLevel(Level.DEBUG);
@@ -908,7 +911,8 @@ public class GibsonAssemblyOligoSet {
 		String primer3core = p.getStringArg("-p3");
 		FastaSequenceIO fsio = new FastaSequenceIO(p.getStringArg("-f"));
 		Collection<Sequence> seqs = fsio.loadAll();
-		GibsonAssemblyOligoSet g = new GibsonAssemblyOligoSet(seqs, enzymes, oligoSize, overlapSize, primerLength, primer3core);
+		double optimalTm = p.getDoubleArg("-tm");
+		GibsonAssemblyOligoSet g = new GibsonAssemblyOligoSet(seqs, enzymes, oligoSize, overlapSize, primerLength, primer3core, optimalTm);
 		FileWriter errorWriter = new FileWriter(outPrefix + "_ERROR");
 		writeOutput(g.designOligoSet(errorWriter), outPrefix);
 		errorWriter.close();

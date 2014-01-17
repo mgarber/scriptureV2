@@ -123,12 +123,12 @@ public class PrimerUtils {
 	 * @return Primer pair with less than max primer penalty
 	 * @throws IOException
 	 */
-	public static PrimerPair getOneSyntheticPrimerPair(int primerLength, String pathPrimer3core) throws IOException {
+	public static PrimerPair getOneSyntheticPrimerPair(int primerLength, String pathPrimer3core, double optimalMeltingTemp) throws IOException {
 		// Repeat until a suitable primer pair is found
 		while(true) {
 			String seq = Sequence.generateRandomSequence(5000);
 			// Only ask for one primer pair
-			Collection<PrimerPair> primers = PcrPrimerDesigner.designSyntheticPrimers(seq, 1, primerLength, 5000, pathPrimer3core);
+			Collection<PrimerPair> primers = PcrPrimerDesigner.designSyntheticPrimers(seq, 1, primerLength, 5000, pathPrimer3core, optimalMeltingTemp);
 			// A primer pair was found
 			if(primers != null && !primers.isEmpty()) {
 				PrimerPair primer = primers.iterator().next();
