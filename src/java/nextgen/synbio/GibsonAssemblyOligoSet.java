@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import nextgen.core.capture.Oligo;
 import nextgen.editing.RestrictionEnzymeFactory;
 import nextgen.editing.TypeIISRestrictionEnzyme;
 
@@ -510,12 +511,6 @@ public class GibsonAssemblyOligoSet {
 		Collection<FullOligo> rtrn = new TreeSet<FullOligo>();
 		while(!foundPrimer) {
 			PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(primerSize, primer3core, optimalTm);
-			String leftPrimer = primer.getLeftPrimer();
-			String rightPrimer = primer.getRightPrimer();
-			String leftPrimer3primeEnd = leftPrimer.substring(leftPrimer.length() - 8);
-			String leftPrimer3primeEndRC = Sequence.reverseSequence(leftPrimer3primeEnd);
-			String rightPrimer3primeEnd = rightPrimer.substring(rightPrimer.length() - 8);
-			String rightPrimer3primeEndRC = Sequence.reverseSequence(rightPrimer3primeEnd);
 			boolean primerOk = true;
 			Collection<FullOligo> oligos = new TreeSet<FullOligo>();
 			logger.debug("There are " + overlappingSeqs.size() + " overlapping sequences.");
@@ -551,37 +546,9 @@ public class GibsonAssemblyOligoSet {
 					primerOk = false;
 					break;
 				}
-				// Check that each oligo contains the 3' ends of the primers once
-				int firstOccurrenceLeftPrimer3primeEnd = oligoSequence.indexOf(leftPrimer3primeEnd);
-				int lastOccurrenceLeftPrimer3primeEnd = oligoSequence.lastIndexOf(leftPrimer3primeEnd);
-				int firstOccurrenceRightPrimer3primeEndRC = oligoSequence.indexOf(rightPrimer3primeEndRC);
-				int lastOccurrenceRightPrimer3primeEndRC = oligoSequence.lastIndexOf(rightPrimer3primeEndRC);
-				// Check that the two primer ends appear in the oligo
-				if(firstOccurrenceLeftPrimer3primeEnd == -1) {
-					throw new IllegalStateException("Proposed oligo " + oligoSequence + " does not contain left primer subsequence " + leftPrimer3primeEnd + ".");
-				}
-				if(firstOccurrenceRightPrimer3primeEndRC == -1) {
-					throw new IllegalStateException("Proposed oligo " + oligoSequence + " does not contain reversed right primer subsequence " + rightPrimer3primeEndRC + ".");
-				}
-				// Check that the two primer ends appear at most once in the oligo
-				if(firstOccurrenceLeftPrimer3primeEnd != lastOccurrenceLeftPrimer3primeEnd) {
-					logger.warn("Proposed oligo " + oligoSequence + " contains left primer subsequence " + leftPrimer3primeEnd + " more than once. Rejecting primer pair.");
-					primerOk = false;
-					break;
-				}
-				if(firstOccurrenceRightPrimer3primeEndRC != lastOccurrenceRightPrimer3primeEndRC) {
-					logger.warn("Proposed oligo " + oligoSequence + " contains right primer reversed subsequence " + rightPrimer3primeEndRC + " more than once. Rejecting primer pair.");
-					primerOk = false;
-					break;
-				}
-				// Check that the RCed primer ends do not appear at all in the oligo
-				if(oligoSequence.contains(leftPrimer3primeEndRC)) {
-					logger.warn("Proposed oligo " + oligoSequence + " contains reversed left primer subsequence " + leftPrimer3primeEndRC + ". Rejecting primer pair.");
-					primerOk = false;
-					break;
-				}
-				if(oligoSequence.contains(rightPrimer3primeEnd)) {
-					logger.warn("Proposed oligo " + oligoSequence + " contains right primer subsequence " + rightPrimer3primeEnd + ". Rejecting primer pair.");
+				// Check that primer pair is compatible with oligo
+				if(!Oligo.primerPairCompatibleWithFullOligo(primer, oligoSequence)) {
+					logger.warn("Proposed oligo " + oligoSequence + " not compatible with primer pair " + primer.getLeftPrimer() + " " + primer.getRightPrimer());
 					primerOk = false;
 					break;
 				}
