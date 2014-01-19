@@ -117,6 +117,11 @@ public class MathUtil {
 	        else             return n * factorial(n-1);
 	   }
 
+	public static boolean closeTo1(double d) {
+		return 0.99999999 < d && d < 1.00000001;
+	}
+
+	   
 	   
 	   
 }

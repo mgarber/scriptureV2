@@ -1,15 +1,12 @@
-/**
- * 
- */
-package nextgen.synbio;
+package nextgen.editing;
 
 import broad.core.sequence.Sequence;
 
 /**
+ * Restriction enzyme with contiguous recognition site and single cleavage position
  * @author prussell
- *
  */
-public class TypeIISRestrictionEnzyme {
+public class SingleCleavageTypeIIRestrictionEnzyme implements RestrictionEnzyme {
 	
 	/**
 	 * Recognition sequence on top strand
@@ -30,17 +27,14 @@ public class TypeIISRestrictionEnzyme {
 	 * Enzyme name
 	 */
 	private RestrictionEnzymeFactory.RestrictionEnzymeName name;
-	
+
 	/**
 	 * @param enzymeName Enzyme name
 	 * @param topStrandRecognitionSequence Recognition sequence on top strand
 	 * @param topStrandCleavagePosition Cleavage position on top strand relative to cleavage just 5' of the first position of the recognition sequence (e.g. 5' ---G   CWGC--- 3' would be 1.)
 	 * @param bottomStrandCleavagePosition Cleavage position on bottom strand relative to cleavage just 5' of the first position of the recognition sequence (e.g. 5' ---G   CWGC--- 3' would be 1.)
 	 */
-	public TypeIISRestrictionEnzyme(RestrictionEnzymeFactory.RestrictionEnzymeName enzymeName, String topStrandRecognitionSequence, int topStrandCleavagePosition, int bottomStrandCleavagePosition) {
-		if(bottomStrandCleavagePosition > 0) {
-			throw new IllegalArgumentException("Enzymes that cleave within or 3' of the recognition site on the bottom strand not supported (you provided bottom strand cleavage postion = " + bottomStrandCleavagePosition + ")");
-		}
+	public SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeFactory.RestrictionEnzymeName enzymeName, String topStrandRecognitionSequence, int topStrandCleavagePosition, int bottomStrandCleavagePosition) {
 		Sequence seq = new Sequence("top_strand_recognition_sequence");
 		seq.setSequenceBases(topStrandRecognitionSequence.toUpperCase());
 		topStrandRecognitionSite = seq;
@@ -49,27 +43,15 @@ public class TypeIISRestrictionEnzyme {
 		name = enzymeName;
 	}
 
-	/**
-	 * Get enzyme name
-	 * @return Enzyme name
-	 */
 	public String getName() {
 		return name.toString();
 	}
 	
-	/**
-	 * Get top strand recoginition sequence
-	 * @return Top strand recognition sequence
-	 */
-	public String getTopStrandRecognitionSite() {
+	public String getTopStrandRecognitionSequence() {
 		return topStrandRecognitionSite.getSequenceBases();
 	}
 	
-	/**
-	 * Get bottom strand recoginition sequence
-	 * @return Bottom strand recognition sequence
-	 */
-	public String getBottomStrandRecognitionSite() {
+	public String getBottomStrandRecognitionSequence() {
 		return Sequence.reverseSequence(topStrandRecognitionSite).getSequenceBases();
 	}
 	
@@ -95,4 +77,5 @@ public class TypeIISRestrictionEnzyme {
 	}
 	
 
+	
 }

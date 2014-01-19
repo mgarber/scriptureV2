@@ -675,13 +675,16 @@ public class Gene extends BasicAnnotation {
 		for(Annotation exon: exons) {
 			//logger.info("Exon: " + exon.toUCSC());
 			// If the exon is larger than the input window size
-			if(exon.getSize() > windowSize) {
+			if(exon.getSize() >= windowSize) { //TODO should be >= ?
+				logger.debug(this.toUCSC() + "\texon_size\t" + exon.getSize() + "\twindow_size\t" + windowSize);
 				for(int i = exon.getStart(); i <= exon.getEnd() - windowSize; i++) {
+					logger.debug(this.toUCSC() + "\ti\t" + i);
 					GeneWindow subGene = new GeneWindow(new Gene(getChr(), i, i + windowSize));
 					subGene.addSourceAnnotation(this);
 					subGene.setOrientation(this.getOrientation());
 					// GeneWindow subGene = new Basic(getChr(), i, i + windowSize);
 					subGenes.add(subGene);
+					logger.debug(this.toUCSC() + "\tadded\t" + subGene.toUCSC());
 				}
 			}
 			
@@ -689,14 +692,16 @@ public class Gene extends BasicAnnotation {
 				//logger.info("Size: " + this.getSize() + " ExonSize: " + exon.getSize() + " " + i + " start: " + exon.getStart() + " end: " + exon.getEnd());
 				int relativeStart = getPositionAtReferenceCoordinate(i, true);
 				int size = relativeStart + windowSize;
-				if(relativeStart + windowSize < this.getSize()) {
-					Gene exonGene =  new Gene(exon);
+				logger.debug(this.toUCSC() + "\ti\t" + i + "\trel_start\t" + relativeStart + "\tsize\t" + size);
+				if(relativeStart + windowSize < this.getSize()) { //TODO should be <= ?
+					//Gene exonGene =  new Gene(exon);
 					//GeneWindow subGene = this.trimAbsolute(i, i+windowSize);
 					GeneWindow subGene = this.trimGene(relativeStart, relativeStart + windowSize);
 					//GeneWindow subGene = this.trimGeneNew(exonGene, relativeStart, relativeStart+windowSize);
 					subGene.setOrientation(this.getOrientation());
 					subGenes.add(subGene);
 					//logger.info("" + subGene.toBED());
+					logger.debug(this.toUCSC() + "\tsubgene\t" + subGene.toUCSC());
 				}
 			}	
 		}
@@ -1683,6 +1688,73 @@ public class Gene extends BasicAnnotation {
 	 */
 	public boolean overlaps(Gene other) {
 		return overlaps(other, false);
+	}
+	
+	/**
+	 * Get all genes overlapping a window
+	 * @param genes The genes
+	 * @param chr Window chr
+	 * @param start Window start
+	 * @param end Window end
+	 * @return All genes overlapping the window, not necessarily fully contained
+	 */
+	public static Collection<Gene> getOverlappers(Collection<Gene> genes, String chr, int start, int end, Strand strand, boolean ignoreOrientation) {
+		Gene window = new Gene(new BasicAnnotation(chr, start, end, strand));
+		Collection<Gene> rtrn = new TreeSet<Gene>();
+		for(Gene gene : genes) {
+			if(gene.overlaps(window, ignoreOrientation))	{
+				rtrn.add(gene);
+			}
+		}
+		return rtrn;
+	}
+	
+	/**
+	 * Get inner distance between this gene and its nearest neighbor in a collection
+	 * Ignore genes that overlap this gene in any orientation
+	 * Looks at entire gene span, not just exons
+	 * @param others Other genes to check
+	 * @return Min distance to a non-overlapper in the collection, or -1 if no other genes on same chromosome
+	 */
+	public int distanceToNearestNonOverlapper(Collection<Annotation> others) {
+		TreeSet<Gene> thisChr = new TreeSet<Gene>();
+		for(Annotation g : others) {
+			if(g.getChr().equals(getChr())) {
+				thisChr.add(new Gene(g.getChr(), g.getStart(), g.getEnd(), g.getName()));
+			}
+		}
+		if(thisChr.isEmpty()) {
+			return -1;
+		}
+		int minDist = Integer.MAX_VALUE;
+		Iterator<Gene> headSetDescending = ((TreeSet<Gene>) thisChr.headSet(this)).descendingIterator();
+		while(headSetDescending.hasNext()) {
+			Gene g = headSetDescending.next();
+			if(overlaps(g, true)) {
+				continue;
+			}
+			int dist = getStart() - g.getEnd();
+			if(dist < minDist) {
+				minDist = Math.max(0, dist);
+				break;
+			}
+		}
+		Iterator<Gene> tailSetAscending = ((TreeSet<Gene>) thisChr.tailSet(this)).iterator();
+		while(tailSetAscending.hasNext()) {
+			Gene g = tailSetAscending.next();
+			if(overlaps(g, true)) {
+				continue;
+			}
+			int dist = g.getStart() - getEnd();
+			if(dist < minDist) {
+				minDist = dist;
+				break;
+			}
+		}
+		if(minDist == Integer.MAX_VALUE) {
+			throw new IllegalStateException("No min distance found");
+		}
+		return minDist;
 	}
 	
 	/**

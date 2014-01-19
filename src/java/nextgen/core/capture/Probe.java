@@ -16,6 +16,7 @@ public class Probe implements Comparable<Probe> {
 	private boolean antisense;
 	private ProbeLayout probeLayout;
 	
+	
 	/**
 	 * @param parentTranscript Parent transcript
 	 * @param layout Probe layout that produced the probe
