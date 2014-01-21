@@ -161,8 +161,10 @@ public class PrimerUtils {
 	 * @throws IOException
 	 */
 	public static PrimerPair getOneSyntheticPrimerPair(int primerLength, String pathPrimer3core, double optimalMeltingTemp) throws IOException {
+		int numTried = 0;
 		// Repeat until a suitable primer pair is found
 		while(true) {
+			numTried++;
 			String seq = Sequence.generateRandomSequence(5000);
 			// Only ask for one primer pair
 			Collection<PrimerPair> primers = PcrPrimerDesigner.designSyntheticPrimers(seq, 1, primerLength, 5000, pathPrimer3core, optimalMeltingTemp);
@@ -172,6 +174,12 @@ public class PrimerUtils {
 				if(primer.getPrimerPairPenalty() <= MAX_PRIMER_PENALTY) {
 					return primer;
 				}
+			}
+			if(numTried == 1000) {
+				throw new IllegalStateException("Tried 1000 random primer pairs without finding an acceptable one. Try adjusting primer length and optimal Tm.");
+			}
+			if(numTried % 100 == 0) {
+				logger.info("Tried " + numTried + " random primer pairs");
 			}
 		}
 	}
