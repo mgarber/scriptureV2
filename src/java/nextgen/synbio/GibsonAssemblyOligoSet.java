@@ -3,6 +3,8 @@
  */
 package nextgen.synbio;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -47,6 +49,7 @@ public class GibsonAssemblyOligoSet {
 	static Logger logger = Logger.getLogger(GibsonAssemblyOligoSet.class.getName());
 	private String primer3core;
 	private double optimalTm;
+	private BufferedReader primerReader;
 	
 	
 	/**
@@ -56,9 +59,25 @@ public class GibsonAssemblyOligoSet {
 	 * @param overlapSize Size of overlap for Gibson assembly
 	 * @param primerLength Length of primers to amplify oligos
 	 * @param primer3coreExecutable primer3core executable file
+	 * @param optimalMeltingTemp Optimal Tm for primers
 	 */
 	public GibsonAssemblyOligoSet(Collection<Sequence> seqs, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable, double optimalMeltingTemp) {
+		this(seqs, enzymes, oligoSize, overlapSize, primerLength, primer3coreExecutable, optimalMeltingTemp, null);
+	}
+	
+	/**
+	 * @param seqs Sequences to assemble
+	 * @param enzymes Possible restriction enzymes to use
+	 * @param oligoSize Size of full oligos
+	 * @param overlapSize Size of overlap for Gibson assembly
+	 * @param primerLength Length of primers to amplify oligos
+	 * @param primer3coreExecutable primer3core executable file
+	 * @param optimalMeltingTemp Optimal Tm for primers
+	 * @param primerPairReader BufferedReader for file containing list of primers in format produced by PrimerPair.getPrimerFieldsAsStringForConstructor(), or null if not using
+	 */
+	public GibsonAssemblyOligoSet(Collection<Sequence> seqs, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable, double optimalMeltingTemp, BufferedReader primerPairReader) {
 		optimalTm = optimalMeltingTemp;
+		primerReader = primerPairReader;
 		logger.info("");
 		logger.info("Constructing oligo pool object...");
 		if(overlapSize + 2*primerLength >= oligoSize) {
@@ -109,16 +128,17 @@ public class GibsonAssemblyOligoSet {
 	 * @param primerLength Length of primers to amplify oligos
 	 * @param primer3coreExecutable primer3core executable file
 	 * @param errorStream File writer to write errors to e.g. sequences with no compatible enzyme
+	 * @param primerPairReader BufferedReader for file containing list of primers in format produced by PrimerPair.getPrimerFieldsAsStringForConstructor()
 	 * @return Map of enzyme to oligo set object using only that enzyme
 	 * @throws IOException 
 	 */
-	public static Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> divideByCompatibleEnzymes(Collection<Sequence> seqs, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable, FileWriter errorStream, double optimalTm) throws IOException {
+	public static Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> divideByCompatibleEnzymes(Collection<Sequence> seqs, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable, FileWriter errorStream, double optimalTm, BufferedReader primerPairReader) throws IOException {
 		Map<TypeIISRestrictionEnzyme, Collection<Sequence>> sequenceSetsByEnzyme = divideByCompatibleEnzymes(seqs, enzymes, errorStream);
 		Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> rtrn = new HashMap<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet>();
 		for(TypeIISRestrictionEnzyme enzyme : sequenceSetsByEnzyme.keySet()) {
 			Collection<TypeIISRestrictionEnzyme> thisEnzyme = new ArrayList<TypeIISRestrictionEnzyme>();
 			thisEnzyme.add(enzyme);
-			rtrn.put(enzyme, new GibsonAssemblyOligoSet(sequenceSetsByEnzyme.get(enzyme), thisEnzyme, oligoSize, overlapSize, primerLength, primer3coreExecutable, optimalTm));
+			rtrn.put(enzyme, new GibsonAssemblyOligoSet(sequenceSetsByEnzyme.get(enzyme), thisEnzyme, oligoSize, overlapSize, primerLength, primer3coreExecutable, optimalTm, primerPairReader));
 		}
 		return rtrn;
 	}
@@ -510,7 +530,7 @@ public class GibsonAssemblyOligoSet {
 		boolean foundPrimer = false;
 		Collection<FullOligo> rtrn = new TreeSet<FullOligo>();
 		while(!foundPrimer) {
-			PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(primerSize, primer3core, optimalTm);
+			PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(primerSize, primer3core, optimalTm, primerReader);
 			boolean primerOk = true;
 			Collection<FullOligo> oligos = new TreeSet<FullOligo>();
 			logger.debug("There are " + overlappingSeqs.size() + " overlapping sequences.");
@@ -866,10 +886,17 @@ public class GibsonAssemblyOligoSet {
 		p.addStringArg("-o", "Output file prefix", true);
 		p.addStringArg("-p3", "Primer3core executable", true);
 		p.addDoubleArg("-tm", "Optimal TM for primers", true);
+		p.addStringArg("-p", "File of existing primer pairs to try, as formatted by PrimerPair.getPrimerFieldsAsStringForConstructor()", false, null);
 		p.parse(args);
 		if(p.getBooleanArg("-d")) {
 			logger.setLevel(Level.DEBUG);
 		}
+		BufferedReader primerReader = null;
+		String primerFile = p.getStringArg("-p");
+		if(primerFile != null) {
+			FileReader r = new FileReader(primerFile);
+			primerReader = new BufferedReader(r);
+		} 
 		Collection<TypeIISRestrictionEnzyme> enzymes = RestrictionEnzymeFactory.readFromFileAsTypeIIS(p.getStringArg("-e"));
 		int oligoSize = p.getIntArg("-s");
 		int overlapSize = p.getIntArg("-v");
@@ -879,10 +906,14 @@ public class GibsonAssemblyOligoSet {
 		FastaSequenceIO fsio = new FastaSequenceIO(p.getStringArg("-f"));
 		Collection<Sequence> seqs = fsio.loadAll();
 		double optimalTm = p.getDoubleArg("-tm");
-		GibsonAssemblyOligoSet g = new GibsonAssemblyOligoSet(seqs, enzymes, oligoSize, overlapSize, primerLength, primer3core, optimalTm);
+		GibsonAssemblyOligoSet g = new GibsonAssemblyOligoSet(seqs, enzymes, oligoSize, overlapSize, primerLength, primer3core, optimalTm, primerReader);
 		FileWriter errorWriter = new FileWriter(outPrefix + "_ERROR");
 		writeOutput(g.designOligoSet(errorWriter), outPrefix);
 		errorWriter.close();
+		
+		if(primerReader != null) {
+			primerReader.close();
+		}
 		
 		logger.info("");
 		logger.info("All done.");

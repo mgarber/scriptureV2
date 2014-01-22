@@ -125,11 +125,14 @@ public class PrimerUtils {
 	 * Get one primer pair
 	 * @param primerLength Primer length
 	 * @param pathPrimer3core primer3core executable
-	 * @param existingPrimerReader Reader for a table of existing primer pairs, each line having fields as defined in the constructor PrimerPair(String[])
+	 * @param existingPrimerReader Reader for a table of existing primer pairs, each line having fields as defined in the constructor PrimerPair(String[]), or null if not using
 	 * @return Primer pair with less than max primer penalty
 	 * @throws IOException
 	 */
 	public static PrimerPair getOneSyntheticPrimerPair(int primerLength, String pathPrimer3core, double optimalMeltingTemp, BufferedReader existingPrimerReader) throws IOException {
+		if(existingPrimerReader == null) {
+			return getOneSyntheticPrimerPair(primerLength, pathPrimer3core, optimalMeltingTemp);
+		}
 		StringParser s = new StringParser();
 		while(existingPrimerReader.ready()) {
 			s.parse(existingPrimerReader.readLine());
@@ -149,7 +152,7 @@ public class PrimerUtils {
 			}
 			return p;
 		}
-		logger.warn("Ran out of existing primer pairs in file. Creating new primer pair.");
+		//logger.warn("Ran out of existing primer pairs in file. Creating new primer pair.");
 		return getOneSyntheticPrimerPair(primerLength, pathPrimer3core, optimalMeltingTemp);
 	}
 	

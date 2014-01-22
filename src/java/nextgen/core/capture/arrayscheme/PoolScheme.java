@@ -25,5 +25,5 @@ public interface PoolScheme extends ArrayFeature {
 	 * @param file Config file
 	 */
 	public void setFromConfigFile(ConfigFile file);
-	
+		
 }

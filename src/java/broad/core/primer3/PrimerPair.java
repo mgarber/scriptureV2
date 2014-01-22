@@ -100,23 +100,15 @@ public class PrimerPair implements Comparable{
 	 * @return
 	 */
 	public String getPrimerFieldsAsStringForConstructor() {
-		String data = this.getPrimerPairId();
-		data += " ";
-		data = Integer.valueOf(this.getLeftPrimerPosition()).toString();
-		data += " ";
-		data +=  this.getLeftPrimer();
-		data += " ";
-		data +=  Integer.valueOf(this.getRightPrimerPosition()).toString();
-		data += " ";
-		data +=  this.getRightPrimer();
-		data += " ";
-		data +=  Float.valueOf(this.getLeftPrimerTM()).toString();
-		data += " ";
-		data += Float.valueOf(this.getRightPrimerTM()).toString();
-		data += " ";
-		data +=  Integer.valueOf(this.getProductSize()).toString();
-		data += " ";
-		data += this.getComment();
+		String data = getPrimerPairId() + "\t";
+		data += Integer.valueOf(getLeftPrimerPosition()).toString() + "\t";
+		data +=  getLeftPrimer() + "\t";
+		data +=  Integer.valueOf(getRightPrimerPosition()).toString() + "\t";
+		data +=  getRightPrimer() + "\t";
+		data +=  Float.valueOf(getLeftPrimerTM()).toString() + "\t";
+		data += Float.valueOf(getRightPrimerTM()).toString() + "\t";
+		data +=  Integer.valueOf(getProductSize()).toString() + "\t";
+		data += getComment();
 		return data;
 	}
 	
@@ -205,13 +197,10 @@ public class PrimerPair implements Comparable{
 	}
 
 	public String getPrimerPairId() {
-		String id = null;
-		if(primerPairId != null) {
-			id =  primerPairId;
-		} else if (usedInput != null && usedInput.getSequence() != null) {
-			id = usedInput.getSequence().getId();
-		}
-		return id;
+		if(primerPairId != null && primerPairId.length() > 0) {
+			return  primerPairId;
+		} 
+		return "primer";
 	}
 
 	public String getProductSequence() {
