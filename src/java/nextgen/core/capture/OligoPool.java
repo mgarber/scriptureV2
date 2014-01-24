@@ -357,7 +357,7 @@ public class OligoPool {
 			boolean foundPrimer = false;
 			while(!foundPrimer) {
 				boolean rejected = false;
-				PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(primerSize, primer3corePath, optimalTm, primerReader);
+				PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(primerSize, primer3corePath, optimalTm, primerReader, null);
 				tried++;
 				for(PrimerFilter filter : primerFilters) {
 					if(filter.rejectPrimer(primer, probeSet)) {

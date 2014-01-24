@@ -530,7 +530,7 @@ public class GibsonAssemblyOligoSet {
 		boolean foundPrimer = false;
 		Collection<FullOligo> rtrn = new TreeSet<FullOligo>();
 		while(!foundPrimer) {
-			PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(primerSize, primer3core, optimalTm, primerReader);
+			PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(primerSize, primer3core, optimalTm, primerReader, null);
 			boolean primerOk = true;
 			Collection<FullOligo> oligos = new TreeSet<FullOligo>();
 			logger.debug("There are " + overlappingSeqs.size() + " overlapping sequences.");

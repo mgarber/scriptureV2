@@ -126,12 +126,13 @@ public class PrimerUtils {
 	 * @param primerLength Primer length
 	 * @param pathPrimer3core primer3core executable
 	 * @param existingPrimerReader Reader for a table of existing primer pairs, each line having fields as defined in the constructor PrimerPair(String[]), or null if not using
+	 * @param primerId Primer ID or null
 	 * @return Primer pair with less than max primer penalty
 	 * @throws IOException
 	 */
-	public static PrimerPair getOneSyntheticPrimerPair(int primerLength, String pathPrimer3core, double optimalMeltingTemp, BufferedReader existingPrimerReader) throws IOException {
+	public static PrimerPair getOneSyntheticPrimerPair(int primerLength, String pathPrimer3core, double optimalMeltingTemp, BufferedReader existingPrimerReader, String primerId) throws IOException {
 		if(existingPrimerReader == null) {
-			return getOneSyntheticPrimerPair(primerLength, pathPrimer3core, optimalMeltingTemp);
+			return getOneSyntheticPrimerPair(primerLength, pathPrimer3core, optimalMeltingTemp, primerId);
 		}
 		StringParser s = new StringParser();
 		while(existingPrimerReader.ready()) {
@@ -150,20 +151,22 @@ public class PrimerUtils {
 				logger.warn("Skipping existing primer pair " + p.getLeftPrimer() + " " + p.getRightPrimer() + " because right primer TM is " + p.getRightPrimerTM());
 				continue;
 			}
+			if(primerId != null) p.setId(primerId);
 			return p;
 		}
 		//logger.warn("Ran out of existing primer pairs in file. Creating new primer pair.");
-		return getOneSyntheticPrimerPair(primerLength, pathPrimer3core, optimalMeltingTemp);
+		return getOneSyntheticPrimerPair(primerLength, pathPrimer3core, optimalMeltingTemp, primerId);
 	}
 	
 	/**
 	 * Get one primer pair
 	 * @param primerLength Primer length
 	 * @param pathPrimer3core primer3core executable
+	 * @param primerId Primer ID or null
 	 * @return Primer pair with less than max primer penalty
 	 * @throws IOException
 	 */
-	public static PrimerPair getOneSyntheticPrimerPair(int primerLength, String pathPrimer3core, double optimalMeltingTemp) throws IOException {
+	public static PrimerPair getOneSyntheticPrimerPair(int primerLength, String pathPrimer3core, double optimalMeltingTemp, String primerId) throws IOException {
 		int numTried = 0;
 		// Repeat until a suitable primer pair is found
 		while(true) {
@@ -175,6 +178,7 @@ public class PrimerUtils {
 			if(primers != null && !primers.isEmpty()) {
 				PrimerPair primer = primers.iterator().next();
 				if(primer.getPrimerPairPenalty() <= MAX_PRIMER_PENALTY) {
+					if(primerId != null) primer.setId(primerId);
 					return primer;
 				}
 			}

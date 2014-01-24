@@ -58,6 +58,10 @@ public class PrimerPair implements Comparable{
 		return buf.toString();
 	}
 	
+	public void setId(String id) {
+		primerPairId = id;
+	}
+	
 	public String toString() { return toString(false); }
 	
 	public static String getPrimerFieldsAsString() {
