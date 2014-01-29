@@ -2160,7 +2160,12 @@ public class RNASeqPipeline {
 		String fastqList = p.getStringArg("-r");
 		String configFile = p.getStringArg("-c");
 		
-		RNASeqPipeline PA = new RNASeqPipeline(fastqList,configFile, OGSUtils.getDrmaaSession());
+		ConfigFile c = getConfigFile(configFile);
+		Scheduler s = Scheduler.fromString(c.getSingleValueField(sectionScheduler, optionScheduler));
+		Session drmaaSession = s.equals(Scheduler.OGS) ? OGSUtils.getDrmaaSession() : null;
+
+		
+		RNASeqPipeline PA = new RNASeqPipeline(fastqList,configFile, drmaaSession);
 		logger.info("Pipeline all done.");
 	}
 
