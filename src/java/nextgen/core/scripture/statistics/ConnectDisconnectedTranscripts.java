@@ -197,6 +197,7 @@ public class ConnectDisconnectedTranscripts {
 				if((gene.contains(mates.get(0)) && other.contains(mates.get(1)))
 						||
 						gene.contains(mates.get(1)) && other.contains(mates.get(0))){
+					l
 					rtrn = true;
 					break;
 				}
