@@ -432,7 +432,19 @@ public class GibsonAssemblyOligoSet {
 	 * @return The core sequence length to use
 	 */
 	private int getCoreSequenceLengthWithinOligo(TypeIISRestrictionEnzyme enzyme) {
-		int rtrn = fullOligoSize - 2 * primerSize - enzyme.getTopStrandRecognitionSequence().length() - enzyme.getBottomStrandRecognitionSequence().length() - 2 * getNumThrowawayBases(enzyme);
+		int topRecognitionSeqLen = enzyme.getTopStrandRecognitionSequence().iterator().next().length();
+		for(String s : enzyme.getTopStrandRecognitionSequence()) {
+			if(s.length() != topRecognitionSeqLen) {
+				throw new IllegalArgumentException("All top strand recognition sequences of enzyme must have same length.");
+			}
+		}
+		int bottomRecognitionSeqLen = enzyme.getBottomStrandRecognitionSequence().iterator().next().length();
+		for(String s : enzyme.getBottomStrandRecognitionSequence()) {
+			if(s.length() != bottomRecognitionSeqLen) {
+				throw new IllegalArgumentException("All bottom strand recognition sequences of enzyme must have same length.");
+			}
+		}
+		int rtrn = fullOligoSize - 2 * primerSize - topRecognitionSeqLen - bottomRecognitionSeqLen - 2 * getNumThrowawayBases(enzyme);
 		if(rtrn <= 0) {
 			throw new IllegalArgumentException("Pieces other than core sequence add up to >= the full oligo size");
 		}
@@ -446,17 +458,18 @@ public class GibsonAssemblyOligoSet {
 	 * @return Whether the sequence contains the enzyme recognition sequence
 	 */
 	private static boolean sequenceContainsEnzymeRecognitionSequence(Sequence seq, TypeIISRestrictionEnzyme enzyme) {
-		String r = enzyme.getTopStrandRecognitionSequence();
-		if(seq.contains(r)) {
-			logger.debug("Sequence " + seq.getId() + " contains " + enzyme.getName() + " recognition sequence " + r + ".");
-			return true;
+		for(String r : enzyme.getTopStrandRecognitionSequence()) {
+			if(seq.contains(r)) {
+				logger.debug("Sequence " + seq.getId() + " contains " + enzyme.getName() + " recognition sequence " + r + ".");
+				return true;
+			}
+			String rr = Sequence.reverseSequence(r);
+			if(seq.contains(rr)) {
+				logger.debug("Sequence " + seq.getId() + " contains " + enzyme.getName() + " reverse of recognition sequence " + r + ".");
+				return true;
+			}
 		}
-		String rr = Sequence.reverseSequence(r);
-		if(seq.contains(rr)) {
-			logger.debug("Sequence " + seq.getId() + " contains " + enzyme.getName() + " reverse of recognition sequence " + r + ".");
-			return true;
-		}
-		logger.debug("Sequence " + seq.getId() + " does not contain " + enzyme.getName() + " recognition sequence " + r + ".");
+		logger.debug("Sequence " + seq.getId() + " does not contain " + enzyme.getName() + " recognition sequence.");
 		return false;
 	}
 	
@@ -487,8 +500,7 @@ public class GibsonAssemblyOligoSet {
 				throw new IllegalArgumentException("Couldn't find a restriction enzyme whose recognition sequence is not contained in any transcript.");
 			}
 			int length = getCoreSequenceLengthWithinOligo(enzyme);
-			String recognitionSeq = enzyme.getTopStrandRecognitionSequence();
-			logger.info("Using enzyme " + enzyme.getName() + ". Recognition sequence is " + recognitionSeq + ". Overlapping subsequence length for this enzyme and this oligo setup is " + length + ".");
+			logger.info("Using enzyme " + enzyme.getName() + ". Overlapping subsequence length for this enzyme and this oligo setup is " + length + ".");
 			return enzyme;
 	}
 	
@@ -518,8 +530,11 @@ public class GibsonAssemblyOligoSet {
 		
 		logger.info("Looking for compatible primer pair...");
 		
-		String recognitionSeq = enzyme.getTopStrandRecognitionSequence();
-		String rcRecognitionSeq = Sequence.reverseSequence(recognitionSeq);
+		Collection<String> recognitionSeq = enzyme.getTopStrandRecognitionSequence();
+		Collection<String> rcRecognitionSeq = new ArrayList<String>();
+		for(String top : recognitionSeq) {
+			rcRecognitionSeq.add(Sequence.reverseSequence(top));
+		}
 		
 		/*
 		 * Choose a primer pair and create the full oligos
@@ -541,31 +556,61 @@ public class GibsonAssemblyOligoSet {
 			logger.info("Trying primer pair " + primer.getLeftPrimer() + " " + primer.getRightPrimer() + " for " + oligos.size() + " oligos.");
 			for(FullOligo oligo : oligos) {
 				String oligoSequence = oligo.getFullSequenceTopStrand().getSequenceBases();
+				
+				boolean foundTop = false;
+				boolean foundRc = false;
+				
 				// Check that each oligo contains the recognition sequence once
-				int firstOccurrenceRecognitionSeq = oligoSequence.indexOf(recognitionSeq);
-				int lastOccurrenceRecognitionSeq = oligoSequence.lastIndexOf(recognitionSeq);
-				int firstOccurrenceRcRecognitionSeq = oligoSequence.indexOf(rcRecognitionSeq);
-				int lastOccurrenceRcRecognitionSeq = oligoSequence.lastIndexOf(rcRecognitionSeq);
-				if(firstOccurrenceRecognitionSeq == -1) {
+				
+				for(String top : recognitionSeq) {
+					int firstOccurrenceRecognitionSeq = oligoSequence.indexOf(top);
+					int lastOccurrenceRecognitionSeq = oligoSequence.lastIndexOf(top);
+					if(firstOccurrenceRecognitionSeq == -1) {
+						continue;
+					}
+					if(firstOccurrenceRecognitionSeq != lastOccurrenceRecognitionSeq) {
+						logger.warn("Proposed oligo " + oligoSequence + " contains enzyme recognition sequence " + recognitionSeq + " more than once. Rejecting primer pair.");
+						primerOk = false;
+						break;
+					}
+					if(foundTop) {
+						logger.warn("Proposed oligo " + oligoSequence + " contains enzyme recognition sequence " + recognitionSeq + " more than once. Rejecting primer pair.");
+						primerOk = false;
+						break;
+					}
+					foundTop = true;
+				}
+				if(!foundTop) {
 					logger.warn("Proposed oligo " + oligoSequence + " does not contain enzyme recognition sequence " + recognitionSeq + ". Rejecting primer pair.");
 					primerOk = false;
 					break;
 				}
-				if(firstOccurrenceRcRecognitionSeq == -1) {
+				
+				for(String rc : recognitionSeq) {
+					int firstOccurrenceRecognitionSeq = oligoSequence.indexOf(rc);
+					int lastOccurrenceRecognitionSeq = oligoSequence.lastIndexOf(rc);
+					if(firstOccurrenceRecognitionSeq == -1) {
+						continue;
+					}
+					if(firstOccurrenceRecognitionSeq != lastOccurrenceRecognitionSeq) {
+						logger.warn("Proposed oligo " + oligoSequence + " contains reverse complement of enzyme recognition sequence " + recognitionSeq + " more than once. Rejecting primer pair.");
+						primerOk = false;
+						break;
+					}
+					if(foundRc) {
+						logger.warn("Proposed oligo " + oligoSequence + " contains reverse complement of enzyme recognition sequence " + recognitionSeq + " more than once. Rejecting primer pair.");
+						primerOk = false;
+						break;
+					}
+					foundRc = true;
+				}
+				if(!foundRc) {
 					logger.warn("Proposed oligo " + oligoSequence + " does not contain reverse complement of enzyme recognition sequence " + recognitionSeq + ". Rejecting primer pair.");
 					primerOk = false;
 					break;
 				}
-				if(firstOccurrenceRecognitionSeq != lastOccurrenceRecognitionSeq) {
-					logger.warn("Proposed oligo " + oligoSequence + " contains enzyme recognition sequence " + recognitionSeq + " more than once. Rejecting primer pair.");
-					primerOk = false;
-					break;
-				}
-				if(firstOccurrenceRcRecognitionSeq != lastOccurrenceRcRecognitionSeq) {
-					logger.warn("Proposed oligo " + oligoSequence + " contains reverse complement of enzyme recognition sequence " + recognitionSeq + " more than once. Rejecting primer pair.");
-					primerOk = false;
-					break;
-				}
+				
+				
 				// Check that primer pair is compatible with oligo
 				if(!Oligo.primerPairCompatibleWithFullOligo(primer, oligoSequence)) {
 					logger.warn("Proposed oligo " + oligoSequence + " not compatible with primer pair " + primer.getLeftPrimer() + " " + primer.getRightPrimer());
@@ -842,7 +887,7 @@ public class GibsonAssemblyOligoSet {
 				throwawaySeq += THROWAWAY_BASE;
 			}
 			String rightPrimerRC = Sequence.reverseSequence(primerPair.getRightPrimer());
-			String recognitionSeq = restrictionEnzyme.getTopStrandRecognitionSequence();
+			String recognitionSeq = restrictionEnzyme.getTopStrandRecognitionSequence().iterator().next();
 			String reverseRecognitionSeq = Sequence.reverseSequence(recognitionSeq);
 			Sequence rtrn = new Sequence(coreTranscriptSequence.getCurrentId());
 			rtrn.setSequenceBases(primerPair.getLeftPrimer() + recognitionSeq + throwawaySeq + coreTranscriptSequence.getSequence() + throwawaySeq + reverseRecognitionSeq + rightPrimerRC);
