@@ -16,7 +16,40 @@ import nextgen.core.annotation.Annotation.Strand;
  *
  */
 public class AlignmentUtils {
-
+	
+	public static boolean hammingDistanceAtMost(String s1, String s2, int maxDistance, boolean ignoreCase) {
+		if(s1.length() != s2.length()) {
+			throw new IllegalArgumentException("Strings must have same length");
+		}
+		int dist = 0;
+		for(int i = 0; i < s1.length(); i++) {
+			String c1 = ignoreCase ? s1.substring(i,i+1).toUpperCase() : s1.substring(i, i+1);
+			String c2 = ignoreCase ? s2.substring(i,i+1).toUpperCase() : s2.substring(i, i+1);
+			if(!c1.equals(c2)) {
+				dist++;
+			}
+			if(dist > maxDistance) {
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	public static int hammingDistance(String s1, String s2, boolean ignoreCase) {
+		if(s1.length() != s2.length()) {
+			throw new IllegalArgumentException("Strings must have same length");
+		}
+		int rtrn = 0;
+		for(int i = 0; i < s1.length(); i++) {
+			String c1 = ignoreCase ? s1.substring(i,i+1).toUpperCase() : s1.substring(i, i+1);
+			String c2 = ignoreCase ? s2.substring(i,i+1).toUpperCase() : s2.substring(i, i+1);
+			if(!c1.equals(c2)) {
+				rtrn++;
+			}
+		}
+		return rtrn;
+	}
+	
 	/**
 	 * Assign orientation to window based on number of reads mapping in each orientation
 	 * @param bamFile Bam file
@@ -57,11 +90,14 @@ public class AlignmentUtils {
 		double plusPct = (double) numPlus / (double) total;
 		double minusPct = (double) numMinus / (double) total;
 		if(plusPct > cutoff) {
+			samReader.close();
 			return Strand.POSITIVE;
 		}
 		else if(minusPct > cutoff) {
+			samReader.close();
 			return Strand.NEGATIVE;
 		}
+		samReader.close();
 		return Strand.UNKNOWN;
 	}
 
