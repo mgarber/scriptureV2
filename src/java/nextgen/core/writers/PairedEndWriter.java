@@ -13,6 +13,8 @@ import net.sf.samtools.BAMFileWriter;
 import net.sf.samtools.BAMIndex;
 import net.sf.samtools.BAMRecordCodec;
 import net.sf.samtools.SAMFileHeader;
+import net.sf.samtools.SAMFileWriter;
+import net.sf.samtools.SAMFileWriterFactory;
 import net.sf.samtools.SAMTag;
 import net.sf.samtools.SAMFileHeader.SortOrder;
 import net.sf.samtools.SAMFileReader;
@@ -55,7 +57,7 @@ public class PairedEndWriter {
 	private SAMFileHeader header;
 	private BAMRecordCodec testCodec;
 	private int maxAllowableInsert=500000;
-	
+	private String bamFileName;
 	
 	/**
 	 * @param bamFile Input SAM or BAM file to extract header and/or reads from.
@@ -71,9 +73,32 @@ public class PairedEndWriter {
 	public PairedEndWriter(File bamFile, String output) {
 		this.output=output;
 		
+		bamFileName = bamFile.getAbsolutePath();
 		reader = new SAMFileReader(bamFile);
 		header = reader.getFileHeader();
 		
+		/*
+		 * SORT THE FILE BY QUERY NAME FIRST
+		 */
+    	if (header.getSortOrder() != SAMFileHeader.SortOrder.queryname) {
+    		logger.info("Sorting the bam file by query name for faster conversion to Paired end bam. Please use this file for future runs of the program.");
+    		header.setSortOrder(SAMFileHeader.SortOrder.queryname);
+    		 final SAMFileWriter writer2 = new SAMFileWriterFactory().makeSAMOrBAMWriter(header, false, new File(bamFileName + ".sortedbyQueryname.bam"));
+
+    	        for (final SAMRecord rec: reader) {
+    	            writer2.addAlignment(rec);
+    	        }
+
+    	        logger.info("Finished reading inputs, merging and writing to output now.");
+
+    	        reader.close();
+    	        writer2.close();
+    	        reader = new SAMFileReader(new File(bamFileName + ".sortedbyQueryname.bam"));
+    	        header = reader.getFileHeader(); 
+    	}
+    	else{
+    		logger.info("Supplied bam file is already sorted by query name");
+    	}     
 		//set header to pairedEnd
 		header.setAttribute(mateLineFlag, "mergedPairedEndFormat");
 		
@@ -81,6 +106,8 @@ public class PairedEndWriter {
 		File outFile = new File(this.output);
 		//if (outFile.exists()) outFile.delete();
 		writer=new BAMFileWriter(outFile);
+		//Presorted so YES
+		//writer.setSortOrder(SAMFileHeader.SortOrder.queryname,false);
 		writer.setSortOrder(SortOrder.coordinate, false);
 		writer.setHeader(header);
 		
@@ -104,7 +131,8 @@ public class PairedEndWriter {
 	/**
 	 * Convert the bamFile provided in the constructor to paired end format.
 	 */
-	public void convertInputToPairedEnd(TranscriptionRead txnRead) {
+/*	public void convertInputToPairedEnd(TranscriptionRead txnRead) {
+		
 		SAMRecordIterator iter = reader.iterator();		
 		Map<String, AlignmentPair> tempCollection=new TreeMap<String, AlignmentPair>();
 		int numRead = 0;
@@ -204,8 +232,87 @@ public class PairedEndWriter {
 		writeRemainder(tempCollection);
 		
 		close();
-	}
+	}*/
 
+	
+	/**
+	 * Convert the bamFile provided in the constructor to paired end format.
+	 */
+	public void convertInputToPairedEnd(TranscriptionRead txnRead) {
+        
+		SAMRecordIterator iter = reader.iterator();		
+		
+		String prevName = null;
+		AlignmentPair pair = null;
+				
+		int numRead=0;
+		//FOR EACH READ
+		while(iter.hasNext()) {
+			SAMRecord record=iter.next();
+			String name=record.getReadName();
+			
+			//If the read is unmapped, skip
+			if(record.getReadUnmappedFlag()) continue;
+			
+			//If the read is not paired or the mate is unmapped, write it as it is
+			if(!record.getReadPairedFlag() || record.getMateUnmappedFlag()){//SK: using the !(passes distance checks) wrote really bad alignments ESP because the addRecord() function did not check for this
+				//mate unmapped so just write it
+				if(record.getReadPairedFlag()) {record.setMateUnmappedFlag(true);} //revised for single end @zhuxp
+				//If first read is in direction of transcription change orientation of second read
+				if(txnRead.equals(TranscriptionRead.FIRST_OF_PAIR) && !record.getFirstOfPairFlag()){
+					record.setReadNegativeStrandFlag(!record.getReadNegativeStrandFlag());
+				}
+				//Second read is the transcription read change the orientation of the first read
+				else if(txnRead.equals(TranscriptionRead.SECOND_OF_PAIR) && record.getFirstOfPairFlag()){
+						record.setReadNegativeStrandFlag(!record.getReadNegativeStrandFlag());
+				}//UNSTRANDED: DO nothing
+				
+				//writer.addAlignment(record); MG: We need to be consistent how we write alignments
+				addRecord(record);
+			}
+			// read is paired && mate is mapped	
+			else{
+				//SINCE THIS IS SORTED BY QUERY NAME, WE DON'T NEED A TEMP COLLECTION. ALL WE'LL NEED IS THIS READ AND THE NEXT
+				// temp collection is kept here JUST for the pair
+				//create or get the existing pair
+				if(prevName==null){
+					//make new AlignmentPair
+					pair = new AlignmentPair();
+					prevName = name;
+				}
+				else{
+					if(!prevName.equals(name)){
+						if(pair.hasEntries()){													
+							Collection<SAMRecord> fragmentRecords = pair.makePairs();
+							//write to output
+							writeAll(fragmentRecords);
+						}
+						//make new AlignmentPair
+						pair = new AlignmentPair();
+						prevName = name;
+					}
+				}
+				//add to pair
+				if(passesDistanceChecks(record)){				
+					pair.add(record);
+				}
+			}	
+			numRead++;
+			if(numRead % 1000000 == 0) {
+				logger.info("Processed " + numRead + " reads, free mem: " + Runtime.getRuntime().freeMemory() );//+ " tempCollection size : " + tempCollection.size()+" on "+record.getReferenceName());
+			}
+		}
+		if(pair.hasEntries()){
+			Collection<SAMRecord> fragmentRecords = pair.makePairs();
+			//write to output
+			writeAll(fragmentRecords);
+		}
+		
+		//Write remainder
+//		writeRemainder(tempCollection);
+		
+		close();
+	}
 	
 	/**
 	 * This function checks whether the given record and its mate:
@@ -240,7 +347,8 @@ public class PairedEndWriter {
 			
 			if(pair.hasValue1() && pair.hasValue2()){
 				//throw new IllegalStateException("There are samples in both pairs that are unaccounted for: "+name);
-				logger.error("There are samples in both pairs that are unaccounted for: "+name);
+				//
+				//logger.error("There are samples in both pairs that are unaccounted for: "+name);
 				
 				Collection<SAMRecord> fragmentRecords = tempCollection.get(name).makePairs();
 				//write to output
@@ -357,14 +465,29 @@ public class PairedEndWriter {
 				}
 			}
 //		}
-
-		if (encoded) writer.addAlignment(record);
+		if (encoded){
+			writer.addAlignment(record);
+		}
+		else{
+			logger.info("encoded is false");
+		}
 	}
 	
 	
 	public void close() {
-		writer.close();
 		
+		writer.close();
+/*		reader = new SAMFileReader(new File(this.output+".temp.bam"));
+		header = reader.getFileHeader();
+	    header.setSortOrder(SortOrder.coordinate);
+		final SAMFileWriter writer2 = new SAMFileWriterFactory().makeSAMOrBAMWriter(header, false, new File(this.output));
+	    for (final SAMRecord rec: reader) {
+	    	writer2.addAlignment(rec);
+	    }
+	    logger.info("Finished reading inputs, merging and writing to output now.");
+
+	    reader.close();
+	    writer2.close();*/
 		//Now build a BAM index
 		File transcriptomeBamIdxFile = new File( this.output + BAMIndex.BAMIndexSuffix);
 		if(transcriptomeBamIdxFile.exists()) { transcriptomeBamIdxFile.delete();}

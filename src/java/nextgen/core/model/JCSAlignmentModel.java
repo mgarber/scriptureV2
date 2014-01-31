@@ -45,15 +45,12 @@ import nextgen.core.readFilters.PairedEndFilter;
 import nextgen.core.readFilters.SameOrientationFilter;
 import nextgen.core.readFilters.SplicedReadFilter;
 import nextgen.core.readers.PairedEndReader;
-import nextgen.core.scripture.BuildScriptureCoordinateSpace;
-import nextgen.core.scripture.ScriptureScorer;
+import nextgen.core.readers.PairedEndReader.AlignmentType;
 import nextgen.core.writers.PairedEndWriter;
-import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.exception.RuntimeIOException;
 import org.apache.commons.collections15.Predicate;
 import org.broad.igv.Globals;
 
-import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.model.score.WindowProcessor;
 import nextgen.core.model.score.CountScore;
 import nextgen.core.model.score.WindowScoreIterator;
@@ -563,6 +560,7 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	private CloseableIterator<AlignmentCount> getOverlappingReadCounts(String chr) {
 		//get Alignments over the whole region
 		Annotation region=coordinateSpace.getReferenceAnnotation(chr);
+//		logger.info("Calculating for:"+region.toBED());
 		return this.cache.query(region, false, this.coordinateSpace);
 	}
 	
@@ -596,6 +594,7 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		//BasicAnnotation read=new BasicAnnotation(record.getChr(), record.getFragmentStart(), record.getFragmentEnd());
 		
 		for(Window window: windowCS){
+//			logger.info("In overlapsWindow:"+window.toBED());
 			if (((!fullyContained && window.overlaps(record)) || (fullyContained && window.contains(record)))) { //TODO I think we should be testing record.overlaps(window)
 			//if ((!fullyContained && record.overlaps(window)) || (fullyContained && window.contains(record))) { //TODO I think we should be testing record.overlaps(window)
 					
@@ -630,7 +629,8 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	
 	public boolean isValid(Alignment read) {
 		// TODO replace with Predicates#and
-		
+		if(read==null)
+			return false;
 		for(Predicate<Alignment> filter: this.readFilters){
 			boolean passes=filter.evaluate(read);
 			if(!passes){return false;}
@@ -1444,6 +1444,14 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		CloseableIterator<AlignmentCount> iter=getOverlappingReadCounts(region,false);
 		double result = getCount(iter, excluded);
 		return result;
+	}
+	
+	/**
+	 * Returns the alignment type of the model
+	 * @return
+	 */
+	public AlignmentType getAlignmentType(){
+		return reader.getAlignmentType();
 	}
 	
 	public static void main(String[] args)throws IOException{

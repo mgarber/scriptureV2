@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.logging.Logger;
 
 import org.broad.igv.Globals;
 
@@ -18,16 +17,16 @@ import broad.core.util.CLUtil.ArgumentMap;
 import net.sf.picard.util.Log;
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMFileReader;
+import net.sf.samtools.SAMFileWriter;
+import net.sf.samtools.SAMFileWriterFactory;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMRecordIterator;
 import net.sf.samtools.SAMSequenceRecord;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.ChromosomeInconsistencyException;
-import nextgen.core.alignment.FragmentAlignment;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.alignment.PairedEndAlignmentFactory;
-import nextgen.core.alignment.PairedReadAlignment;
 import nextgen.core.alignment.SingleEndAlignment;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.writers.PairedEndWriter;
@@ -75,7 +74,7 @@ public class PairedEndReader {
 		setFragmentFlag(fra);
 	}
 	
-	private static AlignmentType getAlignmentType(SAMFileHeader header) {
+	public static AlignmentType getAlignmentType(SAMFileHeader header) {
 		//check if it is paired end with our modified record
 		Object isPairedEndFormat=header.getAttribute(PairedEndWriter.mateLineFlag);
 		return (isPairedEndFormat != null) ? AlignmentType.PAIRED_END : AlignmentType.SINGLE_END;
@@ -407,6 +406,7 @@ public class PairedEndReader {
 			log.info("no strand");
 		//String bamFile = argMap.getMandatory("alignment");
 		String bamFile = getOrCreatePairedEndFile(argMap.getMandatory("alignment"),strand);
+    	
 		String file = PairedEndReader.getPairedEndFile(bamFile);
 		if (file == null) {
 			file = PairedEndWriter.getDefaultFile(bamFile);
