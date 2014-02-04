@@ -72,7 +72,9 @@ public class SampleData {
 		read1TranscriptionStrand = firstReadTranscriptionStrand;
 		StringParser p = new StringParser();
 		p.parse(bamFile, "\\.");
-		sampleName = p.asString(0);
+		String withoutSuffix = p.asString(0);
+		p.parse(withoutSuffix, "/");
+		sampleName = p.asString(p.getFieldCount() - 1);
 		for(int i = 1 ; i < p.getFieldCount() - 1; i++) {
 			sampleName += "." + p.asString(i);
 		}
@@ -306,7 +308,7 @@ public class SampleData {
 		logger.debug("WINDOW_TO_TRIM\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\t" + coverageString);
 		
 		if(window.getSize() != data.size()) {
-			throw new IllegalArgumentException("Annotation and data must have same size. Name=" + window.getName() + " " + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + " size=" + window.getSize() + " data_size=" + data.size());
+			throw new IllegalArgumentException(window.toBED() + "\nAnnotation and data must have same size. Size=" + window.getSize() + " Data_size=" + data.size());
 		}
 		
 		

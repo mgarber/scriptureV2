@@ -1,5 +1,8 @@
 package nextgen.core.capture;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -44,6 +47,11 @@ public class OligoPool {
 	private Collection<Oligo> oligos;
 	private int primerSize;
 	private String primer3corePath;
+	/**
+	 * BufferedReader for file containing list of primers in format produced by PrimerPair.getPrimerFieldsAsStringForConstructor(), or null if not using
+	 */
+	private BufferedReader primerReader;
+	private double optimalTm;
 	
 	/**
 	 * @param config Config file
@@ -63,6 +71,8 @@ public class OligoPool {
 		poolScheme = getPoolSchemeFromConfigFile();
 		primerSize = getPrimerSizeFromConfigFile();
 		primer3corePath = getPrimer3PathFromConfigFile();
+		optimalTm = getOptimalTmFromConfigFile();
+		primerReader = getPrimerReaderFromConfigFile();
 		logger.info("");
 		logger.info("Getting probe filters...");
 		probeFilters = getProbeFiltersFromConfigFile();
@@ -100,6 +110,10 @@ public class OligoPool {
 	private static ConfigFileOption primerSizeOption = new ConfigFileOption(primerSizeOptionFlag, 2, false, false, true);
 	private static String primer3corePathOptionFlag = "primer3_core_path";
 	private static ConfigFileOption primer3corePathOption = new ConfigFileOption(primer3corePathOptionFlag, 2, false, false, true);
+	private static String optimalTmOptionFlag = "optimal_tm_for_primers";
+	private static ConfigFileOption optimalTmOption = new ConfigFileOption(optimalTmOptionFlag, 2, false, false, true);
+	private static String primerFileOptionFlag = "primer_file";
+	private static ConfigFileOption primerFileOption = new ConfigFileOption(primerFileOptionFlag, 2, false, false, false);
 	/**
 	 * Probe filter option flag
 	 */
@@ -118,6 +132,8 @@ public class OligoPool {
 		arraySchemeSection.addAllowableOption(poolSchemeOption);
 		arraySchemeSection.addAllowableOption(primerSizeOption);
 		arraySchemeSection.addAllowableOption(primer3corePathOption);
+		arraySchemeSection.addAllowableOption(optimalTmOption);
+		arraySchemeSection.addAllowableOption(primerFileOption);
 		sequencesSection.addAllowableOption(sequenceFastaOption);
 		probeFiltersSection.addAllowableOption(probeFilterOption);
 		primerFiltersSection.addAllowableOption(primerFilterOption);
@@ -154,7 +170,7 @@ public class OligoPool {
 		throw new IllegalArgumentException("Probe filter not connected to this method: " + value.getFullOptionLine() + ". Need to implement.");
 	}
 
-	private static PrimerFilter getPrimerFilterFromConfigFileValue(@SuppressWarnings("unused") ConfigFileOptionValue value) {
+	private static PrimerFilter getPrimerFilterFromConfigFileValue(ConfigFileOptionValue value) {
 		
 		// Add additional filter classes to this array:
 		PrimerFilter[] filters = new PrimerFilter[] { new PolyBaseFilter() };
@@ -208,7 +224,7 @@ public class OligoPool {
 		for (PoolScheme scheme : schemes) {
 			if (scheme.validConfigFileValue(poolSchemeVal)) {
 				scheme.setFromConfigFile(configFile);
-				logger.info("Got pool scheme " + scheme.toString());
+				logger.info("Got pool scheme " + scheme.name());
 				return scheme;
 			}
 		}
@@ -227,6 +243,23 @@ public class OligoPool {
 		ConfigFileOptionValue pathVal = configFile.getSingleValue(arraySchemeSection, primer3corePathOption);
 		String rtrn = pathVal.asString(1);
 		logger.info("Primer3 executable is " + rtrn + ".");
+		return rtrn;
+	}
+	
+	private BufferedReader getPrimerReaderFromConfigFile() throws FileNotFoundException {
+		if(!configFile.hasOption(arraySchemeSection, primerFileOption)) {
+			return null;
+		}
+		ConfigFileOptionValue val = configFile.getSingleValue(arraySchemeSection, primerFileOption);
+		String name = val.asString(1);
+		FileReader r = new FileReader(name);
+		return new BufferedReader(r);
+	}
+	
+	private double getOptimalTmFromConfigFile() {
+		ConfigFileOptionValue val = configFile.getSingleValue(arraySchemeSection, optimalTmOption);
+		double rtrn = val.asDouble(1);
+		logger.info("Optimal TM is " + rtrn + ".");
 		return rtrn;
 	}
 	
@@ -270,13 +303,14 @@ public class OligoPool {
 		
 		// Output statistics about which filters are removing probes
 		// TODO:  Move this to the ProbeLayout or ProbeSet code so you can control how to aggregate the stats
-		FileWriter w = new FileWriter(outFilePrefix + ".filter_results.txt");
+		FileWriter w = new FileWriter(outFilePrefix + "_filter_results.out");
 		w.write("ProbeSet\tpassed");
 		for (ProbeFilter filter : probeFilters) {
 			w.write("\t" + filter.toString());
 			filter.setup(probeSets);
 		}
 		w.write("\n");
+		
 		
 		int removed = 0;
 		int remaining = 0;
@@ -323,7 +357,7 @@ public class OligoPool {
 			boolean foundPrimer = false;
 			while(!foundPrimer) {
 				boolean rejected = false;
-				PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(primerSize, primer3corePath);
+				PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(primerSize, primer3corePath, optimalTm, primerReader, null);
 				tried++;
 				for(PrimerFilter filter : primerFilters) {
 					if(filter.rejectPrimer(primer, probeSet)) {
@@ -333,7 +367,7 @@ public class OligoPool {
 				if(!rejected) {
 					// Primer is OK
 					for(Probe probe : probeSet.getProbes()) {
-						Oligo oligo = new Oligo(probe, primer);
+						Oligo oligo = new Oligo(probe, probeSet, primer);
 						oligos.add(oligo);
 					}
 					succeeded++;
@@ -396,6 +430,7 @@ public class OligoPool {
 		FileWriter w = new FileWriter(outFile);
 		for(Oligo oligo : oligos) {
 			if (oligo.getOligoBases().toUpperCase().indexOf("GNIL") != -1) {
+				w.close();
 				throw new IllegalArgumentException("found GNIL");
 			}
 			w.write(oligo.getOligoBases() + "\n");
@@ -407,7 +442,7 @@ public class OligoPool {
 		logger.info("Writing primers to file " + outFile);
 		Map<PrimerPair, String> layoutsByPrimer = new TreeMap<PrimerPair, String>();
 		for(Oligo oligo : oligos) {
-			String layout = oligo.getProbe().getProbeLayout().toString();
+			String layout = oligo.getProbeSet().getName();
 			layoutsByPrimer.put(oligo.getPrimer(), layout);
 		}
 		String header = "Probe_layout\t";
@@ -416,7 +451,7 @@ public class OligoPool {
 		FileWriter w = new FileWriter(outFile);
 		w.write(header + "\n");
 		for(PrimerPair p : layoutsByPrimer.keySet()) {
-			String line = layoutsByPrimer.get(p).toString() + "\t";
+			String line = layoutsByPrimer.get(p) + "\t";
 			line += p.getLeftPrimer() + "\t";
 			line += p.getRightPrimer() + "\t";
 			w.write(line + "\n");
@@ -485,6 +520,11 @@ public class OligoPool {
 		
 		// Write files
 		oligoPool.writeFiles(outFilePrefix);
+		
+		// Close primer file reader
+		if(oligoPool.primerReader != null) {
+			oligoPool.primerReader.close();
+		}
 		
 		logger.info("");
 		logger.info("All done.");

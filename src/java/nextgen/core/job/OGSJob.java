@@ -3,6 +3,8 @@ package nextgen.core.job;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 import nextgen.core.pipeline.OGSUtils;
 
@@ -24,6 +26,7 @@ public class OGSJob implements Job {
 	File scriptFile;
 	private static Logger logger = Logger.getLogger(OGSJob.class.getName());
 	private boolean deleteScriptAfterSubmitting;
+	private String command;
 	
 	/**
 	 * @param drmaaSession DRMAA session
@@ -33,7 +36,21 @@ public class OGSJob implements Job {
 	 */
 	public OGSJob(Session drmaaSession, String cmmd) throws DrmaaException, IOException {
 		this(drmaaSession, OGSUtils.createScriptFile(cmmd), true);
+		command = cmmd;
 	}
+	
+	/**
+	 * @param drmaaSession DRMAA session
+	 * @param cmmd Command to submit
+	 * @param jobName A simple name for the job e.g. to identify it in output files
+	 * @throws DrmaaException
+	 * @throws IOException
+	 */
+	public OGSJob(Session drmaaSession, String cmmd, String jobName) throws DrmaaException, IOException {
+		this(drmaaSession, OGSUtils.createScriptFile(cmmd), true, jobName);
+		command = cmmd;
+	}
+
 
 	/**
 	 * @param drmaaSession DRMAA session
@@ -44,6 +61,7 @@ public class OGSJob implements Job {
 	 */
 	public OGSJob(Session drmaaSession, String cmmd, boolean deleteScriptFileAfterSubmitting) throws DrmaaException, IOException {
 		this(drmaaSession, OGSUtils.createScriptFile(cmmd), deleteScriptFileAfterSubmitting);
+		command = cmmd;
 	}
 
 	/**
@@ -55,9 +73,38 @@ public class OGSJob implements Job {
 	 * @throws IOException
 	 */
 	public OGSJob(Session drmaaSession, String cmmd, String scriptFileName, boolean deleteScriptFileAfterSubmitting) throws DrmaaException, IOException {
-		this(drmaaSession, OGSUtils.createScriptFile(cmmd, scriptFileName), deleteScriptFileAfterSubmitting);
+		this(drmaaSession, OGSUtils.createScriptFile(cmmd, scriptFileName), deleteScriptFileAfterSubmitting, null);
+		command = cmmd;
 	}
-	
+
+	/**
+	 * @param drmaaSession DRMAA session
+	 * @param cmmd Command to submit
+	 * @param scriptFileName Script file to create with the command
+	 * @param jobName A simple name for the job e.g. to identify it in output files
+	 * @param deleteScriptFileAfterSubmitting Delete the script file after submitting job
+	 * @throws DrmaaException
+	 * @throws IOException
+	 */
+	public OGSJob(Session drmaaSession, String cmmd, boolean deleteScriptFileAfterSubmitting, String jobName) throws DrmaaException, IOException {
+		this(drmaaSession, OGSUtils.createScriptFile(cmmd, null), deleteScriptFileAfterSubmitting, jobName);
+		command = cmmd;
+	}
+
+	/**
+	 * @param drmaaSession DRMAA session
+	 * @param cmmd Command to submit
+	 * @param scriptFileName Script file to create with the command
+	 * @param jobName A simple name for the job e.g. to identify it in output files
+	 * @param deleteScriptFileAfterSubmitting Delete the script file after submitting job
+	 * @throws DrmaaException
+	 * @throws IOException
+	 */
+	public OGSJob(Session drmaaSession, String cmmd, String scriptFileName, boolean deleteScriptFileAfterSubmitting, String jobName) throws DrmaaException, IOException {
+		this(drmaaSession, OGSUtils.createScriptFile(cmmd, scriptFileName), deleteScriptFileAfterSubmitting, jobName);
+		command = cmmd;
+	}
+
 	/**
 	 * @param drmaaSession DRMAA session
 	 * @param script Script file to submit
@@ -65,19 +112,48 @@ public class OGSJob implements Job {
 	 * @throws DrmaaException
 	 */
 	public OGSJob(Session drmaaSession, File script, boolean deleteScriptFileAfterSubmitting) throws DrmaaException {
-		this(drmaaSession, script, null, false);
+		this(drmaaSession, script, null, deleteScriptFileAfterSubmitting, null);
+	}
+
+	/**
+	 * @param drmaaSession DRMAA session
+	 * @param script Script file to submit
+	 * @param jobName A simple name for the job e.g. to identify it in output files
+	 * @param deleteScriptFileAfterSubmitting Delete the script file after submitting job
+	 * @throws DrmaaException
+	 */
+	public OGSJob(Session drmaaSession, File script, boolean deleteScriptFileAfterSubmitting, String jobName) throws DrmaaException {
+		this(drmaaSession, script, null, deleteScriptFileAfterSubmitting, jobName);
 	}
 	
 	/**
 	 * @param drmaaSession DRMAA session
 	 * @param script Script file to submit
 	 * @param args Arguments to script
+	 * @param jobName A simple name for the job e.g. to identify it in output files
 	 * @param deleteScriptFileAfterSubmitting Delete the script file after submitting job
 	 * @throws DrmaaException
 	 */
-	public OGSJob(Session drmaaSession, File script, List<String> args, boolean deleteScriptFileAfterSubmitting) throws DrmaaException {
+	public OGSJob(Session drmaaSession, File script, List<String> args, boolean deleteScriptFileAfterSubmitting, String jobName) throws DrmaaException {
 		session = drmaaSession;
+		
+		// Set up the job template
 		jobTemplate = session.createJobTemplate();
+		String workingDirectory = System.getProperty("user.dir");
+		jobTemplate.setWorkingDirectory(workingDirectory);
+		String time = Long.valueOf(System.currentTimeMillis()).toString();
+		String uniqueName = jobName == null ? "OGS_job_" + time : jobName + "_" + time;
+		jobTemplate.setJobName(uniqueName);
+		jobTemplate.setErrorPath(":" + uniqueName + ".err");
+		jobTemplate.setOutputPath(":" + uniqueName + ".out");
+		// Use the current environment variables
+		Map<String, String> environment = System.getenv();
+		Properties properties = new Properties();
+		for(String varName : environment.keySet()) {
+			properties.setProperty(varName, environment.get(varName));
+		}
+		jobTemplate.setJobEnvironment(properties);
+		
 		scriptFile = script;
 		jobTemplate.setRemoteCommand(scriptFile.getAbsolutePath());
 		if(args != null) jobTemplate.setArgs(args);
@@ -93,23 +169,48 @@ public class OGSJob implements Job {
 	
 	@Override
 	public String getID() {
+		if(jobID == null) {
+			throw new IllegalStateException("OGS job doesn't have ID until submitted");
+		}
 		return jobID;
 	}
 
 	@Override
 	public void submit() throws IOException, InterruptedException, DrmaaException {
 		jobID = session.runJob(jobTemplate);
-		logger.info("Job submitted with ID " + jobID);
+		logger.info("Job submitted with system-assigned ID " + jobID + " and name " + jobTemplate.getJobName() + ".");
+		if(command != null) {
+			logger.info("Command: " + command);
+		}
 		session.deleteJobTemplate(jobTemplate);
-		if(deleteScriptAfterSubmitting) OGSUtils.deleteScriptFile(scriptFile);
+		// Attach a shutdown hook to delete the script when the program has finished running
+		// If it is deleted right after submission, the job will fail
+		if(deleteScriptAfterSubmitting) {
+			Runtime.getRuntime().addShutdownHook(new Thread() {
+				@Override
+				public void run() {
+					OGSUtils.deleteScriptFile(scriptFile);					
+				}
+			});
+		}
 	}
 
+	/**
+	 * The routine reaps jobs on a successful call, so any subsequent calls to waitFor() will fail, throwing an InvalidJobException, meaning that the job has already been reaped. This exception is the same as if the job were unknown.
+	 */
 	@Override
 	public void waitFor() throws IOException, InterruptedException, DrmaaException {
-		@SuppressWarnings("unused")
+		logger.info("Waiting for job " + jobID + "...");
 		JobInfo info = session.wait(jobID, Session.TIMEOUT_WAIT_FOREVER);
+		logger.info("Done waiting for job. Exit status " + info.getExitStatus() + ".");
+		if(info.hasSignaled() || info.wasAborted() || info.getExitStatus() != 0) {
+			throw new IllegalStateException("Job " + jobID + " failed.");
+		}
 	}
 
+	/**
+	 * The routine reaps jobs on a successful call, so any subsequent calls to waitFor() will fail, throwing an InvalidJobException, meaning that the job has already been reaped. This exception is the same as if the job were unknown.
+	 */
 	@Override
 	public void waitFor(int interval) throws IOException, InterruptedException, DrmaaException {
 		waitFor();

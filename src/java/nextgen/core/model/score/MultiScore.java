@@ -6,8 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang3.StringUtils;
-
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.CoordinateSpace;

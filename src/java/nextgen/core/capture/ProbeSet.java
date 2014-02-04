@@ -11,28 +11,34 @@ import java.util.TreeSet;
 public class ProbeSet {
 	
 	private Collection<Probe> probes;
+	private String name;
 	
 	/**
-	 * Instantiate empty probe set
+	 * @param probeSetName Name of this probe set
 	 */
-	public ProbeSet() {
+	public ProbeSet(String probeSetName) {
 		probes = new TreeSet<Probe>();
+		name = probeSetName;
 	}
 	
 	/**
 	 * @param probe Single probe to initialize with
+	 * @param probeSetName Name of this probe set
 	 */
-	public ProbeSet(Probe probe) {
+	public ProbeSet(Probe probe, String probeSetName) {
 		probes = new TreeSet<Probe>();
 		probes.add(probe);
+		name = probeSetName;
 	}
 	
 	/**
 	 * @param probeSet Collection of probes to initialize with
+	 * @param probeSetName Name of this probe set
 	 */
-	public ProbeSet(Collection<Probe> probeSet) {
+	public ProbeSet(Collection<Probe> probeSet, String probeSetName) {
 		probes = new TreeSet<Probe>();
 		probes.addAll(probeSet);
+		name = probeSetName;
 	}
 	
 	/**
@@ -48,6 +54,7 @@ public class ProbeSet {
 	public void addAll(ProbeSet other) {
 		probes.addAll(other.probes);
 	}
+	
 	
 	/**
 	 * @param probe Probe to remove
@@ -71,6 +78,14 @@ public class ProbeSet {
 	 */
 	public Iterator<Probe> iter() {
 		return probes.iterator();
+	}
+	
+	public String getName() {
+		return name;
+	}
+	
+	public void setName(String newName) {
+		name = newName;
 	}
 	
 }

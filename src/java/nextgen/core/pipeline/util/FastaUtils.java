@@ -7,9 +7,12 @@ import java.util.Collection;
 
 
 import nextgen.core.job.LSFJob;
+import nextgen.core.job.OGSJob;
 import nextgen.core.pipeline.Scheduler;
 
 import org.apache.log4j.Logger;
+import org.ggf.drmaa.DrmaaException;
+import org.ggf.drmaa.Session;
 
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
@@ -27,11 +30,13 @@ public class FastaUtils {
 	 * @param fastaFileName The fasta file to index
 	 * @param samtoolsExecutable Path to samtools executable
 	 * @param scheduler Scheduler
+     * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method.
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void indexFastaFile(String fastaFileName, String samtoolsExecutable, Scheduler scheduler) throws IOException, InterruptedException {
-		indexFastaFile(fastaFileName, samtoolsExecutable, ".", scheduler);
+	public static void indexFastaFile(String fastaFileName, String samtoolsExecutable, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
+		indexFastaFile(fastaFileName, samtoolsExecutable, ".", scheduler, drmaaSession);
 	}
 	
 	/**
@@ -40,10 +45,12 @@ public class FastaUtils {
 	 * @param samtoolsExecutable Path to samtools executable
 	 * @param bsubOutDir Directory to write bsub output to
 	 * @param scheduler Scheduler
+     * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method.
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	public static void indexFastaFile(String fastaFileName, String samtoolsExecutable, String bsubOutDir, Scheduler scheduler) throws IOException, InterruptedException {
+	public static void indexFastaFile(String fastaFileName, String samtoolsExecutable, String bsubOutDir, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
 		String cmmd = samtoolsExecutable + " faidx " + fastaFileName;
 		logger.info("Running samtools command: " + cmmd);
 		switch(scheduler) {
@@ -55,6 +62,16 @@ public class FastaUtils {
 			logger.info("Waiting for samtools faidx job to finish...");
 			job.waitFor();
 			break;
+        case OGS:
+            if(drmaaSession == null) {
+                    throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+            }
+            OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "index_fasta");
+            ogsJob.submit();
+            logger.info("OGS job ID is " + ogsJob.getID() + ".");
+			logger.info("Waiting for samtools faidx job to finish...");
+			ogsJob.waitFor();
+            break;
 		default:
 			throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 		}

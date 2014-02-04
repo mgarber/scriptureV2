@@ -1,4 +1,4 @@
-package nextgen.editing;
+package nextgen.editing.crispr;
 
 import java.io.BufferedWriter;
 import java.io.File;

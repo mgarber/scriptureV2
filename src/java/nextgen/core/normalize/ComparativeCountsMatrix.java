@@ -88,7 +88,7 @@ public class ComparativeCountsMatrix {
 	 * @param normalizationName Name of normalization to use for numerator and denominator
 	 * @throws IOException
 	 */
-	public ComparativeCountsMatrix(String controlBamFile, ArrayList<String> sampleBamFiles, String chrSizeFile, Map<String, Collection<Gene>> genes, boolean fullyContained, String normalizationName) throws IOException {
+	public ComparativeCountsMatrix(String controlBamFile, List<String> sampleBamFiles, String chrSizeFile, Map<String, Collection<Gene>> genes, boolean fullyContained, String normalizationName) throws IOException {
 		
 		TranscriptomeSpace coordSpace = new TranscriptomeSpace(genes);
 		normalizationBySampleName = new TreeMap<String, NormalizedCount>();

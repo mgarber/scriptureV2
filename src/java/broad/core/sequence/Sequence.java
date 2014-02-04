@@ -8,10 +8,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import nextgen.core.annotation.Annotation;
+import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.Gene;
 
@@ -495,6 +497,13 @@ public class Sequence {
 		forwardStrand = false;
 	}
 	
+	public static Sequence reverseSequence(Sequence seq) {
+		String r = reverseSequence(seq.getSequenceBases());
+		Sequence rtrn = new Sequence(seq.getId() + "_reverse");
+		rtrn.setSequenceBases(r);
+		return rtrn;
+	}
+	
 	public static String reverseSequence(String seq) {
 		Sequence tmpSeq = new Sequence("tmp");
 		tmpSeq.setSequenceBases(seq);
@@ -701,7 +710,58 @@ public class Sequence {
 		}
 		return buf.toString();
 	}
-
+	
+	/**
+	 * Get all matches for a string as annotations with respect to this sequence
+	 * Search a window
+	 * Case is ignored
+	 * @param s The string
+	 * @param windowStart Start position of window to search
+	 * @param windowEnd End of window to search
+	 * @param includeRC Also search for reverse complement of string
+	 * @return Collection of annotations representing string matches
+	 */
+	public Collection<Annotation> getMatches(String s, int windowStart, int windowEnd, boolean includeRC) {
+		Sequence window = getSubSequence("", windowStart, windowEnd);
+		String seqString = window.getSequenceBases().toUpperCase();
+		String upper = s.toUpperCase();
+		Collection<Annotation> rtrn = new ArrayList<Annotation>();
+		int i = 0;
+		while(i < seqString.length()) {
+			int pos = seqString.indexOf(upper, i);
+			if(pos == -1) {
+				break;
+			}
+			if(pos + s.length() > seqString.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation annot = new BasicAnnotation(getId(), windowStart + pos, windowStart + pos + s.length(), Strand.POSITIVE);
+			rtrn.add(annot);
+			i = pos + 1;
+		}
+		if(includeRC) {
+			String rc = Sequence.reverseSequence(upper);
+			int j = 0;
+			while(j < seqString.length()) {
+				int pos = seqString.indexOf(rc, j);
+				if(pos == -1) {
+					break;
+				}
+				if(pos + s.length() > seqString.length()) {
+					// Won't be fully contained
+					break;
+				}
+				// Create annotation
+				Annotation annot = new BasicAnnotation(getId(), windowStart + pos, windowStart + pos + s.length(), Strand.POSITIVE);
+				rtrn.add(annot);
+				j = pos + 1;
+			}
+		}
+		return rtrn;
+	}
+	
 	public Sequence getSubSequence(SequenceRegion region, int extension) {
 		String subSeq=sequenceBases.substring(Math.max(region.getStart()-extension, 0), Math.min(region.getEnd()+extension, sequenceBases.length()));
 		Sequence seq=new Sequence(region.getName());
@@ -761,6 +821,9 @@ public class Sequence {
 	 * @return Sequence with same name as annotation containing the transcribed sequence
 	 */
 	public Sequence getSubsequence(Annotation annot) {
+		if(annot.getOrientation().equals(Strand.UNKNOWN)) {
+			throw new IllegalArgumentException("Strand must be known");
+		}
 		List<? extends Annotation> blocks = annot.getBlocks();
 		Sequence seq = new Sequence(annot.getName());
 		for(Annotation block : blocks) {
@@ -849,6 +912,34 @@ public class Sequence {
 		}
 		return kmers;
 	}
+	
+	/**
+	 * Get all kmers composed of the bases A, C, G, T
+	 * @param k K
+	 * @return All 4^k kmers
+	 */
+	public static Collection<String> generateAllKmers(int k) {
+		if(k < 1) {
+			throw new IllegalArgumentException("K must be >= 1");
+		}
+		if(k == 1) {
+			Collection<String> rtrn = new ArrayList<String>();
+			rtrn.add("A");
+			rtrn.add("C");
+			rtrn.add("G");
+			rtrn.add("T");
+			return rtrn;
+		}
+		Collection<String> prefixes = generateAllKmers(k-1);
+		Collection<String> rtrn = new TreeSet<String>();
+		for(String prefix : prefixes) {
+			rtrn.add(prefix + "A");
+			rtrn.add(prefix + "C");
+			rtrn.add(prefix + "G");
+			rtrn.add(prefix + "T");
+		}
+		return rtrn;
+	}
 
 	public static String complement(String seq) {
 		char[] bases=seq.toCharArray();
@@ -926,7 +1017,7 @@ public class Sequence {
 	 * Gvien a kmer size, it builds a map of all kmers found
 	 * @param kmer
 	 */
-	public Map<String, KmerInfo> buildKamerMap(int kmer) {
+	public Map<String, KmerInfo> buildKmerMap(int kmer) {
 		Map<String, KmerInfo> kmerData = new HashMap<String, KmerInfo>();
 		String bases = getSequenceBases();
 		logger.debug("Got sequence bases");

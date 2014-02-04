@@ -73,6 +73,7 @@ public class AddEndRNASeqToScripture {
 	private double THRESHOLD = 7.0;
 	private static final double DEFAULT_THRESHOLD = 7.0;
 	private boolean singleEnd3p;
+	private boolean singleEnd5p;
 	
 	static final String usage = "Usage: AddEndRNASeqToScripture -task <task name> "+
 			"\n\tcompleteTranscripts"+
@@ -109,7 +110,8 @@ public class AddEndRNASeqToScripture {
 			"\n\t\t-extension <Specifies the size of the fixed window use to scan the genome. We recommend a size of 2-5bp for better resolution of gene ends> "+
 			"\n\t\t-strand3p <Specifies the mate that is in the direction of trnascription for 3' data. Options: first,second,unstranded. Default: Unstranded> "+
 			"\n\t\t-strand5p <Specifies the mate that is in the direction of trnascription for 5' data. Options: first,second,unstranded. Default: Unstranded> "+
-			"\n\t\t-singleEnd <if specified, means that 3' data is single end"+
+			"\n\t\t-singleEnd3p <if specified, means that 3' data is single end"+
+			"\n\t\t-singleEnd5p <if specified, means that 5' data is single end"+
 			"\n";
 	
 	/**
@@ -172,7 +174,7 @@ public class AddEndRNASeqToScripture {
 		}	
 
 		//Determine if 3' end is single ended
-		if(argMap.isPresent("singleEnd")){
+		if(argMap.isPresent("singleEnd3p")){
 			logger.info("3' data is single ended");
 			singleEnd3p=true;
 		}
@@ -206,8 +208,18 @@ public class AddEndRNASeqToScripture {
 			else
 				logger.warn("5' data is unstranded");
 		}	
-
-		AlignmentModel model=new AlignmentModel(new File(argMap.getMandatory("5p")).getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand5p,false); 
+		
+		//Determine if 3' end is single ended
+		if(argMap.isPresent("singleEnd5p")){
+			logger.info("5' data is single ended");
+			singleEnd5p=true;
+		}
+		else{
+			logger.info("5' data is paired ended");
+			singleEnd5p =false;
+		}		
+				
+		AlignmentModel model=new AlignmentModel(new File(argMap.getMandatory("5p")).getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),!singleEnd5p,strand5p,false); 
 		
 		return model;
 	}
@@ -402,9 +414,15 @@ public class AddEndRNASeqToScripture {
 						bestExtension = extension;
 					}
 					if(gene.isNegativeStrand()){
+						if((gene.getEnd()+bestExtension)>model3p.getCoordinateSpace().getReferenceAnnotation(chr).getEnd()){
+							bestExtension=model3p.getCoordinateSpace().getReferenceAnnotation(chr).getEnd()-gene.getEnd();
+						}
 						end = bestExtension;
 					}
 					else{
+						if((gene.getStart()-bestExtension)<0){
+							bestExtension=gene.getStart();
+						}
 						start = bestExtension;
 					}
 					Gene ge = gene.copy();
@@ -434,10 +452,16 @@ public class AddEndRNASeqToScripture {
 						bestExtension = extension;
 					}
 					if(gene.isNegativeStrand()){
+						if((gene.getStart()-bestExtension)<0){
+							bestExtension=gene.getStart();
+						}
 						start = bestExtension;
 						//
 					}
 					else{
+						if((gene.getEnd()+bestExtension)>model3p.getCoordinateSpace().getReferenceAnnotation(chr).getEnd()){
+							bestExtension=model3p.getCoordinateSpace().getReferenceAnnotation(chr).getEnd()-gene.getEnd();
+						}
 						end = bestExtension;
 					}
 					//logger.info("Start: "+start+" End: "+end);
@@ -1066,6 +1090,7 @@ public class AddEndRNASeqToScripture {
 	
 	private double get5pWindowCount(Annotation window,Strand orientation){
 		double windowCount = 0.0;
+		//EVEN IF SINGLE END, 5' DATA IN SAME ORIENTATION
 		//Get the reads in the window
 		window.setOrientation(orientation);
 		//Iterator<AlignmentCount> readiter = model5p.getOverlappingReadCountsStranded(window, false);
@@ -1136,7 +1161,7 @@ public class AddEndRNASeqToScripture {
 			//Get the reads in the window
 			//For each block in the window
 			for(Annotation block: window.getBlocks()){
-				
+				block.setOrientation(window.getOrientation());
 				CloseableIterator<Alignment> readiter = model5p.getOverlappingReads(block,false);
 				//for all reads in the window
 				while(readiter.hasNext()){
@@ -1202,8 +1227,7 @@ public class AddEndRNASeqToScripture {
 				//for all reads in the window
 				while(readiter.hasNext()){
 					Alignment read = readiter.next();
-					//Orientation for the 3p models will be set already on opposite mate of 5p models 
-					//So sae checks as 5p models
+					//Orientation for the 3p models will be set already on opposite mate of 5p models OR if SINGLE END, orientation NOT changed.
 					if(passesEndChecks(read,window,annotation.getOrientation())){
 						windowCount += read.getWeight();
 					}				
@@ -1245,13 +1269,23 @@ public class AddEndRNASeqToScripture {
 		
 		if(SingleEndAlignment.class.isInstance(read)){
 			SingleEndAlignment align = (SingleEndAlignment) read;
-			//Check if read is the correct read
-			//if read starts in window
-			if(((strand5p==(TranscriptionRead.FIRST_OF_PAIR) && align.getIsFirstMate()) || 
-					(strand5p==(TranscriptionRead.SECOND_OF_PAIR) && !align.getIsFirstMate())) 
-						&& (readStartFallsInWindow(read,window))
-							&& (read.getOrientation().equals(orientation))){
-				return true;
+			//if data is single end
+			if(singleEnd5p){
+				if((readStartFallsInWindow(read,window))
+						//Single end alignment. Orientation is already corrected.
+						&& (read.getOrientation().equals(orientation)))
+					return true;
+			}
+			//Single end but data is paired
+			else{
+				//Check if read is the correct read
+				//if read starts in window
+				if(((strand5p==(TranscriptionRead.FIRST_OF_PAIR) && align.getIsFirstMate()) || 
+						(strand5p==(TranscriptionRead.SECOND_OF_PAIR) && !align.getIsFirstMate())) 
+							&& (readStartFallsInWindow(read,window))
+								&& (read.getOrientation().equals(orientation))){
+					return true;
+				}
 			}
 		}
 		//ELSE PAIRED
@@ -1283,8 +1317,7 @@ public class AddEndRNASeqToScripture {
 	private boolean passesEndChecks(Alignment read,Annotation window,Strand orientation){
 		
 		if(SingleEndAlignment.class.isInstance(read)){
-			SingleEndAlignment align = (SingleEndAlignment) read;
-			
+			SingleEndAlignment align = (SingleEndAlignment) read;			
 			//if data is single end
 			if(singleEnd3p){
 				if((readStartFallsInWindow(read,window))
@@ -1292,6 +1325,7 @@ public class AddEndRNASeqToScripture {
 						&& (!read.getOrientation().equals(orientation)))
 					return true;
 			}
+			//Single end but data is paired. Thus single mates have same orientation as the transcript
 			else{
 				//Check if read is the correct read
 				//if read starts in window
@@ -1497,6 +1531,11 @@ public class AddEndRNASeqToScripture {
 		
 	}
 	
+	/**
+	 * Returns the distance to the next closest gene downstream of the current gene's 3' end
+	 * @param gene
+	 * @return
+	 */
 	public int getDistanceToClosestSameOrientation3pGene(Gene gene) {
 		IntervalTree<Gene> chrTree = intervalTrees.get(gene.getChr());
 		int closestUpstream = Integer.MAX_VALUE;
@@ -1583,6 +1622,7 @@ public class AddEndRNASeqToScripture {
 				 * FOR THIS GENE
 				 */
 				for(Gene gene:annotations.get(chr)){
+					//logger.info("Processing "+gene.getName());
 					//Make a coordinate space with the gene
 					Map<String,Collection<Gene>> chrToGenesMap = new HashMap<String,Collection<Gene>>();
 					List<Gene> g = new ArrayList<Gene>();
@@ -1592,7 +1632,7 @@ public class AddEndRNASeqToScripture {
 					
 					count++;
 					/*
-					 * IS THERE AT LEAST 1 5P END
+					 * IS THERE AT LEAST 1 3P END
 					 */
 					boolean has3pPeak = false;
 										
@@ -1623,14 +1663,17 @@ public class AddEndRNASeqToScripture {
 					double[] nulls3p = get3pNullDistribution(gs,space);
 						
 					/**
-					 * 3P 
+					 * 3P: For pileup less than 5bp, dont run
 					 */
-					if(nulls3p[2]<11){
+					if(nulls3p[2]<=5){
+						
+					}
+					else{ if(nulls3p[2]<=10){
 						THRESHOLD=15;
 					}
 					else{
 						THRESHOLD = DEFAULT_THRESHOLD;
-					}		
+//					}		
  					
 					chrToGenesMap = new HashMap<String,Collection<Gene>>();
 					g = new ArrayList<Gene>();
@@ -1704,37 +1747,40 @@ public class AddEndRNASeqToScripture {
 							}
 						}
 					}	
-
  					//Last peak
 					if(flag3p){
 						this3pPeaks.add(peak3p);
 					}
-						for(Annotation p:this3pPeaks){
-							double windowCount = get3pWindowCount(p,gene.getOrientation());
+					for(Annotation p:this3pPeaks){
+						double windowCount = get3pWindowCount(p,gene.getOrientation());
 						double zscore = Statistics.zScore(windowCount, nulls3p[0],nulls3p[1],p.getSize());
 						p.setScore(zscore);							
 						bw3pBed.write(p.toBED()+"\n");
 						bw3p.write(gene.getName()+"\t"+p.toUCSC()+"\t"+windowCount+"\t"+zscore+"\t"+calculate3pDistance(gene,p)+"\n");
 					}
- 						
- 						if(gene.getBlocks().size()==1){
-	 						if(has3pPeak){
-	 							num3pPartialSing++;
-	 						}
+				
+					if(gene.getBlocks().size()==1){
+ 						if(has3pPeak){
+ 							num3pPartialSing++;
  						}
- 						else{
-	 						if(has3pPeak){
-	 								num3pPartialMult++;
-	 						}
+					}
+					else{
+ 						if(has3pPeak){
+ 							num3pPartialMult++;
  						}
- 						if(count%1000.0==0.0){
- 							logger.info("Single: 3p = "+num3pPartialSing);
- 							logger.info("Multiple: 3p = "+num3pPartialMult);
- 						}
- 						
- 						geneTo3pPeakMap.put(gene, this3pPeaks);
-					}					
-				}
+					}
+					geneTo3pPeakMap.put(gene, this3pPeaks);
+				}}
+					if(count%1000.0==0.0){
+						logger.info("Single: 3p = "+num3pPartialSing);
+						logger.info("Multiple: 3p = "+num3pPartialMult);
+					}
+					if(count%1000.0==0.0){
+						logger.info("Processed "+count+" genes");
+					}
+					
+				}					
+			}
 			logger.info("Single: Number of 3p = "+num3pPartialSing);
 			logger.info("Multiple: Number of 3p = "+num3pPartialMult);
 		}
@@ -1782,6 +1828,7 @@ public class AddEndRNASeqToScripture {
 					CoordinateSpace space = new TranscriptomeSpace(chrToGenesMap);
 					
 					count++;
+					
 					/*
 					 * IS THERE AT LEAST 1 5P END
 					 */
@@ -1944,6 +1991,7 @@ public class AddEndRNASeqToScripture {
 		BufferedWriter bwBed = new BufferedWriter(new FileWriter(outputName+".trimmed.best.bed"));
 		BufferedWriter bw = new BufferedWriter(new FileWriter(outputName+".trimmed.summary.txt"));
 		
+		int count=0;
 		if(whichEnd.equalsIgnoreCase("3p")){
 			logger.info("Trimming Best isoform with 3p ends");
 			int trim = 0;
@@ -1952,6 +2000,8 @@ public class AddEndRNASeqToScripture {
 			for(String chr:annotations.keySet()){
 				//For each gene
 				for(Gene gene:annotations.get(chr)){
+					
+					count++;
 					Gene edited = gene.copy();
 					
 					List<Double> list = new ArrayList<Double>(1);
@@ -2013,6 +2063,10 @@ public class AddEndRNASeqToScripture {
 					geneToMaxZScoreMap.put(gene, list);
 					//logger.info(edited.toBED());
 					bwBed.write(edited.toBED()+"\n");
+					
+					if(count%500==0){
+						logger.info("Trimming best isoform done for "+count+" genes");
+					}
 				}
 			}
 			bw.write("Genes with trimmed 3p ends: "+trim+"\n");
@@ -2113,6 +2167,7 @@ public class AddEndRNASeqToScripture {
 		BufferedWriter bwBed = new BufferedWriter(new FileWriter(outputName+".trimmed.all.bed"));
 		BufferedWriter bw = new BufferedWriter(new FileWriter(outputName+".trimmed.all.summary.txt"));
 		
+		int count=0;
 		if(whichEnd.equalsIgnoreCase("3p")){
 			logger.info("Trimming all isoform with 3p ends");
 			int trim =0;
@@ -2121,6 +2176,8 @@ public class AddEndRNASeqToScripture {
 			for(String chr:annotations.keySet()){
 				//For each gene
 				for(Gene gene:annotations.get(chr)){
+					
+					count++;
 					boolean geneTrimmed = false;
 					boolean peakTrimmed = false;
 					Collection<Gene> editedGenes = new TreeSet<Gene>();
@@ -2185,6 +2242,9 @@ public class AddEndRNASeqToScripture {
 						}
 					}
 					//logger.info(edited.toBED());
+					if(count%500==0){
+						logger.info("Trimming all isoforms done for "+count+" genes");
+					}
 				}
 			}
 			bw.write("Genes with trimmed 3p ends: "+trim+"\n");

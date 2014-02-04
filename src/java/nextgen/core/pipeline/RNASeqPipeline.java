@@ -17,26 +17,36 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import nextgen.core.annotation.Annotation;
+import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.GenomicSpace;
+import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.job.Job;
 import nextgen.core.job.JobUtils;
 import nextgen.core.job.LSFJob;
+import nextgen.core.job.OGSJob;
 import nextgen.core.model.ScanStatisticDataAlignmentModel;
 import nextgen.core.pipeline.util.AlignmentUtils;
 import nextgen.core.pipeline.util.BamUtils;
 import nextgen.core.pipeline.util.FastaUtils;
 import nextgen.core.pipeline.util.FastqUtils;
+import nextgen.core.pipeline.util.WigUtils;
+import nextgen.core.readFilters.GenomicSpanFilter;
+import nextgen.core.readFilters.ProperPairFilter;
 import nextgen.core.writers.PairedEndWriter;
 
 import org.apache.log4j.Logger;
 import org.broad.igv.Globals;
 import org.ggf.drmaa.DrmaaException;
+import org.ggf.drmaa.Session;
 
 import broad.core.error.ParseException;
+import broad.core.math.EmpiricalDistribution;
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
+import broad.pda.annotation.BEDFileParser;
 import broad.pda.countreads.FastqLibraryStats;
 import broad.pda.countreads.LibraryCompositionByRnaClass;
 
@@ -49,6 +59,8 @@ import broad.pda.countreads.LibraryCompositionByRnaClass;
 public class RNASeqPipeline {
 
 	private static Logger logger = Logger.getLogger(RNASeqPipeline.class.getName());
+	private Session drmaaSession;
+
 
 	/*
 	 * For a file with paired data in the fq list file, there will be 4 columns
@@ -122,17 +134,19 @@ public class RNASeqPipeline {
 	/**
 	 * @param inputListFile The input list of fastq files
 	 * @param configFileName The config file
+	 * @param drmaasession DRMAA session. There should only be one session at a time. Instantiate in the main method.
 	 * @throws IOException
 	 * @throws ParseException
 	 * @throws InterruptedException
 	 * @throws DrmaaException 
 	 */
-	public RNASeqPipeline(String inputListFile,String configFileName) throws IOException, ParseException, InterruptedException, DrmaaException {
+	public RNASeqPipeline(String inputListFile,String configFileName, Session drmaasession) throws IOException, ParseException, InterruptedException, DrmaaException {
 		
 		Globals.setHeadless(true);
 		logger.info("Using Version R4.4");
 		logger.debug("DEBUG ON");
 
+		drmaaSession = drmaasession;
 		configFile = getConfigFile(configFileName);
 		fastqReadIdPairNumberDelimiter = configFile.getSingleValueField(sectionBasicOptions, optionFastqReadNumberDelimiter);
 		scheduler = Scheduler.fromString(configFile.getSingleValueField(sectionScheduler, optionScheduler));
@@ -174,11 +188,14 @@ public class RNASeqPipeline {
 				if(!configFile.hasOption(sectionBasicOptions, optionRead1Adapter)) {
 					throw new IllegalArgumentException("In order to clip adapters, must provide config file option " + optionRead1Adapter.getName());
 				}
+				if(!configFile.hasOption(sectionBasicOptions, optionFastqUtilsJar)) {
+					throw new IllegalArgumentException("In order to clip adapters, must provide config file option " + optionFastqUtilsJar.getName());
+				}
 				String fastxDir = configFile.getSingleValueField(sectionBasicOptions, optionFastxDirectory);
 				String adapter1 = configFile.getSingleValueField(sectionBasicOptions, optionRead1Adapter);
 				String adapter2 = null;
 				if(configFile.hasOption(sectionBasicOptions, optionRead2Adapter)) adapter2 = configFile.getSingleValueField(sectionBasicOptions, optionRead2Adapter);
-				Map<String, ArrayList<String>> clippedFqs = FastqUtils.clipAdapters(fastxDir, currentLeftFqs, currentRightFqs, adapter1, adapter2, fastqReadIdPairNumberDelimiter, scheduler);
+				Map<String, ArrayList<String>> clippedFqs = FastqUtils.clipAdapters(fastxDir, currentLeftFqs, currentRightFqs, adapter1, adapter2, fastqReadIdPairNumberDelimiter, scheduler, drmaaSession, configFile.getSingleValueField(sectionBasicOptions, optionFastqUtilsJar));
 				// Update current fastq files
 				for(String sample : clippedFqs.keySet()) {
 					currentLeftFqs.put(sample, clippedFqs.get(sample).get(0));
@@ -455,7 +472,7 @@ public class RNASeqPipeline {
 			bowtie2options.put(value.asString(1), value.getLastFields(2));
 		}
 		Map<String, Integer> totalReadCounts = lcrc.getTotalReadCounts();
-		Map<String, Map<String, Integer>> classCounts = lcrc.alignAndGetCounts(samtoolsExecutable, bowtie2Executable, bowtie2options, bowtie2BuildExecutable, rnaClassDir, scheduler);
+		Map<String, Map<String, Integer>> classCounts = lcrc.alignAndGetCounts(samtoolsExecutable, bowtie2Executable, bowtie2options, bowtie2BuildExecutable, rnaClassDir, scheduler, drmaaSession);
 		
 		logger.info("Writing table of counts to file " + countFileName);
 		logger.info("Writing table of percentages to file " + pctFileName);
@@ -535,7 +552,7 @@ public class RNASeqPipeline {
 		logger.info("Filtering ribosomal RNA by removing reads that map to sequences in " + rRnaFasta);
 		
 		// Make bowtie2 index for ribosomal RNA
-		AlignmentUtils.makeBowtie2Index(rRnaFasta, outIndex, bowtieBuild, FILTER_RRNA_DIRECTORY, scheduler);
+		AlignmentUtils.makeBowtie2Index(rRnaFasta, outIndex, bowtieBuild, FILTER_RRNA_DIRECTORY, scheduler, drmaaSession);
 		
 		// Establish output file names
 		Map<String, String> outRibosomalMap = new TreeMap<String, String>();
@@ -584,7 +601,7 @@ public class RNASeqPipeline {
 			for(ConfigFileOptionValue value : configFile.getOptionValues(sectionBasicOptions, optionBowtie2Option)) {
 				bowtie2options.put(value.asString(1), value.getLastFields(2));
 			}
-			Job job = AlignmentUtils.runBowtie2(outIndex, bowtie2options, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, outRibosomal, paired ? outFilteredPairedArg : outFilteredUnpaired, bowtie, FILTER_RRNA_DIRECTORY, paired, scheduler);
+			Job job = AlignmentUtils.runBowtie2(outIndex, bowtie2options, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, outRibosomal, paired ? outFilteredPairedArg : outFilteredUnpaired, bowtie, FILTER_RRNA_DIRECTORY, paired, scheduler, drmaaSession);
 			jobs.add(job);
 			
 		}
@@ -612,6 +629,7 @@ public class RNASeqPipeline {
 	}
 	
 	private void alignToTranscripts() throws IOException, InterruptedException, DrmaaException{
+		
 		
 		// Establish paths and software locations
 		File outDirFile = new File(ALIGN_TO_TRANSCRIPTS_DIRECTORY);
@@ -661,7 +679,7 @@ public class RNASeqPipeline {
 		}
 		
 		// Make bowtie2 index for transcripts
-		AlignmentUtils.makeBowtie2Index(fasta, outIndex, bowtieBuild, ALIGN_TO_TRANSCRIPTS_DIRECTORY, scheduler);
+		AlignmentUtils.makeBowtie2Index(fasta, outIndex, bowtieBuild, ALIGN_TO_TRANSCRIPTS_DIRECTORY, scheduler, drmaaSession);
 		
 		// Establish output file names
 		ArrayList<Job> jobs = new ArrayList<Job>();
@@ -669,10 +687,7 @@ public class RNASeqPipeline {
 		Map<String, String> unsortedBamOutput = new TreeMap<String, String>();
 		Map<String, String> sortedBamOutput = new TreeMap<String, String>();
 		Map<String, String> peBamOutput = new TreeMap<String, String>();
-		
-		// Align each sample
 		for(String sample : sampleNames) {
-
 			String sam = ALIGN_TO_TRANSCRIPTS_DIRECTORY + "/" + sample + "_transcript_mappings.sam";
 			String unsortedBam = ALIGN_TO_TRANSCRIPTS_DIRECTORY + "/" + sample + "_transcript_mappings_unsorted.bam";
 			String sortedBam = ALIGN_TO_TRANSCRIPTS_DIRECTORY + "/" + sample + "_transcript_mappings.bam";
@@ -681,21 +696,19 @@ public class RNASeqPipeline {
 			unsortedBamOutput.put(sample, unsortedBam);
 			sortedBamOutput.put(sample, sortedBam);
 			peBamOutput.put(sample, peBam);
-			
+		}
+		
+		// Align each sample
+		for(String sample : sampleNames) {
 			boolean paired = pairedData.get(sample).booleanValue();
+			String sam = samOutput.get(sample);
 			
 			// Check if bam files exist
 			File bamFile = new File(sortedBamOutput.get(sample));
 			File pebamFile = new File(peBamOutput.get(sample));
 			if(bamFile.exists()) {
-				if(pairedData.get(sample).booleanValue() && pebamFile.exists()) {
-					logger.warn("Bam file and paired end bam file for sample " + sample + " already exist. Not rerunning alignment.");
-					continue;
-				} 
-				if(!pairedData.get(sample).booleanValue()) {
-					logger.warn("Bam file for sample " + sample + " already exists. Not rerunning alignment.");
-					continue;	
-				}
+				logger.warn("Bam file for sample " + sample + " already exists. Not rerunning alignment.");
+				continue;	
 			}
 					
 			// Delete old paired end bam file if one exists
@@ -707,7 +720,7 @@ public class RNASeqPipeline {
 			}
 			
 			// Align to transcripts
-			Job job = AlignmentUtils.runBowtie2(outIndex, bowtie2options, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, sam, null, bowtie, ALIGN_TO_TRANSCRIPTS_DIRECTORY, paired, scheduler);
+			Job job = AlignmentUtils.runBowtie2(outIndex, bowtie2options, currentLeftFqs.get(sample), paired ? currentRightFqs.get(sample) : null, sam, null, bowtie, ALIGN_TO_TRANSCRIPTS_DIRECTORY, paired, scheduler, drmaaSession);
 			jobs.add(job);
 			
 		}
@@ -718,12 +731,12 @@ public class RNASeqPipeline {
 		logger.info("Done aligning to transcripts. Converting sam to bam files.");
 		Map<String, String> bsubDir = new TreeMap<String, String>();
 		for(String sample : sampleNames) bsubDir.put(sample, ALIGN_TO_TRANSCRIPTS_DIRECTORY);
-		BamUtils.samToBam(samOutput, unsortedBamOutput, sortedBamOutput, bsubDir, samtools, scheduler);
+		BamUtils.samToBam(samOutput, unsortedBamOutput, sortedBamOutput, bsubDir, samtools, scheduler, drmaaSession);
 		
 		logger.info("");
 		logger.info("Done converting sam to bam files. Delete sam files to save storage.");
 		logger.info("Sorting bam files.");
-		BamUtils.sortBamFiles(unsortedBamOutput, sortedBamOutput, bsubDir, sortedBamOutput, picardJarDir, scheduler);
+		BamUtils.sortBamFiles(unsortedBamOutput, sortedBamOutput, bsubDir, sortedBamOutput, picardJarDir, scheduler, drmaaSession);
 		// Delete unsorted bam files
 		for(String sample : sampleNames) {
 			File unsorted = new File(unsortedBamOutput.get(sample));
@@ -733,56 +746,57 @@ public class RNASeqPipeline {
 		
 		logger.info("");
 		logger.info("Done sorting bam files. Indexing sorted bam files.");
-		AlignmentUtils.indexBamFiles(sortedBamOutput, samtools, scheduler);
+		BamUtils.indexBamFiles(sortedBamOutput, samtools, scheduler, drmaaSession);
 				
-		logger.info("");
-		logger.info("Getting median fragment sizes per transcript.");
-		logger.error("TODO: fix in config file");
-		// TODO adapt config file
-		/*String outputMedians = ALIGN_TO_TRANSCRIPTS_DIRECTORY + "/fragment_size_median";
-		File outputMedianFile = new File(outputMedians);
-		if(outputMedianFile.exists()) {
-			logger.warn("File " + outputMedians + " already exists. Not recalculating median fragment sizes.");
-		} else {
-			// Calculate median of each sequence for each sample
-			Map< String, Map<String, Double> > mediansBySample = new TreeMap<String, Map< String, Double>>();
-			GenomicSpace gs = new GenomicSpace(sequenceSizes);
-			for(String sample : sampleNames) {
-				Map<String, Double> medianBySequence = new TreeMap<String, Double>();
-				ScanStatisticDataAlignmentModel data = new ScanStatisticDataAlignmentModel(sortedBamOutput.get(sample), gs);
-				data.addFilter(new ProperPairFilter());
-				data.addFilter(new GenomicSpanFilter(configP.fragmentSizeOptions.getMaxGenomicSpan()));
-				for(String seqName : sequenceSizes.keySet()) {
-					Annotation seq = gs.getReferenceAnnotation(seqName);
-					try {
-						double median = data.getMedianReadSize(seq, gs, configP.fragmentSizeOptions.getMaxFragmentSize(), configP.fragmentSizeOptions.getNumBins());
-						medianBySequence.put(seqName, Double.valueOf(median));
-					} catch (IllegalArgumentException e) {
-						continue;
+		if(configFile.hasSection(sectionFragmentSizeDistribution)) {
+			logger.info("");
+			logger.info("Getting median fragment sizes per transcript.");
+			String outputMedians = ALIGN_TO_TRANSCRIPTS_DIRECTORY + "/fragment_size_median";
+			File outputMedianFile = new File(outputMedians);
+			if(outputMedianFile.exists()) {
+				logger.warn("File " + outputMedians + " already exists. Not recalculating median fragment sizes.");
+			} else {
+				// Calculate median of each sequence for each sample
+				Map< String, Map<String, Double> > mediansBySample = new TreeMap<String, Map< String, Double>>();
+				GenomicSpace gs = new GenomicSpace(sequenceSizes);
+				for(String sample : sampleNames) {
+					Map<String, Double> medianBySequence = new TreeMap<String, Double>();
+					ScanStatisticDataAlignmentModel data = new ScanStatisticDataAlignmentModel(sortedBamOutput.get(sample), gs);
+					data.addFilter(new ProperPairFilter());
+					data.addFilter(new GenomicSpanFilter(configFile.getSingleValue(sectionFragmentSizeDistribution, optionFragmentSizeDistMaxSize).asInt(1)));
+					for(String seqName : sequenceSizes.keySet()) {
+						Annotation seq = gs.getReferenceAnnotation(seqName);
+						try {
+							double median = data.getMedianReadSize(seq, gs, configFile.getSingleValue(sectionFragmentSizeDistribution, optionFragmentSizeDistMaxSize).asInt(1), configFile.getSingleValue(sectionFragmentSizeDistribution, optionFragmentSizeDistNumBins).asInt(1));
+							medianBySequence.put(seqName, Double.valueOf(median));
+						} catch (IllegalArgumentException e) {
+							continue;
+						}
 					}
+					mediansBySample.put(sample, medianBySequence);
 				}
-				mediansBySample.put(sample, medianBySequence);
-			}
-			// Write file
-			FileWriter w = new FileWriter(outputMedians);
-			String header = "Sample\t";
-			for(String seqName : sequenceSizes.keySet()) {
-				header += seqName + "\t";
-			}
-			w.write(header + "\n");
-			for(String sample : sampleNames) {
-				String line = sample + "\t";
+				// Write file
+				FileWriter w = new FileWriter(outputMedians);
+				String header = "Sample\t";
 				for(String seqName : sequenceSizes.keySet()) {
-					line += mediansBySample.get(sample).get(seqName) + "\t";
+					header += seqName + "\t";
 				}
-				w.write(line + "\n");
+				w.write(header + "\n");
+				for(String sample : sampleNames) {
+					String line = sample + "\t";
+					for(String seqName : sequenceSizes.keySet()) {
+						line += mediansBySample.get(sample).get(seqName) + "\t";
+					}
+					w.write(line + "\n");
+				}
+				w.close();
 			}
-			w.close();
-		}*/
+		}
 		
 		// Make paired end bam files
 		logger.info("");
 		logger.info("Making paired end bam files.");
+		Collection<String> bamFilesToTranslate = new TreeSet<String>();
 		for(String sample : sampleNames) {
 			if(!pairedData.get(sample).booleanValue()) {
 				continue;
@@ -792,9 +806,9 @@ public class RNASeqPipeline {
 				logger.warn("Paired end bam file for sample " + sample + " already exists. Not regenerating file.");
 				continue;
 			}
-			@SuppressWarnings("unused")
-			ScanStatisticDataAlignmentModel dam = new ScanStatisticDataAlignmentModel(sortedBamOutput.get(sample), new GenomicSpace(sequenceSizes));
+			bamFilesToTranslate.add(sortedBamOutput.get(sample));
 		}
+		BamUtils.createPairedEndBamFiles(bamFilesToTranslate, configFile.getSingleValueField(sectionBasicOptions, optionTranscriptionRead), ".", configFile.getSingleValueField(sectionBasicOptions, optionPairedEndWriterJar), scheduler, drmaaSession);
 		
 		// Make tdf of paired end bam files
 		logger.info("");
@@ -805,7 +819,7 @@ public class RNASeqPipeline {
 		if(indexedFastaFile.exists()) {
 			logger.warn("Fasta index " + indexedFasta + " already exists. Not remaking fasta index.");
 		} else {
-			FastaUtils.indexFastaFile(fasta, samtools, ALIGN_TO_TRANSCRIPTS_DIRECTORY, scheduler);
+			FastaUtils.indexFastaFile(fasta, samtools, ALIGN_TO_TRANSCRIPTS_DIRECTORY, scheduler, drmaaSession);
 			logger.info("Done indexing fasta file.");
 		}
 		logger.info("Making tdf files.");
@@ -814,13 +828,13 @@ public class RNASeqPipeline {
 			throw new IllegalArgumentException("In order to make tdf, must provide config file option " + optionIgvToolsExecutable.getName());
 		}
 		
-		BamUtils.makeTdfs(peBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable), scheduler);
+		BamUtils.makeTdfs(peBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable), scheduler, drmaaSession);
 		
 		// Make wig and bigwig files of fragment ends
 		logger.info("");
 		logger.info("Making wig and bigwig files of fragment end points.");
-		writeWigFragmentEndsAndMidpoints(sortedBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, null);
-		//writeWigFragments(sortedBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, null);
+		writeWigFragmentEndsAndMidpoints(sortedBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, fasta, null, configFile.getSingleValueField(sectionBasicOptions, optionWigWriterJar));
+		WigUtils.writeWigPositionCount(sortedBamOutput, ALIGN_TO_TRANSCRIPTS_DIRECTORY, null, fasta, configFile.getSingleValueField(sectionBasicOptions, optionWigToBigWigExecutable), configFile.getSingleValueField(sectionBasicOptions, optionWigWriterJar), scheduler, drmaaSession);
 		logger.info("");
 		logger.info("Done aligning to transcripts.");
 		
@@ -885,15 +899,26 @@ public class RNASeqPipeline {
 		// Establish output directories
 		Map<String, String> tophatDirsPerSample = new TreeMap<String, String>();
 		Map<String, String> tophatSubdirsPerSample = new TreeMap<String, String>();
-		Map<String, String> tophatBamFinalPath = new TreeMap<String, String>();  // where the bam file will be moved to
+		Map<String, String> tophatBamUnsorted = new TreeMap<String, String>();
+		Map<String, String> tophatBamSorted = new TreeMap<String, String>();  // where the bam file will be moved to
 		for(String sample : sampleNames) {
 			tophatDirsPerSample.put(sample, TOPHAT_DIRECTORY + "/" + TOPHAT_DIRECTORY + "_" + sample);
 			tophatSubdirsPerSample.put(sample, TOPHAT_DIRECTORY + "_" + sample);
-			tophatBamFinalPath.put(sample, TOPHAT_DIRECTORY + "/" + sample + ".bam");
+			tophatBamSorted.put(sample, TOPHAT_DIRECTORY + "/" + sample + ".bam");
+			tophatBamUnsorted.put(sample, TOPHAT_DIRECTORY + "/" + sample + ".unsorted.bam");
 		}
 		
 		// Run tophat
-		currentBamFiles.putAll(AlignmentUtils.runTophat(tophat, samtools, sampleNames, leftFqs, rightFqs, tophatOptions, tophatDirsPerSample, tophatBamFinalPath, genomeIndex, queueName, TOPHAT_DIRECTORY, scheduler));
+		Map<String, String> unsortedRun = AlignmentUtils.runTophat(tophat, samtools, sampleNames, leftFqs, rightFqs, tophatOptions, tophatDirsPerSample, tophatBamUnsorted, tophatBamSorted, genomeIndex, queueName, TOPHAT_DIRECTORY, scheduler, drmaaSession);
+		// Sort bam files
+		BamUtils.sortBamFiles(unsortedRun, tophatBamSorted, tophatDirsPerSample, tophatBamSorted, picardJarDir, scheduler, drmaaSession);
+		// Delete unsorted bam files
+		for(String sample : sampleNames) {
+			File unsorted = new File(unsortedRun.get(sample));
+			boolean deleted = unsorted.delete();
+			if(!deleted) logger.warn("Could not delete unsorted bam file " + tophatBamUnsorted.get(sample) + ". Delete manually.");
+		}
+		currentBamFiles.putAll(tophatBamSorted);
 		// Update current bam directory
 		currentBamDir = TOPHAT_DIRECTORY;
 		logger.info("Done running tophat.");
@@ -960,19 +985,19 @@ public class RNASeqPipeline {
 			// Reheader novoalign sam files to match tophat sam header
 			logger.info("");
 			logger.info("Replacing headers in novoalign sam files with header from tophat alignments...");
-			replaceNovoalignSamHeaders(tophatBamFinalPath, novoSamOutput, novoSamOutputNoHeader, novoSamOutputReheadered, novoBamFinalPath, samtools);
+			replaceNovoalignSamHeaders(tophatBamSorted, novoSamOutput, novoSamOutputNoHeader, novoSamOutputReheadered, novoBamFinalPath, samtools);
 			logger.info("Done replacing sam headers.");
 			
 			// Convert novoalign sam files to bam format
 			logger.info("");
 			logger.info("Converting novoalign sam files to bam format...");
-			BamUtils.samToBam(novoSamOutput, novoBamOutput, novoBamFinalPath, novoDirsPerSample, samtools, scheduler);
+			BamUtils.samToBam(novoSamOutput, novoBamOutput, novoBamFinalPath, novoDirsPerSample, samtools, scheduler, drmaaSession);
 			logger.info("All samples done converting to bam format.");
 			
 			// Sort the bam files
 			logger.info("");
 			logger.info("Sorting novoalign bam files...");
-			BamUtils.sortBamFiles(novoBamOutput, novoSortedBam, novoDirsPerSample, novoBamFinalPath, picardJarDir, scheduler);
+			BamUtils.sortBamFiles(novoBamOutput, novoSortedBam, novoDirsPerSample, novoBamFinalPath, picardJarDir, scheduler, drmaaSession);
 			logger.info("All bam files sorted.");
 			
 			// Move all novoalign bam files to one directory
@@ -992,7 +1017,7 @@ public class RNASeqPipeline {
 			// Merge tophat and novoalign bam files
 			logger.info("");
 			logger.info("Merging tophat and novoalign bam files in directory " + MERGED_TOPHAT_NOVOALIGN_DIRECTORY	+ "...");
-			mergeTophatNovoalign(tophatBamFinalPath, novoBamFinalPath, picardJarDir);
+			mergeTophatNovoalign(tophatBamSorted, novoBamFinalPath, picardJarDir);
 			logger.info("All bam files merged.");
 			
 			// Update current bam files to merged bams
@@ -1046,42 +1071,41 @@ public class RNASeqPipeline {
 		if(configFile.hasOption(sectionBasicOptions, optionIgvToolsExecutable)) {
 			logger.info("");
 			logger.info("Making tdf files for bam files...");
-			BamUtils.makeTdfs(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionGenomeAssemblyName), configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable), scheduler);
+			BamUtils.makeTdfs(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionGenomeAssemblyName), configFile.getSingleValueField(sectionBasicOptions, optionIgvToolsExecutable), scheduler, drmaaSession);
 			logger.info("All tdf files created.");
 		}
 		
 		// Make fragment size distributions
-		// TODO adapt config file
-		logger.error("TODO adapt config file");
-		/*if(configP.fragmentSizeOptions.hasOptionMakeFragmentSizeDistribution()) {
+		if(configFile.hasSection(sectionFragmentSizeDistribution)) {
 			logger.info("");
 			logger.info("Making fragment size distributions for bam files...");
 			makeFragmentSizeDistributionCurrentBams();
 			logger.info("All fragment size distributions created.");
-		}*/
-		
-		// Make wig and bigwig files of fragment ends and total fragments
-		if(configFile.hasOption(sectionBasicOptions, optionWigToBigWigExecutable) && configFile.hasOption(sectionBasicOptions, optionBedFileForWig)) {
-			logger.info("");
-			logger.info("Making wig and bigwig files of fragment end points.");
-			writeWigFragmentEndsAndMidpoints(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionGenomeFasta), configFile.getSingleValueField(sectionBasicOptions, optionBedFileForWig));
-			//writeWigFragments(currentBamFiles, currentBamDir, configP.basicOptions.getGenomeFasta(), configP.basicOptions.getBedFileForWig());
-			logger.info("");
-			logger.info("Done writing wig files.\n");
 		}
-
+		
 		// Compute global transcriptome space stats
 		if(configFile.hasOption(sectionBasicOptions, optionAlignGlobalStatsJar)) {
 			if(configFile.hasOption(sectionBasicOptions, optionTranscriptomeSpaceStatsBedFile) || configFile.hasOption(sectionBasicOptions, optionGenomicSpaceStatsSizeFile)) {
 				writeAlignmentGlobalStats(configFile.getSingleValueField(sectionBasicOptions, optionAlignGlobalStatsJar), configFile.getSingleValueField(sectionBasicOptions, optionTranscriptomeSpaceStatsBedFile), configFile.getSingleValueField(sectionBasicOptions, optionGenomicSpaceStatsSizeFile));
 			}
 		}
+
+		// Make wig and bigwig files of fragment ends and midpoints
+		if(configFile.hasOption(sectionBasicOptions, optionWigToBigWigExecutable) && configFile.hasOption(sectionBasicOptions, optionBedFileForWig)) {
+			logger.info("");
+			logger.info("Making wig and bigwig files of fragment end points.");
+			writeWigFragmentEndsAndMidpoints(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionGenomeFasta), configFile.getSingleValueField(sectionBasicOptions, optionBedFileForWig), configFile.getSingleValueField(sectionBasicOptions, optionWigWriterJar));
+			logger.info("");
+			logger.info("Done writing wig files.\n");
+		}
 		
-		// Make wig files of normalized position counts
+		// Make wig files of position fragment counts and normalized position counts
 		if(configFile.hasOption(sectionBasicOptions, optionWigWriterJar) && configFile.hasOption(sectionBasicOptions, optionBedFileForWig)) {
 			logger.info("");
-			logger.info("Making wig files of position counts normalized to transcript average coverage.");
-			writeWigPositionCount(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionBedFileForWig), configFile.getSingleValueField(sectionBasicOptions, optionGenomeFasta));
+			logger.info("Making wig files of position fragment counts and position counts normalized to transcript average coverage.");
+			logger.info("TODO: uses too much memory. Skipping.");
+			//TODO uses too much memory
+			//writeWigPositionCount(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionBedFileForWig), configFile.getSingleValueField(sectionBasicOptions, optionGenomeFasta));
 			logger.info("");
 			logger.info("Done writing wig files.\n");
 		}
@@ -1165,6 +1189,15 @@ public class RNASeqPipeline {
 				job.submit();
 				convertJobs.add(job);
 				break;
+            case OGS:
+                if(drmaaSession == null) {
+                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+                }
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "unmapped_fastq");
+                ogsJob.submit();
+                logger.info("OGS job ID is " + ogsJob.getID() + ".");
+                convertJobs.add(ogsJob);
+                break;
 			default:
 				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
@@ -1250,6 +1283,16 @@ public class RNASeqPipeline {
 				novoJobs.add(job);
 				novoBsubFiles.put(sample,bsubFile);
 				break;
+            case OGS:
+            	throw new IllegalStateException("Not properly implemented for OGS. Change the code that expects bsub output files from LSF.");
+                /*if(drmaaSession == null) {
+                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+                }
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd);
+                logger.info("OGS job ID is " + ogsJob.getID() + ".");
+                ogsJob.submit();
+                novoJobs.add(ogsJob);
+                break;*/
 			default:
 				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
@@ -1311,8 +1354,9 @@ public class RNASeqPipeline {
 	 * @param samtools Samtools executable
 	 * @throws IOException
 	 * @throws InterruptedException
+	 * @throws DrmaaException 
 	 */
-	private void replaceNovoalignSamHeaders(Map<String, String> tophatBamFinalPath, Map<String, String> novoSamOutput, Map<String, String> novoSamOutputNoHeader, Map<String, String> novoSamOutputReheadered, Map<String, String> novoBamFinalPath, String samtools) throws IOException, InterruptedException {
+	private void replaceNovoalignSamHeaders(Map<String, String> tophatBamFinalPath, Map<String, String> novoSamOutput, Map<String, String> novoSamOutputNoHeader, Map<String, String> novoSamOutputReheadered, Map<String, String> novoBamFinalPath, String samtools) throws IOException, InterruptedException, DrmaaException {
 		// First get tophat header and write to novoalign directory
 		Iterator<String> tophatBamIter = tophatBamFinalPath.keySet().iterator();
 		String firstTophatBam = tophatBamFinalPath.get(tophatBamIter.next());
@@ -1332,11 +1376,21 @@ public class RNASeqPipeline {
 			switch(scheduler) {
 			case LSF:
 				logger.info("LSF job ID is " + getHeaderJobID + ".");
-				LSFJob job = new LSFJob(Runtime.getRuntime(), getHeaderJobID, getHeaderCmmd, NOVOALIGN_DIRECTORY + "/get_sam_header_" + getHeaderJobID + ".bsub", "hour", 1);
-				job.submit();
+				LSFJob lsfJob = new LSFJob(Runtime.getRuntime(), getHeaderJobID, getHeaderCmmd, NOVOALIGN_DIRECTORY + "/get_sam_header_" + getHeaderJobID + ".bsub", "hour", 1);
+				lsfJob.submit();
 				logger.info("Waiting for samtools view to finish...");
-				job.waitFor();
+				lsfJob.waitFor();
 				break;
+            case OGS:
+                if(drmaaSession == null) {
+                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+                }
+                OGSJob ogsJob = new OGSJob(drmaaSession, getHeaderCmmd, "replace_sam_header");
+                ogsJob.submit();
+                logger.info("OGS job ID is " + ogsJob.getID() + ".");
+				logger.info("Waiting for samtools view to finish...");
+				ogsJob.waitFor();
+                break;
 			default:
 				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
@@ -1431,8 +1485,18 @@ public class RNASeqPipeline {
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, MERGED_TOPHAT_NOVOALIGN_DIRECTORY + "/merge_bams_" + jobID + ".bsub", "hour", 1);
+				job.submit();
 				mergeJobs.add(job);
 				break;
+            case OGS:
+                if(drmaaSession == null) {
+                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+                }
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "merge_tophat_novoalign");
+                ogsJob.submit();
+                logger.info("OGS job ID is " + ogsJob.getID() + ".");
+                mergeJobs.add(ogsJob);
+                break;
 			default:
 				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
@@ -1477,7 +1541,7 @@ public class RNASeqPipeline {
 	 * @throws DrmaaException 
 	 */
 	private void indexCurrentBams(String samtools) throws IOException, InterruptedException, DrmaaException {
-		AlignmentUtils.indexBamFiles(currentBamFiles, samtools, scheduler);
+		BamUtils.indexBamFiles(currentBamFiles, samtools, scheduler, drmaaSession);
 	}
 	
 	
@@ -1501,7 +1565,7 @@ public class RNASeqPipeline {
 		String wigToBigWig = configFile.getSingleValueField(sectionBasicOptions, optionWigToBigWigExecutable);
 		String wigWriter = configFile.getSingleValueField(sectionBasicOptions, optionWigWriterJar);
 		
-		BamUtils.writeWigPositionCount(bamFiles, bamDir, geneBedFile, refFasta, wigToBigWig, wigWriter, scheduler);
+		WigUtils.writeWigPositionCount(bamFiles, bamDir, geneBedFile, refFasta, wigToBigWig, wigWriter, scheduler, drmaaSession);
 		
 	}
 	
@@ -1511,108 +1575,20 @@ public class RNASeqPipeline {
 	 * @param bamDir Directory containing bam files
 	 * @param refFasta Fasta file of sequences these bam files were aligned against
 	 * @param geneBedFile Bed file of genes to count reads in or null if using genomic space
+	 * @param wigWriterJar WigWriter jar file
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @throws DrmaaException 
 	 */
-	private void writeWigFragmentEndsAndMidpoints(Map<String, String> bamFiles, String bamDir, String refFasta, String geneBedFile) throws IOException, InterruptedException, DrmaaException {
+	private void writeWigFragmentEndsAndMidpoints(Map<String, String> bamFiles, String bamDir, String refFasta, String geneBedFile, String wigWriterJar) throws IOException, InterruptedException, DrmaaException {
 		if(!configFile.hasOption(sectionBasicOptions, optionWigToBigWigExecutable)) {
 			throw new IllegalArgumentException("In order to write wig file, must specify " + optionWigToBigWigExecutable.getName() + " in config file.");
 		}
 		String wigToBigWig = configFile.getSingleValueField(sectionBasicOptions, optionWigToBigWigExecutable);
-		BamUtils.writeWigFragmentEndsAndMidpoints(bamFiles, pairedData, bamDir, refFasta, geneBedFile, wigToBigWig, scheduler);
+		WigUtils.writeWigFragmentEndsAndMidpoints(bamFiles, pairedData, bamDir, refFasta, geneBedFile, wigWriterJar, wigToBigWig, scheduler, drmaaSession);
 	}
 	
 	
-	/**
-	 * Write full fragment counts in wig and bigwig formats
-	 * @param bamFiles Bam files by sample name
-	 * @param bamDir Directory bam files are contained in
-	 * @param refFasta Fasta file of sequences these bam files were aligned against
-	 * @param geneBedFile Bed file of genes to count reads in or null if using genomic space
-	 * @throws IOException
-	 * @throws InterruptedException
-	 */
-	@SuppressWarnings("unused")
-	private void writeWigFragments(Map<String, String> bamFiles, String bamDir, String refFasta, String geneBedFile) throws IOException, InterruptedException {
-		
-		// TODO adapt to config file
-		logger.error("TODO: adapt to config file");
-		
-		/*Map<String, String> wig = new TreeMap<String, String>();
-		
-		Map<String, String> bigwig = new TreeMap<String, String>();
-		
-		if(!configFile.hasOption(sectionBasicOptions, optionWigToBigWigExecutable)) {
-			throw new IllegalArgumentException("In order to write wig file, must specify " + optionWigToBigWigExecutable.getName() + " in config file.");
-		}
-
-		String wigToBigWig = configFile.getSingleOptionValue(sectionBasicOptions, optionWigToBigWigExecutable).asString(1);
-		ArrayList<String> bigwigJobIDs = new ArrayList<String>();
-		
-		// Chromosome size file to pass to UCSC program wigToBigWig
-		String chrSizesForWigToBigWig = refFasta + ".sizes";
-		
-		// Chromosome size file to pass to wig writer if using genomic space
-		// Null if using transcriptome space
-		String chrSizesForWigWriter = null;
-		if(geneBedFile == null) {
-			chrSizesForWigWriter = chrSizesForWigToBigWig;
-		}
-		File chrSizeFile = new File(chrSizesForWigToBigWig);
-		
-		// Write chromosome size file
-		if(!chrSizeFile.exists()) {
-			FileWriter w = new FileWriter(chrSizesForWigToBigWig);
-			logger.info("Writing chromosome sizes to file " + chrSizesForWigToBigWig);
-			FastaSequenceIO fsio = new FastaSequenceIO(refFasta);
-			Collection<Sequence> seqs = fsio.loadAll();
-			for(Sequence seq : seqs) {
-				w.write(seq.getId() + "\t" + seq.getLength() + "\n");
-			}
-			w.close();
-		}
-		
-		
-		for(String sampleName : sampleNames) {
-			
-			String bamFile = bamFiles.get(sampleName);
-			wig.put(sampleName, bamFile + ".fullfrag.wig");
-			
-			bigwig.put(sampleName, bamFile + ".fullfrag.bw");
-			
-			
-			// Write wig file
-			String wig1 = wig.get(sampleName);
-			File wigFile = new File(wig1);
-			if(wigFile.exists()) {
-				logger.warn("Wig file " + wig1 + " already exists. Not remaking file.");
-			} else {
-				logger.info("Writing fragment counts of from bam file " + bamFile + " to wig file " + wig1 + ".");
-				WigWriter ww = new WigWriter(bamFile, geneBedFile, chrSizesForWigWriter, null, true, false);
-				ww.addReadFilter(new GenomicSpanFilter(configP.fragmentSizeOptions.getMaxGenomicSpan()));
-				ww.addReadFilter(new ProperPairFilter());
-				ww.writeFullWig(wig1);
-				logger.info("Done writing file " + wig1 + ".");
-			}
-			// Write bigwig file
-			String bigwig1 = bigwig.get(sampleName);
-			File bigwigFile = new File(bigwig1);
-			if(bigwigFile.exists()) {
-				logger.warn("Bigwig file " + bigwig1 + " already exists. Not remaking file.");
-			} else {
-				String cmmd = wigToBigWig + " " + wig1 + " " + chrSizesForWigToBigWig + " " + bigwig1;
-				logger.info("");
-				logger.info("Making bigwig file for wig file " + wig1 + ".");
-				logger.info("Running UCSC command " + cmmd);
-				String jobID = Long.valueOf(System.currentTimeMillis()).toString();
-				bigwigJobIDs.add(jobID);
-				logger.info("LSF job ID is " + jobID + ".");
-				PipelineUtils.bsubProcess(Runtime.getRuntime(), jobID, cmmd, bamDir + "/wig_to_bigwig_" + jobID + ".bsub", "hour", 4);
-			}
-		}*/
-		
-	}
 	
 	/**
 	 * Reorder current bam files to match reference genome
@@ -1635,8 +1611,18 @@ public class RNASeqPipeline {
 				logger.info("LSF job ID is " + jobID + ".");
 				// Submit job
 				LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, currentBamDir + "/reorder_bam_" + jobID + ".bsub", "week", 16);
+				job.submit();
 				reorderJobs.add(job);
 				break;
+            case OGS:
+                if(drmaaSession == null) {
+                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+                }
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "reorder_bam");
+                ogsJob.submit();
+                logger.info("OGS job ID is " + ogsJob.getID() + ".");
+                reorderJobs.add(ogsJob);
+                break;
 			default:
 				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " not supported.");
 			}
@@ -1664,11 +1650,11 @@ public class RNASeqPipeline {
 		logger.info("Writing global stats for alignments...");
 		ArrayList<Job> jobs = new ArrayList<Job>();
 		if(bedFile != null) {
-			Collection<Job> tJobs = BamUtils.writeTranscriptomeSpaceStats(currentBamFiles, bedFile, alignmentGlobalStatsJar, currentBamDir, scheduler);
+			Collection<Job> tJobs = BamUtils.writeTranscriptomeSpaceStats(currentBamFiles, bedFile, alignmentGlobalStatsJar, currentBamDir, scheduler, drmaaSession);
 			jobs.addAll(tJobs);
 		}
 		if(chrSizeFile != null) {
-			Collection<Job> gJobs = BamUtils.writeGenomicSpaceStats(currentBamFiles, chrSizeFile, alignmentGlobalStatsJar, currentBamDir, scheduler);
+			Collection<Job> gJobs = BamUtils.writeGenomicSpaceStats(currentBamFiles, chrSizeFile, alignmentGlobalStatsJar, currentBamDir, scheduler, drmaaSession);
 			jobs.addAll(gJobs);
 		}
 		JobUtils.waitForAll(jobs);
@@ -1753,6 +1739,15 @@ public class RNASeqPipeline {
 				job.submit();
 				jobs.add(job);
 				break;
+            case OGS:
+                if(drmaaSession == null) {
+                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+                }
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "merge_bam_files");
+                ogsJob.submit();
+                logger.info("OGS job ID is " + ogsJob.getID() + ".");
+                jobs.add(ogsJob);
+                break;
 			default:
 				throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " is not supported.");
 			}
@@ -1773,10 +1768,7 @@ public class RNASeqPipeline {
 	 */
 	private void makeFragmentSizeDistributionCurrentBams() throws IOException {
 		
-		logger.error("TODO: adapt config file");
-		// TODO adapt config file
-		
-		/*String distFileName = currentBamDir + "/fragment_size_histogram";
+		String distFileName = currentBamDir + "/fragment_size_histogram";
 		File distFile = new File(distFileName);
 		String medianFileName = currentBamDir + "/fragment_size_median";
 		File medianFile = new File(medianFileName);
@@ -1787,12 +1779,12 @@ public class RNASeqPipeline {
 			return;
 		}
 		
-		String annotation = configP.fragmentSizeOptions.getBedFile();
+		String annotation = configFile.getSingleValueField(sectionFragmentSizeDistribution, optionFragmentSizeDistBedAnnotation);
 		TranscriptomeSpace coord = new TranscriptomeSpace(BEDFileParser.loadDataByChr(new File(annotation)));
-		int maxFragmentSize = configP.fragmentSizeOptions.getMaxFragmentSize();
-		int maxGenomicSpan = configP.fragmentSizeOptions.getMaxGenomicSpan();
-		int numBins = configP.fragmentSizeOptions.getNumBins();
-		boolean properPairsOnly = configP.fragmentSizeOptions.getProperPairsOnly();
+		int maxFragmentSize = configFile.getSingleValue(sectionFragmentSizeDistribution, optionFragmentSizeDistMaxSize).asInt(1);
+		int maxGenomicSpan = configFile.getSingleValue(sectionFragmentSizeDistribution, optionFragmentSizeDistMaxGenomicSpan).asInt(1);
+		int numBins = configFile.getSingleValue(sectionFragmentSizeDistribution, optionFragmentSizeDistNumBins).asInt(1);
+		boolean properPairsOnly = configFile.hasOption(sectionFragmentSizeDistribution, optionFragmentSizeDistProperPairsOnly);
 		Map<String, EmpiricalDistribution> distributions = new TreeMap<String, EmpiricalDistribution>();
 		Map<String, ScanStatisticDataAlignmentModel> data = new TreeMap<String, ScanStatisticDataAlignmentModel>();
 		
@@ -1845,7 +1837,7 @@ public class RNASeqPipeline {
 		
 		logger.info("Writing individual gene medians to file " + indGeneFileName);
 		FileWriter w3 = new FileWriter(indGeneFileName);
-		Collection<String> indGeneNames = configP.fragmentSizeOptions.getIndividualGeneNames();
+		Collection<String> indGeneNames = ConfigFile.valuesAsStrings(configFile.getOptionValues(sectionFragmentSizeDistribution, optionFragmentSizeDistIndividualGene), 1);
 		if(!indGeneNames.isEmpty()) {
 			Map<String, Gene> genesByName = BEDFileParser.loadDataByName(new File(annotation));
 			String header2 = "Gene\t";
@@ -1868,7 +1860,7 @@ public class RNASeqPipeline {
 				w3.write(line + "\n");
 			}
 		}
-		w3.close();*/
+		w3.close();
 		
 	}
 	
@@ -1928,6 +1920,15 @@ public class RNASeqPipeline {
 					job.submit();
 					pmJobs.add(job);
 					break;
+                case OGS:
+                    if(drmaaSession == null) {
+                            throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+                    }
+                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics");
+                    ogsJob.submit();
+                    logger.info("OGS job ID is " + ogsJob.getID() + ".");
+                    pmJobs.add(ogsJob);
+                    break;
 				default:
 					throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " is not supported.");
 				}
@@ -1949,9 +1950,19 @@ public class RNASeqPipeline {
 					String jobID = Long.valueOf(System.currentTimeMillis()).toString();
 					logger.info("LSF job ID is " + jobID + ".");
 					// Submit job
-					LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, picardMetricsDir + "/picard_insert_size_metrics_" + jobID + ".bsub", "hour", 4);
-					pmJobs.add(job);
+					LSFJob lsfJob = new LSFJob(Runtime.getRuntime(), jobID, cmmd, picardMetricsDir + "/picard_insert_size_metrics_" + jobID + ".bsub", "hour", 4);
+					pmJobs.add(lsfJob);
+					lsfJob.submit();
 					break;
+                case OGS:
+                    if(drmaaSession == null) {
+                            throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+                    }
+                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics");
+                    ogsJob.submit();
+                    logger.info("OGS job ID is " + ogsJob.getID() + ".");
+                    pmJobs.add(ogsJob);
+                    break;
 				default:
 					throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " is not supported.");
 				}
@@ -1982,6 +1993,16 @@ public class RNASeqPipeline {
 					LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, picardMetricsDir + "/picard_rnaseq_metrics_" + jobID + ".bsub", "hour", 4);
 					job.submit();
 					pmJobs.add(job);
+					break;
+                case OGS:
+                    if(drmaaSession == null) {
+                            throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+                    }
+                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics");
+                    ogsJob.submit();
+                    logger.info("OGS job ID is " + ogsJob.getID() + ".");
+                    pmJobs.add(ogsJob);
+                    break;
 				default:
 					throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " is not supported.");
 				}
@@ -2139,7 +2160,12 @@ public class RNASeqPipeline {
 		String fastqList = p.getStringArg("-r");
 		String configFile = p.getStringArg("-c");
 		
-		RNASeqPipeline PA = new RNASeqPipeline(fastqList,configFile);
+		ConfigFile c = getConfigFile(configFile);
+		Scheduler s = Scheduler.fromString(c.getSingleValueField(sectionScheduler, optionScheduler));
+		Session drmaaSession = s.equals(Scheduler.OGS) ? OGSUtils.getDrmaaSession() : null;
+
+		
+		RNASeqPipeline PA = new RNASeqPipeline(fastqList,configFile, drmaaSession);
 		logger.info("Pipeline all done.");
 	}
 
@@ -2184,8 +2210,11 @@ public class RNASeqPipeline {
 	private static ConfigFileSection sectionCommands = new ConfigFileSection("commands", true);
 	private static ConfigFileSection sectionSpecies = new ConfigFileSection("species", false);
 	private static ConfigFileSection sectionBasicOptions = new ConfigFileSection("basic_options", true);
+	private static ConfigFileSection sectionFragmentSizeDistribution = new ConfigFileSection("fragment_size_distribution", false);
 	
 	private static ConfigFileOption optionScheduler = new ConfigFileOption("scheduler", 2, false, false, true);
+	private static ConfigFileOption optionTranscriptionRead = new ConfigFileOption("transcription_read", 2, false, false, true);
+	private static ConfigFileOption optionPairedEndWriterJar = new ConfigFileOption("paired_end_writer_jar", 2, false, false, true);
 	private static ConfigFileOption optionSplitTrimBarcodes = new ConfigFileOption("SPLIT_TRIM_BARCODES", 1, false, false, false);
 	private static ConfigFileOption optionTrimAdapters = new ConfigFileOption("TRIM_ADAPTERS", 1, false, false, false);
 	private static ConfigFileOption optionComputeLibraryStats = new ConfigFileOption("LIBRARY_STATS", 1, false, false, false);
@@ -2206,9 +2235,10 @@ public class RNASeqPipeline {
 	private static ConfigFileOption optionTophatExecutable = new ConfigFileOption("tophat_path", 2, false, false, true);
 	private static ConfigFileOption optionBedFileForWig = new ConfigFileOption("bed_file_for_wig", 2, false, false, false);
 	private static ConfigFileOption optionWigToBigWigExecutable = new ConfigFileOption("wig_to_bigwig_path", 2, false, false, false);
-	private static ConfigFileOption optionWigWriterJar = new ConfigFileOption("wig_writer_jar", 2, false, false, false);
+	private static ConfigFileOption optionWigWriterJar = new ConfigFileOption("wig_writer_jar", 2, false, false, true);
 	private static ConfigFileOption optionChrSizeFile = new ConfigFileOption("chr_size_file", 2, false, false, true);
 	private static ConfigFileOption optionAlignGlobalStatsJar = new ConfigFileOption("alignment_global_stats_jar_file", 2, false, false, false);
+	private static ConfigFileOption optionFastqUtilsJar = new ConfigFileOption("fastq_utils_jar_file", 2, false, false, false);
 	private static ConfigFileOption optionTophatOption = new ConfigFileOption("tophat_options", 3, true, true, false);
 	private static ConfigFileOption optionBowtie2Option = new ConfigFileOption("bowtie2_options", 3, true, true, false);
 	private static ConfigFileOption optionNovoalignOption = new ConfigFileOption("novoalign_options", 3, true, true, false);
@@ -2217,7 +2247,7 @@ public class RNASeqPipeline {
 	private static ConfigFileOption optionBowtie2BuildExecutable = new ConfigFileOption("bowtie2_build_path", 2, false, false, true);
 	private static ConfigFileOption optionSamtoolsPath = new ConfigFileOption("samtools_path", 2, false, false, true);
 	private static ConfigFileOption optionIgvToolsExecutable = new ConfigFileOption("igvtools_path", 2, false, false, true);
-	private static ConfigFileOption optionFastqReadNumberDelimiter = new ConfigFileOption("fastq_read_number_delimiter", 2, false, false, false, "\\s++");
+	private static ConfigFileOption optionFastqReadNumberDelimiter = new ConfigFileOption("fastq_read_number_special_delimiter", 2, false, false, false, null);
 	private static ConfigFileOption optionPicardDir = new ConfigFileOption("picard_directory", 2, false, false, true);
 	private static ConfigFileOption optionFastxDirectory = new ConfigFileOption("fastx_directory", 2, false, false, false);
 	private static ConfigFileOption optionRead1Adapter = new ConfigFileOption("sequencing_adapter_read1", 2, false, false, false);
@@ -2231,6 +2261,13 @@ public class RNASeqPipeline {
 	private static ConfigFileOption optionTranscriptomeSpaceStatsBedFile = new ConfigFileOption("bed_transcriptome_space_stats", 2, false, false, false);
 	private static ConfigFileOption optionGenomicSpaceStatsSizeFile = new ConfigFileOption("size_file_genomic_space_stats", 2, false, false, false);
 	private static ConfigFileOption optionSpeciesName = new ConfigFileOption("species", 2, false, false, false, "mouse");
+	
+	private static ConfigFileOption optionFragmentSizeDistBedAnnotation = new ConfigFileOption("fragment_size_dist_bed_annotation", 2, false, false, true);
+	private static ConfigFileOption optionFragmentSizeDistMaxSize = new ConfigFileOption("fragment_size_dist_max_fragment_length", 2, false, false, false, "1000");
+	private static ConfigFileOption optionFragmentSizeDistMaxGenomicSpan = new ConfigFileOption("fragment_size_dist_max_genomic_span", 2, false, false, false, "300000");
+	private static ConfigFileOption optionFragmentSizeDistNumBins = new ConfigFileOption("fragment_size_dist_num_bins", 2, false, false, false, "100");
+	private static ConfigFileOption optionFragmentSizeDistProperPairsOnly = new ConfigFileOption("fragment_size_dist_proper_pairs_only", 1, false, false, false);
+	private static ConfigFileOption optionFragmentSizeDistIndividualGene = new ConfigFileOption("fragment_size_dist_individual_gene", 2, false, true, false);
 
 	
 	private static ConfigFile getConfigFile(String fileName) throws IOException {
@@ -2263,6 +2300,7 @@ public class RNASeqPipeline {
 		sectionBasicOptions.addAllowableOption(optionWigWriterJar);
 		sectionBasicOptions.addAllowableOption(optionChrSizeFile);
 		sectionBasicOptions.addAllowableOption(optionAlignGlobalStatsJar);
+		sectionBasicOptions.addAllowableOption(optionFastqUtilsJar);
 		sectionBasicOptions.addAllowableOption(optionTophatOption);
 		sectionBasicOptions.addAllowableOption(optionBowtie2Option);
 		sectionBasicOptions.addAllowableOption(optionNovoalignOption);
@@ -2284,12 +2322,22 @@ public class RNASeqPipeline {
 		sectionBasicOptions.addAllowableOption(optionPicardCollectRnaSeqMetricsJar);
 		sectionBasicOptions.addAllowableOption(optionTranscriptomeSpaceStatsBedFile);
 		sectionBasicOptions.addAllowableOption(optionGenomicSpaceStatsSizeFile);
+		sectionBasicOptions.addAllowableOption(optionTranscriptionRead);
+		sectionBasicOptions.addAllowableOption(optionPairedEndWriterJar);
+		
+		sectionFragmentSizeDistribution.addAllowableOption(optionFragmentSizeDistBedAnnotation);
+		sectionFragmentSizeDistribution.addAllowableOption(optionFragmentSizeDistMaxSize);
+		sectionFragmentSizeDistribution.addAllowableOption(optionFragmentSizeDistMaxGenomicSpan);
+		sectionFragmentSizeDistribution.addAllowableOption(optionFragmentSizeDistNumBins);
+		sectionFragmentSizeDistribution.addAllowableOption(optionFragmentSizeDistProperPairsOnly);
+		sectionFragmentSizeDistribution.addAllowableOption(optionFragmentSizeDistIndividualGene);
 		
 		Collection<ConfigFileSection> sections = new ArrayList<ConfigFileSection>();
 		sections.add(sectionScheduler);
 		sections.add(sectionCommands);
 		sections.add(sectionSpecies);
 		sections.add(sectionBasicOptions);
+		sections.add(sectionFragmentSizeDistribution);
 		
 		ConfigFile cf = new ConfigFile(sections, fileName);
 		return cf;

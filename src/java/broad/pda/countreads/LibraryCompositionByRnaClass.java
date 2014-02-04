@@ -22,6 +22,7 @@ import nextgen.core.pipeline.util.AlignmentUtils;
 
 import org.apache.log4j.Logger;
 import org.ggf.drmaa.DrmaaException;
+import org.ggf.drmaa.Session;
 
 import broad.core.parser.StringParser;
 import broad.core.sequence.FastaSequenceIO;
@@ -182,12 +183,13 @@ public class LibraryCompositionByRnaClass {
 	 * @param bowtie2BuildExecutable Bowtie2-build executable file
 	 * @param logDir Output directory for logs and alignments
 	 * @param scheduler Scheduler
+     * @param drmaaSession Active DRMAA session. Pass null if not using OGS. There should only be one active session at a time. Session should have been created in the main method of the class calling this method.
 	 * @return Map from sample name to class name to count
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @throws DrmaaException 
 	 */
-	public Map<String, Map<String, Integer>> alignAndGetCounts(String samtoolsExecutable, String bowtie2Executable, Map<String, String> bowtie2options, String bowtie2BuildExecutable, String logDir, Scheduler scheduler) throws IOException, InterruptedException, DrmaaException {
+	public Map<String, Map<String, Integer>> alignAndGetCounts(String samtoolsExecutable, String bowtie2Executable, Map<String, String> bowtie2options, String bowtie2BuildExecutable, String logDir, Scheduler scheduler, Session drmaaSession) throws IOException, InterruptedException, DrmaaException {
 		
 		File dir = new File(logDir);
 		boolean madeDir = dir.mkdir();
@@ -212,7 +214,7 @@ public class LibraryCompositionByRnaClass {
 		if(!new File(rev1).exists()) writeIndex = true;
 		if(!new File(rev2).exists()) writeIndex = true;
 		
-		if(writeIndex) AlignmentUtils.makeBowtie2Index(singleFasta, btBase, bowtie2BuildExecutable, logDir, scheduler);
+		if(writeIndex) AlignmentUtils.makeBowtie2Index(singleFasta, btBase, bowtie2BuildExecutable, logDir, scheduler, drmaaSession);
 		else {
 			logger.warn("Bowtie2 index files " + btBase + ".*.bt2 already exist. Not remaking index.");
 		}
@@ -252,7 +254,7 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq file for sample " + sample + " already exist. Not rerunning alignment to transcriptome.");
 					continue;
 				}
-				Job job = AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomeUnpaired.get(sample), bowtie2Executable, logDir, scheduler);
+				Job job = AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomeUnpaired.get(sample), bowtie2Executable, logDir, scheduler, drmaaSession);
 				transcriptomeJobs.add(job);
 			} else {
 				File outUnalignedFile1 = new File(fastqNotTranscriptomePaired1.get(sample));
@@ -262,7 +264,7 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq files for sample " + sample + " already exist. Not rerunning alignment to transcriptome.");
 					continue;
 				}
-				Job job = AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), this.read2FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomePairedBase.get(sample), bowtie2Executable, logDir, scheduler);
+				Job job = AlignmentUtils.runBowtie2(btBase, bowtie2options, this.read1FastqFiles.get(sample), this.read2FastqFiles.get(sample), samToTranscriptome.get(sample), fastqNotTranscriptomePairedBase.get(sample), bowtie2Executable, logDir, scheduler, drmaaSession);
 				transcriptomeJobs.add(job);
 			}		
 		}
@@ -284,7 +286,7 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq file for sample " + sample + " already exist. Not rerunning alignment to genome.");
 					continue;
 				}
-				Job job = AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomeUnpaired.get(sample), samToGenome.get(sample), fastqNotGenomeUnpaired.get(sample), bowtie2Executable, logDir, scheduler);
+				Job job = AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomeUnpaired.get(sample), samToGenome.get(sample), fastqNotGenomeUnpaired.get(sample), bowtie2Executable, logDir, scheduler, drmaaSession);
 				genomeJobs.add(job);
 			} else {
 				File outUnalignedFile1 = new File(fastqNotGenomePaired1.get(sample));
@@ -294,7 +296,7 @@ public class LibraryCompositionByRnaClass {
 					this.logger.info("WARNING: sam file and fastq files for sample " + sample + " already exist. Not rerunning alignment to genome.");
 					continue;
 				}
-				Job job = AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomePaired1.get(sample), fastqNotTranscriptomePaired2.get(sample), samToGenome.get(sample), fastqNotGenomePairedBase.get(sample), bowtie2Executable, logDir, scheduler);
+				Job job = AlignmentUtils.runBowtie2(this.genomeBowtieIndex, bowtie2options, fastqNotTranscriptomePaired1.get(sample), fastqNotTranscriptomePaired2.get(sample), samToGenome.get(sample), fastqNotGenomePairedBase.get(sample), bowtie2Executable, logDir, scheduler, drmaaSession);
 				genomeJobs.add(job);
 			}		
 		}

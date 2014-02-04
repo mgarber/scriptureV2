@@ -8,6 +8,7 @@ import nextgen.core.capture.ProbeSet;
 import nextgen.core.pipeline.ConfigFileOptionValue;
 import broad.core.sequence.Sequence;
 
+
 /**
  * @author prussell
  * Probes of a specified length tiled at a specified step size
@@ -40,7 +41,7 @@ public class SingleTilingProbeLayout implements ProbeLayout {
 	
 	@Override
 	public ProbeSet getProbes(Sequence transcript) {
-		ProbeSet rtrn = new ProbeSet();
+		ProbeSet rtrn = new ProbeSet(name());
 		int startPos = start;
 		while(startPos + size <= transcript.getLength()) {
 			int endPos = startPos + size - 1;
