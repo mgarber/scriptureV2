@@ -786,6 +786,12 @@ public class OrientedChromosomeTranscriptGraph extends DefaultDirectedWeightedGr
 			//convert to reference space
 			return getReferenceCoordinateAtPosition(mid);
 		}
+
+		@Override
+		public String getFullInfoString() {
+			// TODO Auto-generated method stub
+			return null;
+		}
 		
 	}
 }

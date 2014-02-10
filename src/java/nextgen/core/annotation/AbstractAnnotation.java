@@ -201,6 +201,17 @@ public abstract class AbstractAnnotation implements Annotation {
 		return toBED(0, 0, 0);
 	}
 	
+	
+	public final String getFullInfoString() {
+		String rtrn = getName();
+		rtrn += "_" + getChr();
+		rtrn += "_" + getOrientation().toString();
+		for(Annotation block : getBlocks()) {
+			rtrn += "_" + block.getStart() + "-" + block.getEnd();
+		}
+		return rtrn;
+	}
+	
 	@Override
 	public String toBED(int r, int g, int b){
 		if(r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {

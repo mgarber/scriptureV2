@@ -1,11 +1,13 @@
 package nextgen.core.pipeline.util;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -22,6 +24,8 @@ import org.ggf.drmaa.Session;
 
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;
+import broad.pda.seq.fastq.FastqParser;
+import broad.pda.seq.fastq.FastqSequence;
 
 /**
  * @author prussell
@@ -30,6 +34,64 @@ import broad.core.parser.StringParser;
 public class FastqUtils {
 	
 	private static Logger logger = Logger.getLogger(FastqUtils.class.getName());
+	
+	/**
+	 * Divide a fastq file into several smaller fastq files and write to same directory
+	 * @param fastq Original fastq file
+	 * @param numOutFiles Number of smaller files to write
+	 * @return The names of files written
+	 * @throws IOException
+	 */
+	public static Collection<String> divideFastqFile(String fastq, int numOutFiles) throws IOException {
+		
+		logger.info("");
+		logger.info("Dividing " + fastq + " into " + numOutFiles + " smaller files...");
+		
+		Collection<String> rtrn = new ArrayList<String>();
+		
+		boolean allExist = true;
+		BufferedWriter[] bw = new BufferedWriter[numOutFiles];
+		for(int i = 0; i < bw.length; i ++) {
+			String file = fastq + "." + i;
+			rtrn.add(file);
+			if(!new File(file).exists()) {
+				bw[i] = new BufferedWriter(new FileWriter(file));
+				allExist = false;
+			}
+		}
+		
+		if(allExist) {
+			logger.warn("All fastq files already exist. Not regenerating files.");
+			for(int i = 0; i < bw.length; i++) {
+				if(bw[i] != null) bw[i].close();
+			}
+			return rtrn;
+		}
+		
+		FastqParser p = new FastqParser();
+		p.start(new File(fastq));
+		
+		int recordNum = 0;
+		while(p.hasNext()) {
+			FastqSequence r = p.next();
+			try {
+				r.write(bw[recordNum % bw.length]);
+			} catch(NullPointerException e) {
+				logger.warn("Null pointer exception; skipping record num " + recordNum);
+			}
+			recordNum++;
+		}
+		
+		for(int i = 0; i < bw.length; i++) {
+			bw[i].close();
+		}
+		
+		logger.info("Done dividing fastq file.");
+		
+		return rtrn;
+		
+	}
+	
 	
 	/**
 	 * Clip sequencing adapters

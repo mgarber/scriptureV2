@@ -37,6 +37,13 @@ public class FastqSequence {
 		bw.write(description);
 		bw.newLine();
 		bw.write(quality);
+		bw.newLine();
+	}
+	
+	public void removeAtSymbolFromName() {
+		if(name.charAt(0) == '@') {
+			name = name.substring(1);
+		}
 	}
 	
 	public FastqSequence trimEnds(char letter){

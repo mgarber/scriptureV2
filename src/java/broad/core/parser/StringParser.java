@@ -19,6 +19,17 @@ public class StringParser {
 	public StringParser() {}
 	
 	/**
+	 * Get the first field of a whitespace-delimited string
+	 * @param s The string
+	 * @return The first field
+	 */
+	public static String firstField(String s) {
+		StringParser sp = new StringParser();
+		sp.parse(s);
+		return sp.asString(0);
+	}
+	
+	/**
 	 * Parses the string around whitespace and stores tokens
 	 * @param s The string to parse
 	 */
