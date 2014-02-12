@@ -387,6 +387,9 @@ public class GuideRNA {
 		}
 	}
 	
+	public String getBedString() {
+		return annot.toBED();
+	}
 	
 	public int hashCode() {
 		String s = annot.toBED() + name + sequence20.getSequenceBases() + target.toBED();

@@ -1,9 +1,10 @@
-package nextgen.editing.crispr;
+package nextgen.editing.crispr.predicate;
 
 import java.util.Collection;
 
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
+import nextgen.editing.crispr.GuideRNA;
 
 
 /**

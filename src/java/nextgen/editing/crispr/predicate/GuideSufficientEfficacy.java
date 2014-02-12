@@ -1,7 +1,8 @@
-package nextgen.editing.crispr;
+package nextgen.editing.crispr.predicate;
 
 import java.io.IOException;
 
+import nextgen.editing.crispr.GuideRNA;
 import nextgen.editing.crispr.score.GuideEfficacyScore;
 
 public class GuideSufficientEfficacy implements GuideRNAPredicate {

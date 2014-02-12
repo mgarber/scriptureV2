@@ -1,4 +1,6 @@
-package nextgen.editing.crispr;
+package nextgen.editing.crispr.predicate;
+
+import nextgen.editing.crispr.GuideRNAPair;
 
 import org.apache.log4j.Logger;
 

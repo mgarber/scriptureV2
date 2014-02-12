@@ -31,6 +31,9 @@ public class DistanceToBED extends CommandLineProgram {
 	@Option(doc="Default behavior is to throw out query annotations where the closest reference is not the same strand.  Set to false to allow this")
 	public Boolean IGNORE_STRAND = false;
 	
+	@Option(doc="Default behavior is to match the same strand.  Set to true for matching opposite strand")
+	public Boolean MATCH_OPPOSITE_STRAND = false;
+	
 	@Option(doc="Set to true if you want to calculate distances between single bases - otherwise neighboring bases score as 0 distance", optional=true)
 	public Boolean POINT_MATH = false;
 	
@@ -60,22 +63,24 @@ public class DistanceToBED extends CommandLineProgram {
 				throw new UnsupportedOperationException("EXCLUDE_BED option not implemented yet");
 			}
 			
-			AnnotationList<Annotation> query = AnnotationFileReader.load(QUERY, Annotation.class, new BasicAnnotation.Factory());
-			log.info("Loaded " + query.size() + " query annotations.");
-			
+			// Load references into memory
 			AnnotationList<Annotation> ref = AnnotationFileReader.load(REF, Annotation.class, new BasicAnnotation.Factory());
 			log.info("Loaded " + ref.size() + " reference annotations.");
 			
+			// Iterate through buffered query annotations to handle large files gracefully
+			CloseableIterator<Annotation> itr = AnnotationFileReader.read(QUERY, Annotation.class, new BasicAnnotation.Factory());
+			
 			BufferedWriter bw = new BufferedWriter(new FileWriter(OUTPUT,true));
 			
-			CloseableIterator<Annotation> itr = query.iterator();
 			while (itr.hasNext()) {
 				Annotation curr = itr.next();
 				Annotation closestRef = ref.getClosest(curr);
 				
 				if (closestRef == null) continue;
-				if (!IGNORE_STRAND && curr.getStrand() != closestRef.getStrand()) {
+				if (!IGNORE_STRAND && !MATCH_OPPOSITE_STRAND && curr.getStrand() != closestRef.getStrand()) {
 					// skip if the strands do not match
+					continue;
+				} else if (!IGNORE_STRAND && MATCH_OPPOSITE_STRAND && curr.getStrand() == closestRef.getStrand()) {
 					continue;
 				}
 				
