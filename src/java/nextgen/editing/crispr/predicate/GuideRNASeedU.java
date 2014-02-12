@@ -35,7 +35,7 @@ public class GuideRNASeedU implements GuideRNAPredicate {
 	
 	@Override
 	public String getShortFailureMessage(GuideRNA g) {
-		return(name + "_more_than_" + maxU + "_in_seed_" + seedBases);
+		return name + "_more_than_" + maxU + "_in_seed_" + seedBases;
 	}
 
 }

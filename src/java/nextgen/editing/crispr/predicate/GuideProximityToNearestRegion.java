@@ -31,7 +31,7 @@ public class GuideProximityToNearestRegion implements GuideRNAPredicate {
 	
 	@Override
 	public boolean evaluate(GuideRNA g) {
-		Gene asGene = new Gene(g.getAnnotation());
+		Gene asGene = new Gene(g);
 		int nearest = asGene.distanceToNearestNonOverlapper(regionSet);
 		return nearest <= maxDistance;
 	}
@@ -45,5 +45,4 @@ public class GuideProximityToNearestRegion implements GuideRNAPredicate {
 	public String getShortFailureMessage(GuideRNA g) {
 		return(name + "_not_within_" + maxDistance);
 	}
-
 }

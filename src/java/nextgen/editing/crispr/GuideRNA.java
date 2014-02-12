@@ -16,13 +16,11 @@ import broad.core.sequence.Sequence;
  * A guide RNA with a genomic position and a target gene for CRISPR editing
  * @author prussell
  */
-public class GuideRNA {
+public class GuideRNA extends BasicAnnotation {
 	
 	private Sequence chr;
-	private Annotation annot;
-	private String name;
 	public static Logger logger = Logger.getLogger(GuideRNA.class.getName());
-	private Sequence sequence20;
+	private Sequence sequence20, sequence23;
 	private Gene target;
 
 	
@@ -34,14 +32,13 @@ public class GuideRNA {
 	 * @param orientation Strand
 	 */
 	public GuideRNA(Gene targetGene, Sequence chromosome, int start, int end, Strand orientation) {
+		super(chromosome.getId(), start, end, orientation);
 		validateStartEnd(start, end);
 		validateStrand(orientation);
 		chr = chromosome;
-		name = chr.getId() + ":" + start + "-" + end + ":" + orientation.toString();
-		annot = new BasicAnnotation(chromosome.getId(), start, end, orientation, name);
+		setName(chr.getId() + ":" + start + "-" + end + ":" + orientation.toString());
 		target = targetGene;
 		
-		Sequence sequence23;
 		int start20;
 		int start23;
 		int end20;
@@ -51,15 +48,15 @@ public class GuideRNA {
 		// Validate
 		strand = orientation;
 		if(strand.equals(Strand.POSITIVE)) {
-			start20 = annot.getStart();
+			start20 = getStart();
 			start23 = start20;
-			end20 = annot.getEnd();
+			end20 = getEnd();
 			end23 = end20 + 3;
 		} else {
-			start20 = annot.getStart();
-			start23 = annot.getStart() - 3;
-			end20 = annot.getEnd();
-			end23 = annot.getEnd();
+			start20 = getStart();
+			start23 = getStart() - 3;
+			end20 = getEnd();
+			end23 = getEnd();
 		}
 		Sequence shortSeq = chromosome.getSubSequence("", start20, end20);
 		shortSeq.setSequenceBases(shortSeq.getSequenceBases().toUpperCase());
@@ -72,28 +69,6 @@ public class GuideRNA {
 		validateSequence23(sequence23);
 	}
 
-	/**
-	 * @return The location of the guide RNA as a genomic annotation
-	 */
-	public Annotation getAnnotation() {
-		return annot;
-	}
-	
-	public String getChr() {
-		return chr.getId();
-	}
-	
-	public int getStart() {
-		return annot.getStart();
-	}
-	
-	public int getEnd() {
-		return annot.getEnd();
-	}
-	
-	public Strand getStrand() {
-		return annot.getOrientation();
-	}
 	
 	public boolean isPlusStrand() {
 		return getStrand().equals(Strand.POSITIVE);
@@ -111,19 +86,15 @@ public class GuideRNA {
 		return sequence20;
 	}
 	
-	public String getName() {
-		return name;
+	public Sequence getSequenceWithPAM() {
+		return sequence23;
 	}
+	
 	
 	public Gene getTargetGene() {
 		return target;
 	}
-	
-	public void setName(String newName) {
-		name = newName;
-		annot.setName(name);
-	}
-	
+
 	/**
 	 * Find all guide RNAs on either strand within the window
 	 * @param chr Chromosome
@@ -386,13 +357,9 @@ public class GuideRNA {
 			throw new IllegalArgumentException("Sequence must end in GG: " + sequence.getSequenceBases());
 		}
 	}
-	
-	public String getBedString() {
-		return annot.toBED();
-	}
-	
+
 	public int hashCode() {
-		String s = annot.toBED() + name + sequence20.getSequenceBases() + target.toBED();
+		String s = toBED() + getName() + sequence20.getSequenceBases() + target.toBED();
 		return s.hashCode();
 	}
 	
