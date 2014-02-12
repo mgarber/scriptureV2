@@ -1,9 +1,10 @@
-package nextgen.editing.crispr;
+package nextgen.editing.crispr.predicate;
 
 import java.util.Collection;
 
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
+import nextgen.editing.crispr.GuideRNA;
 
 
 /**
@@ -30,7 +31,7 @@ public class GuideProximityToNearestRegion implements GuideRNAPredicate {
 	
 	@Override
 	public boolean evaluate(GuideRNA g) {
-		Gene asGene = new Gene(g.getAnnotation());
+		Gene asGene = new Gene(g);
 		int nearest = asGene.distanceToNearestNonOverlapper(regionSet);
 		return nearest <= maxDistance;
 	}
@@ -44,5 +45,4 @@ public class GuideProximityToNearestRegion implements GuideRNAPredicate {
 	public String getShortFailureMessage(GuideRNA g) {
 		return(name + "_not_within_" + maxDistance);
 	}
-
 }

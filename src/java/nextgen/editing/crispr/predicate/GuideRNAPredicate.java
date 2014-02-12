@@ -1,6 +1,8 @@
-package nextgen.editing.crispr;
+package nextgen.editing.crispr.predicate;
 
 import java.io.IOException;
+
+import nextgen.editing.crispr.GuideRNA;
 
 import org.apache.commons.collections15.Predicate;
 

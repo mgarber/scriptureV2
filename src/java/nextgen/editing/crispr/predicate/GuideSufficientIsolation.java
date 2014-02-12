@@ -1,4 +1,4 @@
-package nextgen.editing.crispr;
+package nextgen.editing.crispr.predicate;
 
 import java.util.Collection;
 import java.util.Map;
@@ -7,6 +7,7 @@ import java.util.TreeSet;
 
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.Gene;
+import nextgen.editing.crispr.GuideRNA;
 
 import org.apache.log4j.Logger;
 

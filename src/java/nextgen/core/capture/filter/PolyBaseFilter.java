@@ -2,6 +2,7 @@ package nextgen.core.capture.filter;
 
 import java.util.Collection;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
 import broad.core.primer3.PrimerPair;
@@ -10,13 +11,16 @@ import nextgen.core.capture.OligoPool;
 import nextgen.core.capture.Probe;
 import nextgen.core.capture.ProbeSet;
 import nextgen.core.pipeline.ConfigFileOptionValue;
+import nextgen.editing.crispr.GuideRNA;
+import nextgen.editing.crispr.predicate.GuideRNAPredicate;
 
 /**
  * @author prussell
  * Filter probes with large number of single base in a row (e.g., PolyA)
  */
-public class PolyBaseFilter implements ProbeFilter, PrimerFilter {
+public class PolyBaseFilter implements ProbeFilter, PrimerFilter, GuideRNAPredicate {
 	
+	public String name = "PolyBase";
 	private String basesToFilter;
 	private int cutoff;
 	private int repeatLength;
@@ -27,6 +31,11 @@ public class PolyBaseFilter implements ProbeFilter, PrimerFilter {
 	 */
 	public PolyBaseFilter() {}
 
+	public PolyBaseFilter(String basesToFilter, int cutoff, int repeatLength) {
+		this.basesToFilter = basesToFilter;
+		this.cutoff = cutoff;
+		this.repeatLength = repeatLength;
+	}
 	
 	@Override
 	public String name() {
@@ -126,5 +135,22 @@ public class PolyBaseFilter implements ProbeFilter, PrimerFilter {
 	
 	@Override
 	public void setup(Collection<ProbeSet> probeSets) {}
+	
+
+	@Override
+	public boolean evaluate(GuideRNA g) {
+		String seq = g.getSequenceString();
+		return !rejectSequence(seq);
+	}
+	
+	@Override
+	public String getPredicateName() {
+		return name;
+	}
+	
+	@Override
+	public String getShortFailureMessage(GuideRNA g) {
+		return name;
+	}
 
 }

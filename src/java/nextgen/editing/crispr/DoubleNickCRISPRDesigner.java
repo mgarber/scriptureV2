@@ -26,6 +26,10 @@ import nextgen.editing.RestrictionEnzymeFactory;
 import nextgen.editing.RestrictionEnzymePair;
 import nextgen.editing.SingleCleavageTypeIIRestrictionEnzyme;
 import nextgen.editing.TypeIISRestrictionEnzyme;
+import nextgen.editing.crispr.predicate.GuidePairDoubleNickConfiguration;
+import nextgen.editing.crispr.predicate.GuideProximityToNearestRegion;
+import nextgen.editing.crispr.predicate.GuideSufficientEfficacy;
+import nextgen.editing.crispr.predicate.GuideSufficientIsolation;
 import nextgen.editing.crispr.score.GuideEfficacyScore;
 import nextgen.editing.crispr.score.GuideOffTargetScore;
 
