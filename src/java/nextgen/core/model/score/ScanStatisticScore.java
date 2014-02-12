@@ -40,8 +40,9 @@ public class ScanStatisticScore extends CountScore {
 		getAnnotation().setScore(getScanPvalue());
 		
 		// by default, set the "region" stats to the "global" stats
-		setRegionLength(model.getGlobalLength());
-		setRegionTotal(getTotal());
+		//SK: Now will set the local region to the chromosome
+		setRegionLength(model.getRefSequenceLength(annotation.getChr()));
+		setRegionTotal(model.getRefSequenceCounts(annotation.getChr()));
 		
 	}
 	
@@ -181,12 +182,14 @@ public class ScanStatisticScore extends CountScore {
 	 * Returns an array of scores
 	 * [0] = count
 	 * [1] = RPKM
-	 * [2] = region total
-	 * [3] = total
-	 * [4] = scan p value
-	 * [5] = global lambda
-	 * [6] = local lambda
-	 * [7] = region length  
+	 * [2] = RPK
+	 * [3] = region total
+	 * [4] = total
+	 * [5] = Annotation length
+	 * [6] = scan p value
+	 * [7] = global lambda
+	 * [8] = local lambda
+	 * [9] = region length  
 	 */
 	public double[] getScores(){
 		double[] scores = new double[10];
