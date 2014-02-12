@@ -69,6 +69,17 @@ public class GenomicSpace implements CoordinateSpace {
 		}
 	}
 	
+	public GenomicSpace(Map<String, Integer> chromosomeSizes, String maskedRegionFile) {
+		this(chromosomeSizes);
+		if (maskedRegionFile != null) {
+			try {
+				maskedRegions = AnnotationFileReader.load(new File(maskedRegionFile), Annotation.class, new BasicAnnotation.Factory());
+			} catch (IOException e) {
+				throw new IllegalArgumentException(maskedRegionFile + " not found: " + e.getMessage());
+			}
+		}
+	}
+	
 	public GenomicSpace(String chromosomeSizes, String maskedRegionFile, double pctMaskedAllowed) {
 		this(chromosomeSizes, maskedRegionFile);
 		setPercentMaskedAllowed(pctMaskedAllowed);
