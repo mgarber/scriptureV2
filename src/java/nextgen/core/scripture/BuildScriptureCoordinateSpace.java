@@ -49,7 +49,6 @@ import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.IndelFilter;
 import nextgen.core.readFilters.PairedEndFilter;
 import nextgen.core.readFilters.ReadsToReconstructFilter;
-import nextgen.core.readFilters.SameOrientationFilter;
 import nextgen.core.readFilters.SplicedReadFilter;
 import nextgen.core.readers.PairedEndReader.AlignmentType;
 import nextgen.core.scripture.OrientedChromosomeTranscriptGraph.TranscriptGraphEdge;
@@ -84,19 +83,6 @@ public class BuildScriptureCoordinateSpace {
 	File bamfile;
 	double medianInsertSize;
 	TranscriptionRead strand;
-	//double globalFragments;
-	
-/*	public BuildScriptureCoordinateSpace(File bamFile){
-		this(bamFile,DEFAULT_MIN_COV_THRESHOLD,null,null,true,DEFAULT_TXN_READ);
-		logger.info("Genome sequence has not been provided");
-	}
-	
-	
-	public BuildScriptureCoordinateSpace(File bamFile,double threshold,String genomeDir,String outputName){
-		//By default first read is transcription read
-		this(bamFile,threshold,genomeDir,outputName,true,DEFAULT_TXN_READ);
-	}
-	*/
 	
 	public BuildScriptureCoordinateSpace(File bamFile,String genomeDir){
 		this(bamFile,genomeDir,bamFile.getName()+".reconstructions",true,DEFAULT_TXN_READ,null);
@@ -118,6 +104,7 @@ public class BuildScriptureCoordinateSpace {
 		bamFileName = bamFile;
 		forceStrandSpecificity = forceStrandedness;
 		outName = outputName;
+		//TODO: CHECK IF DATA IS SINGLE END USING THE SAME HEADER
 		model=new JCSAlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		space=model.getCoordinateSpace();
 

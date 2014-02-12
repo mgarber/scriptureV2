@@ -99,7 +99,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead) {
 
 		//By default, load as fragments
-		this(bamFile,coordinateSpace,readFilters,readOrCreatePairedEndBam,transcriptionRead,true);
+		this(bamFile,coordinateSpace,readFilters,readOrCreatePairedEndBam,transcriptionRead,true,null);
 				
 	}
 	
@@ -110,8 +110,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @param readFilters 
 	 * @throws IOException 
 	 */
-	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead,boolean fragment) {
-
+	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead,boolean fragment,String maskedRegionFile) {
 		this.bamFile=bamFile;
 		strand = transcriptionRead;
 		if (readOrCreatePairedEndBam) {
@@ -133,8 +132,12 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		//If the passed coordinate space is null then make a Genomic Space
 		if(coordinateSpace==null){
 			//create a new GenomicSpace using the sizes in the BAM File
-			coordinateSpace=new GenomicSpace(reader.getRefSequenceLengths());
-		}
+			if(maskedRegionFile==null)
+				coordinateSpace=new GenomicSpace(reader.getRefSequenceLengths());
+			else
+				coordinateSpace=new GenomicSpace(reader.getRefSequenceLengths(),maskedRegionFile);
+		}		
+
 		// Set the coordinate space
 		this.coordinateSpace=coordinateSpace;
 		
@@ -311,6 +314,19 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 				
 		return globalFragments;
+	}
+	
+	/**
+	 * Returns the counts for the specified reference sequence
+	 * @param refName
+	 * @return
+	 */
+	public double getRefSequenceCounts(String refName) {
+		if (!hasGlobalStats) {
+			computeGlobalStats();
+		}
+		if(!containsReference(refName)) return 0.0;
+		return refSequenceCounts.get(refName);
 	}
 
 	/**

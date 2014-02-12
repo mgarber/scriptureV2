@@ -16,8 +16,6 @@ import java.util.TreeMap;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.Gene;
-import nextgen.core.coordinatesystem.CoordinateSpace;
-import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.readFilters.GenomicSpanFilter;
@@ -61,7 +59,8 @@ public class ScriptureScorer {
 	public ScriptureScorer(File bamFile,ArgumentMap argMap) throws IOException{
 		
 		init(argMap);
-		AlignmentModel model=new AlignmentModel(bamFile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,true);
+		String maskedRegionFile = argMap.containsKey("maskedRegions") ? argMap.get("maskedRegions") : null;
+		AlignmentModel model=new AlignmentModel(bamFile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,true,maskedRegionFile);
 		
 	}
 	
@@ -74,7 +73,7 @@ public class ScriptureScorer {
 		 */
 		annotations= BEDFileParser.loadDataByChr(new File(annotationFile));
 		List<String> rows = new ArrayList<String>();
-		
+		String maskedRegionFile = argMap.containsKey("maskedRegions") ? argMap.get("maskedRegions") : null;
 		//TODO: MAKE GENES
 		
 		// HashMap of gene to rowName
@@ -152,7 +151,7 @@ public class ScriptureScorer {
 			boolean pairedFlag = !argMap.isPresent("singleEnd");
 			logger.info("Paired flag is "+pairedFlag);
 			//CoordinateSpace space = new TranscriptomeSpace(annotations);
-			AlignmentModel model = new AlignmentModel(alignmentFiles.get(i), null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true);
+			AlignmentModel model = new AlignmentModel(alignmentFiles.get(i), null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
 			
 			//Add read filters
 			model.addFilter(new MappingQualityFilter(minimumMappingQuality,minimumMappingQuality));
@@ -392,8 +391,6 @@ public class ScriptureScorer {
 			"\n**************************************************************"+
 			"\n\t\tArguments"+
 			"\n**************************************************************"+
-			"\n\n\t\t-alignment <Single bam file> "+
-			"\n\t\tOR"+
 			"\n\t\t-alignments <List of bam files to score from> "+
 			"\n\t\t-out <Output file [Defaults to stdout]> "+		
 			"\n\t\t-strand <VALUES: first, second, unstranded. Specifies the mate that is in the direction of transcription DEFAULT: Unstranded> "+
@@ -403,6 +400,7 @@ public class ScriptureScorer {
 			"\n\t\tOptional Arguments"+
 			"\n**************************************************************"+
 			"\n\t\t-singleEnd Only if data is single end"+
+			"\n\t\t-maskedRegions <Path to file with tab delimited: chr start end >"+
 			"\n";
 
 }
