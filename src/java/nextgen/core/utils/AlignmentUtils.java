@@ -18,6 +18,9 @@ import nextgen.core.annotation.Annotation.Strand;
 public class AlignmentUtils {
 	
 	public static boolean hammingDistanceAtMost(String s1, String s2, int maxDistance, boolean ignoreCase) {
+		if(maxDistance < 0) {
+			throw new IllegalArgumentException(maxDistance + " is not a valid max distance");
+		}
 		if(s1.length() != s2.length()) {
 			throw new IllegalArgumentException("Strings must have same length");
 		}
@@ -29,6 +32,7 @@ public class AlignmentUtils {
 				dist++;
 			}
 			if(dist > maxDistance) {
+				//System.out.println(s1 + "\t" + s2 + "\t" + dist + "\t" + maxDistance);
 				return false;
 			}
 		}
