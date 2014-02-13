@@ -22,7 +22,7 @@ import broad.pda.seq.rap.CRISPRDesigner;
  * entire genome.
  */
 public class DumpAllGuideSequences extends CommandLineProgram {
-    private static final Log log = Log.getInstance(CRISPRDesigner.class);
+    private static final Log log = Log.getInstance(DumpAllGuideSequences.class);
 
 	@Option(doc="Genome fasta file")
 	public File GENOME_FASTA = new File("/seq/lincRNA/data/mm9.nonrandom.fa");

@@ -53,6 +53,9 @@ public class CRISPRDesigner extends CommandLineProgram {
 
 	@Option(doc="Output directory to create")
 	public File OUTPUT_DIR;
+	
+	@Option(doc="Skip initial step of generating guides ... assumes that file exists and reads from there")
+	public Boolean SKIP_GENERATION = false;
 
 	/**
 	 * Stock main method.
@@ -76,11 +79,18 @@ public class CRISPRDesigner extends CommandLineProgram {
 
         
         try {
-			// Iterate through buffered query annotations to handle large files gracefully
-			CloseableIterator<Annotation> itr = AnnotationFileReader.read(TARGETS, Annotation.class, new BasicAnnotation.Factory());
-			Map<String,Sequence> chrs = FastaSequenceIO.getChrSequencesFromFasta(GENOME_FASTA.getAbsolutePath());
-			List<GuideRNA> guides = getAllGuides(itr, chrs);
-			writeGuides(guides, allGuidesFile);
+        	
+        	List<GuideRNA> guides = null;
+        	if (!SKIP_GENERATION) {
+        		// Iterate through buffered query annotations to handle large files gracefully
+        		CloseableIterator<Annotation> itr = AnnotationFileReader.read(TARGETS, Annotation.class, new BasicAnnotation.Factory());
+        		Map<String,Sequence> chrs = FastaSequenceIO.getChrSequencesFromFasta(GENOME_FASTA.getAbsolutePath());
+				guides = getAllGuides(itr, chrs);
+				chrs = null;  // release memory, in case Java gets around to it
+				writeGuides(guides, allGuidesFile);
+        	} else {
+        		guides = AnnotationFileReader.load(allGuidesFile, GuideRNA.class, new GuideRNA.Factory()).toList();
+        	}
 			
 			CollectionUtils.filter(guides, new GuideRNASeedU());
 			CollectionUtils.filter(guides, new PolyBaseFilter("ACGTN",5,5));
@@ -91,7 +101,7 @@ public class CRISPRDesigner extends CommandLineProgram {
 			for (GuideRNA guide : guides) {
 				// off target score is 0-100 where >50 is best
 				// efficacy score is 0-1, 1 is best
-				guide.setScore(offTargetScore.getScore(guide) + score.getScore(guide));
+				guide.setScore(Math.floor(offTargetScore.getScore(guide)) + score.getScore(guide));
 			}
 			
 			writeGuides(guides, new File(OUTPUT_DIR.getAbsolutePath() + "/filteredGuides.bed"));
@@ -120,9 +130,10 @@ public class CRISPRDesigner extends CommandLineProgram {
     public void writeGuides(List<GuideRNA> guides, File output) throws IOException {
     	BufferedWriter writer = new BufferedWriter(new FileWriter(output));
   		for (GuideRNA guide : guides) {
-			writer.append(guide.toBED() + "\t" + guide.getSequenceWithPAM().getSequenceBases() + "\n");
+			writer.append(guide.toBedWithSequence() + "\n");
 		}
   		writer.close();
     }
+    
 
 }

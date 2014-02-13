@@ -78,7 +78,7 @@ public class Sequence {
 		return id;
 	}
 	
-	protected void setForwardStrand(boolean isForwardStrand) { this.forwardStrand = isForwardStrand;}
+	public void setForwardStrand(boolean isForwardStrand) { this.forwardStrand = isForwardStrand;}
 
 	public void setId(String id) {
 		this.id = id;

@@ -1,6 +1,6 @@
 package nextgen.editing.crispr.predicate;
 
-import nextgen.editing.crispr.GuideRNAPair;
+import nextgen.editing.crispr.NickingGuideRNAPair;
 
 import org.apache.log4j.Logger;
 
@@ -15,7 +15,7 @@ public class GuidePairDoubleNickConfiguration implements GuideRNAPairPredicate {
 	public GuidePairDoubleNickConfiguration() {}
 	
 	@Override
-	public boolean evaluate(GuideRNAPair guideRnaPair) {
+	public boolean evaluate(NickingGuideRNAPair guideRnaPair) {
 		// The two guide RNAs cannot overlap
 		if(!guideRnaPair.nonoverlapping()) {
 			//logger.debug("INVALID_PAIR\tGuide RNAs overlap:\t" + guideRnaPair.toString());
@@ -47,7 +47,7 @@ public class GuidePairDoubleNickConfiguration implements GuideRNAPairPredicate {
 	}
 
 	@Override
-	public String getShortFailureMessage(GuideRNAPair g) {
+	public String getShortFailureMessage(NickingGuideRNAPair g) {
 		return("not_valid_double_nick_configuration");
 	}
 

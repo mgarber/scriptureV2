@@ -30,7 +30,7 @@
 	<classpathentry kind="lib" path="lib/ssj.jar"/>
 	<classpathentry kind="lib" path="lib/tribble-0.1.jar"/>
 	<classpathentry kind="lib" path="lib/vcf.jar"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7"/>
 	<classpathentry kind="lib" path="lib/drmaa.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
