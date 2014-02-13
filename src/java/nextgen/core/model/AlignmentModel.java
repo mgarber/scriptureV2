@@ -99,9 +99,31 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead) {
 
 		//By default, load as fragments
-		this(bamFile,coordinateSpace,readFilters,readOrCreatePairedEndBam,transcriptionRead,true,null);
+		this(bamFile,coordinateSpace,readFilters,readOrCreatePairedEndBam,transcriptionRead,true);
 				
 	}
+	
+	/**
+	 * Populate the alignment collection
+	 * @param bamFile
+	 * @param coordinateSpace 
+	 * @param readFilters 
+	 * @throws IOException 
+	 */
+	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead,boolean fragment) {
+
+		//By default, load as fragments
+		this(bamFile,coordinateSpace,readFilters,readOrCreatePairedEndBam,transcriptionRead,fragment,null);
+				
+	}
+	
+	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead,String maskedRegionFile) {
+
+		//By default, load as fragments
+		this(bamFile,coordinateSpace,readFilters,readOrCreatePairedEndBam,transcriptionRead,true,maskedRegionFile);
+				
+	}
+	
 	
 	/**
 	 * Populate the alignment collection
