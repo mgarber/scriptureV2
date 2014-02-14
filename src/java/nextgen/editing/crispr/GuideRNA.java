@@ -395,11 +395,27 @@ public class GuideRNA extends BasicAnnotation {
 		return toBED() + "\t" + sequence23.getSequenceBases();
 	}
 
+	/**
+	 * @author engreitz
+	 * For files stored in BED12 plus the 23-mer sequence in column 13
+	 */
 	public static class Factory implements TabbedReader.Factory<GuideRNA> {
 		@Override
 		public GuideRNA create(String[] rawFields) throws ParseException {
 			Annotation a = new BasicAnnotation.Factory().create(rawFields);
 			return new GuideRNA(a, rawFields[12]);
+		}
+	}
+	
+	/**
+	 * @author engreitz
+	 * For files stored in BED6 with 23-mer sequence in the name column
+	 */
+	public static class FactoryBED6 implements TabbedReader.Factory<GuideRNA> {
+		@Override
+		public GuideRNA create(String[] rawFields) throws ParseException {
+			Annotation a = new BasicAnnotation.Factory().create(rawFields);
+			return new GuideRNA(a.trim(0,3), a.getName());
 		}
 	}
 }

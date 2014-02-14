@@ -580,7 +580,7 @@ public class DoubleNickCRISPRDesigner {
 			GuidePairDoubleNickConfiguration.logger.setLevel(Level.DEBUG);
 			DoubleNickCRISPRDesigner.logger.setLevel(Level.DEBUG);
 			GuideEfficacyScore.logger.setLevel(Level.DEBUG);
-			GuideOffTargetScore.logger.setLevel(Level.DEBUG);
+			GuideOffTargetScore.log.setLevel(Level.DEBUG);
 			GuideRNA.logger.setLevel(Level.DEBUG);
 			NickingGuideRNAPair.logger.setLevel(Level.DEBUG);
 			GuideSufficientIsolation.logger.setLevel(Level.DEBUG);
