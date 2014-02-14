@@ -57,7 +57,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	protected CoordinateSpace coordinateSpace;
 	PairedEndReader  reader;
 	String bamFile;
-	boolean hasSize=false;
+	//boolean hasSize=false;
 	int size;
 	Collection<Predicate<Alignment>> readFilters = new ArrayList<Predicate<Alignment>>();
 	private double globalLength = -99;
@@ -112,6 +112,27 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 */
 	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead,boolean fragment) {
 
+		//By default, load as fragments
+		this(bamFile,coordinateSpace,readFilters,readOrCreatePairedEndBam,transcriptionRead,fragment,null);
+				
+	}
+	
+	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead,String maskedRegionFile) {
+
+		//By default, load as fragments
+		this(bamFile,coordinateSpace,readFilters,readOrCreatePairedEndBam,transcriptionRead,true,maskedRegionFile);
+				
+	}
+	
+	
+	/**
+	 * Populate the alignment collection
+	 * @param bamFile
+	 * @param coordinateSpace 
+	 * @param readFilters 
+	 * @throws IOException 
+	 */
+	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead,boolean fragment,String maskedRegionFile) {
 		this.bamFile=bamFile;
 		strand = transcriptionRead;
 		if (readOrCreatePairedEndBam) {
@@ -133,8 +154,12 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		//If the passed coordinate space is null then make a Genomic Space
 		if(coordinateSpace==null){
 			//create a new GenomicSpace using the sizes in the BAM File
-			coordinateSpace=new GenomicSpace(reader.getRefSequenceLengths());
-		}
+			if(maskedRegionFile==null)
+				coordinateSpace=new GenomicSpace(reader.getRefSequenceLengths());
+			else
+				coordinateSpace=new GenomicSpace(reader.getRefSequenceLengths(),maskedRegionFile);
+		}		
+
 		// Set the coordinate space
 		this.coordinateSpace=coordinateSpace;
 		
@@ -311,6 +336,19 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 				
 		return globalFragments;
+	}
+	
+	/**
+	 * Returns the counts for the specified reference sequence
+	 * @param refName
+	 * @return
+	 */
+	public double getRefSequenceCounts(String refName) {
+		if (!hasGlobalStats) {
+			computeGlobalStats();
+		}
+		if(!containsReference(refName)) return 0.0;
+		return refSequenceCounts.get(refName);
 	}
 
 	/**
@@ -518,7 +556,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 */
 	public CloseableIterator<AlignmentCount> getOverlappingReadCounts(Annotation region, boolean fullyContained) {
 		//get Alignments over the whole region
-		if(strand.equals(TranscriptionRead.UNSTRANDED)){
+		if(strand.equals(TranscriptionRead.UNSTRANDED)) {
 			return this.cache.query(region, fullyContained, this.coordinateSpace);
 		}
 		else{
@@ -831,7 +869,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			return previousNext;
 		}
 
-		private AlignmentCount getNext(){
+		private AlignmentCount getNext(){		
 			AlignmentCount alignment=iter.next();
 			if(isValid(alignment.getRead())){
 				if(this.hasWindow) {
@@ -952,6 +990,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		 * @param end
 		 */
 		private void updateCache(String chr, int start, int end, boolean fullyContained) {
+			//logger.info("Updating cache: " + chr + ":" + start + "-" + end);
 			int newStart=start;
 			int newEnd=end;
 
@@ -1078,15 +1117,18 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 
 	@Override
 	public int size() {
+		return (int) getGlobalCount();
+		/*
 		// WARNING: slow
-		
 		if (!this.hasSize) {
 			computeSize();
 		}
 		return this.size;
+		*/
 	}
 	
 
+	/*
 	private void computeSize() {
 		int size=0;
 
@@ -1104,6 +1146,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		this.hasSize=true;
 		this.size=size;
 	}
+	*/
 
 
 	@Override

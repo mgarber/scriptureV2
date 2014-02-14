@@ -11,43 +11,41 @@ public class FastqParser implements Iterator<FastqSequence>{
 	Collection<FastqSequence> sequences;
 	File fastqFile;
 	BufferedReader reader;
-	private boolean done;
 	private int numberOfSeq;
+	String nextLine = null;
 	
 	/**
 	 * @deprecated This constructure is highly discouraged as it opens a reader. Use the empty constructor instead and set the 
 	 * file to read, then call start.
 	 * @param fastqFile
-	 * @throws FileNotFoundException
+	 * @throws IOException 
 	 */
 			
-	public FastqParser(File fastqFile) throws FileNotFoundException{
+	public FastqParser(File fastqFile) throws IOException{
 		this.fastqFile=fastqFile;
 		reader=new BufferedReader(new InputStreamReader(new FileInputStream(fastqFile)));
-		done=false;
+		nextLine = reader.readLine();
 	}
 	
 	public FastqParser() {
 		super();
 	}
 	
-	public void start(File fastqParser) throws FileNotFoundException {
+	public void start(File fastqParser) throws IOException {
 		this.fastqFile = fastqParser;
 		reader=new BufferedReader(new InputStreamReader(new FileInputStream(fastqFile)));
-		done=false;
+		nextLine = reader.readLine();
 	}
 	
-	public void start (BufferedReader br) {
+	public void start (BufferedReader br) throws IOException {
 		reader=br;
-		done=false;
+		nextLine = reader.readLine();
 	}
 	
 	public void convertToFasta(String save)throws IOException{
 		FileWriter writer=new FileWriter(save);
 	
-		BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(this.fastqFile)));
 		String nextLine;
-    	int i=0;
         while ((nextLine = reader.readLine()) != null && (nextLine.trim().length() > 0)) {
         	if(nextLine.startsWith("@")){
         		String firstLine=nextLine;
@@ -70,7 +68,6 @@ public class FastqParser implements Iterator<FastqSequence>{
 	public void convertToNumberedFasta(String save)throws IOException{
 		FileWriter writer=new FileWriter(save);
 	
-		BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(this.fastqFile)));
 		String nextLine;
     	int i=1;
         while ((nextLine = reader.readLine()) != null && (nextLine.trim().length() > 0)) {
@@ -81,7 +78,6 @@ public class FastqParser implements Iterator<FastqSequence>{
         		String fourthLine=reader.readLine();
         		
         		FastqSequence seq=new FastqSequence(firstLine, secondLine, thirdLine, fourthLine);
-        		String sequence=seq.getSequence();
     			writer.write(seq.toFasta(i));
     			i++;
         	}
@@ -90,10 +86,8 @@ public class FastqParser implements Iterator<FastqSequence>{
 	}
 	
 	public Collection<FastqSequence> parse(File file)throws IOException{
-		Collection rtrn=new ArrayList();
-		BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(file)));
+		Collection<FastqSequence> rtrn=new ArrayList<FastqSequence>();
 		String nextLine;
-    	int i=0;
         while ((nextLine = reader.readLine()) != null && (nextLine.trim().length() > 0)) {
         	if(nextLine.startsWith("@")){
         		String firstLine=nextLine;
@@ -102,12 +96,7 @@ public class FastqParser implements Iterator<FastqSequence>{
         		String fourthLine=reader.readLine();
         		
         		FastqSequence seq=new FastqSequence(firstLine, secondLine,thirdLine, fourthLine);
-        		String sequence=seq.getSequence();
-        		//int num=10;
-        		//String lastNBps=getLastBps(sequence, num);
-    			//String polyN=polyN("T", num);
-    			//if(lastNBps.equalsIgnoreCase(polyN)){System.err.println(sequence);}
-    			
+  			
         		rtrn.add(seq);
         	}
         	
@@ -187,24 +176,22 @@ public class FastqParser implements Iterator<FastqSequence>{
 	}
 
 	public boolean hasNext() {
-		return !done;
+		return nextLine != null;
 	}
 
 	public FastqSequence next() {
 		FastqSequence seq = null;
+
 		try{
-			String nextLine;
-			
-	        if ((nextLine = reader.readLine()) != null) {
-        		String firstLine=nextLine;
-        		String secondLine=reader.readLine();
+			if (hasNext()) {
+	    		String firstLine=nextLine;
+	    		String secondLine=reader.readLine();
 				String thirdLine=reader.readLine();
-        		String fourthLine=reader.readLine();
-        		seq=new FastqSequence(firstLine, secondLine, thirdLine, fourthLine);
-	        }
-	        done = nextLine == null ;
+	    		String fourthLine=reader.readLine();
+	    		seq=new FastqSequence(firstLine, secondLine, thirdLine, fourthLine);
+	    		nextLine = reader.readLine();
+			}
 		}catch(Exception ex){
-			this.done=true; 
 			logger.error("Exception thrown while reading fastq file",ex);
 		}
 

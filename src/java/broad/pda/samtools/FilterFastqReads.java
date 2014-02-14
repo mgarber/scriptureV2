@@ -16,7 +16,7 @@ import net.sf.picard.io.IoUtil;
 import net.sf.picard.util.Log;
 
 public class FilterFastqReads extends CommandLineProgram {
-    private static final Log log = Log.getInstance(FilterFastqReads.class);
+    private static final Log log = Log.getInstance(TrimFastqReads.class);
     
     @Usage
     public String USAGE = "Filters FASTQ files to remove reads matching the provided read name list.";
@@ -110,4 +110,5 @@ public class FilterFastqReads extends CommandLineProgram {
         final int idx = fastaqHeader.indexOf(" ");
         return (idx == -1) ? fastaqHeader : fastaqHeader.substring(0,idx); 
     }
+    
 }

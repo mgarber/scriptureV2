@@ -7,8 +7,8 @@ import java.util.Collection;
 
 import org.apache.log4j.Logger;
 
-import broad.core.parser.StringParser;
 import broad.core.sequence.Sequence;
+import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
@@ -48,7 +48,7 @@ public class GuideRNAPair {
 	 */
 	public static Collection<GuideRNAPair> findAll(Sequence chr, int start, int end, Gene targetGene) {
 		Collection<GuideRNA> all = GuideRNA.findAll(chr, start, end, targetGene);
-		logger.debug("There are " + all.size() + " total guide RNAs in " + chr.getId() + ":" + start + "-" + end);
+		//logger.debug("There are " + all.size() + " total guide RNAs in " + chr.getId() + ":" + start + "-" + end);
 		Collection<GuideRNA> plus = new ArrayList<GuideRNA>();
 		Collection<GuideRNA> minus = new ArrayList<GuideRNA>();
 		Collection<GuideRNAPair> rtrn = new ArrayList<GuideRNAPair>();
@@ -75,7 +75,7 @@ public class GuideRNAPair {
 	}
 	
 	public String toString() {
-		return target.getName() + ":" + plusStrandGuideRNA.toString() + "," + minusStrandGuideRNA.toString();
+		return target.getName() + ":" + asAnnotation("").getStart() + "-" + asAnnotation("").getEnd();
 	}
 	
 	public GuideRNA getPlusStrandGuideRNA() {
@@ -138,15 +138,12 @@ public class GuideRNAPair {
 	public static void writeOligoTable(Collection<GuideRNAPair> pairs, String outFile) throws IOException {
 		FileWriter w = new FileWriter(outFile);
 		String header = "target_gene\t";
-		header += "guide_RNA_pair_coordinates\t";
+		header += "oligo_ID\t";
 		header += getOligoFieldNames() + "\t";
 		w.write(header + "\n");
-		StringParser s = new StringParser();
 		for(GuideRNAPair pair : pairs) {
 			String line = pair.getTargetGene().getName() + "\t";
-			s.parse(pair.toBED());
-			String coord = s.asString(0) + ":" + s.asString(1) + "-" + s.asString(2);
-			line += coord + "\t";
+			line += pair.toString() + "\t";
 			line += pair.getOligos() + "\t";
 			w.write(line + "\n");
 		}
@@ -224,16 +221,42 @@ public class GuideRNAPair {
 	}
 	
 	/**
+	 * Get the guide pair as a blocked annotation
+	 * @return Annotation representation with the two guide RNAs as blocks
+	 */
+	public Annotation asAnnotation() {
+		return asAnnotation(toString());
+	}
+	
+	/**
+	 * Get the guide pair as a blocked annotation
+	 * @param name Name of annotation to set
+	 * @return Annotation representation with the two guide RNAs as blocks
+	 */
+	public Annotation asAnnotation(String name) {
+		Annotation plus = new BasicAnnotation(plusStrandGuideRNA.getChr(), plusStrandGuideRNA.getStart(), plusStrandGuideRNA.getEnd());
+		BasicAnnotation minus = new BasicAnnotation(minusStrandGuideRNA.getChr(), minusStrandGuideRNA.getStart(), minusStrandGuideRNA.getEnd());
+		BasicAnnotation both = new BasicAnnotation(plus);
+		both.addBlocks(minus);
+		both.setName(name);
+		return both;
+	}
+	
+	/**
 	 * Get a BED line for the pair
 	 * @return BED format representation of an annotation with the two guide RNAs as blocks
 	 */
 	public String toBED() {
-		BasicAnnotation plus = new BasicAnnotation(plusStrandGuideRNA.getChr(), plusStrandGuideRNA.getStart(), plusStrandGuideRNA.getEnd());
-		BasicAnnotation minus = new BasicAnnotation(minusStrandGuideRNA.getChr(), minusStrandGuideRNA.getStart(), minusStrandGuideRNA.getEnd());
-		BasicAnnotation both = new BasicAnnotation(plus);
-		both.addBlocks(minus);
-		both.setName(toString());
-		return both.toBED();
+		return toBED(toString());
+	}
+	
+	/**
+	 * Get a BED line for the pair
+	 * @param name Name of annotation for bed line
+	 * @return BED format representation of an annotation with the two guide RNAs as blocks
+	 */
+	public String toBED(String name) {
+		return asAnnotation(name).toBED();
 	}
 	
 	/**
@@ -244,5 +267,17 @@ public class GuideRNAPair {
 		//logger.debug("Inner distance of " + toString() + ":\t" + rtrn);
 		return rtrn;
 	}
+	
+	public boolean equals(Object o) {
+		if(!o.getClass().equals(getClass())) return false;
+		GuideRNAPair p = (GuideRNAPair)o;
+		return minusStrandGuideRNA.equals(p.getMinusStrandGuideRNA()) && plusStrandGuideRNA.equals(p.getPlusStrandGuideRNA()) && target.equals(p.getTargetGene());
+	}
+	
+	public int hashCode() {
+		String h = minusStrandGuideRNA.hashCode() + "_" + plusStrandGuideRNA.hashCode();
+		return h.hashCode();
+	}
+	
 	
 }

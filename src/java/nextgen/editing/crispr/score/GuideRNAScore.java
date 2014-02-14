@@ -1,6 +1,8 @@
-package nextgen.editing.crispr;
+package nextgen.editing.crispr.score;
 
 import java.io.IOException;
+
+import nextgen.editing.crispr.GuideRNA;
 
 /**
  * A score for a guide RNA object
@@ -17,5 +19,11 @@ public interface GuideRNAScore {
 	 * @throws InterruptedException 
 	 */
 	public double getScore(GuideRNA guideRNA) throws IOException, InterruptedException;
+	
+	/**
+	 * Get the name of the score
+	 * @return Score name
+	 */
+	public String getScoreName();
 	
 }

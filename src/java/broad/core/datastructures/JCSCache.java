@@ -264,6 +264,7 @@ public class JCSCache {
 	public FilteredIterator query(Annotation window, boolean fullyContained, CoordinateSpace cs)  {
 		try {
 			CloseableIterator<AlignmentCount> iter = query(window, fullyContained);
+//			logger.info("In query for window:"+window.toBED());
 			FilteredIterator filtered=model.new FilteredIterator(iter, window, cs, fullyContained);
 			return filtered;
 		} catch (CacheException e) {
@@ -428,6 +429,12 @@ public class JCSCache {
 		JCS.getInstance(cacheName).clear();
 		JCS.getInstance(cacheName).dispose();
 		
+/*		for(Integer key:keys){
+			Alignment a = (Alignment)JCS.getInstance(cacheName).get((Object)key);
+			if(a!=null){
+				logger.info("Cache still contains object after clearing.");
+			}
+		}*/
 /*		if(!keys.isEmpty()){
 			for(String k:keys){
 				try {
@@ -450,7 +457,17 @@ public class JCSCache {
 	 	
 		CloseableIterator<AlignmentCount> iterReadsOverlappingRegion=getReads(w, fullyContained);
 		while(iterReadsOverlappingRegion.hasNext()){
+/*			final int unit = 1024; // kB
+			long prevusedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+		    long availableMemory = Runtime.getRuntime().maxMemory() - prevusedMemory;
+		    logger.info("Memory: free="+(Runtime.getRuntime().freeMemory()/unit)+" total="+(Runtime.getRuntime().totalMemory()/unit)+" max="+(Runtime.getRuntime().maxMemory()/unit+" used="+prevusedMemory/unit+" available="+availableMemory/unit));
+*/
 			Alignment record=iterReadsOverlappingRegion.next().getRead();
+/*		    long usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+		    availableMemory = Runtime.getRuntime().maxMemory() - usedMemory;
+		    logger.info("Memory: free="+(Runtime.getRuntime().freeMemory()/unit)+" total="+(Runtime.getRuntime().totalMemory()/unit)+" max="+(Runtime.getRuntime().maxMemory()/unit+" used="+usedMemory/unit+" available="+availableMemory/unit));
+		    logger.info("Object adding used :"+(usedMemory-prevusedMemory)/unit);
+*/
 			if (model.isValid(record)) {
 				//logger.info("Attempting to ADD "+record.getName());
 				//String key = record.getReadName()+"-"+record.getAlignmentStart()+":"+record.getAlignmentEnd();
@@ -458,14 +475,14 @@ public class JCSCache {
 				
 				Integer key = generateRandom(KEY_LENGTH);
 
-//				long start = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+				//				long start = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
 				JCS.getInstance(cacheName).put(key,record);
 			    keys.add(key);    
 //			    long end = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
 //				if((end-start)!=0){
 //					logger.info(end-start);
 //				}
-			    			
+
 				tree.put(record.getAlignmentStart(), record.getAlignmentEnd(), key);
 			}	
 			/*Node<Alignment> node=tree.find(record.getAlignmentStart(), record.getAlignmentEnd());			

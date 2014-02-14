@@ -245,7 +245,6 @@ public class CRISPRDesigner {
 				String bowtieBuild = argMap.getMandatory("bowtieBuild");
 				String bowtie     =  argMap.getMandatory("bowtieExecutable");
 				checkOfTargets(result, bowtieBuild, bowtie);
-				
 			}
 
 			writeDesign(argMap, result);

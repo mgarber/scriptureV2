@@ -13,6 +13,7 @@ public class BED extends BasicGenomicAnnotation {
 	private int thickStart;
 	private int thickEnd;
 	private int [][] blockSizeStarts;
+	private GenomicAnnotation region;
 	
 	public BED(String name) {
 		super(name);
@@ -243,6 +244,30 @@ public class BED extends BasicGenomicAnnotation {
 		}
 		System.err.println(" first block start " + blockSizeStarts[0][1]);
 	}
+	
+	public String toBED() { 
+		return toBED(0, 0, 0);
+	}
+	
+	@Override
+	public String toBED(int r, int g, int b){
+		if(r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
+			throw new IllegalArgumentException("RGB values must be between 0 and 255");
+		}
+		String rgb = r + "," + g + "," + b;
+		List<? extends Annotation> exons = getBlocks();
+		//String rtrn=this.getChr()+"\t"+this.getStart()+"\t"+this.getEnd()+"\t"+(name == null ? toUCSC() : this.name)+"\t"+getCountScore()+"\t"+orientation+"\t"+start+"\t"+stop+"\t"+rgb+"\t"+exons.size();
+		String rtrn=getReferenceName()+"\t"+getStart()+"\t"+getEnd()+"\t"+(getName() == null ? toUCSC() : getName())+"\t"+getScore()+"\t"+getOrientation()+"\t"+getThickStart()+"\t"+getThickEnd()+"\t"+rgb+"\t"+exons.size();
+		String sizes="";
+		String starts="";
+		for(Annotation exon : exons){
+			sizes=sizes+(exon.length())+",";
+			starts=starts+(exon.getStart()-getStart())+",";
+		}
+		rtrn=rtrn+"\t"+sizes+"\t"+starts;
+		return rtrn;
+	}
+	
 
 	public boolean mayHaveBlocks() {
 		return true;
@@ -263,6 +288,5 @@ public class BED extends BasicGenomicAnnotation {
 		
 		return false;
 	}
-
 
 }

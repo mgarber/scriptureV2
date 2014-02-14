@@ -8,10 +8,12 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
 import broad.core.parser.StringParser;
+import broad.core.sequence.Sequence;
 
 
 /**
@@ -56,6 +58,32 @@ public class RestrictionEnzymeFactory {
 			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.SRFI, "GCCCGGGC", 4, 4);
 		case PSII:
 			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.PSII, "TTATAA", 3, 3);
+		case BAMHI:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.BAMHI, "GGATCC", 1, 1);
+		case XHOI:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.XHOI, "GGATCC", 1, 1);
+		case SMAI:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.SMAI, "CCCGGG", 3, 3);
+		case ECORV:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.ECORV, "GATATC", 3, 3);
+		case SNABI:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.SNABI, "TACGTA", 3, 3);
+		case NHEI:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.NHEI, "GCTAGC", 1, 1);
+		case NOTI:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.NOTI, "GCGGCCGC", 2, 2);
+		case SBFI:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.SBFI, "CCTGCAGG", 2, 2);
+		case SPEI:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.SPEI, "ACTAGT", 1, 1);
+		case MLUI:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.MLUI, "ACGCGT", 1, 1);
+		case AVRII:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.AVRII, "CCTAGG", 1, 1);
+		case BSABI:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.BSABI, getAllSequences("GAT", 4, "ATC"), 5, 5);
+		case XBAI:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.XBAI, "TCTAGA", 1, 1);
 		default:
 			throw new IllegalStateException("Enzyme " + r.toString() + " not supported.");
 		}
@@ -153,6 +181,21 @@ public class RestrictionEnzymeFactory {
 		return rtrn;
 	}
 
+	/**
+	 * Get all sequences beginning and ending with fixed bases and with a series of Ns in the middle
+	 * @param prefix Fixed beginning
+	 * @param numNs Number of degenerate bases in middle
+	 * @param suffix Fixed end
+	 * @return All sequences with the specified beginning and end, and any possible combination of bases in the middle
+	 */
+	public static Collection<String> getAllSequences(String prefix, int numNs, String suffix) {
+		Collection<String> kmers = Sequence.generateAllKmers(numNs);
+		Collection<String> rtrn = new TreeSet<String>();
+		for(String kmer : kmers) {
+			rtrn.add(prefix + kmer + suffix);
+		}
+		return rtrn;
+	}
 
 
 	/**
@@ -161,6 +204,71 @@ public class RestrictionEnzymeFactory {
 	 *
 	 */
 	public enum RestrictionEnzymeName {
+		
+		/**
+		 * BamHI
+		 */
+		BAMHI,
+		
+		/**
+		 * XhoI
+		 */
+		XHOI,
+		
+		/**
+		 * SmaI
+		 */
+		SMAI,
+		
+		/**
+		 * EcoRV
+		 */
+		ECORV,
+		
+		/**
+		 * SnaBI
+		 */
+		SNABI,
+		
+		/**
+		 * BsaBI
+		 */
+		BSABI,
+		
+		/**
+		 * NheI
+		 */
+		NHEI,
+		
+		/**
+		 * NotI
+		 */
+		NOTI,
+		
+		/**
+		 * SbfI
+		 */
+		SBFI,
+		
+		/**
+		 * SpeI
+		 */
+		SPEI,
+		
+		/**
+		 * MluI
+		 */
+		MLUI,
+		
+		/**
+		 * AvrII
+		 */
+		AVRII,
+		
+		/**
+		 * XbaI
+		 */
+		XBAI,
 		
 		/**
 		 * BglII
@@ -278,6 +386,32 @@ public class RestrictionEnzymeFactory {
 				return "SrfI";
 			case STUI:
 				return "StuI";
+			case BAMHI:
+				return "BamHI";
+			case XHOI:
+				return "XhoI";
+			case SMAI:
+				return "SmaI";
+			case ECORV:
+				return "EcoRV";
+			case SNABI:
+				return "SnaBI";
+			case NHEI:
+				return "NheI";
+			case NOTI:
+				return "NotI";
+			case SBFI:
+				return "SbfI";
+			case SPEI:
+				return "SpeI";
+			case MLUI:
+				return "MluI";
+			case AVRII:
+				return "AvrII";
+			case BSABI:
+				return "BsaBI";
+			case XBAI:
+				return "XbaI";
 			default:
 				throw new IllegalStateException("Element not supported.");
 			}

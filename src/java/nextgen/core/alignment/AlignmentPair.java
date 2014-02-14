@@ -115,7 +115,11 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 		return rtrn;
 	}
 
-
+	public boolean hasEntries(){
+		if(hasValue1() && hasValue2())
+			return true;
+		return false;
+	}
 
 	
 	private void updateNumHits(SAMRecord record) {
@@ -130,7 +134,7 @@ public class AlignmentPair extends Pair<Collection<SAMRecord>> {
 				//TODO: CHECK IF DISTANCE TO TOO FAR, THEN WRITE THIS ONE
 				// OR 
 				// IF NH>1 && cc==null meaning this is the last alignment in a multi-mapped read alignment
-			if(num>1 && ((cc!=null && !cc.toString().equals("="))||(cc==null))){
+			if(num>1){// && ((cc!=null && !cc.toString().equals("="))||(cc==null))){
 				if(record.getFirstOfPairFlag()){
 					numHits.setValue1(getValue1().size());
 				}

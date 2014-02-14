@@ -832,7 +832,7 @@ public class MultiSamplePeakCaller implements PeakCaller {
 				extraFields[0] = score.getCount();
 				extraFields[1] = score.getCtrlCount();
 				extraFields[2] = score.getSampleRegionCount();
-				extraFields[3] = score.getCtrlCount();
+				extraFields[3] = score.getCtrlRegionCount();
 				extraFields[4] = geneEnrichment;
 				extraFields[5] = window.size();
 				extraFields[6] = (double) geneSize;

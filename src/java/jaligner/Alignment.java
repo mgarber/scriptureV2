@@ -465,7 +465,7 @@ public final class Alignment {
 	
 	
 	public int getNumberOfMatches() {
-		System.err.println("In here");
+		//System.err.println("In here");
 		int matches = 0;
 		char c1, c2; // the next character
 		for (int i = 0; i <sequence1.length; i++) {
@@ -479,7 +479,7 @@ public final class Alignment {
 	}
 	
 	public int getNumberOfMatches2() {
-		System.err.println("In here");
+		//System.err.println("In here");
 		int matches = 0;
 		char c1, c2; // the next character
 		for (int i = 0; i <sequence1.length; i++) {

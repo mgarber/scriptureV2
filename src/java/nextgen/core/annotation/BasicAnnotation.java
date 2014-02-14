@@ -11,12 +11,16 @@ import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
-import nextgen.core.annotation.Annotation.Strand;
+import net.sf.samtools.Cigar;
+import net.sf.samtools.CigarElement;
+import net.sf.samtools.CigarOperator;
+import net.sf.samtools.SAMRecord;
+import net.sf.samtools.TextCigarCodec;
 import nextgen.core.general.TabbedReader;
-import nextgen.core.scripture.BuildScriptureCoordinateSpace;
 
 import broad.pda.datastructures.Alignments;
 import broad.core.error.ParseException;
+import broad.core.parser.StringParser;
 
 
 /**
@@ -37,6 +41,59 @@ public class BasicAnnotation extends AbstractAnnotation implements java.io.Seria
 	
 	public BasicAnnotation() {
 		throw new UnsupportedOperationException("This is a stupid constructor");
+	}
+	
+	/**
+	 * Create an annotation from a sam record
+	 * The blocks are the mapped blocks
+	 * This read only; does not consider the mate
+	 * @param samRecord Annotation with name equal to the read name, orientation and blocks as specified in the alignment
+	 */
+	public BasicAnnotation(SAMRecord samRecord) {
+		
+		if(samRecord.getReadUnmappedFlag()) {
+			throw new IllegalArgumentException("Can't make annotation from unmapped read");
+		}
+		
+		String cigarString = samRecord.getCigarString();
+		int start = samRecord.getAlignmentStart();
+		String chr = samRecord.getReferenceName();
+		boolean neg = samRecord.getReadNegativeStrandFlag();
+		
+		setName(samRecord.getReadName());
+		setReferenceName(chr);
+		setOrientation(neg ? Strand.NEGATIVE : Strand.POSITIVE);
+		
+    	Cigar cigar = TextCigarCodec.getSingleton().decode(cigarString);
+ 		List<CigarElement> elements=cigar.getCigarElements();
+		
+		int currentOffset = start;
+		
+		for(CigarElement element: elements){
+			CigarOperator op=element.getOperator();
+			int length=element.getLength();
+			
+			if(op.equals(CigarOperator.MATCH_OR_MISMATCH)){
+				int blockStart=currentOffset;
+				int blockEnd=blockStart+length;
+				addBlocks(new BasicAnnotation(chr, blockStart, blockEnd));
+				currentOffset=blockEnd;
+			}
+			else if(op.equals(CigarOperator.N)){
+				int blockStart=currentOffset;
+				int blockEnd=blockStart+length;
+				currentOffset=blockEnd;
+			}
+			else if(op.equals(CigarOperator.INSERTION) ||  op.equals(CigarOperator.H) || op.equals(CigarOperator.DELETION)|| op.equals(CigarOperator.SKIPPED_REGION)){
+				currentOffset+=length;
+			}
+			else{
+				//TODO This needs to handle all cigar strings
+				//logger.warn("We arent accounting for Cigar operator "+op.toString()+" so we are skipping read "+this.getChr()+" "+this.getAlignmentStart()+" "+this.getAlignmentEnd()+" "+cigarString+" "+this.getReadName());
+			}
+			
+		}
+
 	}
 	
 	public BasicAnnotation(String ucsc) {
@@ -154,6 +211,34 @@ public class BasicAnnotation extends AbstractAnnotation implements java.io.Seria
 		return new BasicAnnotation(firstSplit[0], Integer.valueOf(secondSplit[0]), Integer.valueOf(secondSplit[1]));
 	}
 	
+	/**
+	 * Create from string produced by AbstractAnnotation.getFullInfoString();
+	 * @param fullInfoString Full info string
+	 * @return Corresponding annotation object
+	 */
+	public static BasicAnnotation fromFullInfoString(String fullInfoString) {
+		StringParser s1 = new StringParser();
+		StringParser s2 = new StringParser();
+		s1.parse(fullInfoString, "_");
+		String name = s1.asString(0);
+		String chr = s1.asString(1);
+		Strand orientation = Strand.fromString(s1.asString(2));
+		String block1 = s1.asString(3);
+		s2.parse(block1, "-");
+		int start1 = s2.asInt(0);
+		int end1 = s2.asInt(1);
+		BasicAnnotation rtrn = new BasicAnnotation(chr, start1, end1, orientation);
+		rtrn.setName(name);
+		for(int i = 5; i < s1.getFieldCount(); i++) {
+			String block = s1.asString(i);
+			s2.parse(block, "-");
+			int start = s2.asInt(0);
+			int end = s2.asInt(1);
+			BasicAnnotation bl = new BasicAnnotation(chr, start, end, orientation);
+			rtrn.addBlocks(bl);
+		}
+		return rtrn;
+	}
 	
 	public static class Factory implements TabbedReader.Factory<BasicAnnotation> {
 		@Override

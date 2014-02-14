@@ -32,7 +32,6 @@ import broad.core.util.CollapseByIntersection;
 import broad.core.util.CLUtil.ArgumentMap;
 import broad.pda.datastructures.Alignments;
 import broad.pda.seq.graph.Path;
-import broad.pda.seq.segmentation.AlignmentDataModelStats;
 
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
@@ -50,8 +49,8 @@ import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.IndelFilter;
 import nextgen.core.readFilters.PairedEndFilter;
 import nextgen.core.readFilters.ReadsToReconstructFilter;
-import nextgen.core.readFilters.SameOrientationFilter;
 import nextgen.core.readFilters.SplicedReadFilter;
+import nextgen.core.readers.PairedEndReader.AlignmentType;
 import nextgen.core.scripture.OrientedChromosomeTranscriptGraph.TranscriptGraphEdge;
 import nextgen.core.scripture.statistics.ConnectDisconnectedTranscripts;
 
@@ -82,19 +81,8 @@ public class BuildScriptureCoordinateSpace {
 	private int constant = 10000;
 	private double globalPairedLambda=0.0;
 	File bamfile;
-	//double globalFragments;
-	
-/*	public BuildScriptureCoordinateSpace(File bamFile){
-		this(bamFile,DEFAULT_MIN_COV_THRESHOLD,null,null,true,DEFAULT_TXN_READ);
-		logger.info("Genome sequence has not been provided");
-	}
-	
-	
-	public BuildScriptureCoordinateSpace(File bamFile,double threshold,String genomeDir,String outputName){
-		//By default first read is transcription read
-		this(bamFile,threshold,genomeDir,outputName,true,DEFAULT_TXN_READ);
-	}
-	*/
+	double medianInsertSize;
+	TranscriptionRead strand;
 	
 	public BuildScriptureCoordinateSpace(File bamFile,String genomeDir){
 		this(bamFile,genomeDir,bamFile.getName()+".reconstructions",true,DEFAULT_TXN_READ,null);
@@ -107,14 +95,16 @@ public class BuildScriptureCoordinateSpace {
 	 * @param outputName
 	 * @param forceStrandedness
 	 */
-	public BuildScriptureCoordinateSpace(File bamFile,String genomeDir,String outputName,boolean forceStrandedness,TranscriptionRead strand,ArgumentMap argMap){
+	public BuildScriptureCoordinateSpace(File bamFile,String genomeDir,String outputName,boolean forceStrandedness,TranscriptionRead st,ArgumentMap argMap){
 			
+		strand = st;
 		bamfile=bamFile;
 		this.graphs=new TreeMap<String, ChromosomeTranscriptGraph>();
 		genomeSeq = genomeDir;
 		bamFileName = bamFile;
 		forceStrandSpecificity = forceStrandedness;
 		outName = outputName;
+		//TODO: CHECK IF DATA IS SINGLE END USING THE SAME HEADER
 		model=new JCSAlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
 		space=model.getCoordinateSpace();
 
@@ -194,7 +184,7 @@ public class BuildScriptureCoordinateSpace {
 		
 		Map<String, Collection<Gene>> rtrn=getPaths();
 		try {
-			FileWriter writer=new FileWriter(outName+".08graph.all.paths.bed");
+			FileWriter writer=new FileWriter(outName+".graph.all.paths.bed");
 			for(Gene g:rtrn.get(chr)){
 				writer.write(g.toBED()+"\n");
 			}			
@@ -377,7 +367,7 @@ public class BuildScriptureCoordinateSpace {
 		p=Math.abs(p);
 		p=Math.min(1, p);
 		//p=Math.max(0, p);
-		logger.info("Count = "+k+" Window = "+w+"LambdaW = "+lambdaW+" Pvalue = "+p);
+		//logger.info("Count = "+k+" Window = "+w+"LambdaW = "+lambdaW+" Pvalue = "+p);
 		return p;
 	}
 	
@@ -390,6 +380,7 @@ public class BuildScriptureCoordinateSpace {
 		
 		Predicate<Alignment> f= new PairedEndFilter();
 		model.addFilter(f);
+		Collection<Double> allDataValues = new ArrayList<Double>();
 		
 		//Use the current reconstructions
 		Map<String,Collection<Gene>> temp = new HashMap<String,Collection<Gene>>();
@@ -413,12 +404,12 @@ public class BuildScriptureCoordinateSpace {
 			try {
 				for(Integer size : align.getFragmentSize(cs)) {
 					double doublesize = size.doubleValue();
-					if(dist.containsKey(doublesize)){
+					if(dist.containsKey(doublesize))
 						dist.put(doublesize, (dist.get(doublesize)+1));
-					}
-					else{
+					else
 						dist.put(doublesize, 1.0);
-					}
+					
+					allDataValues.add(doublesize);
 				}
 			} catch (NullPointerException e) {
 				// Catch NullPointerException if the fragment is from a chromosome that is not present in the TranscriptomeSpace
@@ -428,9 +419,10 @@ public class BuildScriptureCoordinateSpace {
 		iter.close();
 		model.removeFilter(f);
 		
-		for(Double fragsize:dist.keySet()){
+		for(Double fragsize:dist.keySet())
 			dist.put(fragsize, dist.get(fragsize)/model.getGlobalLength());
-		}
+		
+		medianInsertSize = Statistics.median(allDataValues);
 		return dist;
 	}
 	
@@ -471,96 +463,171 @@ public class BuildScriptureCoordinateSpace {
 	 * @param annotations
 	 * @throws IOException 
 	 */
-	private void connectDisconnectedTranscripts(Map<String, Collection<Gene>> annotations) throws IOException{
+/*	private void connectDisconnectedTranscripts(Map<String, Collection<Gene>> annotations) throws IOException{
 		
+		if(!(PairedEndReader.getAlignmentType(model.getHeader())==AlignmentType.PAIRED_END)){
+			return;
+		}
+		//Use only paired end reads
 		model.addFilter(new PairedEndFilter());
 		int loop=0;
 		boolean somethingWasConnected = true;
-		double medianInsertSize=0.0; 
-		Map<String,Collection<Gene>> temp = new HashMap<String,Collection<Gene>>();
-		for(String chr:annotations.keySet()){
-			if(!annotations.get(chr).isEmpty()){
-				temp.put(chr, annotations.get(chr));
-			}
-		}
-		medianInsertSize += model.getReadSizeDistribution(new TranscriptomeSpace(temp), 800, 100).getMedianOfAllDataValues();
-		//double medianInsertSize = 600;
+		
+//		medianInsertSize += model.getReadSizeDistribution(new TranscriptomeSpace(temp), 800, 100).getMedianOfAllDataValues();
 		logger.info("Median size = "+medianInsertSize);
 
-		Map<String,Collection<Gene>> conn = null;
+		//Will contain the final set of annotations
+		Map<String,Collection<Gene>> conn = new HashMap<String,Collection<Gene>>();
+		//Set of transcripts just connected
+		//Will contain everything initially then only those changed
+		Map<String,Collection<Gene>> justConnected = new HashMap<String,Collection<Gene>>();
+		//Initiate
+		for(String chr:annotations.keySet()){
+			conn.put(chr, new TreeSet<Gene>());	
+			justConnected.put(chr, new TreeSet<Gene>());
+			for(Gene g:annotations.get(chr)){
+				conn.get(chr).add(g);
+			}
+		}
 		
 		while(somethingWasConnected && loop<10){
 			somethingWasConnected =false;
 			loop++;
  
 			logger.info("Connected disconnected transcripts: Loop "+loop);
-			conn = new HashMap<String,Collection<Gene>>();
-			for(String chr:annotations.keySet()){
-				conn.put(chr, new TreeSet<Gene>());			
-			}
-			for(String chr:annotations.keySet()){
-				//For all genes on this chromosome
-				logger.debug("Connecting, Processing "+chr);
-				Collection<Gene> newGenes = new TreeSet<Gene>();
-				//MAKE AN INTERVAL TREE OF THE GENES on this chr
-				IntervalTree<Gene> tree = new IntervalTree<Gene>();
-				for(Gene g:annotations.get(chr)){
-					conn.get(chr).add(g);
-					tree.put(g.getStart(), g.getEnd(), g);
-				}
-				//For each transcript
-				//Iterate over all reconstructions
-				Iterator<Gene> iter=tree.toCollection().iterator();
-				while(iter.hasNext()){
-					Gene gene=iter.next();
-					//For all assemblies downstream of this assembly in 10kB regions
-					Iterator<Gene> overlappers=tree.overlappingValueIterator(gene.getEnd(), gene.getEnd()+constant);
+			
+			//FIRST TIME GO OVER ALL GENES
+			if(loop==1){
+				//For each chromosome
+				for(String chr:annotations.keySet()){
 					
-					newGenes.add(gene);
-					while(overlappers.hasNext()){
-						Gene other = overlappers.next();
-						if(isCandidate(gene,other)){
-							if(pairedEndReadSpansTranscripts(gene, other)){ 
-								//if(secondTranscriptIsSingleExon(gene,other)){
-									logger.debug("Attempt to connect "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC());
-									
-									//Connect the genes
-									Annotation connected = getConnectedTranscript(gene,other,medianInsertSize);
-									if(connected!=null){
-										somethingWasConnected = true;
-										Gene newConnected = new Gene(connected);
-										double[] scores = getScores(newConnected);
-										double[] fields = new double[4];
-										newConnected.setName(gene.getName()+"_"+other.getName());
-										//[0] : sum
-										fields[0] = scores[0];
-										//[1] : p-value
-										fields[1] = scores[1];
-										//[2] : FPK
-										fields[2] = (scores[0]*1000.0)/newConnected.getSize();
-										//[3] : FPKM
-										//Calculate FPKM
-										fields[3] = fields[2]*((double)1000000.0)/model.getGlobalPairedFragments();
-										logger.debug("For isoform : "+newConnected.getName()+"\tNum of exons: "+newConnected.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
-										newConnected.setBedScore(fields[3]);
-										logger.debug(newConnected.toBED());
-										newConnected.setExtraFields(fields);
-										newGenes.remove(gene);
-										newGenes.add(newConnected);
-										boolean there = conn.get(chr).remove(gene);
-										there = conn.get(chr).remove(other);
-										conn.get(chr).add(newConnected);
-									}
-								//}
+					logger.debug("Connecting, Processing "+chr);
+//					Collection<Gene> newGenes = new TreeSet<Gene>();
+					//MAKE AN INTERVAL TREE OF THE GENES on this chr
+					//TODO: This can be optimized
+					IntervalTree<Gene> tree = new IntervalTree<Gene>();
+					for(Gene g:annotations.get(chr)){
+						tree.put(g.getStart(), g.getEnd(), g);
+					}
+					//For each transcript
+					//Iterate over all reconstructions
+					Iterator<Gene> iter=tree.toCollection().iterator();
+					while(iter.hasNext()){
+						Gene gene=iter.next();
+						//For all assemblies downstream of this assembly in 10kB regions
+						Iterator<Gene> overlappers=tree.overlappingValueIterator(gene.getEnd()+1, gene.getEnd()+constant);
+						
+						while(overlappers.hasNext()){
+							Gene other = overlappers.next();
+							if(isCandidate(gene,other)){
+								if(pairedEndReadSpansTranscripts(gene, other)){ 
+									//if(secondTranscriptIsSingleExon(gene,other)){
+										logger.debug("Attempt to connect "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC());
+										
+										//Connect the genes
+										Annotation connected = getConnectedTranscript(gene,other,medianInsertSize);
+										if(connected!=null){
+											somethingWasConnected = true;
+											Gene newConnected = new Gene(connected);
+											double[] scores = getScores(newConnected);
+											double[] fields = new double[4];
+											newConnected.setName(gene.getName()+"_"+other.getName());
+											//[0] : sum
+											fields[0] = scores[0];
+											//[1] : p-value
+											fields[1] = scores[1];
+											//[2] : FPK
+											fields[2] = (scores[0]*1000.0)/newConnected.getSize();
+											//[3] : FPKM
+											//Calculate FPKM
+											fields[3] = fields[2]*((double)1000000.0)/model.getGlobalPairedFragments();
+											logger.debug("For isoform : "+newConnected.getName()+"\tNum of exons: "+newConnected.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
+											newConnected.setBedScore(fields[3]);
+											logger.debug(newConnected.toBED());
+											newConnected.setExtraFields(fields);
+//											newGenes.add(newConnected);
+											justConnected.get(chr).add(newConnected);
+											conn.get(chr).remove(gene);
+											conn.get(chr).remove(other);
+											conn.get(chr).add(newConnected);
+										}
+									//}
+								}
+								else{
+									//logger.info("The genes "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC()+" do not have paired reads");
+								}
 							}
-							else{
-								//logger.info("The genes "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC()+" do not have paired reads");
-							}
-						}
-					}				
+						}				
+					}
 				}
+				annotations = conn;
 			}
-			annotations = conn;
+			else{
+				//For each chromosome
+				for(String chr:annotations.keySet()){
+					//ONLY PROCESS IF JUST CONNECTED CONTAINS SOMETHING FROM THIS CHROMOSOME
+					if(!justConnected.get(chr).isEmpty()){
+						//For all just connected on this chromosome
+						logger.debug("Connecting, Processing "+chr);
+						Collection<Gene> newGenes = new TreeSet<Gene>();
+						//MAKE AN INTERVAL TREE OF THE GENES on this chr
+						//TODO: This can be optimized
+						IntervalTree<Gene> tree = new IntervalTree<Gene>();
+						for(Gene g:conn.get(chr)){
+							tree.put(g.getStart(), g.getEnd(), g);
+						}
+						//For each transcript
+						//Iterate over all reconstructions
+						for(Gene gene:justConnected.get(chr)){
+							//For all assemblies downstream of this assembly in 10kB regions
+							Iterator<Gene> overlappers=tree.overlappingValueIterator(gene.getEnd(), gene.getEnd()+constant);
+							
+							while(overlappers.hasNext()){
+								Gene other = overlappers.next();
+								if(isCandidate(gene,other)){
+									if(pairedEndReadSpansTranscripts(gene, other)){ 
+										//if(secondTranscriptIsSingleExon(gene,other)){
+											logger.debug("Attempt to connect "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC());
+											
+											//Connect the genes
+											Annotation connected = getConnectedTranscript(gene,other,medianInsertSize);
+											if(connected!=null){
+												somethingWasConnected = true;
+												Gene newConnected = new Gene(connected);
+												double[] scores = getScores(newConnected);
+												double[] fields = new double[4];
+												newConnected.setName(gene.getName()+"_"+other.getName());
+												//[0] : sum
+												fields[0] = scores[0];
+												//[1] : p-value
+												fields[1] = scores[1];
+												//[2] : FPK
+												fields[2] = (scores[0]*1000.0)/newConnected.getSize();
+												//[3] : FPKM
+												//Calculate FPKM
+												fields[3] = fields[2]*((double)1000000.0)/model.getGlobalPairedFragments();
+												logger.debug("For isoform : "+newConnected.getName()+"\tNum of exons: "+newConnected.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
+												newConnected.setBedScore(fields[3]);
+												logger.debug(newConnected.toBED());
+												newConnected.setExtraFields(fields);
+												newGenes.add(newConnected);
+												conn.get(chr).remove(gene);
+												conn.get(chr).remove(other);
+												conn.get(chr).add(newConnected);
+											}
+										//}
+									}
+									else{
+										//logger.info("The genes "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC()+" do not have paired reads");
+									}
+								}
+							}				
+						}
+						justConnected.put(chr, newGenes);
+					}
+				}
+				annotations = conn;
+			}				
 		}
 		
 		//FileWriter bw = new FileWriter(outName+".12connected.bed");
@@ -575,6 +642,203 @@ public class BuildScriptureCoordinateSpace {
 		}
 		bw.close();
 	}
+*/
+	
+	/**
+	 * This function connects disconnected reconstructions using paired end reads.
+	 * @param annotations
+	 * @throws IOException 
+	 */
+	private void connectDisconnectedTranscripts(Map<String, Collection<Gene>> annotations) throws IOException{
+		
+		// Do not attempt connect if the data is not paired end
+		if(!(model.getAlignmentType()==AlignmentType.PAIRED_END)){
+			return;
+		}
+//		model=new JCSAlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,true);
+		model.addFilter(new PairedEndFilter());
+//		model.addFilter(new IndelFilter());
+//		model.addFilter(new GenomicSpanFilter(20000000));
+		
+		logger.info("Paired end data used to connect disconnected transcripts missed due to drop in coverage");
+		//Use only paired end reads
+		
+		int loop=0;
+		boolean somethingWasConnected = true;
+		
+//		medianInsertSize += model.getReadSizeDistribution(new TranscriptomeSpace(temp), 800, 100).getMedianOfAllDataValues();
+		logger.info("Median size = "+medianInsertSize);
+
+		//Will contain the final set of annotations
+		Map<String,Collection<Gene>> conn = new HashMap<String,Collection<Gene>>();
+		//Set of transcripts just connected
+		//Will contain everything initially then only those changed
+		Map<String,Collection<Gene>> justConnected = new HashMap<String,Collection<Gene>>();
+		//Initiate
+		for(String chr:annotations.keySet()){
+			conn.put(chr, new TreeSet<Gene>());	
+			justConnected.put(chr, new TreeSet<Gene>());
+			for(Gene g:annotations.get(chr)){
+				conn.get(chr).add(g);
+			}
+		}
+		
+		while(somethingWasConnected && loop<10){
+			somethingWasConnected =false;
+			loop++;
+ 
+			logger.info("Connected disconnected transcripts: Loop "+loop);
+			
+			//FIRST TIME GO OVER ALL GENES
+			if(loop==1){
+				//For each chromosome
+				for(String chr:annotations.keySet()){
+					
+					logger.debug("Connecting, Processing "+chr);
+//					Collection<Gene> newGenes = new TreeSet<Gene>();
+					//MAKE AN INTERVAL TREE OF THE GENES on this chr
+					//TODO: This can be optimized
+					IntervalTree<Gene> tree = new IntervalTree<Gene>();
+					for(Gene g:annotations.get(chr)){
+						tree.put(g.getStart(), g.getEnd(), g);
+					}
+					//For each transcript
+					//Iterate over all reconstructions
+					Iterator<Gene> iter=tree.toCollection().iterator();
+					while(iter.hasNext()){
+						Gene gene=iter.next();
+						//For all assemblies downstream of this assembly in 10kB regions
+						Iterator<Node<Gene>> overlappers=tree.overlappers(gene.getEnd()+1, gene.getEnd()+constant);
+						
+						while(overlappers.hasNext()){
+							Gene other = overlappers.next().getValue();
+							if(isCandidate(gene,other)){
+								if(pairedEndReadSpansTranscripts(gene, other)){ 
+									//if(secondTranscriptIsSingleExon(gene,other)){
+										logger.debug("Attempt to connect "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC());
+										
+										//Connect the genes
+										Annotation connected = getConnectedTranscript(gene,other,medianInsertSize);
+										if(connected!=null){
+											somethingWasConnected = true;
+											Gene newConnected = new Gene(connected);
+											double[] scores = getScores(newConnected);
+											double[] fields = new double[4];
+											newConnected.setName(gene.getName()+"_"+other.getName());
+											//[0] : sum
+											fields[0] = scores[0];
+											//[1] : p-value
+											fields[1] = scores[1];
+											//[2] : FPK
+											fields[2] = (scores[0]*1000.0)/newConnected.getSize();
+											//[3] : FPKM
+											//Calculate FPKM
+											fields[3] = fields[2]*((double)1000000.0)/model.getGlobalPairedFragments();
+											logger.debug("For isoform : "+newConnected.getName()+"\tNum of exons: "+newConnected.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
+											newConnected.setBedScore(fields[3]);
+											logger.debug(newConnected.toBED());
+											newConnected.setExtraFields(fields);
+//											newGenes.add(newConnected);
+											justConnected.get(chr).add(newConnected);
+											conn.get(chr).remove(gene);
+											conn.get(chr).remove(other);
+											conn.get(chr).add(newConnected);
+										}
+									//}
+								}
+								else{
+									//logger.info("The genes "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC()+" do not have paired reads");
+								}
+							}
+						}				
+					}
+					logger.info("Connected "+justConnected.get(chr).size());
+				}
+				annotations = conn;
+			}
+			else{
+				//For each chromosome
+				for(String chr:annotations.keySet()){
+					//ONLY PROCESS IF JUST CONNECTED CONTAINS SOMETHING FROM THIS CHROMOSOME
+					if(!justConnected.get(chr).isEmpty()){
+						//For all just connected on this chromosome
+						logger.debug("Connecting, Processing "+chr);
+						Collection<Gene> newGenes = new TreeSet<Gene>();
+						//MAKE AN INTERVAL TREE OF THE GENES on this chr
+						//TODO: This can be optimized
+						IntervalTree<Gene> tree = new IntervalTree<Gene>();
+						for(Gene g:conn.get(chr)){
+							tree.put(g.getStart(), g.getEnd(), g);
+						}
+						//For each transcript
+						//Iterate over all reconstructions
+						for(Gene gene:justConnected.get(chr)){
+							//For all assemblies downstream of this assembly in 10kB regions
+							Iterator<Gene> overlappers=tree.overlappingValueIterator(gene.getEnd(), gene.getEnd()+constant);
+							
+							while(overlappers.hasNext()){
+								Gene other = overlappers.next();
+								if(isCandidate(gene,other)){
+									if(pairedEndReadSpansTranscripts(gene, other)){ 
+										//if(secondTranscriptIsSingleExon(gene,other)){
+											logger.debug("Attempt to connect "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC());
+											
+											//Connect the genes
+											Annotation connected = getConnectedTranscript(gene,other,medianInsertSize);
+											if(connected!=null){
+												somethingWasConnected = true;
+												Gene newConnected = new Gene(connected);
+												double[] scores = getScores(newConnected);
+												double[] fields = new double[4];
+												newConnected.setName(gene.getName()+"_"+other.getName());
+												//[0] : sum
+												fields[0] = scores[0];
+												//[1] : p-value
+												fields[1] = scores[1];
+												//[2] : FPK
+												fields[2] = (scores[0]*1000.0)/newConnected.getSize();
+												//[3] : FPKM
+												//Calculate FPKM
+												fields[3] = fields[2]*((double)1000000.0)/model.getGlobalPairedFragments();
+												logger.debug("For isoform : "+newConnected.getName()+"\tNum of exons: "+newConnected.getSpliceConnections().size()+"\t"+fields[0]+"\t"+fields[1]);
+												newConnected.setBedScore(fields[3]);
+												logger.debug(newConnected.toBED());
+												newConnected.setExtraFields(fields);
+												newGenes.add(newConnected);
+												conn.get(chr).remove(gene);
+												conn.get(chr).remove(other);
+												conn.get(chr).add(newConnected);
+											}
+										//}
+									}
+									else{
+										//logger.info("The genes "+gene.getName()+" "+gene.toUCSC()+" and "+other.getName()+" "+other.toUCSC()+" do not have paired reads");
+									}
+								}
+							}				
+						}
+						justConnected.put(chr, newGenes);
+					}
+					logger.info("Connected "+justConnected.get(chr).size());
+				}
+				annotations = conn;
+			}				
+		}
+		
+		try{write(outName+"."+"connected.bed",conn);}catch(IOException ex){}
+		//FileWriter bw = new FileWriter(outName+".12connected.bed");
+/*		FileWriter bw = new FileWriter(outName+".connected.bed");
+		for(String name:conn.keySet()){
+			Iterator<Gene> ter = conn.get(name).iterator();
+			while(ter.hasNext()){
+				Gene isoform = ter.next();
+				Gene iso = new Gene(trimEnds(isoform,0.1));
+				bw.write(isoform.toBED()+"\n");
+			}
+		}
+		bw.close();*/
+	}
+	
 	
 	/**
 	 * Connect the two genes by fusing the last exon of the first and the first exon of the last gene
@@ -608,7 +872,7 @@ public class BuildScriptureCoordinateSpace {
 			while(splicedIter.hasNext()){
 				Alignment read = splicedIter.next();
 				//if there is at least 1 splice read spanning the junction,
-				if(BuildScriptureCoordinateSpace.compatible(read,junction)){
+				if(compatible(read,junction)){
 					flag=true;
 					break;
 				}
@@ -634,22 +898,11 @@ public class BuildScriptureCoordinateSpace {
 	 */
 	private boolean isCandidate(Gene gene,Gene other){ 
 		
-		if(gene.overlaps(other)){
-			//logger.info(gene.getName()+" overlaps "+gene.toUCSC());
-			return false;
-		}
-		else{
-			//if transcript is in an intron of the other transcript
-			if(gene.getEnd()>other.getStart() && other.getEnd()>gene.getStart()){
-				//logger.info("One is inside the intron of the other");
-				return false;
-			}
-			if(gene.getOrientation().equals(other.getOrientation())){
-				//logger.debug("The orientation is same");
-				return true;
-			}
-		}
-		//logger.debug("Something else");
+		//if they dont overlap
+		//if transcript is NOT in an intron of the other transcript
+		//Same orientation
+		if(!gene.overlaps(other) && !(gene.getEnd()>other.getStart() && other.getEnd()>gene.getStart()) && gene.getOrientation().equals(other.getOrientation()))
+			return true;
 		return false;
 	}
 	
@@ -659,7 +912,7 @@ public class BuildScriptureCoordinateSpace {
 	 * @param other
 	 * @return
 	 */
-	private boolean pairedEndReadSpansTranscripts(Gene gene,Gene other){
+/*	private boolean pairedEndReadSpansTranscripts(Gene gene,Gene other){
 		
 		boolean rtrn = false;
 		//Get all overlapping paired end reads in same orientation as the gene
@@ -671,11 +924,35 @@ public class BuildScriptureCoordinateSpace {
 				if((gene.overlaps(mates.get(0)) && other.overlaps(mates.get(1)))
 						||
 						gene.overlaps(mates.get(1)) && other.overlaps(mates.get(0))){
+					logger.info("Yes");
 					rtrn = true;
 					break;
 				}
 			}
 			
+		}
+		iter.close();
+		return rtrn;
+	}*/
+	
+	/**
+	 * This function will return true if gene and other have at least 1 paired end read in common
+	 * @param gene
+	 * @param other
+	 * @return
+	 */
+	private boolean pairedEndReadSpansTranscripts(Gene gene,Gene other){
+		
+		boolean rtrn = false;
+		//Get all overlapping paired end reads in same orientation as the gene
+		CloseableIterator<Alignment> iter = model.getOverlappingReads(new BasicAnnotation(gene.getChr(),gene.getStart(),other.getEnd(),gene.getOrientation()),false);
+		while(iter.hasNext()){
+			Alignment read = iter.next();
+			if(read.overlaps(gene) && read.overlaps(other)){
+					//logger.info(read.toUCSC()+" "+read.getName());
+					rtrn = true;
+					break;
+			}			
 		}
 		iter.close();
 		return rtrn;
@@ -1131,10 +1408,6 @@ public class BuildScriptureCoordinateSpace {
 	 * @return
 	 */
 	private IntervalTree<Assembly> intronRetentionFilter(IntervalTree<Assembly> assemblies,String chr) {
-		//BAMFileWriter writer = new BAMFileWriter(new File(outName+"."+chr+".filtered.bam"));
-		//writer.setSortOrder(SortOrder.coordinate, false);
-		//writer.setHeader(header);
-		//writer.setSortOrder(SortOrder.coordinate, false);
 		//Iterate over all assemblies
 		Iterator<Assembly> iter=assemblies.toCollection().iterator();
 		
@@ -1204,7 +1477,7 @@ public class BuildScriptureCoordinateSpace {
 			}
 		}
 		
-		iter=currentAssemblies.toCollection().iterator();
+/*		iter=currentAssemblies.toCollection().iterator();
 		Set<Alignment> reads = new HashSet<Alignment>();
 		while(iter.hasNext()){
 			Assembly assembly = iter.next();
@@ -1218,7 +1491,7 @@ public class BuildScriptureCoordinateSpace {
 				}
 			}
 			riter.close();
-		}
+		}*/
 		//writer.close();
 		return currentAssemblies;
 	}
@@ -1491,9 +1764,10 @@ public class BuildScriptureCoordinateSpace {
 				logger.debug("Confidence is set in the splice filter");
 				setConfidence(assembly);
 			}
-			if(!assembly.isConfident()){
+/*			if(!assembly.isConfident()){
 				logger.debug(assembly.getName()+" removed because does not pass the confidence test.");
-			} else{		
+			} else{*/
+			if(assembly.isConfident()){
 				//IF THE GENE HAS ONE INTRON, check min #splice reads
 				if(assembly.getSpliceConnections().size()==1){
 					for(Annotation intron:assembly.getSpliceConnections()){
@@ -1521,7 +1795,7 @@ public class BuildScriptureCoordinateSpace {
 					avgCount = (avgCount / (double)intronToSplicedCountMap.keySet().size());
 					toRemove = false;
 					//Check for all introns
-					int cnt=0;
+/*					int cnt=0;
 					//First check the first and last intron. If they do not pass the threshold
 					//then trim and then go over this again.
 					for(Annotation intron:intronToSplicedCountMap.keySet()){
@@ -1532,7 +1806,7 @@ public class BuildScriptureCoordinateSpace {
 						}
 						cnt++;
 					}
-					
+*/					
 					for(Annotation intron:assembly.getSpliceConnections()){
 						if(intronToSplicedCountMap.get(intron)<=avgCount*minSplicePercent){
 							//If  assembly is flagged to be removed because of an intron,
@@ -1696,9 +1970,7 @@ public class BuildScriptureCoordinateSpace {
 	private IntervalTree<Assembly> assembleDirectly(CloseableIterator<Alignment> iter, IntervalTree<Assembly> workingAssemblies,TranscriptionRead strand) {
 		
 		String linc="gene_v2_";
-		long cnt=0;
-		long start = System.currentTimeMillis();
-		int c=0;
+//		long cnt=0;
 		boolean flagPremature=!workingAssemblies.isEmpty();
 		while(iter.hasNext()){
 			
@@ -1706,21 +1978,16 @@ public class BuildScriptureCoordinateSpace {
 			//reads.setFragmentStrand(strand);				
 			//For the assembly, we need to treat each read separately
 			for(Annotation read: reads.getReadAlignments(space)){
-				cnt++;
+/*				cnt++;
 				if(cnt%100000==0){
 					long end = System.currentTimeMillis();
 					logger.debug("Processed "+cnt+" reads in "+(end-start)/1000+" seconds with "+workingAssemblies.size()+" "+c);
 					start = System.currentTimeMillis();
 				}
-				
+*/				
 				//Find all compatible assemblies
 				Collection<Assembly> compatibleAssemblies = new ArrayList<Assembly>();
 
-/*				logger.debug("New read : "+read.toUCSC()+" "+!read.getSpliceConnections().isEmpty());
-				for(Assembly as:workingAssemblies.toCollection()){
-					logger.debug(as.toUCSC()+"\t"+as.toBED());
-				
-				}*/
 				//EACH READ HAS THE FRAGMENT STRAND
 				//for each read, get overlapping assemblies
 				Iterator<Node<Assembly>> overlappers=workingAssemblies.overlappers(read.getStart(), read.getEnd());
@@ -1735,7 +2002,6 @@ public class BuildScriptureCoordinateSpace {
 						readAssembly.setPossiblePremature(true);
 					}
 					workingAssemblies.put(readAssembly.getStart(), readAssembly.getEnd(), readAssembly);
-					c++;
 				}
 				else{
 					boolean hasCompatible=false;
@@ -1763,10 +2029,6 @@ public class BuildScriptureCoordinateSpace {
 						}
 						
 					}
-/*					if(cnt>2900){
-						logger.debug("compatible assemblies size "+compatibleAssemblies.size());
-						logger.debug("overlap not compatible "+overlapNotCompatible.size());
-					}*/
 					
 					//If some compatible assembly
 /*					if(hasCompatible & compatibleAssemblies.size()>0){
@@ -1904,7 +2166,6 @@ public class BuildScriptureCoordinateSpace {
 								readAssembly.setPossiblePremature(true);
 							}
 							workingAssemblies.put(readAssembly.getStart(), readAssembly.getEnd(), readAssembly);
-							c++;
 //						}
 					}
 				}

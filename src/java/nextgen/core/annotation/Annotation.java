@@ -311,6 +311,11 @@ public interface Annotation extends Comparable<Annotation> {
 	public String toBEDGraph();
 	
 	/**
+	 * @return A string with no whitespace that includes all information about the annotation
+	 */
+	public String getFullInfoString();
+	
+	/**
 	 * 
 	 * @param other - other genomic annotation
 	 * @param buffer if the overlap is within buffer they will be considered overlapping 

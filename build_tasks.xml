@@ -108,6 +108,22 @@
         </jar>
     </target>
 	
+    <!-- build the siphy jar-->
+    <target name="wscanner" depends="compile, unpack, copy.props">  
+        <jar destfile="${dist.dir}wscanner.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.core.siphy.programs.WindowScanner"/>
+            </manifest>
+			<!--<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>-->
+        </jar>
+    </target>
+	
     <!-- build the UMI dupmarker jar-->
     <target name="umidups" depends="compile, unpack">  
         <jar destfile="${dist.dir}markdups.jar" basedir="${build.dir}" compress="true">
@@ -123,7 +139,23 @@
       		</fileset>
         </jar>
     </target>
-        			
+
+    <!-- build the fastq trimmer dupmarker jar-->
+    <target name="fqtrimmer" depends="compile, unpack">  
+        <jar destfile="${dist.dir}fqtrimmer.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="broad.pda.samtools.TrimFastqReads"/>
+            </manifest>
+			<fileset dir="${lib.dir}">
+        		<include name="*.jar"/>
+      		</fileset>
+        </jar>
+    </target>
+
 	  <!-- build the multiple alignment jar -->
 	    <target name="ma" depends="compile, unpack">
 	        <jar destfile="${dist.dir}ma.jar" basedir="${build.dir}" compress="true">
@@ -140,6 +172,20 @@
 	        </jar>
 	    </target>
 	
+    <target name="endseq" depends="compile, unpack">
+        <jar destfile="${dist.dir}endseq.jar" basedir="${build.dir}" compress="true">
+           <!-- <classfileset dir="${build.dir}">
+                <root classname="${main-class}"/>
+            </classfileset>-->
+            <manifest>
+                <attribute name="Built-By" value="${user.name}" />
+                <attribute name="Main-Class" value="nextgen.core.scripture.AddEndRNASeqToScripture"/>
+	            </manifest>
+				<fileset dir="${lib.dir}">
+	        		<include name="*.jar"/>
+	      		</fileset>
+	        </jar>
+	    </target>
 	
      <!-- build the tilling array analysis jar -->
     <target name="build_tilling_arrays" depends="compile, unpack">

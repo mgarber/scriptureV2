@@ -1,5 +1,8 @@
 package nextgen.editing;
 
+import java.util.ArrayList;
+import java.util.Collection;
+
 import broad.core.sequence.Sequence;
 
 /**
@@ -11,7 +14,7 @@ public class SingleCleavageTypeIIRestrictionEnzyme implements RestrictionEnzyme 
 	/**
 	 * Recognition sequence on top strand
 	 */
-	private Sequence topStrandRecognitionSite;
+	private Collection<Sequence> topStrandRecognitionSite;
 	
 	/**
 	 * Cleavage position on top strand relative to cleavage just 5' of the first position of the recognition sequence (e.g. 5' ---G   CWGC--- 3' would be 1.)
@@ -28,6 +31,7 @@ public class SingleCleavageTypeIIRestrictionEnzyme implements RestrictionEnzyme 
 	 */
 	private RestrictionEnzymeFactory.RestrictionEnzymeName name;
 
+	
 	/**
 	 * @param enzymeName Enzyme name
 	 * @param topStrandRecognitionSequence Recognition sequence on top strand
@@ -35,9 +39,29 @@ public class SingleCleavageTypeIIRestrictionEnzyme implements RestrictionEnzyme 
 	 * @param bottomStrandCleavagePosition Cleavage position on bottom strand relative to cleavage just 5' of the first position of the recognition sequence (e.g. 5' ---G   CWGC--- 3' would be 1.)
 	 */
 	public SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeFactory.RestrictionEnzymeName enzymeName, String topStrandRecognitionSequence, int topStrandCleavagePosition, int bottomStrandCleavagePosition) {
-		Sequence seq = new Sequence("top_strand_recognition_sequence");
-		seq.setSequenceBases(topStrandRecognitionSequence.toUpperCase());
-		topStrandRecognitionSite = seq;
+		this(enzymeName, asCollection(topStrandRecognitionSequence), topStrandCleavagePosition, bottomStrandCleavagePosition);
+	}
+	
+	protected static Collection<String> asCollection(String s) {
+		Collection<String> rtrn = new ArrayList<String>();
+		rtrn.add(s);
+		return rtrn;
+	}
+	
+	/**
+	 * @param enzymeName Enzyme name
+	 * @param topStrandRecognitionSequence Recognition sequence on top strand
+	 * @param topStrandCleavagePosition Cleavage position on top strand relative to cleavage just 5' of the first position of the recognition sequence (e.g. 5' ---G   CWGC--- 3' would be 1.)
+	 * @param bottomStrandCleavagePosition Cleavage position on bottom strand relative to cleavage just 5' of the first position of the recognition sequence (e.g. 5' ---G   CWGC--- 3' would be 1.)
+	 */
+	public SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeFactory.RestrictionEnzymeName enzymeName, Collection<String> topStrandRecognitionSequence, int topStrandCleavagePosition, int bottomStrandCleavagePosition) {
+		
+		topStrandRecognitionSite = new ArrayList<Sequence>();
+		for(String s : topStrandRecognitionSequence) {
+			Sequence seq = new Sequence("top_strand_recognition_sequence");
+			seq.setSequenceBases(s.toUpperCase());
+			topStrandRecognitionSite.add(seq);
+		}
 		topStrandCleavageSite = topStrandCleavagePosition;
 		bottomStrandCleavageSite = bottomStrandCleavagePosition;
 		name = enzymeName;
@@ -47,12 +71,21 @@ public class SingleCleavageTypeIIRestrictionEnzyme implements RestrictionEnzyme 
 		return name.toString();
 	}
 	
-	public String getTopStrandRecognitionSequence() {
-		return topStrandRecognitionSite.getSequenceBases();
+	public Collection<String> getTopStrandRecognitionSequence() {
+		Collection<String> rtrn = new ArrayList<String>();
+		for(Sequence seq : topStrandRecognitionSite) {
+			rtrn.add(seq.getSequenceBases());
+		}
+		return rtrn;
 	}
 	
-	public String getBottomStrandRecognitionSequence() {
-		return Sequence.reverseSequence(topStrandRecognitionSite).getSequenceBases();
+	public Collection<String> getBottomStrandRecognitionSequence() {
+		Collection<String> top = getTopStrandRecognitionSequence();
+		Collection<String> rtrn = new ArrayList<String>();
+		for(String s : top) {
+			rtrn.add(Sequence.reverseSequence(s));
+		}
+		return rtrn;
 	}
 	
 	/**
@@ -74,6 +107,16 @@ public class SingleCleavageTypeIIRestrictionEnzyme implements RestrictionEnzyme 
 	@Override
 	public String toString() {
 		return getName();
+	}
+
+	@Override
+	public boolean hasTopStrandRecognitionSequence(String seq) {
+		for(Sequence s : topStrandRecognitionSite) {
+			if(s.getSequenceBases().equalsIgnoreCase(seq)) {
+				return true;
+			}
+		}
+		return false;
 	}
 	
 

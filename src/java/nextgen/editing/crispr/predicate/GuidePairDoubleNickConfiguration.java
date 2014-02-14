@@ -1,17 +1,18 @@
-package nextgen.editing.crispr;
+package nextgen.editing.crispr.predicate;
 
-import org.apache.commons.collections15.Predicate;
+import nextgen.editing.crispr.GuideRNAPair;
+
 import org.apache.log4j.Logger;
 
 /**
  * Check whether a guide RNA pair is correctly laid out for double nick strategy
  * @author prussell
  */
-public class DoubleNickConfiguration implements Predicate<GuideRNAPair> {
+public class GuidePairDoubleNickConfiguration implements GuideRNAPairPredicate {
 	
-	public static Logger logger = Logger.getLogger(DoubleNickConfiguration.class.getName());
+	public static Logger logger = Logger.getLogger(GuidePairDoubleNickConfiguration.class.getName());
 
-	public DoubleNickConfiguration() {}
+	public GuidePairDoubleNickConfiguration() {}
 	
 	@Override
 	public boolean evaluate(GuideRNAPair guideRnaPair) {
@@ -28,7 +29,7 @@ public class DoubleNickConfiguration implements Predicate<GuideRNAPair> {
 		// The distance between the guide RNAs' 5' ends must be at most 40
 		int innerDist = guideRnaPair.getInnerDistance();
 		if(innerDist < 0) {
-			logger.debug("INVALID_PAIR\tInner distance < 0:\t" + guideRnaPair.toString());
+			//logger.debug("INVALID_PAIR\tInner distance < 0:\t" + guideRnaPair.toString());
 			return false;
 		}
 		if(innerDist > 40) {
@@ -38,6 +39,16 @@ public class DoubleNickConfiguration implements Predicate<GuideRNAPair> {
 		// If all the criteria are met return true
 		//logger.debug("VALID_PAIR\t" + guideRnaPair.toString());
 		return true;
+	}
+
+	@Override
+	public String getPredicateName() {
+		return "valid_double_nick_configuration";
+	}
+
+	@Override
+	public String getShortFailureMessage(GuideRNAPair g) {
+		return("not_valid_double_nick_configuration");
 	}
 
 }

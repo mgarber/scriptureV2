@@ -12,9 +12,8 @@ import java.util.Random;
 
 import org.apache.log4j.Logger;
 
-import nextgen.core.annotation.Annotation;
-import nextgen.core.annotation.BasicAnnotation;
-import nextgen.core.annotation.Gene;
+import nextgen.core.annotation.*;
+import nextgen.core.annotation.filter.FullyContainedFilter;
 import nextgen.core.feature.GenomeWindow;
 import nextgen.core.feature.Window;
 import broad.core.annotation.ShortBEDReader;
@@ -30,10 +29,10 @@ import org.apache.commons.collections15.iterators.FilterIterator;
  * through setting masked regions and percent masked allowed parameters, which will filter out windows
  * that overlap masked regions.
  */
-public class GenomicSpace implements CoordinateSpace{
+public class GenomicSpace implements CoordinateSpace {
 
 	Map<String, Integer> chromosomeSizes;
-	ShortBEDReader maskedRegions = new ShortBEDReader();
+	AnnotationList<Annotation> maskedRegions = new AnnotationList<Annotation>();
 	double pctMaskedAllowed = 0;
 	boolean overlapAllowed = false;
 	
@@ -63,7 +62,18 @@ public class GenomicSpace implements CoordinateSpace{
 		this(chromosomeSizes);
 		if (maskedRegionFile != null) {
 			try {
-				maskedRegions = new ShortBEDReader(maskedRegionFile);
+				maskedRegions = AnnotationFileReader.load(new File(maskedRegionFile), Annotation.class, new BasicAnnotation.Factory());
+			} catch (IOException e) {
+				throw new IllegalArgumentException(maskedRegionFile + " not found: " + e.getMessage());
+			}
+		}
+	}
+	
+	public GenomicSpace(Map<String, Integer> chromosomeSizes, String maskedRegionFile) {
+		this(chromosomeSizes);
+		if (maskedRegionFile != null) {
+			try {
+				maskedRegions = AnnotationFileReader.load(new File(maskedRegionFile), Annotation.class, new BasicAnnotation.Factory());
 			} catch (IOException e) {
 				throw new IllegalArgumentException(maskedRegionFile + " not found: " + e.getMessage());
 			}
@@ -338,10 +348,11 @@ public class GenomicSpace implements CoordinateSpace{
 
 	private class MaskFilter<T extends Annotation> implements Predicate<T> {
 		public boolean evaluate(T w) {
+			//System.out.println("MaskFilter for " + w.toUCSC());
 			boolean reject = false;
 			if (maskedRegions.size() > 0) {
 				if (!overlapAllowed) {
-					reject = (maskedRegions.getOverlappers(w).size() > 0);
+					reject = (maskedRegions.getNumOverlappingAnnotations(w) > 0);
 				} else {
 					try {
 						double basesCovered = (double) maskedRegions.getBasesCovered(w);

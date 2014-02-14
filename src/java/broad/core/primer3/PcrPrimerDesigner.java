@@ -790,8 +790,8 @@ public class PcrPrimerDesigner  {
 		return designCloningPrimers(geneSequence, numDesigns, null, pathPrimer3core);
 	}
 
-	public static Collection<PrimerPair> designSyntheticPrimers(String seq, int numDesigns, String pathPrimer3core) throws IOException {
-		Primer3Configuration best = Primer3ConfigurationFactory.getSyntheticConfiguration();
+	public static Collection<PrimerPair> designSyntheticPrimers(String seq, int numDesigns, String pathPrimer3core, double optimalMeltingTemp) throws IOException {
+		Primer3Configuration best = Primer3ConfigurationFactory.getSyntheticConfiguration(optimalMeltingTemp);
 		
 		if(numDesigns>0){best.setPrimerNumReturn(numDesigns);}
 				
@@ -894,8 +894,8 @@ public class PcrPrimerDesigner  {
 		return bestPrimer;
 	}
 	
-	public static Collection<PrimerPair> designSyntheticPrimers(String seq, int numDesigns, int primerSize, int seqSize, String pathPrimer3core) throws IOException {
-		Primer3Configuration best = Primer3ConfigurationFactory.getSyntheticConfiguration();
+	public static Collection<PrimerPair> designSyntheticPrimers(String seq, int numDesigns, int primerSize, int seqSize, String pathPrimer3core, double optimalMeltingTemp) throws IOException {
+		Primer3Configuration best = Primer3ConfigurationFactory.getSyntheticConfiguration(optimalMeltingTemp);
 		best.minPrimerSize = primerSize;
 		best.maxPrimerSize = primerSize;
 		best.optimalPrimerSize = primerSize;
@@ -930,8 +930,8 @@ public class PcrPrimerDesigner  {
 	}
 
 
-	public static Collection<PrimerPair> designSyntheticPrimers(String seq, String sequencePrimer, String sequencePrimerRevComp, int numDesigns, String pathPrimer3core) throws Exception {
-		Primer3Configuration best = Primer3ConfigurationFactory.getSyntheticConfiguration2();
+	public static Collection<PrimerPair> designSyntheticPrimers(String seq, String sequencePrimer, String sequencePrimerRevComp, int numDesigns, String pathPrimer3core, double optimalMeltingTemp) throws Exception {
+		Primer3Configuration best = Primer3ConfigurationFactory.getSyntheticConfiguration2(optimalMeltingTemp);
 		
 		if(numDesigns>0){best.setPrimerNumReturn(numDesigns);}
 				
@@ -1054,7 +1054,7 @@ public class PcrPrimerDesigner  {
 		// set up primer3
 		Primer3Configuration primer3config = new Primer3Configuration();
 		
-		if(config.equals(SYNTHETIC_CONFIG_NAME)) primer3config = Primer3ConfigurationFactory.getSyntheticConfiguration();
+		if(config.equals(SYNTHETIC_CONFIG_NAME)) primer3config = Primer3ConfigurationFactory.getSyntheticConfiguration(60);
 		if(config.equals(RAP_QPCR_CONFIG_NAME)) primer3config = Primer3ConfigurationFactory.getRAPqPCRConfiguration();
 		if(config.equals(QPCR_CONFIG_NAME)) primer3config = Primer3ConfigurationFactory.getQpcrConfiguration();
 		// If plasmids, will get separate configuration for each plasmid

@@ -47,7 +47,7 @@ public class RatioScore extends CountScore {
 	public RatioScore(AnnotationCollection<? extends Annotation> numerator, AnnotationCollection<? extends Annotation> denominator, Annotation annotation) {
 		super(numerator, annotation);
 		setDenominatorCount(denominator.getCount(annotation));
-		setDenominatorTotal(denominator.size());
+		setDenominatorTotal(denominator.getGlobalCount());
 		getAnnotation().setScore(getRatio());
 	}
 	

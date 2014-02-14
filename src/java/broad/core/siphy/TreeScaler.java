@@ -1056,10 +1056,10 @@ public class TreeScaler {
 
 			Iterator<PositionWeightMatrix> pwmIt = cpwms.getPWMiterator();
 			BufferedWriter significanceBW = argMap.getOutputWriter();
-			significanceBW.write("region");
+			significanceBW.write("Region\tRegionUCSC\t");
 			while(pwmIt.hasNext()) {
 				PositionWeightMatrix pwm = pwmIt.next();
-				significanceBW.write("\t"+pwm.getName()+"_MaxScore\t"+pwm.getName()+"_FWER\t"+pwm.getName()+"_hitStart\t"+pwm.getName()+"_hitEnd" + "\t"+pwm.getName()+"_maxPermuationScore");
+				significanceBW.write(pwm.getName()+"_MaxScore\t"+pwm.getName()+"_FWER\t"+pwm.getName()+"_hitStart\t"+pwm.getName()+"_hitEnd" );
 			}
 			significanceBW.newLine();
 			
@@ -1081,6 +1081,7 @@ public class TreeScaler {
 					System.out.flush();
 					long start = System.currentTimeMillis();
 					GenomicAnnotation hit = bestHitsForRegion.get(pwm);
+					
 					if(hit != null) {
 						significanceBW.write("\t"+hit.getScore()+"\t"+hit.getExtraScore(0)+"\t"+hit.getStart() + "\t" + hit.getEnd());
 					} else {
@@ -1793,7 +1794,7 @@ public class TreeScaler {
 		try {
 		   encodedAlignment  = alignment.getColumnsAsVector(region.getStart(), region.length());
 		} catch (ArrayIndexOutOfBoundsException aiobe) {
-		    System.err.println("Region "+ region.toString() + " is not in array");
+		    logger.error("Region "+ region.toString() + " is not in array");
 		    return null;
 		}
 		double minTreeLength = alnTreeLength;
@@ -1835,7 +1836,7 @@ public class TreeScaler {
 		try {
 		   encodedAlignment  = alignment.getColumnsAsVector(region.getStart(), region.length());
 		} catch (ArrayIndexOutOfBoundsException aiobe) {
-		    System.err.println("Region "+ region.toString() + " is not in array");
+			logger.error("Region "+ region.toString() + " is not in array");
 		    return null;
 		}
 		double minTreeLength = alnTreeLength;
@@ -1875,7 +1876,7 @@ public class TreeScaler {
 		while(ungappedRegionIt.hasNext()) {
 			int [] region = ungappedRegionIt.next();
 			if(region[1] - region[0] < window) {
-				System.err.println("\tjikes ungapped island  is small " + region[0] +"-"+region[1]);
+				logger.info("\tjikes ungapped island  is small " + region[0] +"-"+region[1]);
 			} else  { //If ungapped region is too small, just forget it.
 				//System.out.println("\tgood ungapped island " + region[0]+"-"+region[1]);
 				for(int i = region[0]; i < region[1] - window + 1; i = i + window - overlap) { //Go through the sites within ungapped ref

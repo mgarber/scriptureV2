@@ -53,7 +53,9 @@ public class CountProbes extends CommandLineProgram {
     public static final int MAIN_ARRAY_RIGHT = 30;
     public static final int SIMPLE_ARRAY_LEFT = 15;
     public static final int SIMPLE_ARRAY_RIGHT = 15;
-    
+    public static final int ARRAY_140105 = 17;
+    public static final int MRNA_ARRAY_LEFT = 40;
+    public static final int MRNA_ARRAY_RIGHT = 40;
     
     // Keep track of how often the probe sequences map to specific starting / ending locations.
     // Arrays automatically initialize to zero.
@@ -137,6 +139,12 @@ public class CountProbes extends CommandLineProgram {
     	} else if (read.getReferenceName().contains("SimpleArray")) {
     		left = SIMPLE_ARRAY_LEFT;
     		right = SIMPLE_ARRAY_RIGHT;
+    	} else if (read.getReferenceName().contains("140105")) {
+    		left = ARRAY_140105;
+    		right = ARRAY_140105;
+    	} else if (read.getReferenceName().contains("Mouse")) {
+    		left = MRNA_ARRAY_LEFT;
+    		right = MRNA_ARRAY_RIGHT;
     	} else {
     		log.error("This reference name doesn't match: " + read.getReferenceName());
     		return false;

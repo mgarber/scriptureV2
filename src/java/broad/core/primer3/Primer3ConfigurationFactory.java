@@ -589,11 +589,11 @@ public class Primer3ConfigurationFactory {
     
     
     
-	public static Primer3Configuration getSyntheticConfiguration() {
+	public static Primer3Configuration getSyntheticConfiguration(double optimalMeltingTemp) {
 		Primer3Configuration config = new Primer3Configuration();
-        config.optimalMeltingTemp = 60.0;
-        config.maxMeltingTemp = 61.0;
-        config.minMeltingTemp = 59.0;
+        config.optimalMeltingTemp = optimalMeltingTemp;
+        config.maxMeltingTemp = optimalMeltingTemp + 1;
+        config.minMeltingTemp = optimalMeltingTemp - 1;
         config.interpretBasesLiberally = true;
         config.minQualityScore = 0;
         config.minGCContent = 40.0;
@@ -624,11 +624,11 @@ public class Primer3ConfigurationFactory {
         return config;
 	}
 	
-	public static Primer3Configuration getSyntheticConfiguration2() {
+	public static Primer3Configuration getSyntheticConfiguration2(double optimalMeltingTemp) {
 		Primer3Configuration config = new Primer3Configuration();
-        config.optimalMeltingTemp = 60.0;
-        config.maxMeltingTemp = 61.0;
-        config.minMeltingTemp = 59.0;
+        config.optimalMeltingTemp = optimalMeltingTemp;
+        config.maxMeltingTemp = optimalMeltingTemp + 1;
+        config.minMeltingTemp = optimalMeltingTemp - 1;
         config.interpretBasesLiberally = true;
         config.minQualityScore = 0;
         config.minGCContent = 40.0;

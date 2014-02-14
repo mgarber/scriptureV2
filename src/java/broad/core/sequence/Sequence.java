@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -910,6 +911,34 @@ public class Sequence {
 			}
 		}
 		return kmers;
+	}
+	
+	/**
+	 * Get all kmers composed of the bases A, C, G, T
+	 * @param k K
+	 * @return All 4^k kmers
+	 */
+	public static Collection<String> generateAllKmers(int k) {
+		if(k < 1) {
+			throw new IllegalArgumentException("K must be >= 1");
+		}
+		if(k == 1) {
+			Collection<String> rtrn = new ArrayList<String>();
+			rtrn.add("A");
+			rtrn.add("C");
+			rtrn.add("G");
+			rtrn.add("T");
+			return rtrn;
+		}
+		Collection<String> prefixes = generateAllKmers(k-1);
+		Collection<String> rtrn = new TreeSet<String>();
+		for(String prefix : prefixes) {
+			rtrn.add(prefix + "A");
+			rtrn.add(prefix + "C");
+			rtrn.add(prefix + "G");
+			rtrn.add(prefix + "T");
+		}
+		return rtrn;
 	}
 
 	public static String complement(String seq) {

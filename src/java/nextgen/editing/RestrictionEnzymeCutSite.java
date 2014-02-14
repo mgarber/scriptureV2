@@ -2,6 +2,7 @@ package nextgen.editing;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.TreeSet;
 
 import nextgen.core.annotation.Annotation;
 
@@ -27,10 +28,9 @@ public class RestrictionEnzymeCutSite {
 	 * @param recognitionSite Annotation representing the recognition sequence itself on the chromosome
 	 */
 	public RestrictionEnzymeCutSite(RestrictionEnzyme restrictionEnzyme, Sequence chr, Annotation recognitionSite) {
-		String recognitionSeq = restrictionEnzyme.getTopStrandRecognitionSequence();
 		String annotSeq = chr.getSubsequence(recognitionSite).getSequenceBases();
-		if(!recognitionSeq.toUpperCase().equals(annotSeq.toUpperCase())) {
-			throw new IllegalArgumentException(restrictionEnzyme.getName() + " recognition sequence " + recognitionSeq + " is not present at " + recognitionSite.toUCSC() + ":" + recognitionSite.getOrientation().toString() + "(" + annotSeq + ")");
+		if(!restrictionEnzyme.hasTopStrandRecognitionSequence(annotSeq)) {
+			throw new IllegalArgumentException(restrictionEnzyme.getName() + " recognition sequence is not present at " + recognitionSite.toUCSC() + ":" + recognitionSite.getOrientation().toString() + "(" + annotSeq + ")");
 		}
 		enzyme = restrictionEnzyme;
 		chromosome = chr;
@@ -46,7 +46,10 @@ public class RestrictionEnzymeCutSite {
 	 * @return All cut sites fully contained in the window
 	 */
 	public static Collection<RestrictionEnzymeCutSite> getAllSites(RestrictionEnzyme restrictionEnzyme, Sequence chr, int windowStart, int windowEnd) {
-		Collection<Annotation> locations = chr.getMatches(restrictionEnzyme.getTopStrandRecognitionSequence(), windowStart, windowEnd, true);
+		Collection<Annotation> locations = new TreeSet<Annotation>();
+		for(String s : restrictionEnzyme.getTopStrandRecognitionSequence()) {
+			locations.addAll(chr.getMatches(s, windowStart, windowEnd, true));
+		}
 		Collection<RestrictionEnzymeCutSite> rtrn = new ArrayList<RestrictionEnzymeCutSite>();
 		for(Annotation a : locations) {
 			RestrictionEnzymeCutSite cutSite = new RestrictionEnzymeCutSite(restrictionEnzyme, chr, a);
@@ -55,7 +58,7 @@ public class RestrictionEnzymeCutSite {
 		return rtrn;
 	}
 	
-	public String getRecognitionSequence() {
+	public Collection<String> getRecognitionSequence() {
 		return enzyme.getTopStrandRecognitionSequence();
 	}
 	

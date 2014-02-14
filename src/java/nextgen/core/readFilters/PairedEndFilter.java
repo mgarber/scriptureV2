@@ -13,7 +13,11 @@ public class PairedEndFilter implements Predicate<Alignment> {
 		//check if the read is paired and both mates on same chromosome
 		if(read.isPaired()){
 			Iterator<Annotation> mates = read.getReadAlignments(null).iterator();
-			String refName = null;
+			
+			if(mates.next().getReferenceName().equals(mates.next().getReferenceName()))
+				return true;
+		}
+/*			String refName = null;
 			while(mates.hasNext()){
 				if(refName==null)
 					refName = mates.next().getReferenceName();
@@ -22,7 +26,7 @@ public class PairedEndFilter implements Predicate<Alignment> {
 						return true;
 					}
 			}
-		}
+		}*/
 		return false;
 	}
 }

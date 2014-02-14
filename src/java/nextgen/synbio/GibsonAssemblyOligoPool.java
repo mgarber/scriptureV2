@@ -88,6 +88,7 @@ public class GibsonAssemblyOligoPool {
 		return rtrn;
 	}
 	
+	
 	/**
 	 * Design oligo sets for sequence sets and write output to table and fasta file
 	 * @param outPrefix Output file prefix
@@ -98,9 +99,29 @@ public class GibsonAssemblyOligoPool {
 	 * @param primerLength Primer length
 	 * @param primer3coreExecutable primer3_core executable
 	 * @param divideSetsByCompatibleOligos If sequence sets do not have compatible enzymes, divide sets into subsets sharing a common compatible enzyme
+	 * @param optimalTm Optimal Tm for primers
 	 * @throws IOException
 	 */
-	private static void designOligosAndWriteOutput(String outPrefix, Map<String, Collection<Sequence>> sequenceSets, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable, boolean divideSetsByCompatibleOligos) throws IOException {
+	public static void designOligosAndWriteOutput(String outPrefix, Map<String, Collection<Sequence>> sequenceSets, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable, boolean divideSetsByCompatibleOligos, double optimalTm) throws IOException {
+		designOligosAndWriteOutput(outPrefix, sequenceSets, enzymes, oligoSize, overlapSize, primerLength, primer3coreExecutable, divideSetsByCompatibleOligos, optimalTm, null);
+	}
+	
+	
+	/**
+	 * Design oligo sets for sequence sets and write output to table and fasta file
+	 * @param outPrefix Output file prefix
+	 * @param sequenceSets Sequence sets by set ID
+	 * @param enzymes Restriction enzymes to try
+	 * @param oligoSize Full oligo size
+	 * @param overlapSize Gibson assembly overlap size
+	 * @param primerLength Primer length
+	 * @param primer3coreExecutable primer3_core executable
+	 * @param divideSetsByCompatibleOligos If sequence sets do not have compatible enzymes, divide sets into subsets sharing a common compatible enzyme
+	 * @param optimalTm Optimal Tm for primers
+	 * @param primerPairReader BufferedReader for file containing list of primers in format produced by PrimerPair.getPrimerFieldsAsStringForConstructor(), or null if not using
+	 * @throws IOException
+	 */
+	public static void designOligosAndWriteOutput(String outPrefix, Map<String, Collection<Sequence>> sequenceSets, Collection<TypeIISRestrictionEnzyme> enzymes, int oligoSize, int overlapSize, int primerLength, String primer3coreExecutable, boolean divideSetsByCompatibleOligos, double optimalTm, BufferedReader primerPairReader) throws IOException {
 		logger.info("Designing oligo sets and writing output...");
 		boolean writeHeader = true;
 		String errorFile = outPrefix + "_ERROR";
@@ -110,7 +131,7 @@ public class GibsonAssemblyOligoPool {
 			logger.info("");
 			logger.info("***** " + setId + " *****");
 			if(divideSetsByCompatibleOligos) {
-				Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> subsetsByEnzyme = GibsonAssemblyOligoSet.divideByCompatibleEnzymes(sequenceSets.get(setId), enzymes, oligoSize, overlapSize, primerLength, primer3coreExecutable, errorWriter);
+				Map<TypeIISRestrictionEnzyme, GibsonAssemblyOligoSet> subsetsByEnzyme = GibsonAssemblyOligoSet.divideByCompatibleEnzymes(sequenceSets.get(setId), enzymes, oligoSize, overlapSize, primerLength, primer3coreExecutable, errorWriter, optimalTm, primerPairReader);
 				for(TypeIISRestrictionEnzyme enzyme : subsetsByEnzyme.keySet()) {
 					String prefix = setId + "_" + enzyme.getName();
 					GibsonAssemblyOligoSet oligoSet = subsetsByEnzyme.get(enzyme);
@@ -119,7 +140,7 @@ public class GibsonAssemblyOligoPool {
 					writeHeader = false;
 				}
 			} else {
-				GibsonAssemblyOligoSet oligoSet = new GibsonAssemblyOligoSet(sequenceSets.get(setId), enzymes, oligoSize, overlapSize, primerLength, primer3coreExecutable);
+				GibsonAssemblyOligoSet oligoSet = new GibsonAssemblyOligoSet(sequenceSets.get(setId), enzymes, oligoSize, overlapSize, primerLength, primer3coreExecutable, optimalTm, primerPairReader);
 				Collection<FullOligo> oligos = oligoSet.designOligoSet(errorWriter);
 				GibsonAssemblyOligoSet.writeOutput(oligos, setId, outPrefix, writeHeader, !writeHeader);
 				writeHeader = false;
@@ -146,6 +167,8 @@ public class GibsonAssemblyOligoPool {
 		p.addStringArg("-fl", "File containing list of fasta files. Each fasta file is a set of sequences that get one primer. Each line of list file: set_identifier   fasta_file", false, null);
 		p.addBooleanArg("-d", "If sequence sets do not have compatible enzymes, divide sets into subsets sharing a common compatible enzyme", false, false);
 		p.addBooleanArg("-debug", "Debug logging", false, false);
+		p.addDoubleArg("-tm", "Optimal TM for primers", true);
+		p.addStringArg("-pp", "File of existing primer pairs to try, as formatted by PrimerPair.getPrimerFieldsAsStringForConstructor()", false, null);
 		p.parse(args);
 		if(p.getBooleanArg("-debug")) {
 			logger.setLevel(Level.DEBUG);
@@ -160,9 +183,21 @@ public class GibsonAssemblyOligoPool {
 		String fastaFile = p.getStringArg("-f");
 		String fastaList = p.getStringArg("-fl");
 		boolean divide = p.getBooleanArg("-d");
+		double optimalTm = p.getDoubleArg("-tm");
+		String primerFile = p.getStringArg("-pp");
+		
+		BufferedReader primerReader = null;
+		if(primerFile != null) {
+			FileReader r = new FileReader(primerFile);
+			primerReader = new BufferedReader(r);
+		}
 		
 		Map<String, Collection<Sequence>> sequenceSets = readSequencesAndAssignSetIDs(fastaList, fastaFile);
-		designOligosAndWriteOutput(outPrefix, sequenceSets, enzymes, oligoSize, overlapSize, primerLength, primer3core, divide);
+		designOligosAndWriteOutput(outPrefix, sequenceSets, enzymes, oligoSize, overlapSize, primerLength, primer3core, divide, optimalTm, primerReader);
+		
+		if(primerReader != null) {
+			primerReader.close();
+		}
 		
 		logger.info("");
 		logger.info("All done.");
