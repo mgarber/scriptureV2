@@ -27,11 +27,6 @@ public class Barcode implements ReadSequenceElement, Comparable<Barcode> {
 	private Collection<String> matchedStrings;
 	private boolean repeatable;
 	private String nextStringForRepeatable;
-
-	/**
-	 * An empty constructor that should only be used when needed to call elementName()
-	 */
-	public Barcode() {}
 	
 	/**
 	 * @param seq The barcode sequence

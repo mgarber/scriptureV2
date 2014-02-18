@@ -2,6 +2,7 @@ package nextgen.core.utils;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
@@ -26,10 +27,6 @@ public class AnnotationUtils {
 	public static Logger logger = Logger.getLogger(AnnotationUtils.class.getName());
 	
 	public static Map<String, Collection<Gene>> collapseOverlappers(Map<String, Collection<Gene>> genes) {		
-		return collapseOverlappers(genes, false);
-	}
-	
-	public static Map<String, Collection<Gene>> collapseOverlappers(Map<String, Collection<Gene>> genes, boolean ignoreOrientation) {		
 		Map<String, Collection<Gene>> rtrn = new TreeMap<String, Collection<Gene>>();
 		for(String chr : genes.keySet()) {
 			Collection<Gene> genesThisChr = genes.get(chr);
@@ -66,7 +63,7 @@ public class AnnotationUtils {
 	 * @param windows Annotation set
 	 * @return New set of merged windows
 	 */
-	public static Collection<Annotation> mergeOverlappingBlocks(TreeSet<Annotation> windows) {
+	public static Collection<Annotation> mergeOverlappingBlocks(TreeSet<? extends Annotation> windows) {
 		TreeSet<Annotation> plusStrand = new TreeSet<Annotation>();
 		TreeSet<Annotation> minusStrand = new TreeSet<Annotation>();
 		for(Annotation window : windows) {
@@ -84,6 +81,18 @@ public class AnnotationUtils {
 		Collection<Annotation> rtrn = new TreeSet<Annotation>();
 		rtrn.addAll(mergeOverlappingBlocksSameOrientation(plusStrand));
 		rtrn.addAll(mergeOverlappingBlocksSameOrientation(minusStrand));
+		return rtrn;
+	}
+	
+	private static String combine(Collection<String> strings) {
+		Iterator<String> iter = strings.iterator();
+		if(!iter.hasNext()) {
+			return "";
+		}
+		String rtrn = iter.next();
+		while(iter.hasNext()) {
+			rtrn += "_" + iter.next();
+		}
 		return rtrn;
 	}
 	
@@ -113,9 +122,12 @@ public class AnnotationUtils {
 		Collection<Annotation> growingExonSet = new TreeSet<Annotation>();
 		growingExonSet.addAll(firstWindow.getBlocks());
 		
+		Collection<String> names = new TreeSet<String>();
+		
 		while(iter.hasNext()) {
 			
 			Annotation growingWindow = new Gene(growingExonSet);
+			growingWindow.setName(combine(names));
 			Annotation nextWindow = iter.next();
 			if(!nextWindow.getOrientation().equals(orientation)) {
 				throw new IllegalArgumentException("All annotations must have same orientation.");
@@ -125,27 +137,32 @@ public class AnnotationUtils {
 				// Next window span overlaps growing exon set genomic span
 				// Merge the exon sets
 				growingExonSet.clear();
+				names.add(nextWindow.getName());
 				growingExonSet.addAll(growingWindow.union(nextWindow).getBlocks());
 				
 				if(!iter.hasNext()) {
 					// This is the last window in the set
 					// Add the last element and leave loop
 					Annotation lastAdd = new Gene(growingExonSet);
+					lastAdd.setName(combine(names));
 					rtrn.add(lastAdd);
 					continue;					
 				}
 			} else {
 				// Next window does not overlap growing exon set
 				// Make window from latest version of growing exon set and add to the return set
+				names.clear();
 				rtrn.add(growingWindow);
 				if(!iter.hasNext()) {
 					// This is the last window in the set
 					// Add it and leave loop
+					names.clear();
 					rtrn.add(nextWindow);
 					continue;
 				}
 				// Reset growing exon set to this new gene
 				growingExonSet.clear();
+				names.add(nextWindow.getName());
 				growingExonSet.addAll(nextWindow.getBlocks());
 				continue;
 			}

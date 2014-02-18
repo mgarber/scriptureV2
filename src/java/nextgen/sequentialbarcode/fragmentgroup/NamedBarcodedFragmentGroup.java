@@ -133,4 +133,13 @@ public class NamedBarcodedFragmentGroup implements FragmentGroup {
 		return rtrn;
 	}
 
+	@Override
+	public Collection<Annotation> getRegions() {
+		Collection<Annotation> rtrn = new TreeSet<Annotation>();
+		for(BarcodedFragment fragment : fragments) {
+			rtrn.add(fragment.getMappedLocation());
+		}
+		return rtrn;
+	}
+
 }

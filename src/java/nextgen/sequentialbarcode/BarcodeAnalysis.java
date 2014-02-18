@@ -267,6 +267,7 @@ public class BarcodeAnalysis {
 		p.addBooleanArg("-v", "Verbose output table for barcode identification", false, false);
 		p.addBooleanArg("-bt", "Batch out writing of barcode table", false, false);
 		p.addStringArg("-j", "This jar file for batched jobs", false, null);
+		p.addIntArg("-nf", "Number of fastq files to divide into if batching", false, 20);
 		p.parse(args);
 		if(p.getBooleanArg("-d")) {
 			ReadLayout.logger.setLevel(Level.DEBUG);
@@ -295,6 +296,11 @@ public class BarcodeAnalysis {
 		boolean verbose = p.getBooleanArg("-v");
 		boolean batch = p.getBooleanArg("-bt");
 		String jar = p.getStringArg("-j");
+		int numFastq = p.getIntArg("-nf");
+		
+		if(numFastq < 1) {
+			throw new IllegalArgumentException("Number of fastq files must be at least 1.");
+		}
 		
 		if(countBarcodes) {
 			countRead2BarcodesRnaDna3D(read2fastq, readLength, oddBarcodeList, evenBarcodeList, rpm, maxMismatchBarcode, maxMismatchRpm);
@@ -305,7 +311,7 @@ public class BarcodeAnalysis {
 				if(jar == null) {
 					throw new IllegalArgumentException("Must provide jar file");
 				}
-				divideFastqAndFindRead2BarcodesRnaDna3D(jar, 20, read2fastq, readLength, oddBarcodeList, evenBarcodeList, rpm, maxMismatchBarcode, maxMismatchRpm, enforceOddEven, outRD3, verbose);
+				divideFastqAndFindRead2BarcodesRnaDna3D(jar, numFastq, read2fastq, readLength, oddBarcodeList, evenBarcodeList, rpm, maxMismatchBarcode, maxMismatchRpm, enforceOddEven, outRD3, verbose);
 			} else {
 				findRead2BarcodesRnaDna3D(read2fastq, readLength, oddBarcodeList, evenBarcodeList, rpm, maxMismatchBarcode, maxMismatchRpm, enforceOddEven, outRD3, verbose);
 			}

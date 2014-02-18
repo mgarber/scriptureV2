@@ -24,11 +24,6 @@ public class BarcodeSet implements ReadSequenceElement {
 	private String nextStringForRepeatable;
 	
 	/**
-	 * Empty constructor that should only be used when calling elementName()
-	 */
-	public BarcodeSet() {};
-	
-	/**
 	 * @param setId Barcode set ID
 	 * @param barcodeSet The barcodes
 	 * @param maxMismatches Max number of mismatches when identifying each barcode in reads
