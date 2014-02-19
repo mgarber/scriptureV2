@@ -1193,7 +1193,7 @@ public class RNASeqPipeline {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "unmapped_fastq");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "unmapped_fastq", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 convertJobs.add(ogsJob);
@@ -1385,7 +1385,7 @@ public class RNASeqPipeline {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, getHeaderCmmd, "replace_sam_header");
+                OGSJob ogsJob = new OGSJob(drmaaSession, getHeaderCmmd, "replace_sam_header", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
 				logger.info("Waiting for samtools view to finish...");
@@ -1492,7 +1492,7 @@ public class RNASeqPipeline {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "merge_tophat_novoalign");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "merge_tophat_novoalign", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 mergeJobs.add(ogsJob);
@@ -1618,7 +1618,7 @@ public class RNASeqPipeline {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "reorder_bam");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "reorder_bam", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 reorderJobs.add(ogsJob);
@@ -1743,7 +1743,7 @@ public class RNASeqPipeline {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "merge_bam_files");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "merge_bam_files", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 jobs.add(ogsJob);
@@ -1924,7 +1924,7 @@ public class RNASeqPipeline {
                     if(drmaaSession == null) {
                             throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                     }
-                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics");
+                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics", null);
                     ogsJob.submit();
                     logger.info("OGS job ID is " + ogsJob.getID() + ".");
                     pmJobs.add(ogsJob);
@@ -1958,7 +1958,7 @@ public class RNASeqPipeline {
                     if(drmaaSession == null) {
                             throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                     }
-                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics");
+                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics", null);
                     ogsJob.submit();
                     logger.info("OGS job ID is " + ogsJob.getID() + ".");
                     pmJobs.add(ogsJob);
@@ -1998,7 +1998,7 @@ public class RNASeqPipeline {
                     if(drmaaSession == null) {
                             throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                     }
-                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics");
+                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics", null);
                     ogsJob.submit();
                     logger.info("OGS job ID is " + ogsJob.getID() + ".");
                     pmJobs.add(ogsJob);

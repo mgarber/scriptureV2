@@ -80,7 +80,7 @@ public class BarcodeAnalysis {
 	 * @throws DrmaaException
 	 * @throws InterruptedException
 	 */
-	private static void divideFastqAndFindRead2BarcodesRnaDna3D(String barcodeAnalysisJar, int numSplitFastqs, String fastq, int readLength, String oddBarcodeTableFile, String evenBarcodeTableFile, String rpm, int maxMismatchBarcode, int maxMismatchRpm, boolean enforceOddEven, String outFile, boolean verbose) throws IOException, DrmaaException, InterruptedException {
+	private static void divideFastqAndFindRead2BarcodesRnaDna3D(String barcodeAnalysisJar, int numSplitFastqs, String fastq, int readLength, String oddBarcodeTableFile, String evenBarcodeTableFile, String rpm, int maxMismatchBarcode, int maxMismatchRpm, boolean enforceOddEven, String outFile, boolean verbose, String email) throws IOException, DrmaaException, InterruptedException {
 		Collection<String> splitFastqs = FastqUtils.divideFastqFile(fastq, numSplitFastqs);
 		Map<String, String> splitTables = new TreeMap<String, String>();
 		int i = 0;
@@ -101,7 +101,8 @@ public class BarcodeAnalysis {
 			cmmd += " -mmr " + maxMismatchRpm;
 			cmmd += " -oe " + enforceOddEven;
 			cmmd += " -v " + verbose;
-			OGSJob job = new OGSJob(drmaaSession, cmmd);
+			String jobName = "OGS_job_" + fq;
+			OGSJob job = new OGSJob(drmaaSession, cmmd, true, jobName, email);
 			job.submit();
 			jobs.add(job);
 		}
@@ -268,6 +269,7 @@ public class BarcodeAnalysis {
 		p.addBooleanArg("-bt", "Batch out writing of barcode table", false, false);
 		p.addStringArg("-j", "This jar file for batched jobs", false, null);
 		p.addIntArg("-nf", "Number of fastq files to divide into if batching", false, 20);
+		p.addStringArg("-e", "Email address for OGS jobs", false, null);
 		p.parse(args);
 		if(p.getBooleanArg("-d")) {
 			ReadLayout.logger.setLevel(Level.DEBUG);
@@ -284,6 +286,7 @@ public class BarcodeAnalysis {
 		}
 		
 		String outRD3 = p.getStringArg("-ob3d");
+		String email = p.getStringArg("-e");
 		String read2fastq = p.getStringArg("-f2");
 		int readLength = p.getIntArg("-rl");
 		String oddBarcodeList = p.getStringArg("-ob");
@@ -311,7 +314,7 @@ public class BarcodeAnalysis {
 				if(jar == null) {
 					throw new IllegalArgumentException("Must provide jar file");
 				}
-				divideFastqAndFindRead2BarcodesRnaDna3D(jar, numFastq, read2fastq, readLength, oddBarcodeList, evenBarcodeList, rpm, maxMismatchBarcode, maxMismatchRpm, enforceOddEven, outRD3, verbose);
+				divideFastqAndFindRead2BarcodesRnaDna3D(jar, numFastq, read2fastq, readLength, oddBarcodeList, evenBarcodeList, rpm, maxMismatchBarcode, maxMismatchRpm, enforceOddEven, outRD3, verbose, email);
 			} else {
 				findRead2BarcodesRnaDna3D(read2fastq, readLength, oddBarcodeList, evenBarcodeList, rpm, maxMismatchBarcode, maxMismatchRpm, enforceOddEven, outRD3, verbose);
 			}
