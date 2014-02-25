@@ -640,7 +640,7 @@ public class Gene extends BasicAnnotation {
 		return getWindows(windowSize, 1, 0);
 	}
 	
-	public Collection<GeneWindow> getWindowsOld(int windowSize, int stepSize, int start) {
+	public Collection<GeneWindow> getWindows(int windowSize, int stepSize, int start) {
 		if(stepSize < 1) {
 			throw new IllegalArgumentException("Step size must be >= 1");
 		}
@@ -658,7 +658,7 @@ public class Gene extends BasicAnnotation {
 		return subGenes;
 	}
 
-	public Collection<GeneWindow> getWindows(int windowSize, int stepSize, int start) {
+	/*public Collection<GeneWindow> getWindows(int windowSize, int stepSize, int start) {
 		// Account for erroneous input by user
 		if(stepSize < 1) {
 			throw new IllegalArgumentException("Step size must be >= 1");
@@ -704,7 +704,7 @@ public class Gene extends BasicAnnotation {
 					logger.debug(this.toUCSC() + "\tsubgene\t" + subGene.toUCSC());
 				}
 			}	
-		}
+		}*/
 		
 		// Need full gene sequence, not just exons
 		/*for(Annotation exon: exons) {
@@ -713,10 +713,10 @@ public class Gene extends BasicAnnotation {
 				 subGene = new Basic(getChr(), i, i + windowSize);
 				subGenes.add((GeneWindow) subGene);
 			}
-		}*/
+		}
 			
 		return subGenes;
-	}
+	}*/
 	
 	public Gene getStartCodon() {
 		if(this.getCDS() == null) return null;
