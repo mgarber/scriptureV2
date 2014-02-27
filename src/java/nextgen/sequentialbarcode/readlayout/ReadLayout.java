@@ -10,17 +10,26 @@ import nextgen.core.alignment.SmithWatermanAlignment;
 
 import org.apache.log4j.Logger;
 
+import com.sleepycat.persist.model.Persistent;
+
 /**
  * A sequence of read elements that should be present in a read
  * Can have other stuff between them
  * @author prussell
  *
  */
+@Persistent
 public class ReadLayout {
 	
 	private ArrayList<ReadSequenceElement> elements;
 	private int readLen;
 	public static Logger logger = Logger.getLogger(ReadLayout.class.getName());
+	
+	/**
+	 * For Berkeley DB only
+	 * Do not use this constructor
+	 */
+	public ReadLayout() {}
 	
 	/**
 	 * @param elementSequence Sequence of elements expected in each read
