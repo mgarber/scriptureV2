@@ -103,9 +103,9 @@ public class OligoPool {
 	 */
 	public static ConfigFileSection arraySchemeSection = new ConfigFileSection(arraySchemeSectionFlag, true);
 	private static String sequenceFastaOptionFlag = "sequence_fasta";
-	private static ConfigFileOption sequenceFastaOption = new ConfigFileOption(sequenceFastaOptionFlag, 2, false, false, true);
+	public static ConfigFileOption sequenceFastaOption = new ConfigFileOption(sequenceFastaOptionFlag, 2, false, false, true);
 	private static String sequencesSectionFlag = "Sequences";
-	private static ConfigFileSection sequencesSection = new ConfigFileSection(sequencesSectionFlag, true);
+	public static ConfigFileSection sequencesSection = new ConfigFileSection(sequencesSectionFlag, true);
 	private static String primerSizeOptionFlag = "primer_size";
 	private static ConfigFileOption primerSizeOption = new ConfigFileOption(primerSizeOptionFlag, 2, false, false, true);
 	private static String primer3corePathOptionFlag = "primer3_core_path";
@@ -219,7 +219,7 @@ public class OligoPool {
 		ConfigFileOptionValue poolSchemeVal = configFile.getSingleValue(arraySchemeSection, poolSchemeOption);
 		
 		// Add additional scheme classes to this array:
-		PoolScheme[] schemes = new PoolScheme[] { new SimplePoolScheme(), new StackedSimplePoolScheme(), new GenePoolScheme() };
+		PoolScheme[] schemes = new PoolScheme[] { new SimplePoolScheme(), new StackedSimplePoolScheme(), new GenePoolScheme(), new GroupedStackedPoolScheme() };
 		
 		for (PoolScheme scheme : schemes) {
 			if (scheme.validConfigFileValue(poolSchemeVal)) {
@@ -315,6 +315,9 @@ public class OligoPool {
 		int removed = 0;
 		int remaining = 0;
 		for(ProbeSet probeSet : probeSets) {
+			if(!probeSet.getProbes().iterator().hasNext()) {
+				continue;
+			}
 			w.write(probeSet.getProbes().iterator().next().getID());
 			Iterator<Probe> iter = probeSet.iter();
 			
@@ -445,7 +448,7 @@ public class OligoPool {
 			String layout = oligo.getProbeSet().getName();
 			layoutsByPrimer.put(oligo.getPrimer(), layout);
 		}
-		String header = "Probe_layout\t";
+		String header = "Probe_set\t";
 		header += "Left_primer\t";
 		header += "Right_primer\t";
 		FileWriter w = new FileWriter(outFile);
@@ -464,7 +467,8 @@ public class OligoPool {
 		FileWriter w = new FileWriter(outFile);
 		String header = "Probe_ID\t";
 		header += "Parent_sequence\t";
-		header += "Probeset_size\t";
+		header += "Probe_set\t";
+		header += "Probe_set_size\t";
 		header += "Start\t";
 		header += "End\t";
 		header += "Orientation\t";
@@ -479,6 +483,7 @@ public class OligoPool {
 			PrimerPair primer = oligo.getPrimer();
 			String line = probe.getID() + "\t";
 			line += probe.getParentTranscript().getId() + "\t";
+			line += oligo.getProbeSet().getName() + "\t";
 			line += primerCounts.get(primer) + "\t";
 			line += probe.getStartPosOnTranscript() + "\t";
 			int end = probe.getEndPosOnTranscript() - 1;

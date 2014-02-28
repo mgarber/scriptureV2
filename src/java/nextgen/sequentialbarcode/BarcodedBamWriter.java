@@ -151,8 +151,17 @@ public class BarcodedBamWriter {
 	 * @param inputBam Regular bam file
 	 * @return Name of barcoded bam file
 	 */
-	private static String getBarcodedBamFileName(String inputBam) {
+	public static String getBarcodedBamFileName(String inputBam) {
 		return inputBam.replaceAll(".bam", "") + BARCODED_BAM_SUFFIX;
+	}
+	
+	/**
+	 * Find out if a barcoded bam file exists for the bam file
+	 * @param regularBam Regular bam file
+	 * @return True iff corresponding barcoded bam file exists in same directory
+	 */
+	public static boolean barcodedBamExists(String regularBam) {
+		return new File(getBarcodedBamFileName(regularBam)).exists();
 	}
 	
 	/**
@@ -163,6 +172,17 @@ public class BarcodedBamWriter {
 	private static String getNameMappingFileName(String inputBam) {
 		String s1 = inputBam.replaceAll(BARCODED_BAM_SUFFIX, "");
 		return s1.replaceAll(".bam", "") + NAME_MAPPING_SUFFIX;
+	}
+	
+	
+	/**
+	 * Add barcode attribute to bam file entries using a barcode mapping
+	 * @param inputBam Regular bam file
+	 * @param barcodesByReadId Table of read name and barcode sequence
+	 * @throws IOException
+	 */
+	public static void writeBarcodedBam(String inputBam, String barcodeTable) throws IOException {
+		writeBarcodedBam(inputBam, readBarcodesFromTable(barcodeTable));
 	}
 	
 	/**

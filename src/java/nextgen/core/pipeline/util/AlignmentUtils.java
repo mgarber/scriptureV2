@@ -195,7 +195,7 @@ public class AlignmentUtils {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "bowtie2_index");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "bowtie2_index", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 ogsJob.waitFor();
@@ -310,7 +310,7 @@ public class AlignmentUtils {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "bowtie2");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "bowtie2", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 return ogsJob;
@@ -542,7 +542,7 @@ public class AlignmentUtils {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, tophatCmmd, "tophat");
+                OGSJob ogsJob = new OGSJob(drmaaSession, tophatCmmd, "tophat", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 tophatJobs.add(ogsJob);

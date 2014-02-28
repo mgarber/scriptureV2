@@ -1,11 +1,14 @@
 package nextgen.core.annotation;
 
+import com.sleepycat.persist.model.Persistent;
+
 import broad.core.datastructures.Interval;
 
 /**
  * @author engreitz
  * This class represents a single interval on a integer coordinate space.
  */
+@Persistent
 public final class SingleInterval extends Interval.Impl implements Comparable<SingleInterval>, java.io.Serializable {
 	
 	//TODO: Mock Constructor

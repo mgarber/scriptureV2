@@ -1,5 +1,8 @@
 package nextgen.sequentialbarcode.fragmentgroup;
 
+import java.util.Collection;
+
+import nextgen.core.annotation.Annotation;
 import nextgen.sequentialbarcode.BarcodeSequence;
 import nextgen.sequentialbarcode.BarcodedFragment;
 
@@ -28,5 +31,10 @@ public interface FragmentGroup {
 	 */
 	public String toSamAttributeString();
 
+	/**
+	 * Get the regions covered by all the fragments as annotation objects
+	 * @return The collection of regions
+	 */
+	public Collection<Annotation> getRegions();
 
 }

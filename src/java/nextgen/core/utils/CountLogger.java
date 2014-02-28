@@ -43,11 +43,24 @@ public class CountLogger {
 	 * Increment the count and print progress message if appropriate
 	 */
 	public void advance() {
+		advance(null);
+	}
+	
+	/**
+	 * Increment the count and print progress message if appropriate
+	 * @param extraMessage Extra message to print after percentage progress
+	 */
+	public void advance(String extraMessage) {
 		numDone++;
 		if(numDone % step == 0) {
 			String pct = decimalFormat.format(100 * (double)numDone / totalCount);
-			logger.info("Finished " + pct + "%");
+			String message = "Finished " + pct + "%.";
+			if(extraMessage != null) {
+				message += " " + extraMessage;
+			}
+			logger.info(message);
 		}
 	}
+	
 	
 }

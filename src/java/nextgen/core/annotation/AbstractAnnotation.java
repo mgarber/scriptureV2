@@ -6,6 +6,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.TreeSet;
 
+import com.sleepycat.persist.model.Persistent;
+
 
 import nextgen.core.annotation.Annotation.Strand;
 
@@ -14,6 +16,7 @@ import nextgen.core.annotation.Annotation.Strand;
  * This abstract class contains generic implementations of Annotation functions that rely only 
  * on other Annotation functions.
  */
+@Persistent
 public abstract class AbstractAnnotation implements Annotation {
 	
 

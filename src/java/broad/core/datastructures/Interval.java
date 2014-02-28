@@ -9,6 +9,8 @@
  */
 package broad.core.datastructures;
 
+import com.sleepycat.persist.model.Persistent;
+
 /**
  * Semi-open interval on the integer number line.
  * Turf covered runs from the start value inclusive, up to, but not including, the end value.
@@ -69,9 +71,20 @@ public interface Interval
     /**
      * A perfectly trivial implementation of the Interval interface.
      */
+    @Persistent
     public static class Impl
         implements Interval,java.io.Serializable
     {
+    	
+    	/**
+    	 * For Berkeley DB only
+    	 * Do not use this constructor
+    	 */
+    	public Impl() {
+    		mStart = -1;
+    		mEnd = -1;
+    	}
+    	
         public Impl( int start, int end )
         {
             if ( end < start )

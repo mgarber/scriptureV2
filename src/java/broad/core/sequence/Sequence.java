@@ -73,6 +73,8 @@ public class Sequence {
 		sequenceBases = new StringBuilder(expectedSize);
 
 	}
+	
+
 
 	public String getId() {
 		return id;

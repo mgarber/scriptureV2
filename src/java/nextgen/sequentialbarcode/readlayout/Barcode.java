@@ -8,6 +8,8 @@ import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
+import com.sleepycat.persist.model.Persistent;
+
 import broad.core.parser.StringParser;
 
 import nextgen.core.utils.AlignmentUtils;
@@ -18,6 +20,7 @@ import nextgen.core.utils.FileUtil;
  * @author prussell
  *
  */
+@Persistent
 public class Barcode implements ReadSequenceElement, Comparable<Barcode> {
 	
 	private String sequence;
@@ -27,9 +30,10 @@ public class Barcode implements ReadSequenceElement, Comparable<Barcode> {
 	private Collection<String> matchedStrings;
 	private boolean repeatable;
 	private String nextStringForRepeatable;
-
+	
 	/**
-	 * An empty constructor that should only be used when needed to call elementName()
+	 * For Berkeley DB only
+	 * Do not use this constructor
 	 */
 	public Barcode() {}
 	
