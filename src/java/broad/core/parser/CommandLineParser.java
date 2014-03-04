@@ -344,7 +344,7 @@ public final class CommandLineParser {
 		
 		// Make sure all required arguments have been provided
 		for(String req : requiredArgs) {
-			if(!commandLineValues.containsKey(req)) {
+			if(!commandLineValues.containsKey(req) && (!allowDuplicateTags || (allowDuplicateTags && !duplicateCommandLineValues.containsKey(req)))) {
 				printHelpMessage();
 				throw new IllegalArgumentException("Invalid command line: argument " + req + " is required");
 			}
