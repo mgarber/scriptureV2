@@ -5,7 +5,6 @@ import org.apache.log4j.Logger;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.AnnotationCollection;
 import nextgen.core.annotation.BasicAnnotation;
-import nextgen.core.model.AlignmentModel;
 
 /**
  * @author engreitz

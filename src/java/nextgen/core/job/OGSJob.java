@@ -148,6 +148,7 @@ public class OGSJob implements Job {
 		jobTemplate.setJobName(uniqueName);
 		jobTemplate.setErrorPath(":" + uniqueName + ".err");
 		jobTemplate.setOutputPath(":" + uniqueName + ".out");
+		jobTemplate.setNativeSpecification("-w n");
 		if(email != null) {
 			jobTemplate.setBlockEmail(false);
 			Set<String> emails = new TreeSet<String>();

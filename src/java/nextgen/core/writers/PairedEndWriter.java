@@ -302,10 +302,12 @@ public class PairedEndWriter {
 				logger.info("Processed " + numRead + " reads, free mem: " + Runtime.getRuntime().freeMemory() );//+ " tempCollection size : " + tempCollection.size()+" on "+record.getReferenceName());
 			}
 		}
-		if(pair.hasEntries()){
-			Collection<SAMRecord> fragmentRecords = pair.makePairs();
-			//write to output
-			writeAll(fragmentRecords);
+		if(pair != null) {
+			if(pair.hasEntries()){
+				Collection<SAMRecord> fragmentRecords = pair.makePairs();
+				//write to output
+				writeAll(fragmentRecords);
+			}
 		}
 		
 		//Write remainder

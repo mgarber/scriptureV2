@@ -22,14 +22,11 @@ import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
-import nextgen.core.model.score.WindowProcessor;
-import nextgen.core.model.score.WindowScoreIterator;
 import nextgen.core.readFilters.FragmentLengthFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.MappingQualityFilter;
 import nextgen.core.readFilters.NumHitsFilter;
 
-import broad.pda.seq.protection.*;
 
 /**
  * @author shari

@@ -794,7 +794,7 @@ public class RNASeqPipeline {
 		}
 		
 		// Make paired end bam files
-		logger.info("");
+		/*logger.info("");
 		logger.info("Making paired end bam files.");
 		Collection<String> bamFilesToTranslate = new TreeSet<String>();
 		for(String sample : sampleNames) {
@@ -809,6 +809,7 @@ public class RNASeqPipeline {
 			bamFilesToTranslate.add(sortedBamOutput.get(sample));
 		}
 		BamUtils.createPairedEndBamFiles(bamFilesToTranslate, configFile.getSingleValueField(sectionBasicOptions, optionTranscriptionRead), ".", configFile.getSingleValueField(sectionBasicOptions, optionPairedEndWriterJar), scheduler, drmaaSession);
+		*/
 		
 		// Make tdf of paired end bam files
 		logger.info("");
@@ -1103,9 +1104,7 @@ public class RNASeqPipeline {
 		if(configFile.hasOption(sectionBasicOptions, optionWigWriterJar) && configFile.hasOption(sectionBasicOptions, optionBedFileForWig)) {
 			logger.info("");
 			logger.info("Making wig files of position fragment counts and position counts normalized to transcript average coverage.");
-			logger.info("TODO: uses too much memory. Skipping.");
-			//TODO uses too much memory
-			//writeWigPositionCount(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionBedFileForWig), configFile.getSingleValueField(sectionBasicOptions, optionGenomeFasta));
+			writeWigPositionCount(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionBedFileForWig), configFile.getSingleValueField(sectionBasicOptions, optionGenomeFasta));
 			logger.info("");
 			logger.info("Done writing wig files.\n");
 		}
@@ -2214,7 +2213,7 @@ public class RNASeqPipeline {
 	
 	private static ConfigFileOption optionScheduler = new ConfigFileOption("scheduler", 2, false, false, true);
 	private static ConfigFileOption optionTranscriptionRead = new ConfigFileOption("transcription_read", 2, false, false, true);
-	private static ConfigFileOption optionPairedEndWriterJar = new ConfigFileOption("paired_end_writer_jar", 2, false, false, true);
+	//private static ConfigFileOption optionPairedEndWriterJar = new ConfigFileOption("paired_end_writer_jar", 2, false, false, true);
 	private static ConfigFileOption optionSplitTrimBarcodes = new ConfigFileOption("SPLIT_TRIM_BARCODES", 1, false, false, false);
 	private static ConfigFileOption optionTrimAdapters = new ConfigFileOption("TRIM_ADAPTERS", 1, false, false, false);
 	private static ConfigFileOption optionComputeLibraryStats = new ConfigFileOption("LIBRARY_STATS", 1, false, false, false);
@@ -2323,7 +2322,7 @@ public class RNASeqPipeline {
 		sectionBasicOptions.addAllowableOption(optionTranscriptomeSpaceStatsBedFile);
 		sectionBasicOptions.addAllowableOption(optionGenomicSpaceStatsSizeFile);
 		sectionBasicOptions.addAllowableOption(optionTranscriptionRead);
-		sectionBasicOptions.addAllowableOption(optionPairedEndWriterJar);
+		//sectionBasicOptions.addAllowableOption(optionPairedEndWriterJar);
 		
 		sectionFragmentSizeDistribution.addAllowableOption(optionFragmentSizeDistBedAnnotation);
 		sectionFragmentSizeDistribution.addAllowableOption(optionFragmentSizeDistMaxSize);

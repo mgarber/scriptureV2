@@ -123,6 +123,7 @@ public class AnnotationUtils {
 		growingExonSet.addAll(firstWindow.getBlocks());
 		
 		Collection<String> names = new TreeSet<String>();
+		names.add(firstWindow.getName());
 		
 		while(iter.hasNext()) {
 			
