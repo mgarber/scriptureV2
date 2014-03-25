@@ -45,8 +45,7 @@ public class SingleTilingProbeLayout implements ProbeLayout {
 		int startPos = start;
 		while(startPos + size <= transcript.getLength()) {
 			int endPos = startPos + size - 1;
-			String dir = antisense ? "antisense" : "sense";
-			String probeID = transcript.getId() + "_" + startPos + "_" + endPos + "_" + dir;
+			String probeID = toString() + "_" + transcript.getId() + "_" + startPos + "_" + endPos;
 			Probe probe = new Probe(transcript, this, probeID, startPos, size, antisense);
 			rtrn.addProbe(probe);
 			startPos += step;

@@ -219,7 +219,7 @@ public class OligoPool {
 		ConfigFileOptionValue poolSchemeVal = configFile.getSingleValue(arraySchemeSection, poolSchemeOption);
 		
 		// Add additional scheme classes to this array:
-		PoolScheme[] schemes = new PoolScheme[] { new SimplePoolScheme(), new StackedSimplePoolScheme(), new GenePoolScheme(), new GroupedStackedPoolScheme() };
+		PoolScheme[] schemes = new PoolScheme[] { new SimplePoolScheme(), new StackedSimplePoolScheme(), new GenePoolScheme(), new GroupedStackedPoolScheme(), new MultipleLayoutGenePoolScheme() };
 		
 		for (PoolScheme scheme : schemes) {
 			if (scheme.validConfigFileValue(poolSchemeVal)) {
