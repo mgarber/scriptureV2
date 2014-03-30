@@ -1,5 +1,9 @@
 package nextgen.editing.crispr.score;
 
+import net.sf.picard.cmdline.CommandLineProgram;
+import net.sf.picard.cmdline.Option;
+import net.sf.picard.io.IoUtil;
+import net.sf.picard.util.Log;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.annotation.*;
 import nextgen.editing.crispr.*;
@@ -14,14 +18,16 @@ import org.apache.log4j.Logger;
  * Implemented by JE based on http://crispr.mit.edu/about
  * @author engreitz
  */
-public class GuideOffTargetScore implements GuideRNAScore {
+public class GuideOffTargetScore extends CommandLineProgram implements GuideRNAScore {
 
 	public static Logger log = Logger.getLogger(GuideOffTargetScore.class.getName());
+	public static double EXON_PENALTY = 10.0;
 	
 	private byte[] offTargetSeqs;
 	public static double[] penalty = new double[] {0,0,0.014,0,0,0.395,0.317,0,0.389,0.079,0.445,0.508,0.613,0.851,0.732,0.828,0.615,0.804,0.685,0.583};	
 	public static int maxMismatch = 4;
 	File offTargetAnnotation = null;
+	HashSet<Integer> exonIndices = null;
 	
 	/**
 	 * Bed file containing off target sites, with the 23-base off-target sequence in the name column
@@ -31,14 +37,51 @@ public class GuideOffTargetScore implements GuideRNAScore {
 		offTargetSeqs = loadOffTargetSeqs(offTargetBits);
 	}
 	
-	public GuideOffTargetScore(File offTargetBits, File offTargetAnnotation) {
+	/**
+	 * Bed file containing off target sites, with the 23-base off-target sequence in the name column
+	 * @param offTargetBits
+	 */
+	public GuideOffTargetScore(File offTargetBits, File exonIndices) {
 		this(offTargetBits);
+		this.exonIndices = readIndices(exonIndices);
+	}
+	
+	
+	public GuideOffTargetScore(File offTargetBits, File exonIndices, File offTargetAnnotation) {
+		this(offTargetBits, exonIndices);
 		this.offTargetAnnotation = offTargetAnnotation;
 	}
 	
+	private GuideOffTargetScore() {
+		offTargetSeqs = null;
+	}
+	
+
+	public static HashSet<Integer> readIndices(File exonIndices) {
+		if (exonIndices == null) return null;
+		HashSet<Integer> set = new HashSet<Integer>();
+		try {
+			BufferedReader reader = new BufferedReader(new FileReader(exonIndices));
+			String line;
+			while ((line = reader.readLine()) != null) {
+				set.add(Integer.decode(line));
+			}
+			reader.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.exit(1);
+		}
+		return set;
+	}
+	
+	
 	@Override
 	public double getScore(GuideRNA guideRNA) {
-		return getOffTargetHits(guideRNA.getSequenceString()).score;
+		return getScore(guideRNA, 1);
+	}
+	
+	public double getScore(GuideRNA guideRNA, int maxExact) {
+		return getOffTargetHits(guideRNA.getSequenceString(), maxExact).score;
 	}
 
 	@Override
@@ -56,9 +99,10 @@ public class GuideOffTargetScore implements GuideRNAScore {
 			BufferedInputStream bs = new BufferedInputStream(new FileInputStream(file));
 			bitSeqs = new byte[bs.available()];
 			bs.read(bitSeqs);
+			bs.close();
 		} catch (Exception e) {
 			e.printStackTrace();
-			System.exit(1);;
+			System.exit(1);
 		}
 		log.info("Complete.");
 		return bitSeqs;
@@ -95,27 +139,36 @@ public class GuideOffTargetScore implements GuideRNAScore {
 		return hits;
 	}
 	
-	
 	public OffTargetHits getOffTargetHits(String guideSequence) {
+		return getOffTargetHits(guideSequence, 1);
+	}
+	
+	public OffTargetHits getOffTargetHits(String guideSequence, int maxExact) {
 		byte[] guideBytes = BitpackGuideSequences.sequenceToBits(guideSequence);
 		double sum = 0;
 		int nExact = 0;
 		List<Integer> offTargetHits = new ArrayList<Integer>();
 		for (int i = 0; i < offTargetSeqs.length; i += 5) {
 			double currScore = scoreSingleHit(guideBytes, Arrays.copyOfRange(offTargetSeqs, i, i+5), 20);
+			
+			if (exonIndices != null & exonIndices.contains(Integer.valueOf(i/5))) {
+				// Extra penalty for matches that overlap with exons
+				currScore = currScore * EXON_PENALTY;
+			}
+			
 			if (currScore > 0.0) offTargetHits.add(i/5);
 			if (Double.isInfinite(currScore)) {
 				nExact++;
-				if (nExact > 1) {
-					log.info("Exiting due to more than one perfect match");
+				if (nExact > maxExact) {
+					//log.info("Exiting due to more than one perfect match");
 					return new OffTargetHits(0.0, offTargetHits);
 				}
 			} else {
 				sum = sum + currScore;
 			}
 		}
-		log.info("sumScore = " + sum);
-		log.info("Found " +  nExact + " exact matches.");
+		//log.info("sumScore = " + sum);
+		//log.info("Found " +  nExact + " exact matches.");
 		return new OffTargetHits(10000.0 / (100.0 + sum), offTargetHits);
 	}
 	
@@ -237,4 +290,59 @@ public class GuideOffTargetScore implements GuideRNAScore {
 	}
 	*/
 	
+	
+
+	@Option(doc="Bed file containing guides")
+	public File GUIDES;
+
+	@Option(doc="Bitpacked file containing off target sites")
+	public File OFF_TARGET_BITS;
+	
+	@Option(doc="Max exact matches to reference to allow (default=1, set to 0 if you want guides that do not target any known site in the genome)")
+	public Integer MAX_EXACT = 1;
+	
+	@Option(doc="Output file")
+	public File OUTPUT;
+	
+	
+
+	/**
+	 * Stock main method.
+	 *
+	 * @param args main arguments
+	 */
+	public static void main(final String[] args) {
+		System.exit(new GuideOffTargetScore().instanceMain(args));
+	}
+
+
+    @Override
+    protected int doWork() {
+        IoUtil.assertFileIsReadable(GUIDES);
+        IoUtil.assertFileIsReadable(OFF_TARGET_BITS);
+        IoUtil.assertFileIsWritable(OUTPUT);
+
+        try {
+        	
+        	AnnotationList<GuideRNA> guides = AnnotationFileReader.load(GUIDES, GuideRNA.class, new GuideRNA.Factory());
+        	GuideOffTargetScore scorer = new GuideOffTargetScore(OFF_TARGET_BITS);
+        	BufferedWriter writer = new BufferedWriter(new FileWriter(OUTPUT));
+        	
+        	int i = 0;
+			for (GuideRNA guide : guides) {
+				double score = scorer.getScore(guide, MAX_EXACT);
+				guide.setScore(score);
+				writer.write(guide.toBedWithSequence() + "\n");
+				if (++i % 100 == 0) {
+					log.info("Scored " + i + " guides.");
+				}
+			}
+			writer.close();
+			
+        } catch (Exception e) {
+        	log.error(e);
+        }
+
+        return 0;
+    }
 }

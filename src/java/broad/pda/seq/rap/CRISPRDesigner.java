@@ -7,6 +7,7 @@ import java.nio.file.Files;
 
 import org.apache.commons.collections15.Predicate;
 import org.apache.commons.collections15.CollectionUtils;
+import org.ggf.drmaa.DrmaaException;
 
 import broad.core.motif.SequenceMotif;
 import broad.core.sequence.FastaSequenceIO;
@@ -22,6 +23,9 @@ import nextgen.editing.crispr.*;
 import nextgen.editing.crispr.score.*;
 import nextgen.editing.crispr.predicate.*;
 import nextgen.core.capture.filter.PolyBaseFilter;
+import nextgen.core.job.Job;
+import nextgen.core.job.JobUtils;
+import nextgen.core.job.LSFJob;
 
 /**
  * @author engreitz
@@ -31,10 +35,7 @@ public class CRISPRDesigner extends CommandLineProgram {
     private static final Log log = Log.getInstance(CRISPRDesigner.class);
     
     public static final SequenceMotif CRISPR_TARGET_MOTIF = new SequenceMotif( Pattern.compile("G[A,C,G,T]{20}GG"));
-	
-	@Option(doc="Bowtie build")
-	public String BOWTIE_BUILD = "/seq/lincRNA/data/mm9.nonrandom";
-	
+
 	@Option(doc="Genome fasta file")
 	public File GENOME_FASTA = new File("/seq/lincRNA/data/mm9.nonrandom.fa");
 	
@@ -43,6 +44,12 @@ public class CRISPRDesigner extends CommandLineProgram {
 	
 	@Option(doc="Bitpacked file containing off target sites", optional=true)
 	public File OFF_TARGETS = null;
+	
+	@Option(doc="File containing indexes of off target sites that map to exons", optional=true)
+	public File OFF_TARGET_EXONS = null;
+	
+	@Option(doc="Max exact matches to reference to allow (default=1, set to 0 if you want guides that do not target any known site in the genome)")
+	public Integer MAX_EXACT = 1;
 
 	@Option(doc="Output directory to create")
 	public File OUTPUT_DIR;
@@ -58,6 +65,12 @@ public class CRISPRDesigner extends CommandLineProgram {
 	
 	@Option(doc="Skip scoring ... do this to skip the off target and efficacy scoring steps")
 	public Boolean SKIP_SCORING = false;
+	
+	@Option(doc="Farm out jobs to calculate the off-target scores")
+	public Boolean DIVIDE_AND_CONQUER = false;
+	
+	@Option(doc="Max number of guide to score in one job") 
+	public Integer MAX_DIVIDE = 200;
 	
 
 	/**
@@ -102,7 +115,7 @@ public class CRISPRDesigner extends CommandLineProgram {
         	}
 			
         	if (!SKIP_SCORING) {
-        		filterGuides(guides);
+        		guides = filterGuides(guides);
         		scoreGuides(guides);
         		writeGuides(guides, filteredFile);
         	} else {
@@ -135,7 +148,7 @@ public class CRISPRDesigner extends CommandLineProgram {
     }
     
     
-    private void writeGuides(AnnotationList<GuideRNA> guides, File output) throws IOException {
+    private void writeGuides(Iterable<GuideRNA> guides, File output) throws IOException {
     	BufferedWriter writer = new BufferedWriter(new FileWriter(output));
   		for (GuideRNA guide : guides) {
 			writer.append(guide.toBedWithSequence() + "\n");
@@ -143,36 +156,74 @@ public class CRISPRDesigner extends CommandLineProgram {
   		writer.close();
     }
     
-    
-    private void filterGuides(AnnotationList<GuideRNA> guides) {
+    private AnnotationList<GuideRNA> filterGuides(AnnotationList<GuideRNA> guides) {
     	List<GuideRNA> guideList = guides.toList();
 		CollectionUtils.filter(guideList, new UContentPredicate());
 		CollectionUtils.filter(guideList, new PolyBaseFilter("ACGTN",5,5));
 		guides = new AnnotationList<GuideRNA>();
 		guides.addAll(guideList);
+		return(guides);
     }
     
     
-    private void scoreGuides(AnnotationList<GuideRNA> guides) throws IOException, InterruptedException {
-		GuideEfficacyScore efficacyScorer = new GuideEfficacyScore(guides.toList());
-		GuideOffTargetScore offTargetScorer = null;
-		if (OFF_TARGETS != null) offTargetScorer = new GuideOffTargetScore(OFF_TARGETS);
-		
-		for (GuideRNA guide : guides) {
-			double total = 0.0;
-			if (OFF_TARGETS != null)  {	
-				// off target score is 0-100 where >50 is best
-				double offTargetScore = offTargetScorer.getScore(guide);
-				total += Math.floor(offTargetScore);
+    private void scoreGuides(AnnotationList<GuideRNA> guides) throws IOException, InterruptedException, DrmaaException {
+
+    	// Add off-target to score
+		if (OFF_TARGETS != null) {
+			if (DIVIDE_AND_CONQUER) {
+				guides = getOffTargetScores(guides);
+			} else {
+				GuideOffTargetScore offTargetScorer = new GuideOffTargetScore(OFF_TARGETS, OFF_TARGET_EXONS);
+				for (GuideRNA guide : guides) {
+					guide.setScore(offTargetScorer.getScore(guide, MAX_EXACT));
+				}
 			}
-			
-			// efficacy score is 0-1, 1 is best
+		}
+		
+		// Add guide efficacy to score
+		GuideEfficacyScore efficacyScorer = new GuideEfficacyScore(guides.toList());
+		for (GuideRNA guide : guides) {
 			double efficacyScore = efficacyScorer.getScore(guide);
-			total += efficacyScore;
-			
-			guide.setScore(total);
+			guide.setScore(guide.getScore() + efficacyScore);
 		}
     }
+    
+    
+    private AnnotationList<GuideRNA> getOffTargetScores(AnnotationList<GuideRNA> guides) throws IOException, InterruptedException, DrmaaException {
+		Collection<Job> jobs = new ArrayList<Job>();
+		
+		// Farm out jobs
+		List<GuideRNA> list = guides.toList();
+		List<File> files = new ArrayList<File>();
+		for (int i = 0; i < guides.size(); i+=MAX_DIVIDE) {
+			File guideFile = new File("guide_" + Long.valueOf(System.currentTimeMillis()).toString() + "_" + (i%MAX_DIVIDE) + ".bed");
+			writeGuides(list.subList(i, Math.min(guides.size(), i+MAX_DIVIDE)), guideFile);
+			Job job = getOffTargetJob(guideFile);
+			jobs.add(job);
+		}
+		
+		JobUtils.waitForAll(jobs);
+		
+		// Read results
+		guides = new AnnotationList<GuideRNA>();
+		for (File guideFile : files) {
+			guides.addAll(AnnotationFileReader.load(guideFile, GuideRNA.class, new GuideRNA.Factory()));
+		}
+		return guides;
+    }
+    
+    
+    private Job getOffTargetJob(File guideFile) throws IOException, InterruptedException {
+    	String output = guideFile.getAbsolutePath() + ".scored.bed";
+    	String command = "java -Xmx4g -cp /seq/lincRNA/Jesse/bin/scripts/Nextgen.jar nextgen.editing.crispr.score.GuideOffTargetScore GUIDES=" + guideFile.getAbsolutePath() + 
+    			" OFF_TARGETS=" + OFF_TARGETS + " MAX_EXACT=" + MAX_EXACT + " OUTPUT=" + output;
+    	String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+		LSFJob lsfJob = new LSFJob(Runtime.getRuntime(), jobID, command, output, "gsa", 4);
+		lsfJob.submit();
+		log.info("Job ID is " + jobID);
+		return lsfJob;
+    }
+    
     
     private AnnotationList<GuideRNAPair> filterGuidePairs(AnnotationList<GuideRNAPair> guides) {
     	AnnotationList<GuideRNAPair> guidePairs = new AnnotationList<GuideRNAPair>();  // necessary b/c AnnotationList does not support concurrent modification

@@ -57,6 +57,8 @@ public class DoubleNickCRISPRDesigner {
 	private static boolean ENFORCE_MAX_GUIDE_EFFICACY_SCORE = true;
 	private static double MAX_GUIDE_EFFICACY_SCORE = 0.6;
 	private static boolean WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS = false;
+	private static int MIN_OFF_TARGET_SCORE = 30;
+	private static File OFF_TARGET_BITS = null;
 	private FileWriter failedPairBedWriter;
 	private FileWriter failedPairTableWriter;
 	
@@ -132,8 +134,11 @@ public class DoubleNickCRISPRDesigner {
 			}
 		}
 		
-		if(ENFORCE_MIN_OFF_TARGET_SCORE) {
-			// TODO off-target score filter
+		if (ENFORCE_MIN_OFF_TARGET_SCORE) {
+			if (pair.getLeftGuideRNA().getScore() < MIN_OFF_TARGET_SCORE || 
+				pair.getRightGuideRNA().getScore() < MIN_OFF_TARGET_SCORE) {
+				return false;
+			}
 		}
 		
 		logger.debug("PAIR_PASSES_BASIC_FILTERS\t" + pair.toString());
@@ -291,6 +296,14 @@ public class DoubleNickCRISPRDesigner {
 			ge = new GuideSufficientEfficacy(new GuideEfficacyScore(NickingGuideRNAPair.getIndividualGuideRNAs(allPairs)), MAX_GUIDE_EFFICACY_SCORE);
 		}
 		
+		GuideOffTargetScore scorer = null;
+		if (ENFORCE_MIN_OFF_TARGET_SCORE) {
+			scorer = new GuideOffTargetScore(OFF_TARGET_BITS);
+			for (GuideRNA guide : NickingGuideRNAPair.getIndividualGuideRNAs(allPairs)) {
+				guide.setScore(scorer.getScore(guide));
+			}
+		}
+		
 		logger.debug("Before filters there are " + allPairs.size() + " pairs downstream of transcription stop.");
 		Collection<NickingGuideRNAPair> rtrn = new ArrayList<NickingGuideRNAPair>();
 		
@@ -405,6 +418,15 @@ public class DoubleNickCRISPRDesigner {
 		if(ENFORCE_MAX_GUIDE_EFFICACY_SCORE) {
 			ge = new GuideSufficientEfficacy(new GuideEfficacyScore(NickingGuideRNAPair.getIndividualGuideRNAs(allPairs)), MAX_GUIDE_EFFICACY_SCORE);
 		}
+		
+		GuideOffTargetScore scorer = null;
+		if (ENFORCE_MIN_OFF_TARGET_SCORE) {
+			scorer = new GuideOffTargetScore(OFF_TARGET_BITS);
+			for (GuideRNA guide : NickingGuideRNAPair.getIndividualGuideRNAs(allPairs)) {
+				guide.setScore(scorer.getScore(guide));
+			}
+		}
+				
 
 		
 		Collection<NickingGuideRNAPair> rtrn = new ArrayList<NickingGuideRNAPair>();
@@ -570,6 +592,8 @@ public class DoubleNickCRISPRDesigner {
 		p.addStringArg("-se", "File containing list of restriction enzymes for single cut sites for downstream proximity filter", false, null);
 		p.addStringArg("-pe", "File containing list of restriction enzyme pairs for paired cut sites for downstream proximity filter (line format: left_enzyme right_enzyme)", false, null);
 		p.addBooleanArg("-fp", "For regions with no guide RNA pairs passing all filters, write all failed pairs to bed file", false, WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS);
+		p.addStringArg("-offTargetBits", "File containing bitpacked NGG sites", false, null);
+		p.addIntArg("-minOffTargetScore", "Minimum score in the off target analysis to pass", false, MIN_OFF_TARGET_SCORE);
 		
 		p.parse(args);
 		
@@ -602,6 +626,8 @@ public class DoubleNickCRISPRDesigner {
 		MAX_DIST_TO_RESTRICTION_SITE = p.getIntArg("-maxre");
 		MAX_GUIDE_EFFICACY_SCORE = p.getDoubleArg("-mge");
 		WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS = p.getBooleanArg("-fp");
+		OFF_TARGET_BITS = new File(p.getStringArg("-offTargetBits"));
+		MIN_OFF_TARGET_SCORE = p.getIntArg("-minOffTargetScore");
 		String outPrefix = p.getStringArg("-o");
 		String listFileSingleEnzymes = p.getStringArg("-se");
 		String listFilePairedEnzymes = p.getStringArg("-pe");
