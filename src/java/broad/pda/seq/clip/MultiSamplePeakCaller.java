@@ -1331,7 +1331,7 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	// Methods to parse command line arguments and sample file and set parameters for output
 
 	private static CommandLineParser getCommandLineParser(String[] commandArgs) {
-		CommandLineParser p = new CommandLineParser(true);
+		CommandLineParser p = new CommandLineParser();
 		p.addStringArg("-l", "Sample list file", true);
 		p.addStringArg("-b", "Bed file of genes", true);
 		p.addIntArg("-w", "Window size", false, DEFAULT_WINDOW_SIZE);

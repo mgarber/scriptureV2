@@ -162,7 +162,7 @@ public class BamUtils {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "genomic_space_stats");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "genomic_space_stats", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 jobs.add(ogsJob);
@@ -259,7 +259,7 @@ public class BamUtils {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "transcriptome_space_stats");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "transcriptome_space_stats", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 jobs.add(ogsJob);
@@ -353,7 +353,7 @@ public class BamUtils {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "paired_end_writer");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "paired_end_writer", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 jobs.add(ogsJob);
@@ -408,7 +408,7 @@ public class BamUtils {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "make_tdf");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "make_tdf", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 tdfJobs.add(ogsJob);
@@ -548,7 +548,7 @@ public class BamUtils {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "sam_to_bam");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "sam_to_bam", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 cbJobs.add(ogsJob);
@@ -679,7 +679,7 @@ public class BamUtils {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "sort_bam");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "sort_bam", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 sbJobs.add(ogsJob);
@@ -729,7 +729,7 @@ public class BamUtils {
 	                if(drmaaSession == null) {
 	                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 	                }
-	                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "index_bam");
+	                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "index_bam", null);
 	                ogsJob.submit();
 	                logger.info("OGS job ID is " + ogsJob.getID() + ".");
 	                indexJobs.add(ogsJob);

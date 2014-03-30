@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
 
 import nextgen.core.pipeline.OGSUtils;
 
@@ -46,8 +48,8 @@ public class OGSJob implements Job {
 	 * @throws DrmaaException
 	 * @throws IOException
 	 */
-	public OGSJob(Session drmaaSession, String cmmd, String jobName) throws DrmaaException, IOException {
-		this(drmaaSession, OGSUtils.createScriptFile(cmmd), true, jobName);
+	public OGSJob(Session drmaaSession, String cmmd, String jobName, String email) throws DrmaaException, IOException {
+		this(drmaaSession, OGSUtils.createScriptFile(cmmd), true, jobName, email);
 		command = cmmd;
 	}
 
@@ -73,7 +75,7 @@ public class OGSJob implements Job {
 	 * @throws IOException
 	 */
 	public OGSJob(Session drmaaSession, String cmmd, String scriptFileName, boolean deleteScriptFileAfterSubmitting) throws DrmaaException, IOException {
-		this(drmaaSession, OGSUtils.createScriptFile(cmmd, scriptFileName), deleteScriptFileAfterSubmitting, null);
+		this(drmaaSession, OGSUtils.createScriptFile(cmmd, scriptFileName), deleteScriptFileAfterSubmitting, null, null);
 		command = cmmd;
 	}
 
@@ -86,8 +88,8 @@ public class OGSJob implements Job {
 	 * @throws DrmaaException
 	 * @throws IOException
 	 */
-	public OGSJob(Session drmaaSession, String cmmd, boolean deleteScriptFileAfterSubmitting, String jobName) throws DrmaaException, IOException {
-		this(drmaaSession, OGSUtils.createScriptFile(cmmd, null), deleteScriptFileAfterSubmitting, jobName);
+	public OGSJob(Session drmaaSession, String cmmd, boolean deleteScriptFileAfterSubmitting, String jobName, String email) throws DrmaaException, IOException {
+		this(drmaaSession, OGSUtils.createScriptFile(cmmd, null), deleteScriptFileAfterSubmitting, jobName, null);
 		command = cmmd;
 	}
 
@@ -100,8 +102,8 @@ public class OGSJob implements Job {
 	 * @throws DrmaaException
 	 * @throws IOException
 	 */
-	public OGSJob(Session drmaaSession, String cmmd, String scriptFileName, boolean deleteScriptFileAfterSubmitting, String jobName) throws DrmaaException, IOException {
-		this(drmaaSession, OGSUtils.createScriptFile(cmmd, scriptFileName), deleteScriptFileAfterSubmitting, jobName);
+	public OGSJob(Session drmaaSession, String cmmd, String scriptFileName, boolean deleteScriptFileAfterSubmitting, String jobName, String email) throws DrmaaException, IOException {
+		this(drmaaSession, OGSUtils.createScriptFile(cmmd, scriptFileName), deleteScriptFileAfterSubmitting, jobName, email);
 		command = cmmd;
 	}
 
@@ -112,7 +114,7 @@ public class OGSJob implements Job {
 	 * @throws DrmaaException
 	 */
 	public OGSJob(Session drmaaSession, File script, boolean deleteScriptFileAfterSubmitting) throws DrmaaException {
-		this(drmaaSession, script, null, deleteScriptFileAfterSubmitting, null);
+		this(drmaaSession, script, null, deleteScriptFileAfterSubmitting, null, null);
 	}
 
 	/**
@@ -122,8 +124,8 @@ public class OGSJob implements Job {
 	 * @param deleteScriptFileAfterSubmitting Delete the script file after submitting job
 	 * @throws DrmaaException
 	 */
-	public OGSJob(Session drmaaSession, File script, boolean deleteScriptFileAfterSubmitting, String jobName) throws DrmaaException {
-		this(drmaaSession, script, null, deleteScriptFileAfterSubmitting, jobName);
+	public OGSJob(Session drmaaSession, File script, boolean deleteScriptFileAfterSubmitting, String jobName, String email) throws DrmaaException {
+		this(drmaaSession, script, null, deleteScriptFileAfterSubmitting, jobName, email);
 	}
 	
 	/**
@@ -134,7 +136,7 @@ public class OGSJob implements Job {
 	 * @param deleteScriptFileAfterSubmitting Delete the script file after submitting job
 	 * @throws DrmaaException
 	 */
-	public OGSJob(Session drmaaSession, File script, List<String> args, boolean deleteScriptFileAfterSubmitting, String jobName) throws DrmaaException {
+	public OGSJob(Session drmaaSession, File script, List<String> args, boolean deleteScriptFileAfterSubmitting, String jobName, String email) throws DrmaaException {
 		session = drmaaSession;
 		
 		// Set up the job template
@@ -146,6 +148,13 @@ public class OGSJob implements Job {
 		jobTemplate.setJobName(uniqueName);
 		jobTemplate.setErrorPath(":" + uniqueName + ".err");
 		jobTemplate.setOutputPath(":" + uniqueName + ".out");
+		jobTemplate.setNativeSpecification("-w n");
+		if(email != null) {
+			jobTemplate.setBlockEmail(false);
+			Set<String> emails = new TreeSet<String>();
+			emails.add(email);
+			jobTemplate.setEmail(emails);
+		}
 		// Use the current environment variables
 		Map<String, String> environment = System.getenv();
 		Properties properties = new Properties();

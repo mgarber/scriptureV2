@@ -12,11 +12,14 @@ import nextgen.core.coordinatesystem.TranscriptomeSpace;
 
 import org.apache.log4j.Logger;
 
+import com.sleepycat.persist.model.Persistent;
+
 /**
  * @author engreitz
  * This class contains multiple non-overlapping intervals on an arbitrary integer coordinate space.
  * Intervals are stored using red-black trees so O(log n) performance is guaranteed.
  */
+@Persistent
 public class CompoundInterval implements Comparable<CompoundInterval>, java.io.Serializable {
 
 	static Logger logger = Logger.getLogger(CompoundInterval.class.getName());

@@ -324,7 +324,77 @@ public final class Alignment {
 	public void setIdentity(int identity) {
 		this.identity = identity;
 	}
-
+	
+	/**
+	 * @return The length of the longest contiguous perfect sub-alignment
+	 */
+	public int getLongestPerfectMatch() {
+		int max = 0;
+		int currLen = 0;
+		for(int i = 0; i < markupLine.length; i++) {
+			if(markupLine[i] == Markups.IDENTITY) {
+				currLen++;
+				if(currLen > max) {
+					max = currLen;
+				}
+			} else {
+				currLen = 0;
+			}
+		}
+		return max;
+	}
+	
+	/**
+	 * Get the length of the longest ungapped sub-alignment with at most a certain number of mismatches
+	 * @param maxMismatches Max mismatches
+	 * @return Length of longest ungapped sub-alignment with at most this many mismatches
+	 */
+	public int getLongestUngappedAlignment(int maxMismatches) {
+		int max = 0;
+		for(int i = 0; i < markupLine.length; i++) {
+			int n = getLongestUngappedAlignment(i, maxMismatches);
+			if(n > max) {
+				max = n;
+			}
+		}
+		return max;
+	}
+	
+	/**
+	 * Get the length of the ungapped alignment starting at a certain position with at most a certain number of mismatches
+	 * @param startWithinAlignment Start position within markup line
+	 * @param maxMismatches Max mismatches
+	 * @return Length of longest ungapped sub-alignment starting at this position with at most this many mismatches
+	 */
+	private int getLongestUngappedAlignment(int startWithinAlignment, int maxMismatches) {
+		int currLen = 0;
+		int currMm = 0;
+		boolean prevMismatch = false;
+		for(int i = startWithinAlignment; i < markupLine.length; i++) {
+			prevMismatch = false;
+			if(i > 0) {
+				if(markupLine[i-1] == Markups.MISMATCH || markupLine[i-1] == Markups.SIMILARITY) {
+					prevMismatch = true;
+				}
+			}
+			if(markupLine[i] == Markups.GAP) {
+				return prevMismatch ? currLen -1 : currLen;
+			}
+			if(markupLine[i] == Markups.IDENTITY) {
+				currLen++;
+				continue;
+			}
+			currMm++;
+			if(currMm > maxMismatches) {
+				return prevMismatch ? currLen -1 : currLen;
+			}
+			if(currLen != 0) {
+				currLen++;
+			}
+		}
+		return prevMismatch ? currLen -1 : currLen;
+	}
+	
 	
 	/**
 	 * @return Returns the markupLine.
