@@ -146,8 +146,8 @@ public class OligoArrayBlatFilter {
 		private int maxNumAlignments;
 		
 		/**
-		 * @param len Minimum length of aligment
-		 * @param pctId Minimum percent identity of aligment
+		 * @param len Minimum length of alignment
+		 * @param pctId Minimum percent identity of alignment
 		 * @param numAlignments Max number of times a probe can align to the genome with these criteria
 		 */
 		private Filter(int len, float pctId, int numAlignments) {
