@@ -30,6 +30,7 @@ import nextgen.core.pipeline.util.AlignmentUtils;
 import nextgen.core.pipeline.util.BamUtils;
 import nextgen.core.pipeline.util.FastaUtils;
 import nextgen.core.pipeline.util.FastqUtils;
+import nextgen.core.pipeline.util.OGSUtils;
 import nextgen.core.pipeline.util.WigUtils;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.ProperPairFilter;

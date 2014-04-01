@@ -84,6 +84,8 @@ public class RestrictionEnzymeFactory {
 			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.BSABI, getAllSequences("GAT", 4, "ATC"), 5, 5);
 		case XBAI:
 			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.XBAI, "TCTAGA", 1, 1);
+		case BPLI:
+			return new SingleCleavageTypeIIRestrictionEnzyme(RestrictionEnzymeName.BPLI, getAllSequences("GAG", 5, "CTC"), 24, 19);
 		default:
 			throw new IllegalStateException("Enzyme " + r.toString() + " not supported.");
 		}
@@ -204,6 +206,11 @@ public class RestrictionEnzymeFactory {
 	 *
 	 */
 	public enum RestrictionEnzymeName {
+				
+		/**
+		 * BplI
+		 */
+		BPLI,
 		
 		/**
 		 * BamHI
@@ -412,6 +419,8 @@ public class RestrictionEnzymeFactory {
 				return "BsaBI";
 			case XBAI:
 				return "XbaI";
+			case BPLI:
+				return "BplI";
 			default:
 				throw new IllegalStateException("Element not supported.");
 			}
