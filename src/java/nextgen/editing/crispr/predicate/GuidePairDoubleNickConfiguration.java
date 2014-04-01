@@ -11,8 +11,14 @@ import org.apache.log4j.Logger;
 public class GuidePairDoubleNickConfiguration implements GuideRNAPairPredicate {
 	
 	public static Logger logger = Logger.getLogger(GuidePairDoubleNickConfiguration.class.getName());
-
-	public GuidePairDoubleNickConfiguration() {}
+	private int maxInnerDistance;
+	
+	/**
+	 * @param maxInnerDist Max inner distance between the two guide RNAs
+	 */
+	public GuidePairDoubleNickConfiguration(int maxInnerDist) {
+		maxInnerDistance = maxInnerDist;
+	}
 	
 	@Override
 	public boolean evaluate(NickingGuideRNAPair guideRnaPair) {
@@ -32,8 +38,8 @@ public class GuidePairDoubleNickConfiguration implements GuideRNAPairPredicate {
 			//logger.debug("INVALID_PAIR\tInner distance < 0:\t" + guideRnaPair.toString());
 			return false;
 		}
-		if(innerDist > 40) {
-			//logger.debug("INVALID_PAIR\tInner distance > 40:\t" + guideRnaPair.toString());
+		if(innerDist > maxInnerDistance) {
+			//logger.debug("INVALID_PAIR\tInner distance > " + maxInnerDistance + ":\t" + guideRnaPair.toString());
 			return false;
 		}
 		// If all the criteria are met return true

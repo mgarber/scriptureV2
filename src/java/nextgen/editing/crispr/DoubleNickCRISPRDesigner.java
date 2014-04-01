@@ -5,8 +5,12 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -26,12 +30,15 @@ import nextgen.editing.RestrictionEnzymeFactory;
 import nextgen.editing.RestrictionEnzymePair;
 import nextgen.editing.SingleCleavageTypeIIRestrictionEnzyme;
 import nextgen.editing.TypeIISRestrictionEnzyme;
+import nextgen.editing.crispr.predicate.GuideLacksEnzymeCutSite;
 import nextgen.editing.crispr.predicate.GuidePairDoubleNickConfiguration;
 import nextgen.editing.crispr.predicate.GuideProximityToNearestRegion;
 import nextgen.editing.crispr.predicate.GuideSufficientEfficacy;
 import nextgen.editing.crispr.predicate.GuideSufficientIsolation;
 import nextgen.editing.crispr.score.GuideEfficacyScore;
 import nextgen.editing.crispr.score.GuideOffTargetScore;
+import nextgen.editing.crispr.score.GuidePairCombinedEfficacyDistanceScore;
+import nextgen.editing.crispr.score.GuidePairInnerDistanceScore;
 
 /**
  * Design guide RNA pairs for a double nick strategy of CRISPR editing
@@ -49,6 +56,7 @@ public class DoubleNickCRISPRDesigner {
 	private static int MAX_DOWNSTREAM_DISTANCE = 5000;
 	private static int MIN_DIST_TO_NEAREST_GENE = 3000;
 	private static int MAX_INNER_DIST_CUT_SITE_PAIRS = 150;
+	private static int MAX_INNER_DIST_GUIDE_RNA_PAIRS = 40;
 	private static int MAX_DIST_TO_RESTRICTION_SITE = 100;
 	private static boolean ENFORCE_DOUBLE_NICK_CONFIGURATION = true;
 	private static boolean ENFORCE_MIN_DIST_TO_NEAREST_GENE = true;
@@ -59,9 +67,16 @@ public class DoubleNickCRISPRDesigner {
 	private static boolean WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS = false;
 	private static int MIN_OFF_TARGET_SCORE = 30;
 	private static File OFF_TARGET_BITS = null;
+	private static int NUM_BEST_PAIRS_TO_GET_PER_CUT = 20;
+	private static boolean POOL_NON_OVERLAPPING = false;
+	private static String LEFT_OLIGO_FLANKING_SEQUENCE;
+	private static String RIGHT_OLIGO_FLANKING_SEQUENCE;
+	private static Collection<RestrictionEnzyme> FORBIDDEN_ENZYMES = new ArrayList<RestrictionEnzyme>();
+	private static int MAX_NUM_POOLS = 12;
+	private static String PRIMER3_CORE;
 	private FileWriter failedPairBedWriter;
 	private FileWriter failedPairTableWriter;
-	
+	private Collection<NickingGuideRNAPair> allValidPairs;
 	
 	/**
 	 * Full gene annotation
@@ -109,7 +124,7 @@ public class DoubleNickCRISPRDesigner {
 		
 		if(ENFORCE_DOUBLE_NICK_CONFIGURATION) {
 			// Check that the pair are arranged correctly
-			GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration();
+			GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration(MAX_INNER_DIST_GUIDE_RNA_PAIRS);
 			if(!dnc.evaluate(pair)) {
 				//logger.debug("PAIR_FAILS_DOUBLE_NICK_CONFIGURATION\t" + pair.toString());
 				return false;
@@ -129,7 +144,7 @@ public class DoubleNickCRISPRDesigner {
 				return false;
 			}
 		} else {
-			if(guideEfficacy == null) {
+			if(guideEfficacy != null) {
 				logger.warn("You provided a guide efficacy object but it is not being used because ENFORCE_MAX_GUIDE_EFFICACY_SCORE is false");
 			}
 		}
@@ -141,6 +156,18 @@ public class DoubleNickCRISPRDesigner {
 			}
 		}
 		
+		if(!FORBIDDEN_ENZYMES.isEmpty()) {
+			GuideLacksEnzymeCutSite g = new GuideLacksEnzymeCutSite(FORBIDDEN_ENZYMES);
+			if(!g.evaluate(pair.getLeftGuideRNA())) {
+				logger.debug("LEFT_GUIDE_CONTAINS_CUT_SITE\t" + pair.toString()); 
+				return false;
+			}
+			if(!g.evaluate(pair.getRightGuideRNA())) {
+				logger.debug("RIGHT_GUIDE_CONTAINS_CUT_SITE\t" + pair.toString()); 
+				return false;
+			}
+		}
+		
 		logger.debug("PAIR_PASSES_BASIC_FILTERS\t" + pair.toString());
 		return true;
 		
@@ -148,30 +175,31 @@ public class DoubleNickCRISPRDesigner {
 	
 	private void writeValidGuidePairsAllGenes(String outFilePrefix) throws IOException, InterruptedException {
 		
+		if(allValidPairs.isEmpty()) {
+			logger.warn("No valid guide pairs have been found. Make sure findValidPairs() was called.");
+		}
+		
 		if(WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS) {
 			failedPairBedWriter = new FileWriter(outFilePrefix + "_guide_pairs_failing_filters.bed");
 			failedPairTableWriter = new FileWriter(outFilePrefix + "_guide_pairs_failing_filters_oligos.out");
 			String header = "target_gene\toligo_ID\t" + NickingGuideRNAPair.getOligoFieldNames();
 			failedPairTableWriter.write(header + "\n");
 		}
-		
-		// Get the valid pairs
-		Collection<NickingGuideRNAPair> downstreamPairs = findValidDownstreamPairsAllGenes();
-		Collection<NickingGuideRNAPair> upstreamPairs = findValidUpstreamPairsAllGenes();
-		Collection<NickingGuideRNAPair> allPairs = new ArrayList<NickingGuideRNAPair>();
-		allPairs.addAll(downstreamPairs);
-		allPairs.addAll(upstreamPairs);
-		
-		// Write as bed file
-		String bedFile = outFilePrefix + "_guide_pairs.bed";
-		logger.debug("");
-		logger.info("Writing all valid guide RNA pairs for all genes to file " + bedFile);
-		NickingGuideRNAPair.writeBED(allPairs, bedFile);
-		
-		// Write as tables
+				
 		String oligoTable = outFilePrefix + "_oligos.out";
 		logger.info("Writing oligos to " + oligoTable);
-		NickingGuideRNAPair.writeOligoTable(allPairs, oligoTable);
+		Collection<Collection<NickingGuideRNAPair>> pools = new ArrayList<Collection<NickingGuideRNAPair>>();
+		if(POOL_NON_OVERLAPPING) {
+			pools.addAll(NickingGuideRNAPair.poolNonOverlapping(allValidPairs, MAX_NUM_POOLS));
+			String bedPrefix = outFilePrefix + "_guide_pairs";
+			NickingGuideRNAPair.writeBED(pools, bedPrefix);
+
+		} else {
+			pools.add(allValidPairs);
+			String bedFile = outFilePrefix + "_guide_pairs.bed";
+			NickingGuideRNAPair.writeBED(allValidPairs, bedFile, false);
+		}
+		NickingGuideRNAPair.writeOligoTable(pools, LEFT_OLIGO_FLANKING_SEQUENCE, RIGHT_OLIGO_FLANKING_SEQUENCE, oligoTable, PRIMER3_CORE);
 		
 		if(WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS) {
 			failedPairBedWriter.close();
@@ -254,27 +282,163 @@ public class DoubleNickCRISPRDesigner {
 		writer.close();
 	}
 	
-	private Collection<NickingGuideRNAPair> findValidDownstreamPairsAllGenes() throws IOException, InterruptedException {
+	/**
+	 * Pick out the guide RNA pairs with best scores (score hardcoded for now)
+	 * Make sure they can be combined into pools of pairwise non-overlapping guide RNAs
+	 * Throws exception if can't be placed into required number of pools
+	 * @param guidePairs Full set of guide RNA pairs
+	 * @return The best pairs, or the full set if already smaller than number to get
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	private static Collection<NickingGuideRNAPair> getPoolableBestGuidePairs(Collection<NickingGuideRNAPair> guidePairs) throws IOException, InterruptedException {
+		//long start = System.currentTimeMillis();
+		if(guidePairs.size() == 0) {
+			return guidePairs;
+		}
+		if(NUM_BEST_PAIRS_TO_GET_PER_CUT < 1) {
+			throw new IllegalArgumentException("Must get at least 1 guide RNA pair.");
+		}
+		if(MAX_NUM_POOLS < 1) {
+			throw new IllegalArgumentException("Max number of pools must be at least 1.");
+		}
+		Collection<GuideRNA> indGuides = new ArrayList<GuideRNA>();
+		for(NickingGuideRNAPair pair : guidePairs) {
+			indGuides.add(pair.getLeftGuideRNA());
+			indGuides.add(pair.getRightGuideRNA());
+		}
+		GuideEfficacyScore score = new GuideEfficacyScore(indGuides);
+		GuidePairCombinedEfficacyDistanceScore combinedScore = new GuidePairCombinedEfficacyDistanceScore(score);
+		//GuidePairInnerDistanceScore innerDistScore = new GuidePairInnerDistanceScore();
+		for(NickingGuideRNAPair pair : guidePairs) {
+			pair.setScore(combinedScore.getScore(pair));
+		}
+		ArrayList<NickingGuideRNAPair> sortedPairs = NickingGuideRNAPair.sortByScoreNondescending(guidePairs);
+		// Lower scores are better
+		Iterator<NickingGuideRNAPair> ascendingIter = sortedPairs.iterator();
 		Collection<NickingGuideRNAPair> rtrn = new ArrayList<NickingGuideRNAPair>();
-		for(String chr : targetGenes.keySet()) {
-			for(Gene gene : targetGenes.get(chr)) {
-				logger.info("Finding downstream guide RNA pairs for gene " + gene.getName());
-				rtrn.addAll(findAllValidPairsDownstreamOfTranscriptionStop(gene));
+		// Try to pool
+		Collection<Collection<NickingGuideRNAPair>> pools = new ArrayList<Collection<NickingGuideRNAPair>>();
+		for(int i = 0; i < MAX_NUM_POOLS; i++) {
+			pools.add(new TreeSet<NickingGuideRNAPair>());
+		}
+		int i = 0;
+		while(i < NUM_BEST_PAIRS_TO_GET_PER_CUT) {
+			try {
+				NickingGuideRNAPair next = ascendingIter.next();
+				boolean inPool = false;
+				for(Collection<NickingGuideRNAPair> pool : pools) {
+					boolean ok = true;
+					for(NickingGuideRNAPair other : pool) {
+						if(next.overlaps(other)) {
+							ok = false;
+							break;
+						}
+					} if(ok) {
+						pool.add(next);
+						inPool = true;
+						break;
+					}
+				}
+				if(!inPool) {
+					// Can't be added to a pool; skip this one
+					//logger.warn("Couldn't add " + next.toString() + " to a pool");
+					continue;
+				}
+				//logger.info("Added pair. Guide efficacy scores " + score.getScore(next.getLeftGuideRNA()) + "," + score.getScore(next.getRightGuideRNA()) + "; inner distance " + next.getInnerDistance() + "; combined score " + combinedScore.getScore(next));
+				i++;
+				rtrn.add(next);
+			} catch(NoSuchElementException e) {
+				//long sec = (System.currentTimeMillis() - start) / 1000;
+				//logger.info("Picked " + rtrn.size() + " poolable most effective and closest guide RNA pairs out of " + guidePairs.size() + " total pairs. Took " + sec + " seconds.");
+				return rtrn;
 			}
 		}
+		//long sec = (System.currentTimeMillis() - start) / 1000;
+		//logger.info("Picked " + rtrn.size() + " poolable most effective and closest guide RNA pairs out of " + guidePairs.size() + " total pairs. Took " + sec + " seconds.");
 		return rtrn;
 	}
 	
-	private Collection<NickingGuideRNAPair> findValidUpstreamPairsAllGenes() throws IOException, InterruptedException {
-		Collection<NickingGuideRNAPair> rtrn = new ArrayList<NickingGuideRNAPair>();
-		for(String chr : targetGenes.keySet()) {
-			for(Gene gene : targetGenes.get(chr)) {
-				logger.debug("");
-				logger.info("Finding upstream guide RNA pairs for gene " + gene.getName());
-				rtrn.addAll(findAllValidPairsUpstreamOfTranscriptionStart(gene));
+	
+	private class ValidPairFinder implements Runnable {
+		
+		private ConcurrentLinkedQueue<Gene> geneQueue;
+		
+		public ValidPairFinder(ConcurrentLinkedQueue<Gene> genes) {
+			geneQueue = genes;
+		}
+		
+		@Override
+		public void run() {
+			while(!geneQueue.isEmpty()) {
+				Gene gene = geneQueue.poll();
+				try {
+					synchronized(logger) {
+						logger.info("Finding guide RNA pairs for gene " + gene.getName());
+					}
+					Collection<NickingGuideRNAPair> upstream = getPoolableBestGuidePairs(findAllValidPairsUpstreamOfTranscriptionStart(gene));
+					if(upstream.size() != NUM_BEST_PAIRS_TO_GET_PER_CUT) {
+						synchronized(logger) {
+							logger.warn("Could only get " + upstream.size() + " good poolable pairs upstream of " + gene.getName());
+						}
+					}
+					Collection<NickingGuideRNAPair> downstream = getPoolableBestGuidePairs(findAllValidPairsDownstreamOfTranscriptionStop(gene));
+					if(downstream.size() != NUM_BEST_PAIRS_TO_GET_PER_CUT) {
+						synchronized(logger) {
+							logger.warn("Could only get " + downstream.size() + " good poolable pairs downstream of " + gene.getName());
+						}
+					}
+					synchronized(allValidPairs) {
+						allValidPairs.addAll(upstream);
+						allValidPairs.addAll(downstream);
+					}
+				} catch (IOException e) {
+					synchronized(logger) {
+						logger.warn("Caught exception, skipping gene " + gene.getName());
+					}
+					e.printStackTrace();
+				} catch (InterruptedException e) {
+					synchronized(logger) {
+						logger.warn("Caught exception, skipping gene " + gene.getName());
+					}
+					e.printStackTrace();
+				}
 			}
 		}
-		return rtrn;
+		
+	}
+	
+	
+	private void findValidPairsAllGenes(int numThreads) throws IOException, InterruptedException {
+		
+		logger.info("");
+		logger.info("Finding valid guide RNA pairs for all genes...");
+		
+		allValidPairs = new ArrayList<NickingGuideRNAPair>();
+
+		Collection<Gene> genes = new TreeSet<Gene>();
+		for(String chr : targetGenes.keySet()) {
+			genes.addAll(targetGenes.get(chr));
+		}
+		
+		ConcurrentLinkedQueue<Gene> geneQueue = new ConcurrentLinkedQueue<Gene>(genes);
+		
+		Collection<Thread> threads = new ArrayList<Thread>();
+		
+		for(int i = 0; i < numThreads; i++) {
+			ValidPairFinder pf = new ValidPairFinder(geneQueue);
+			Thread t = new Thread(pf);
+			threads.add(t);
+			t.start();
+		}
+		
+		Thread.sleep(1000);
+		for(Thread t : threads) {
+			t.join();
+		}
+		
+		logger.info("Found " + allValidPairs.size() + " total valid guide pairs.");
+	
 	}
 	
 	/**
@@ -304,14 +468,25 @@ public class DoubleNickCRISPRDesigner {
 			}
 		}
 		
-		logger.debug("Before filters there are " + allPairs.size() + " pairs downstream of transcription stop.");
+		synchronized (logger) {
+			logger.debug("Before filters there are " + allPairs.size()
+					+ " pairs downstream of transcription stop.");
+		}
 		Collection<NickingGuideRNAPair> rtrn = new ArrayList<NickingGuideRNAPair>();
 		
 		// Collect restriction enzyme sites downstream of the gene
 		Collection<Annotation> restrictionSites = new ArrayList<Annotation>();
 		if(ENFORCE_DOWNSTREAM_PROXIMITY_TO_RESTRICTION_ENZYME) {
-			restrictionSites.addAll(RestrictionEnzymeCutSite.asAnnotations(downstreamRestrictionEnzymeCutSitesByGene.get(gene)));
-			restrictionSites.addAll(RestrictionEnzymeCutSitePair.asAnnotations(downstreamRestrictionEnzymeCutSitePairsByGene.get(gene)));
+			synchronized (downstreamRestrictionEnzymeCutSitesByGene) {
+				restrictionSites
+						.addAll(RestrictionEnzymeCutSite
+								.asAnnotations(downstreamRestrictionEnzymeCutSitesByGene
+										.get(gene)));
+				restrictionSites
+						.addAll(RestrictionEnzymeCutSitePair
+								.asAnnotations(downstreamRestrictionEnzymeCutSitePairsByGene
+										.get(gene)));
+			}
 		}
 		
 		for(NickingGuideRNAPair pair : allPairs) {
@@ -347,7 +522,10 @@ public class DoubleNickCRISPRDesigner {
 			}
 			
 			if(passes) {
-				logger.debug("PAIR_PASSES_ALL_DOWNSTREAM_FILTERS\t" + pair.toString());
+				synchronized (logger) {
+					logger.debug("PAIR_PASSES_ALL_DOWNSTREAM_FILTERS\t"
+							+ pair.toString());
+				}
 				rtrn.add(pair);
 			}
 		}
@@ -356,8 +534,10 @@ public class DoubleNickCRISPRDesigner {
 			
 			if(WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS) {
 				
-				logger.warn("WRITING_FAILED_PAIRS\t" + gene.getName());
-				GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration();
+				synchronized (logger) {
+					logger.warn("WRITING_FAILED_PAIRS\t" + gene.getName());
+				}
+				GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration(MAX_INNER_DIST_GUIDE_RNA_PAIRS);
 				
 				for(NickingGuideRNAPair pair : allPairs) {
 					
@@ -389,14 +569,25 @@ public class DoubleNickCRISPRDesigner {
 						}
 					}
 					
-					failedPairBedWriter.write(pair.toBED(bedName) + "\n");
-					failedPairTableWriter.write(gene.getName() + "\t" + pair.toString() + "\t" + pair.getOligos() + "\n");
+					pair.setName(bedName);
+					synchronized (failedPairBedWriter) {
+						failedPairBedWriter.write(pair.toBED() + "\n");
+					}
+					synchronized (failedPairTableWriter) {
+						failedPairTableWriter.write(gene.getName() + "\t"
+								+ pair.toString() + "\t" + pair.getOligos()
+								+ "\n");
+					}
 
 				}
 			}
 			
 
 		}
+		/*synchronized (logger) {
+			logger.info("Found " + rtrn.size() + " pairs downstream of "
+					+ gene.getName());
+		}*/
 		return rtrn;
 	}
 	
@@ -407,7 +598,7 @@ public class DoubleNickCRISPRDesigner {
 	 * @throws InterruptedException 
 	 * @throws IOException 
 	 */
-	private Collection<NickingGuideRNAPair> findAllValidPairsUpstreamOfTranscriptionStart(Gene gene) throws IOException, InterruptedException {
+	private  Collection<NickingGuideRNAPair> findAllValidPairsUpstreamOfTranscriptionStart(Gene gene) throws IOException, InterruptedException {
 
 		Collection<NickingGuideRNAPair> allPairs = findAllPossibleGuideRNAsUpstreamOfTranscriptionStart(gene);
 		if(allPairs.isEmpty()) {
@@ -437,27 +628,43 @@ public class DoubleNickCRISPRDesigner {
 			}
 			
 			if(passes) {
-				logger.debug("PAIR_PASSES_ALL_UPSTREAM_FILTERS\t" + pair.toString());
+				synchronized (logger) {
+					logger.debug("PAIR_PASSES_ALL_UPSTREAM_FILTERS\t" + pair.toString());
+				}
 				rtrn.add(pair);
 			}
 		}
 		if(rtrn.isEmpty()) {
-			logger.warn("NO_VALID_UPSTREAM_GUIDE_PAIRS\t" + gene.getName());
-			
+			synchronized (logger) {
+				logger.warn("NO_VALID_UPSTREAM_GUIDE_PAIRS\t" + gene.getName());
+			}
 			if(WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS) {
-				logger.warn("WRITING_FAILED_PAIRS\t" + gene.getName());
-				GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration();
+				synchronized (logger) {
+					logger.warn("WRITING_FAILED_PAIRS\t" + gene.getName());
+				}
+				GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration(MAX_INNER_DIST_GUIDE_RNA_PAIRS);
 				for(NickingGuideRNAPair pair : allPairs) {
 					if(!dnc.evaluate(pair)) {
 						continue;
 					}
 					String bedName = pair.toString() + ":" + getFailureMessageBasicFilters(pair, ge);
-					failedPairBedWriter.write(pair.toBED(bedName) + "\n");
-					failedPairTableWriter.write(gene.getName() + "\t" + pair.toString() + "\t" + pair.getOligos() + "\n");
+					pair.setName(bedName);
+					synchronized (failedPairBedWriter) {
+						failedPairBedWriter.write(pair.toBED() + "\n");
+					}
+					synchronized (failedPairTableWriter) {
+						failedPairTableWriter.write(gene.getName() + "\t"
+								+ pair.toString() + "\t" + pair.getOligos()
+								+ "\n");
+					}
 				}
 			}
 			
 		}
+		/*synchronized (logger) {
+			logger.info("Found " + rtrn.size() + " pairs upstream of "
+					+ gene.getName());
+		}*/
 		return rtrn;
 	}
 	
@@ -475,7 +682,7 @@ public class DoubleNickCRISPRDesigner {
 		
 		if(ENFORCE_DOUBLE_NICK_CONFIGURATION) {
 			// Check that the pair are arranged correctly
-			GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration();
+			GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration(MAX_INNER_DIST_GUIDE_RNA_PAIRS);
 			if(!dnc.evaluate(pair)) {
 				rtrn += dnc.getShortFailureMessage(pair) + ":";
 			}
@@ -554,9 +761,9 @@ public class DoubleNickCRISPRDesigner {
 
 	
 	private static void validateMinMaxDist(int minDistance, int maxDistance) {
-		if(minDistance < 0 || maxDistance < 0) {
+		/*if(minDistance < 0 || maxDistance < 0) {
 			throw new IllegalArgumentException("Min and max distances must be > 0");
-		}
+		}*/
 		if(minDistance >= maxDistance) {
 			throw new IllegalArgumentException("Min distance must be < max distance");
 		}
@@ -582,6 +789,7 @@ public class DoubleNickCRISPRDesigner {
 		p.addIntArg("-minn", "Minimum distance between guide RNA and nearest gene other than target gene", false, MIN_DIST_TO_NEAREST_GENE);
 		p.addIntArg("-maxp", "Max inner distance between paired restriction enzyme cut sites", false, MAX_INNER_DIST_CUT_SITE_PAIRS);
 		p.addIntArg("-maxre", "Max distance to restriction enzyme cut site", false, MAX_DIST_TO_RESTRICTION_SITE);
+		p.addIntArg("-maxgp", "Max inner distance between guide RNA pairs", false, MAX_INNER_DIST_GUIDE_RNA_PAIRS);
 		p.addStringArg("-o", "Output file prefix", true);
 		p.addBooleanArg("-dnc", "Enforce double nick configuration for paired guide RNAs", false, ENFORCE_DOUBLE_NICK_CONFIGURATION);
 		p.addBooleanArg("-mdg", "Enforce minimum distance to nearest gene", false, ENFORCE_MIN_DIST_TO_NEAREST_GENE);
@@ -594,8 +802,18 @@ public class DoubleNickCRISPRDesigner {
 		p.addBooleanArg("-fp", "For regions with no guide RNA pairs passing all filters, write all failed pairs to bed file", false, WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS);
 		p.addStringArg("-offTargetBits", "File containing bitpacked NGG sites", false, null);
 		p.addIntArg("-minOffTargetScore", "Minimum score in the off target analysis to pass", false, MIN_OFF_TARGET_SCORE);
+		p.addIntArg("-nbe", "Number of guide RNA pairs to get per cut, sorted by efficacy score", false, NUM_BEST_PAIRS_TO_GET_PER_CUT);
+		p.addStringListArg("-fe", "Restriction enzyme whose recognition sequence cannot appear in any guide RNA sequences (repeatable)", false, null);	
+		p.addIntArg("-nt", "Number of threads", false, 1);
+		p.addBooleanArg("-pno", "Pool guide RNA pairs into as few pools of pairwise nonoverlapping guides as possible", false, POOL_NON_OVERLAPPING);
+		p.addStringArg("-lfo", "Left flanking sequence for oligos", true);
+		p.addStringArg("-rfo", "Right flanking sequence for oligos", true);
+		p.addIntArg("-maxpool", "Max number of pools of pairwise non-overlapping guide pairs", false, MAX_NUM_POOLS);
+		p.addStringArg("-p3", "primer3_core executable", true);
+		p.addIntArg("-pl", "Primer length", false, NickingGuideRNAPair.PRIMER_LENGTH);
+		p.addDoubleArg("-ptm", "Optimal primer Tm", false, NickingGuideRNAPair.OPTIMAL_PRIMER_TM);
 		
-		p.parse(args);
+		p.parse(args, true);
 		
 		if(p.getBooleanArg("--debug")) {
 			RestrictionEnzymeCutSite.logger.setLevel(Level.DEBUG);
@@ -612,6 +830,12 @@ public class DoubleNickCRISPRDesigner {
 		String genomeFasta = p.getStringArg("-g");
 		String annotBed = p.getStringArg("-ba");
 		String targetBed = p.getStringArg("-bt");
+		PRIMER3_CORE = p.getStringArg("-p3");
+		NickingGuideRNAPair.OPTIMAL_PRIMER_TM = p.getDoubleArg("-ptm");
+		NickingGuideRNAPair.PRIMER_LENGTH = p.getIntArg("-pl");
+		MAX_NUM_POOLS = p.getIntArg("-maxpool");
+		LEFT_OLIGO_FLANKING_SEQUENCE = p.getStringArg("-lfo");
+		RIGHT_OLIGO_FLANKING_SEQUENCE = p.getStringArg("-rfo");
 		MIN_DOWNSTREAM_DISTANCE = p.getIntArg("-mind");
 		MAX_DOWNSTREAM_DISTANCE = p.getIntArg("-maxd");
 		MIN_UPSTREAM_DISTANCE = p.getIntArg("-minu");
@@ -626,16 +850,32 @@ public class DoubleNickCRISPRDesigner {
 		MAX_DIST_TO_RESTRICTION_SITE = p.getIntArg("-maxre");
 		MAX_GUIDE_EFFICACY_SCORE = p.getDoubleArg("-mge");
 		WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS = p.getBooleanArg("-fp");
+		MAX_INNER_DIST_GUIDE_RNA_PAIRS = p.getIntArg("-maxgp");
+		NUM_BEST_PAIRS_TO_GET_PER_CUT = p.getIntArg("-nbe");
+		POOL_NON_OVERLAPPING = p.getBooleanArg("-pno");
 		OFF_TARGET_BITS = new File(p.getStringArg("-offTargetBits"));
 		MIN_OFF_TARGET_SCORE = p.getIntArg("-minOffTargetScore");
 		String outPrefix = p.getStringArg("-o");
 		String listFileSingleEnzymes = p.getStringArg("-se");
 		String listFilePairedEnzymes = p.getStringArg("-pe");
+		Collection<String> enzymesToAvoid = p.getStringListArg("-fe");
+		int numThreads = p.getIntArg("-nt");
 		
 		validateMinMaxDist(MIN_DOWNSTREAM_DISTANCE, MAX_DOWNSTREAM_DISTANCE);
 		validateMinMaxDist(MIN_UPSTREAM_DISTANCE, MAX_UPSTREAM_DISTANCE);
 		
 		DoubleNickCRISPRDesigner dncd = new DoubleNickCRISPRDesigner(genomeFasta, targetBed, annotBed);
+		
+		if(enzymesToAvoid != null) {
+			for(String enzymeName : enzymesToAvoid) {
+				FORBIDDEN_ENZYMES.add(RestrictionEnzymeFactory.getRestrictionEnzyme(enzymeName));
+			}
+		}
+		if(!FORBIDDEN_ENZYMES.isEmpty()) {
+			for(RestrictionEnzyme e : FORBIDDEN_ENZYMES) {
+				logger.info("Avoiding guide RNAs that contain recognition sequence for " + e.getName());
+			}
+		}
 		
 		if(ENFORCE_DOWNSTREAM_PROXIMITY_TO_RESTRICTION_ENZYME) {
 			if(listFileSingleEnzymes == null || listFilePairedEnzymes == null) {
@@ -643,6 +883,8 @@ public class DoubleNickCRISPRDesigner {
 			}
 			dncd.useRestrictionEnzymes(listFileSingleEnzymes, listFilePairedEnzymes, outPrefix);
 		}
+
+		dncd.findValidPairsAllGenes(numThreads);
 
 		dncd.writeValidGuidePairsAllGenes(outPrefix);
 		

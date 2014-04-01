@@ -7,7 +7,6 @@ import java.util.TreeSet;
 import org.apache.log4j.Logger;
 
 import nextgen.core.annotation.Annotation;
-import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.general.TabbedReader;
