@@ -57,6 +57,8 @@ public class DoubleNickCRISPRDesigner {
 	private static boolean ENFORCE_MAX_GUIDE_EFFICACY_SCORE = true;
 	private static double MAX_GUIDE_EFFICACY_SCORE = 0.6;
 	private static boolean WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS = false;
+	private static int MIN_OFF_TARGET_SCORE = 30;
+	private static File OFF_TARGET_BITS = null;
 	private FileWriter failedPairBedWriter;
 	private FileWriter failedPairTableWriter;
 	
@@ -103,7 +105,7 @@ public class DoubleNickCRISPRDesigner {
 	 * @throws InterruptedException 
 	 * @throws IOException 
 	 */
-	private boolean guidePairPassesAllBasicFilters(Gene target, GuideRNAPair pair, GuideSufficientEfficacy guideEfficacy) throws IOException, InterruptedException {
+	private boolean guidePairPassesAllBasicFilters(Gene target, NickingGuideRNAPair pair, GuideSufficientEfficacy guideEfficacy) throws IOException, InterruptedException {
 		
 		if(ENFORCE_DOUBLE_NICK_CONFIGURATION) {
 			// Check that the pair are arranged correctly
@@ -132,8 +134,11 @@ public class DoubleNickCRISPRDesigner {
 			}
 		}
 		
-		if(ENFORCE_MIN_OFF_TARGET_SCORE) {
-			// TODO off-target score filter
+		if (ENFORCE_MIN_OFF_TARGET_SCORE) {
+			if (pair.getLeftGuideRNA().getScore() < MIN_OFF_TARGET_SCORE || 
+				pair.getRightGuideRNA().getScore() < MIN_OFF_TARGET_SCORE) {
+				return false;
+			}
 		}
 		
 		logger.debug("PAIR_PASSES_BASIC_FILTERS\t" + pair.toString());
@@ -146,14 +151,14 @@ public class DoubleNickCRISPRDesigner {
 		if(WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS) {
 			failedPairBedWriter = new FileWriter(outFilePrefix + "_guide_pairs_failing_filters.bed");
 			failedPairTableWriter = new FileWriter(outFilePrefix + "_guide_pairs_failing_filters_oligos.out");
-			String header = "target_gene\toligo_ID\t" + GuideRNAPair.getOligoFieldNames();
+			String header = "target_gene\toligo_ID\t" + NickingGuideRNAPair.getOligoFieldNames();
 			failedPairTableWriter.write(header + "\n");
 		}
 		
 		// Get the valid pairs
-		Collection<GuideRNAPair> downstreamPairs = findValidDownstreamPairsAllGenes();
-		Collection<GuideRNAPair> upstreamPairs = findValidUpstreamPairsAllGenes();
-		Collection<GuideRNAPair> allPairs = new ArrayList<GuideRNAPair>();
+		Collection<NickingGuideRNAPair> downstreamPairs = findValidDownstreamPairsAllGenes();
+		Collection<NickingGuideRNAPair> upstreamPairs = findValidUpstreamPairsAllGenes();
+		Collection<NickingGuideRNAPair> allPairs = new ArrayList<NickingGuideRNAPair>();
 		allPairs.addAll(downstreamPairs);
 		allPairs.addAll(upstreamPairs);
 		
@@ -161,12 +166,12 @@ public class DoubleNickCRISPRDesigner {
 		String bedFile = outFilePrefix + "_guide_pairs.bed";
 		logger.debug("");
 		logger.info("Writing all valid guide RNA pairs for all genes to file " + bedFile);
-		GuideRNAPair.writeBED(allPairs, bedFile);
+		NickingGuideRNAPair.writeBED(allPairs, bedFile);
 		
 		// Write as tables
 		String oligoTable = outFilePrefix + "_oligos.out";
 		logger.info("Writing oligos to " + oligoTable);
-		GuideRNAPair.writeOligoTable(allPairs, oligoTable);
+		NickingGuideRNAPair.writeOligoTable(allPairs, oligoTable);
 		
 		if(WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS) {
 			failedPairBedWriter.close();
@@ -249,8 +254,8 @@ public class DoubleNickCRISPRDesigner {
 		writer.close();
 	}
 	
-	private Collection<GuideRNAPair> findValidDownstreamPairsAllGenes() throws IOException, InterruptedException {
-		Collection<GuideRNAPair> rtrn = new ArrayList<GuideRNAPair>();
+	private Collection<NickingGuideRNAPair> findValidDownstreamPairsAllGenes() throws IOException, InterruptedException {
+		Collection<NickingGuideRNAPair> rtrn = new ArrayList<NickingGuideRNAPair>();
 		for(String chr : targetGenes.keySet()) {
 			for(Gene gene : targetGenes.get(chr)) {
 				logger.info("Finding downstream guide RNA pairs for gene " + gene.getName());
@@ -260,8 +265,8 @@ public class DoubleNickCRISPRDesigner {
 		return rtrn;
 	}
 	
-	private Collection<GuideRNAPair> findValidUpstreamPairsAllGenes() throws IOException, InterruptedException {
-		Collection<GuideRNAPair> rtrn = new ArrayList<GuideRNAPair>();
+	private Collection<NickingGuideRNAPair> findValidUpstreamPairsAllGenes() throws IOException, InterruptedException {
+		Collection<NickingGuideRNAPair> rtrn = new ArrayList<NickingGuideRNAPair>();
 		for(String chr : targetGenes.keySet()) {
 			for(Gene gene : targetGenes.get(chr)) {
 				logger.debug("");
@@ -279,20 +284,28 @@ public class DoubleNickCRISPRDesigner {
 	 * @throws InterruptedException 
 	 * @throws IOException 
 	 */
-	private Collection<GuideRNAPair> findAllValidPairsDownstreamOfTranscriptionStop(Gene gene) throws IOException, InterruptedException {		
+	private Collection<NickingGuideRNAPair> findAllValidPairsDownstreamOfTranscriptionStop(Gene gene) throws IOException, InterruptedException {		
 		
-		Collection<GuideRNAPair> allPairs = findAllPossibleGuideRNAsDownstreamOfTranscriptionStop(gene);
+		Collection<NickingGuideRNAPair> allPairs = findAllPossibleGuideRNAsDownstreamOfTranscriptionStop(gene);
 		if(allPairs.isEmpty()) {
-			return new ArrayList<GuideRNAPair>();
+			return new ArrayList<NickingGuideRNAPair>();
 		}
 		
 		GuideSufficientEfficacy ge = null;
 		if(ENFORCE_MAX_GUIDE_EFFICACY_SCORE) {
-			ge = new GuideSufficientEfficacy(new GuideEfficacyScore(GuideRNAPair.getIndividualGuideRNAs(allPairs)), MAX_GUIDE_EFFICACY_SCORE);
+			ge = new GuideSufficientEfficacy(new GuideEfficacyScore(NickingGuideRNAPair.getIndividualGuideRNAs(allPairs)), MAX_GUIDE_EFFICACY_SCORE);
+		}
+		
+		GuideOffTargetScore scorer = null;
+		if (ENFORCE_MIN_OFF_TARGET_SCORE) {
+			scorer = new GuideOffTargetScore(OFF_TARGET_BITS);
+			for (GuideRNA guide : NickingGuideRNAPair.getIndividualGuideRNAs(allPairs)) {
+				guide.setScore(scorer.getScore(guide));
+			}
 		}
 		
 		logger.debug("Before filters there are " + allPairs.size() + " pairs downstream of transcription stop.");
-		Collection<GuideRNAPair> rtrn = new ArrayList<GuideRNAPair>();
+		Collection<NickingGuideRNAPair> rtrn = new ArrayList<NickingGuideRNAPair>();
 		
 		// Collect restriction enzyme sites downstream of the gene
 		Collection<Annotation> restrictionSites = new ArrayList<Annotation>();
@@ -301,7 +314,7 @@ public class DoubleNickCRISPRDesigner {
 			restrictionSites.addAll(RestrictionEnzymeCutSitePair.asAnnotations(downstreamRestrictionEnzymeCutSitePairsByGene.get(gene)));
 		}
 		
-		for(GuideRNAPair pair : allPairs) {
+		for(NickingGuideRNAPair pair : allPairs) {
 			boolean passes = true;
 			if(!guidePairPassesAllBasicFilters(gene, pair, ge)) {
 				passes = false;
@@ -346,7 +359,7 @@ public class DoubleNickCRISPRDesigner {
 				logger.warn("WRITING_FAILED_PAIRS\t" + gene.getName());
 				GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration();
 				
-				for(GuideRNAPair pair : allPairs) {
+				for(NickingGuideRNAPair pair : allPairs) {
 					
 					if(!dnc.evaluate(pair)) {
 						continue;
@@ -394,21 +407,30 @@ public class DoubleNickCRISPRDesigner {
 	 * @throws InterruptedException 
 	 * @throws IOException 
 	 */
-	private Collection<GuideRNAPair> findAllValidPairsUpstreamOfTranscriptionStart(Gene gene) throws IOException, InterruptedException {
+	private Collection<NickingGuideRNAPair> findAllValidPairsUpstreamOfTranscriptionStart(Gene gene) throws IOException, InterruptedException {
 
-		Collection<GuideRNAPair> allPairs = findAllPossibleGuideRNAsUpstreamOfTranscriptionStart(gene);
+		Collection<NickingGuideRNAPair> allPairs = findAllPossibleGuideRNAsUpstreamOfTranscriptionStart(gene);
 		if(allPairs.isEmpty()) {
-			return new ArrayList<GuideRNAPair>();
+			return new ArrayList<NickingGuideRNAPair>();
 		}
 		
 		GuideSufficientEfficacy ge = null;
 		if(ENFORCE_MAX_GUIDE_EFFICACY_SCORE) {
-			ge = new GuideSufficientEfficacy(new GuideEfficacyScore(GuideRNAPair.getIndividualGuideRNAs(allPairs)), MAX_GUIDE_EFFICACY_SCORE);
+			ge = new GuideSufficientEfficacy(new GuideEfficacyScore(NickingGuideRNAPair.getIndividualGuideRNAs(allPairs)), MAX_GUIDE_EFFICACY_SCORE);
 		}
+		
+		GuideOffTargetScore scorer = null;
+		if (ENFORCE_MIN_OFF_TARGET_SCORE) {
+			scorer = new GuideOffTargetScore(OFF_TARGET_BITS);
+			for (GuideRNA guide : NickingGuideRNAPair.getIndividualGuideRNAs(allPairs)) {
+				guide.setScore(scorer.getScore(guide));
+			}
+		}
+				
 
 		
-		Collection<GuideRNAPair> rtrn = new ArrayList<GuideRNAPair>();
-		for(GuideRNAPair pair : allPairs) {
+		Collection<NickingGuideRNAPair> rtrn = new ArrayList<NickingGuideRNAPair>();
+		for(NickingGuideRNAPair pair : allPairs) {
 			boolean passes = true;
 			if(!guidePairPassesAllBasicFilters(gene, pair, ge)) {
 				passes = false;
@@ -425,7 +447,7 @@ public class DoubleNickCRISPRDesigner {
 			if(WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS) {
 				logger.warn("WRITING_FAILED_PAIRS\t" + gene.getName());
 				GuidePairDoubleNickConfiguration dnc = new GuidePairDoubleNickConfiguration();
-				for(GuideRNAPair pair : allPairs) {
+				for(NickingGuideRNAPair pair : allPairs) {
 					if(!dnc.evaluate(pair)) {
 						continue;
 					}
@@ -447,7 +469,7 @@ public class DoubleNickCRISPRDesigner {
 	 * @throws InterruptedException 
 	 * @throws IOException 
 	 */
-	private static String getFailureMessageBasicFilters(GuideRNAPair pair, GuideSufficientEfficacy ge) throws IOException, InterruptedException {
+	private static String getFailureMessageBasicFilters(NickingGuideRNAPair pair, GuideSufficientEfficacy ge) throws IOException, InterruptedException {
 		
 		String rtrn = "";
 		
@@ -490,7 +512,7 @@ public class DoubleNickCRISPRDesigner {
 	 * @param gene Gene
 	 * @return All guide RNA pairs fully contained in the window
 	 */
-	private Collection<GuideRNAPair> findAllPossibleGuideRNAsDownstreamOfTranscriptionStop(Gene gene) {
+	private Collection<NickingGuideRNAPair> findAllPossibleGuideRNAsDownstreamOfTranscriptionStop(Gene gene) {
 		Sequence chr = chrsByName.get(gene.getChr());
 		Strand strand = gene.getOrientation();
 		int geneStart = gene.getStart();
@@ -503,7 +525,7 @@ public class DoubleNickCRISPRDesigner {
 		int windowStart = Math.min(windowStrandedBegin, windowStrandedEnd);
 		int windowEnd = Math.max(windowStrandedBegin, windowStrandedEnd);
 		logger.debug("DOWNSTREAM_WINDOW\t" + gene.getName() + "\t" + gene.toUCSC() + ":" + gene.getOrientation().toString() + "\tmin_dist=" + MIN_DOWNSTREAM_DISTANCE + "\tmax_dist=" + MAX_DOWNSTREAM_DISTANCE + "\t" + chr.getId() + ":" + windowStart + "-" + windowEnd);
-		return GuideRNAPair.findAll(chr, windowStart, windowEnd, gene);
+		return NickingGuideRNAPair.findAll(chr, windowStart, windowEnd, gene);
 	}
 	
 	/**
@@ -511,7 +533,7 @@ public class DoubleNickCRISPRDesigner {
 	 * @param gene Gene
 	 * @return All guide RNA pairs fully contained in the window
 	 */
-	private Collection<GuideRNAPair> findAllPossibleGuideRNAsUpstreamOfTranscriptionStart(Gene gene) {
+	private Collection<NickingGuideRNAPair> findAllPossibleGuideRNAsUpstreamOfTranscriptionStart(Gene gene) {
 		Sequence chr = chrsByName.get(gene.getChr());
 		Strand strand = gene.getOrientation();
 		int geneStart = gene.getStart();
@@ -524,7 +546,7 @@ public class DoubleNickCRISPRDesigner {
 		int windowStart = Math.min(windowStrandedBegin, windowStrandedEnd);
 		int windowEnd = Math.max(windowStrandedBegin, windowStrandedEnd);
 		logger.debug("UPSTREAM_WINDOW\t" + gene.getName() + "\t" + gene.toUCSC() + ":" + gene.getOrientation().toString() + "\tmin_dist=" + MIN_UPSTREAM_DISTANCE + "\tmax_dist=" + MAX_UPSTREAM_DISTANCE + "\t" + chr.getId() + ":" + windowStart + "-" + windowEnd);
-		return GuideRNAPair.findAll(chr, windowStart, windowEnd, gene);
+		return NickingGuideRNAPair.findAll(chr, windowStart, windowEnd, gene);
 	}
 	
 	
@@ -570,6 +592,8 @@ public class DoubleNickCRISPRDesigner {
 		p.addStringArg("-se", "File containing list of restriction enzymes for single cut sites for downstream proximity filter", false, null);
 		p.addStringArg("-pe", "File containing list of restriction enzyme pairs for paired cut sites for downstream proximity filter (line format: left_enzyme right_enzyme)", false, null);
 		p.addBooleanArg("-fp", "For regions with no guide RNA pairs passing all filters, write all failed pairs to bed file", false, WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS);
+		p.addStringArg("-offTargetBits", "File containing bitpacked NGG sites", false, null);
+		p.addIntArg("-minOffTargetScore", "Minimum score in the off target analysis to pass", false, MIN_OFF_TARGET_SCORE);
 		
 		p.parse(args);
 		
@@ -580,9 +604,9 @@ public class DoubleNickCRISPRDesigner {
 			GuidePairDoubleNickConfiguration.logger.setLevel(Level.DEBUG);
 			DoubleNickCRISPRDesigner.logger.setLevel(Level.DEBUG);
 			GuideEfficacyScore.logger.setLevel(Level.DEBUG);
-			GuideOffTargetScore.logger.setLevel(Level.DEBUG);
+			GuideOffTargetScore.log.setLevel(Level.DEBUG);
 			GuideRNA.logger.setLevel(Level.DEBUG);
-			GuideRNAPair.logger.setLevel(Level.DEBUG);
+			NickingGuideRNAPair.logger.setLevel(Level.DEBUG);
 			GuideSufficientIsolation.logger.setLevel(Level.DEBUG);
 		}
 		String genomeFasta = p.getStringArg("-g");
@@ -602,6 +626,8 @@ public class DoubleNickCRISPRDesigner {
 		MAX_DIST_TO_RESTRICTION_SITE = p.getIntArg("-maxre");
 		MAX_GUIDE_EFFICACY_SCORE = p.getDoubleArg("-mge");
 		WRITE_FAILED_PAIRS_FOR_MISSING_REGIONS = p.getBooleanArg("-fp");
+		OFF_TARGET_BITS = new File(p.getStringArg("-offTargetBits"));
+		MIN_OFF_TARGET_SCORE = p.getIntArg("-minOffTargetScore");
 		String outPrefix = p.getStringArg("-o");
 		String listFileSingleEnzymes = p.getStringArg("-se");
 		String listFilePairedEnzymes = p.getStringArg("-pe");

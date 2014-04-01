@@ -17,19 +17,19 @@ import nextgen.core.annotation.Gene;
  * A pair of guide RNAs, one on each strand, with a target gene for editing
  * @author prussell
  */
-public class GuideRNAPair {
+public class NickingGuideRNAPair {
 	
 	private GuideRNA plusStrandGuideRNA;
 	private GuideRNA minusStrandGuideRNA;
 	private Gene target;
-	public static Logger logger = Logger.getLogger(GuideRNAPair.class.getName());
+	public static Logger logger = Logger.getLogger(NickingGuideRNAPair.class.getName());
 	
 	/**
 	 * @param plusStrand The guide RNA on the plus strand
 	 * @param minusStrand The guide RNA on the minus strand
 	 * @param targetGene The target gene
 	 */
-	public GuideRNAPair(GuideRNA plusStrand, GuideRNA minusStrand, Gene targetGene) {
+	public NickingGuideRNAPair(GuideRNA plusStrand, GuideRNA minusStrand, Gene targetGene) {
 		if(!plusStrand.getStrand().equals(Strand.POSITIVE) || !minusStrand.getStrand().equals(Strand.NEGATIVE)) {
 			throw new IllegalArgumentException("Strands must be positive,negative");
 		}
@@ -46,12 +46,12 @@ public class GuideRNAPair {
 	 * @param targetGene Target gene
 	 * @return All fully contained guide RNA pairs (one member of pair on each strand)
 	 */
-	public static Collection<GuideRNAPair> findAll(Sequence chr, int start, int end, Gene targetGene) {
+	public static Collection<NickingGuideRNAPair> findAll(Sequence chr, int start, int end, Gene targetGene) {
 		Collection<GuideRNA> all = GuideRNA.findAll(chr, start, end, targetGene);
 		//logger.debug("There are " + all.size() + " total guide RNAs in " + chr.getId() + ":" + start + "-" + end);
 		Collection<GuideRNA> plus = new ArrayList<GuideRNA>();
 		Collection<GuideRNA> minus = new ArrayList<GuideRNA>();
-		Collection<GuideRNAPair> rtrn = new ArrayList<GuideRNAPair>();
+		Collection<NickingGuideRNAPair> rtrn = new ArrayList<NickingGuideRNAPair>();
 		for(GuideRNA g : all) {
 			if(g.isPlusStrand()) {
 				plus.add(g);
@@ -62,7 +62,7 @@ public class GuideRNAPair {
 		}
 		for(GuideRNA p : plus) {
 			for(GuideRNA m : minus) {
-				GuideRNAPair pair = new GuideRNAPair(p, m, targetGene);
+				NickingGuideRNAPair pair = new NickingGuideRNAPair(p, m, targetGene);
 				//logger.debug("Adding pair " + pair.toString());
 				rtrn.add(pair);
 			}
@@ -135,13 +135,13 @@ public class GuideRNAPair {
 	 * @param outFile Output table
 	 * @throws IOException
 	 */
-	public static void writeOligoTable(Collection<GuideRNAPair> pairs, String outFile) throws IOException {
+	public static void writeOligoTable(Collection<NickingGuideRNAPair> pairs, String outFile) throws IOException {
 		FileWriter w = new FileWriter(outFile);
 		String header = "target_gene\t";
 		header += "oligo_ID\t";
 		header += getOligoFieldNames() + "\t";
 		w.write(header + "\n");
-		for(GuideRNAPair pair : pairs) {
+		for(NickingGuideRNAPair pair : pairs) {
 			String line = pair.getTargetGene().getName() + "\t";
 			line += pair.toString() + "\t";
 			line += pair.getOligos() + "\t";
@@ -175,7 +175,7 @@ public class GuideRNAPair {
 	 * @param bedFile The bed file to write
 	 * @throws IOException
 	 */
-	public static void writeBED(Collection<GuideRNAPair> pairs, String bedFile) throws IOException {
+	public static void writeBED(Collection<NickingGuideRNAPair> pairs, String bedFile) throws IOException {
 		writeBED(pairs, bedFile, false);
 	}
 		
@@ -186,9 +186,9 @@ public class GuideRNAPair {
 	 * @param append If true, write onto the end of existing bed file; if false, overwrite file
 	 * @throws IOException
 	 */
-	public static void writeBED(Collection<GuideRNAPair> pairs, String bedFile, boolean append) throws IOException {
+	public static void writeBED(Collection<NickingGuideRNAPair> pairs, String bedFile, boolean append) throws IOException {
 		FileWriter w = new FileWriter(bedFile, append);
-		for(GuideRNAPair pair : pairs) {
+		for(NickingGuideRNAPair pair : pairs) {
 			w.write(pair.toBED() + "\n");
 		}
 		w.close();
@@ -200,8 +200,8 @@ public class GuideRNAPair {
 	 * @param bedFile FileWriter object for bed output
 	 * @throws IOException
 	 */
-	public static void writeBED(Collection<GuideRNAPair> pairs, FileWriter writer) throws IOException {
-		for(GuideRNAPair pair : pairs) {
+	public static void writeBED(Collection<NickingGuideRNAPair> pairs, FileWriter writer) throws IOException {
+		for(NickingGuideRNAPair pair : pairs) {
 			writer.write(pair.toBED() + "\n");
 		}
 	}
@@ -211,9 +211,9 @@ public class GuideRNAPair {
 	 * @param pairs A collection of guide RNA pairs
 	 * @return A collection of the individual guide RNAs
 	 */
-	public static Collection<GuideRNA> getIndividualGuideRNAs(Collection<GuideRNAPair> pairs) {
+	public static Collection<GuideRNA> getIndividualGuideRNAs(Collection<NickingGuideRNAPair> pairs) {
 		Collection<GuideRNA> guides = new ArrayList<GuideRNA>();
-		for(GuideRNAPair pair : pairs) {
+		for(NickingGuideRNAPair pair : pairs) {
 			guides.add(pair.getLeftGuideRNA());
 			guides.add(pair.getRightGuideRNA());
 		}
@@ -270,7 +270,7 @@ public class GuideRNAPair {
 	
 	public boolean equals(Object o) {
 		if(!o.getClass().equals(getClass())) return false;
-		GuideRNAPair p = (GuideRNAPair)o;
+		NickingGuideRNAPair p = (NickingGuideRNAPair)o;
 		return minusStrandGuideRNA.equals(p.getMinusStrandGuideRNA()) && plusStrandGuideRNA.equals(p.getPlusStrandGuideRNA()) && target.equals(p.getTargetGene());
 	}
 	

@@ -157,7 +157,7 @@ public class OligoPool {
 	private static ProbeFilter getProbeFilterFromConfigFileValue(ConfigFileOptionValue value) {
 		
 		// Add additional filter classes to this array:
-		ProbeFilter[] filters = new ProbeFilter[] { new RepeatFilter(), new PolyBaseFilter() };
+		ProbeFilter[] filters = new ProbeFilter[] { new RepeatFilter(), new PolyBaseFilter(), new LowComplexityFilter() };
 		
 		for (ProbeFilter filter : filters) {
 			if(filter.validConfigFileValue(value)) {
