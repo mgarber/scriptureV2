@@ -28,6 +28,7 @@ primer_size	20
 optimal_tm_for_primers	67
 
 ##### Existing file of primers to try first
+##### Leave this out to generate new primers
 ##### Tab-delimited format (check this?):  primerPairId leftPrimerPosition leftPrimer rightPrimerPosition rightPrimer leftPrimerTM rightPrimerTM productSize comment
 primer_file	permanent_primers_20_67_set2_full_table 
 
@@ -53,9 +54,10 @@ primer3_core_path	./primer3_core
 
 ##### A filter that discards probes with too many bases in repeats
 ##### Parameters specified:
-##### Max proportion of repeat masked bases per probe = 0.25, repeat masking format = "lower" (for Ns: "N")
+##### Max proportion of repeat masked bases per probe, repeat masking format
 ##### HIGHLY RECOMMENDED that you use the repeat_filter set so that you do not have >8 bases coming from repeat sequence
 probe_filter	repeat_filter	0.07	lower
+
 probe_filter	poly_base_filter	15	0.8	ATCG
 probe_filter	low_complexity_filter
 
@@ -63,7 +65,6 @@ probe_filter	low_complexity_filter
 ###################################################
 ##### Primer filters section
 ##### Filters that are applied to all primers taking into account the probes and probe sets they are assigned to
-##### No primer filters are currently implemented
 ###################################################
 
 :Primer_filters
