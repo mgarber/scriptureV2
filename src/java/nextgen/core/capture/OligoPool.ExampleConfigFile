@@ -11,7 +11,7 @@
 ###################################################
 
 :Sequences
-sequence_fasta	targets.fa
+sequence_fasta	/full/path/to/targets.fa
 
 
 ###################################################
@@ -63,8 +63,8 @@ probe_filter	low_complexity_filter
 ###################################################
 ##### Primer filters section
 ##### Filters that are applied to all primers taking into account the probes and probe sets they are assigned to
-##### No primer filters are currently implemented
 ###################################################
 
 :Primer_filters
+primer_filter	poly_base_filter	6	1.0	ATCG
 

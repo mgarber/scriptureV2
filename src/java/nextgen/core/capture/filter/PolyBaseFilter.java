@@ -1,12 +1,12 @@
 package nextgen.core.capture.filter;
 
 import java.util.Collection;
+import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
 import broad.core.primer3.PrimerPair;
-
 import nextgen.core.capture.OligoPool;
 import nextgen.core.capture.Probe;
 import nextgen.core.capture.ProbeSet;
@@ -83,7 +83,7 @@ public class PolyBaseFilter implements ProbeFilter, PrimerFilter, GuideRNAPredic
 	 * @param probes The probes that will potentially be connected to the primer
 	 * @return Whether the filter should reject the primer for this probe set
 	 */
-	public boolean rejectPrimer(PrimerPair primer, ProbeSet probes) {
+	public boolean rejectPrimer(PrimerPair primer, List<OligoPool.FullDesignEntry> probeSet) {
 		return rejectSequence(primer.getLeftPrimer()) || rejectSequence(primer.getRightPrimer());
 	}
 	
