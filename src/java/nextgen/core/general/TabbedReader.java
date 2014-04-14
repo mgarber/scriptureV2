@@ -22,10 +22,19 @@ public class TabbedReader {
 	 * @param factory
 	 * @param cs
 	 * @param filter
+	 * @param skipRows number of rows to skip at the beginning of the file
 	 * @return
 	 */
+	public static <T> CloseableIterator<T> read(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory, Predicate<? super T> filter, int skipRows) throws IOException {
+		return new CloseableFilterIterator<T>(new TabbedIterator<T>(file, factory, skipRows), filter);
+	}
+	
 	public static <T> CloseableIterator<T> read(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory, Predicate<? super T> filter) throws IOException {
-		return new CloseableFilterIterator<T>(new TabbedIterator<T>(file, factory), filter);
+		return read(file, clazz, factory, filter, 0);
+	}
+	
+	public static <T> CloseableIterator<T> read(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory, int skipRows) throws IOException {
+		return read(file, clazz, factory, Predicates.alwaysTrue(), skipRows);
 	}
 	
 	public static <T> CloseableIterator<T> read(File file, Class<T> clazz, TabbedReader.Factory<? extends T> factory) throws IOException {
@@ -38,9 +47,10 @@ public class TabbedReader {
 		protected Factory<? extends T> factory;
 		BufferedReader br;
 		
-		public TabbedIterator(File file, Factory<? extends T> factory) throws IOException {
+		public TabbedIterator(File file, Factory<? extends T> factory, int skipRows) throws IOException {
 			br = new BufferedReader(new FileReader(file));
 			itr = new LineIterator(br);
+			for (int i = 0; i < skipRows; i++) itr.next();
 			this.factory = factory;
 			advance();
 		}

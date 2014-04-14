@@ -11,7 +11,7 @@
 ###################################################
 
 :Sequences
-sequence_fasta	targets.fa
+sequence_fasta	/full/path/to/targets.fa
 
 
 ###################################################
@@ -68,4 +68,5 @@ probe_filter	low_complexity_filter
 ###################################################
 
 :Primer_filters
+primer_filter	poly_base_filter	6	1.0	ATCG
 

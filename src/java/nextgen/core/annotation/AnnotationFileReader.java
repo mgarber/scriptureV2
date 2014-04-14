@@ -77,7 +77,7 @@ public class AnnotationFileReader {
 	private static class AnnotationIterator<T> extends nextgen.core.general.TabbedReader.TabbedIterator<T> {
 		
 		public AnnotationIterator(File file, TabbedReader.Factory<? extends T> factory) throws IOException {
-			super(file, factory);
+			super(file, factory, 0);
 		}
 
 		@Override

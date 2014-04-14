@@ -31,7 +31,7 @@ import nextgen.editing.crispr.predicate.GuideRNAPredicate;
  * length n to all possible low-complexity repeats of length 1 to k by creating a hash of sequences of length n
  * from low-complexity repeats and comparing each n-mer in the probe sequence to this hash.
  */
-public class LowComplexityFilter implements ProbeFilter, PrimerFilter, GuideRNAPredicate  {
+public class LowComplexityFilter implements ProbeFilter, GuideRNAPredicate  {
 
 	public String name = "LowComplexity";
 	
