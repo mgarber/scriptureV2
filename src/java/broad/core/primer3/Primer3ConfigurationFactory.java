@@ -1,5 +1,7 @@
 package broad.core.primer3;
 
+import broad.core.sequence.Sequence;
+
 /*
 * $Id: Primer3ConfigurationFactory.java 35971 2007-02-12 16:01:50Z mgarber $
 * The Broad Institute
@@ -175,6 +177,25 @@ public class Primer3ConfigurationFactory {
         return config;
     }
 
+    /**
+     * Get a primer3 configuration that will only return primers with a specified product size
+     * Based on the short range or long range configuration depending on the length
+     * @param length Desired product size
+     * @return primer3 configuration
+     */
+    public static Primer3Configuration getSpecificLengthPCRConfiguration(int length) {
+    	Primer3Configuration config = null;
+       	Primer3Configuration shortRange = getShortRangePCRConfiguration();
+    	Primer3Configuration longRange = getLongRangePCRConfiguration();
+    	if(length <= shortRange.maxProductSize) {
+    		config = shortRange;
+    	} else {
+    		config = longRange;
+    	}
+    	config.minProductSize = length;
+    	config.maxProductSize = length;
+    	return config;
+    }
     
     /**
      * Returns the primer3 configuration used for

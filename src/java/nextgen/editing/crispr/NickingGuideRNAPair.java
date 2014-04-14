@@ -4,25 +4,35 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Map;
+import java.util.Random;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
+import broad.core.primer3.PrimerPair;
+import broad.core.primer3.PrimerUtils;
 import broad.core.sequence.Sequence;
 import nextgen.core.annotation.Annotation;
-import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
+import nextgen.core.utils.AnnotationUtils;
 
 /**
  * A pair of guide RNAs, one on each strand, with a target gene for editing
  * @author prussell
  */
-public class NickingGuideRNAPair {
+public class NickingGuideRNAPair extends BasicAnnotation {
 	
+
 	private GuideRNA plusStrandGuideRNA;
 	private GuideRNA minusStrandGuideRNA;
 	private Gene target;
 	public static Logger logger = Logger.getLogger(NickingGuideRNAPair.class.getName());
+	private double score;
+	public static int PRIMER_LENGTH = 20;
+	public static double OPTIMAL_PRIMER_TM = 67;
 	
 	/**
 	 * @param plusStrand The guide RNA on the plus strand
@@ -30,12 +40,56 @@ public class NickingGuideRNAPair {
 	 * @param targetGene The target gene
 	 */
 	public NickingGuideRNAPair(GuideRNA plusStrand, GuideRNA minusStrand, Gene targetGene) {
+		this(null, plusStrand, minusStrand, targetGene);
+	}
+	
+	/**
+	 * @param plusStrand The guide RNA on the plus strand
+	 * @param minusStrand The guide RNA on the minus strand
+	 * @param targetGene The target gene
+	 * @param name Pair name
+	 */
+	public NickingGuideRNAPair(String name, GuideRNA plusStrand, GuideRNA minusStrand, Gene targetGene) {
+		this(name, plusStrand, minusStrand, targetGene, 0);
+	}
+
+	/**
+	 * @param plusStrand The guide RNA on the plus strand
+	 * @param minusStrand The guide RNA on the minus strand
+	 * @param targetGene The target gene
+	 * @param pairScore Score for guide RNA pair
+	 */
+	public NickingGuideRNAPair(GuideRNA plusStrand, GuideRNA minusStrand, Gene targetGene, double pairScore) {
+		this(null, plusStrand, minusStrand, targetGene, pairScore);
+	}
+	
+	/**
+	 * @param plusStrand The guide RNA on the plus strand
+	 * @param minusStrand The guide RNA on the minus strand
+	 * @param targetGene The target gene
+	 * @param pairScore Score for guide RNA pair
+	 * @param name Pair name
+	 */
+	public NickingGuideRNAPair(String name, GuideRNA plusStrand, GuideRNA minusStrand, Gene targetGene, double pairScore) {
+		super(plusStrand.getChr(), plusStrand.getStart(), plusStrand.getEnd());
+		addBlocks(new BasicAnnotation(minusStrand.getChr(), minusStrand.getStart(), minusStrand.getEnd()));
+		setName(name);
+
 		if(!plusStrand.getStrand().equals(Strand.POSITIVE) || !minusStrand.getStrand().equals(Strand.NEGATIVE)) {
 			throw new IllegalArgumentException("Strands must be positive,negative");
 		}
 		plusStrandGuideRNA = plusStrand;
 		minusStrandGuideRNA = minusStrand;
 		target = targetGene;
+		score = pairScore;
+	}
+	
+	/**
+	 * Set pair score
+	 * @param pairScore Value to set
+	 */
+	public void setScore(double pairScore) {
+		score = pairScore;
 	}
 	
 	/**
@@ -75,7 +129,7 @@ public class NickingGuideRNAPair {
 	}
 	
 	public String toString() {
-		return target.getName() + ":" + asAnnotation("").getStart() + "-" + asAnnotation("").getEnd();
+		return target.getName() + ":" + getStart() + "-" + getEnd();
 	}
 	
 	public GuideRNA getPlusStrandGuideRNA() {
@@ -103,49 +157,64 @@ public class NickingGuideRNAPair {
 	 * @return Tab delimited string with field names
 	 */
 	public static String getOligoFieldNames() {
-		String rtrn = "oligo_right_facing_top_strand\t";
-		rtrn += "oligo_right_facing_bottom_strand\t";
-		rtrn += "oligo_left_facing_top_strand\t";
-		rtrn += "oligo_left_facing_bottom_strand";
-		return rtrn;
+		throw new UnsupportedOperationException("Not implemented");
+	}
+	
+	/**
+	 * Get pair score
+	 * @return Pair score
+	 */
+	public double getScore() {
+		return score;
 	}
 	
 	/**
 	 * Get a string describing the oligos to order, formatted to be written in a table
-	 * The oligo sequences include the extra GTTT or CGGT at the end
-	 * Column headers can be obtained with getOligoDescriptionFieldNames()
-	 * @return Tab delimited string with the two oligos for each guide RNA
+	 * Column headers can be obtained with getOligoFieldNames()
+	 * @return Tab delimited string with the oligos for each guide RNA
 	 */
 	public String getOligos() {
-		String rightFacingTopStrand = plusStrandGuideRNA.getSequenceString() + "GTTT";
-		String rightFacingBottomStrand = Sequence.reverseSequence(plusStrandGuideRNA.getSequenceString()) + "CGGT";
-		String leftFacingTopStrand = minusStrandGuideRNA.getSequenceString() + "GTTT";
-		String leftFacingBottomStrand = Sequence.reverseSequence(minusStrandGuideRNA.getSequenceString()) + "CGGT";
-		String rtrn = rightFacingTopStrand + "\t";
-		rtrn += rightFacingBottomStrand + "\t";
-		rtrn += leftFacingTopStrand + "\t";
-		rtrn += leftFacingBottomStrand;
-		return rtrn;
+		throw new UnsupportedOperationException("Not implemented");
 	}
 	
-	/**
-	 * Write oligos to a table
-	 * The oligos include the GTTT or CGGT at the end
-	 * @param pairs Guide RNA pairs to write
-	 * @param outFile Output table
-	 * @throws IOException
-	 */
-	public static void writeOligoTable(Collection<NickingGuideRNAPair> pairs, String outFile) throws IOException {
+	public static void writeOligoTable(Collection<Collection<NickingGuideRNAPair>> pools, String leftFlank, String rightFlank, String outFile, String primer3core) throws IOException {
 		FileWriter w = new FileWriter(outFile);
 		String header = "target_gene\t";
-		header += "oligo_ID\t";
-		header += getOligoFieldNames() + "\t";
+		header += "oligo_ID_minus_strand\t";
+		header += "oligo_ID_plus_strand\t";
+		header += "pool\t";
+		header += "pool_left_primer\t";
+		header += "pool_right_primer\t";
+		header += "coords\t";
+		header += "minus_strand_guide_RNA\t";
+		header += "plus_strand_guide_RNA\t";
+		header += "minus_strand_oligo\t";
+		header += "plus_strand_oligo\t";
 		w.write(header + "\n");
-		for(NickingGuideRNAPair pair : pairs) {
-			String line = pair.getTargetGene().getName() + "\t";
-			line += pair.toString() + "\t";
-			line += pair.getOligos() + "\t";
-			w.write(line + "\n");
+		int poolNum = 0;
+		for(Collection<NickingGuideRNAPair> pool : pools) {
+			PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(PRIMER_LENGTH, primer3core, OPTIMAL_PRIMER_TM, null);
+			String leftPrimer = primer.getLeftPrimer();
+			String rightPrimer = primer.getRightPrimer();
+			String rightPrimerRC = Sequence.reverseSequence(rightPrimer);
+			String poolName = "pool" + poolNum;
+			for(NickingGuideRNAPair pair : pool) {
+				String minus = pair.getMinusStrandGuideRNA().getSequenceString();
+				String plus = pair.getPlusStrandGuideRNA().getSequenceString();
+				String line = pair.getTargetGene().getName() + "\t";
+				line += pair.getMinusStrandGuideRNA().toString() + "\t";
+				line += pair.getPlusStrandGuideRNA().toString() + "\t";
+				line += poolName + "\t";
+				line += leftPrimer + "\t";
+				line += rightPrimer + "\t";
+				line += pair.toUCSC() + "\t";
+				line += minus + "\t";
+				line += plus + "\t";
+				line += leftPrimer + leftFlank + minus + rightFlank + rightPrimerRC + "\t";
+				line += leftPrimer+ leftFlank + plus + rightFlank + rightPrimerRC + "\t";
+				w.write(line + "\n");
+			}
+			poolNum++;
 		}
 		w.close();
 	}
@@ -169,14 +238,13 @@ public class NickingGuideRNAPair {
 		return rtrn;
 	}
 	
-	/**
-	 * Write pairs to a bed file where each pair is displayed as an annotation with two blocks
-	 * @param pairs The collection of guide RNA pairs to write
-	 * @param bedFile The bed file to write
-	 * @throws IOException
-	 */
-	public static void writeBED(Collection<NickingGuideRNAPair> pairs, String bedFile) throws IOException {
-		writeBED(pairs, bedFile, false);
+	public static void writeBED(Collection<Collection<NickingGuideRNAPair>> pools, String bedPrefix) throws IOException {
+		int poolNum = 0;
+		for(Collection<NickingGuideRNAPair> pool : pools) {
+			String outBed = bedPrefix + "_pool" + poolNum + ".bed";
+			writeBED(pool, outBed, false);
+			poolNum++;
+		}
 	}
 		
 	/**
@@ -187,6 +255,7 @@ public class NickingGuideRNAPair {
 	 * @throws IOException
 	 */
 	public static void writeBED(Collection<NickingGuideRNAPair> pairs, String bedFile, boolean append) throws IOException {
+		logger.info("Writing " + pairs.size() + " guide RNA pairs to file " + bedFile + ".");
 		FileWriter w = new FileWriter(bedFile, append);
 		for(NickingGuideRNAPair pair : pairs) {
 			w.write(pair.toBED() + "\n");
@@ -219,46 +288,119 @@ public class NickingGuideRNAPair {
 		}
 		return guides;
 	}
-	
+
 	/**
-	 * Get the guide pair as a blocked annotation
-	 * @return Annotation representation with the two guide RNAs as blocks
+	 * Get the collection of pairs as a list with nondescending scores
+	 * @param guidePairs The pairs to sort by score
+	 * @return List sorted by score
 	 */
-	public Annotation asAnnotation() {
-		return asAnnotation(toString());
+	public static ArrayList<NickingGuideRNAPair> sortByScoreNondescending(Collection<NickingGuideRNAPair> guidePairs) {
+		Map<Double, Collection<NickingGuideRNAPair>> byScore = new TreeMap<Double, Collection<NickingGuideRNAPair>>();
+		for(NickingGuideRNAPair g : guidePairs) {
+			Double d = new Double(g.getScore());
+			if(!byScore.containsKey(d))	{
+				byScore.put(d, new ArrayList<NickingGuideRNAPair>());
+			}
+			byScore.get(d).add(g);
+		}
+		ArrayList<NickingGuideRNAPair> rtrn = new ArrayList<NickingGuideRNAPair>();
+		for(Double d : byScore.keySet()) {
+			for(NickingGuideRNAPair g : byScore.get(d)) {
+				rtrn.add(g);
+			}
+		}
+		return rtrn;
+	}
+	
+	private static Collection<Collection<NickingGuideRNAPair>> getEvenPools(Collection<NickingGuideRNAPair> guidePairs, int numPools) {
+		TreeSet<NickingGuideRNAPair> sorted = new TreeSet<NickingGuideRNAPair>();
+		sorted.addAll(guidePairs);
+		ArrayList<Collection<NickingGuideRNAPair>> rtrn = new ArrayList<Collection<NickingGuideRNAPair>>();
+		for(int i = 0; i < numPools; i++) {
+			rtrn.add(new TreeSet<NickingGuideRNAPair>());
+		}
+		int n = 0;
+		for(NickingGuideRNAPair g : sorted) {
+			rtrn.get(n % numPools).add(g);
+			n++;
+		}
+		return rtrn;
 	}
 	
 	/**
-	 * Get the guide pair as a blocked annotation
-	 * @param name Name of annotation to set
-	 * @return Annotation representation with the two guide RNAs as blocks
+	 * Divide into a specified number of pools of mutually non-overlapping guide pairs
+	 * Final pools are nondeterministic
+	 * @param guidePairs The guide RNA pairs to pool 
+	 * @param numPools The number of pools to make
+	 * @return Collection of pools of non-overlapping guide pairs
 	 */
-	public Annotation asAnnotation(String name) {
-		Annotation plus = new BasicAnnotation(plusStrandGuideRNA.getChr(), plusStrandGuideRNA.getStart(), plusStrandGuideRNA.getEnd());
-		BasicAnnotation minus = new BasicAnnotation(minusStrandGuideRNA.getChr(), minusStrandGuideRNA.getStart(), minusStrandGuideRNA.getEnd());
-		BasicAnnotation both = new BasicAnnotation(plus);
-		both.addBlocks(minus);
-		both.setName(name);
-		return both;
+	public static Collection<Collection<NickingGuideRNAPair>> poolNonOverlapping(Collection<NickingGuideRNAPair> guidePairs, int numPools) {
+		logger.info("");
+		logger.info("Distributing " + guidePairs.size() + " guide RNA pairs into " + numPools + " pools of pairwise nonoverlapping pairs.");
+		ArrayList<Collection<NickingGuideRNAPair>> rtrn = new ArrayList<Collection<NickingGuideRNAPair>>();
+		for(int i = 0; i < numPools; i++) {
+			rtrn.add(new TreeSet<NickingGuideRNAPair>());
+		}
+		Random rand = new Random();
+		rand.setSeed(System.currentTimeMillis());
+		for(NickingGuideRNAPair pair : guidePairs) {
+			boolean inPool = false;
+			int r = Math.abs(rand.nextInt());
+			for(int i = r; i < r + rtrn.size(); i++) {
+				int poolNum = i % rtrn.size();
+				Collection<NickingGuideRNAPair> pool = rtrn.get(poolNum);
+				boolean ok = true;
+				for(NickingGuideRNAPair other : pool) {
+					if(pair.overlaps(other)) {
+						ok = false;
+						break;
+					}
+				} if(ok) {
+					pool.add(pair);
+					inPool = true;
+					break;
+				}
+			}
+			if(!inPool) {
+				// Can't be added to a pool; skip this one
+				logger.warn("Couldn't add " + pair.toString() + " to a pool. Skipping.");
+				continue;
+			}
+		}
+		return rtrn;
 	}
 	
 	/**
-	 * Get a BED line for the pair
-	 * @return BED format representation of an annotation with the two guide RNAs as blocks
+	 * Divide into pools of mutually non-overlapping guide pairs
+	 * Try evenly sized pools until they are all non-overlapping
+	 * @param guidePairs The guide RNA pairs to pool
+	 * @return Collection of pools of non-overlapping guide pairs
 	 */
-	public String toBED() {
-		return toBED(toString());
+	public static Collection<Collection<NickingGuideRNAPair>> poolNonOverlapping(Collection<NickingGuideRNAPair> guidePairs) {
+		logger.info("");
+		logger.info("Distributing " + guidePairs.size() + " guide RNA pairs into pools of pairwise nonoverlapping pairs.");
+		int numPools = 1;
+		while(numPools <= guidePairs.size()) {
+			logger.info("Trying " + numPools + " pools");
+			Collection<Collection<NickingGuideRNAPair>> pools = getEvenPools(guidePairs, numPools);
+			boolean overlaps = false;
+			for(Collection<NickingGuideRNAPair> pool : pools) {
+				Collection<Annotation> annot = new TreeSet<Annotation>();
+				annot.addAll(pool);
+				if(!AnnotationUtils.pairwiseNonoverlappingIgnoreStrand(annot)) {
+					numPools++;
+					overlaps = true;
+					break;
+				}
+			}
+			if(!overlaps) {
+				logger.info("Success with " + pools.size() + " pools");
+				return pools;
+			}
+		}
+		throw new IllegalArgumentException("Can't create pools of pairwise nonoverlapping guide pairs");
 	}
-	
-	/**
-	 * Get a BED line for the pair
-	 * @param name Name of annotation for bed line
-	 * @return BED format representation of an annotation with the two guide RNAs as blocks
-	 */
-	public String toBED(String name) {
-		return asAnnotation(name).toBED();
-	}
-	
+
 	/**
 	 * @return The number of positions between the last position of the left RNA and the first position of the right RNA
 	 */

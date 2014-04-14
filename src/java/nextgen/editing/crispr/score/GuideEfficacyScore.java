@@ -15,7 +15,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 
-import nextgen.core.pipeline.OGSUtils;
+import nextgen.core.pipeline.util.OGSUtils;
 import nextgen.editing.crispr.GuideRNA;
 
 import org.apache.log4j.Logger;
@@ -34,11 +34,16 @@ public class GuideEfficacyScore implements GuideRNAScore {
 	private String script;
 	private String trainingFile;
 	private Map<GuideRNA, Double> scores;
+	private static String tmpDir = "tmp_efficacy_score_scripts";
 	
 	public GuideEfficacyScore(Collection<GuideRNA> sgRNAs) throws IOException, InterruptedException {
-
+		
+		File dirFile = new File(tmpDir);
+		@SuppressWarnings("unused")
+		boolean m = dirFile.mkdir();
+		
 		// Write the training file
-		trainingFile = "guide_efficacy_score_training_set_" + Long.valueOf(System.currentTimeMillis()).toString();
+		trainingFile = tmpDir + "/guide_efficacy_score_training_set";
 		writeTrainingFile(trainingFile);
 		// Attach shutdown hook to delete file when done
 		Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -49,7 +54,7 @@ public class GuideEfficacyScore implements GuideRNAScore {
 		});
 
 		// Write the script file
-		script = "guide_efficacy_score_script_" + Long.valueOf(System.currentTimeMillis()).toString() + ".R";
+		script = tmpDir + "/guide_efficacy_score_script_" + Long.valueOf(System.currentTimeMillis()).toString() + ".R";
 		writeRScript(script);
 		// Attach shutdown hook to delete R script when done
 		Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -66,7 +71,7 @@ public class GuideEfficacyScore implements GuideRNAScore {
 	private Map<GuideRNA, Double> scoreSequences(Collection<GuideRNA> sequences) throws IOException, InterruptedException {
 		
 		// Create an input file for the R script
-		final String inputFile = "guide_efficacy_score_input_" + Long.valueOf(System.currentTimeMillis()).toString();
+		final String inputFile = tmpDir + "/guide_efficacy_score_input_" + Long.valueOf(System.currentTimeMillis()).toString();
 		writeScriptInputFile(sequences, inputFile);
 		
 		// Attach shutdown hook to delete file when done
@@ -78,7 +83,7 @@ public class GuideEfficacyScore implements GuideRNAScore {
 		});
 		
 		// Run the R script
-		final String outputFile = "guide_efficacy_score_output_" + Long.valueOf(System.currentTimeMillis()).toString() + ".R";
+		final String outputFile = tmpDir + "/guide_efficacy_score_output_" + Long.valueOf(System.currentTimeMillis()).toString() + ".R";
 		runScript(inputFile, outputFile);
 		
 		// Attach shutdown hook to delete file when done
@@ -146,16 +151,20 @@ public class GuideEfficacyScore implements GuideRNAScore {
 	
 	@Override
 	public double getScore(GuideRNA guideRNA) throws IOException, InterruptedException {
-		if(!scores.containsKey(guideRNA)) {
-			logger.warn("Running R script again because score object was not initialized to include guide RNA " + guideRNA);
-			logger.warn("For efficiency, initialize score object with all guide RNAs of interest");
-			Collection<GuideRNA> thisRNA = new ArrayList<GuideRNA>();
-			thisRNA.add(guideRNA);
-			Map<GuideRNA, Double> thisScore = scoreSequences(thisRNA);
-			double score = thisScore.get(guideRNA);
-			scores.put(guideRNA, Double.valueOf(score));
+		synchronized(scores) {
+			synchronized(guideRNA) {
+				if(!scores.containsKey(guideRNA)) {
+					logger.warn("Running R script again because score object was not initialized to include guide RNA " + guideRNA);
+					logger.warn("For efficiency, initialize score object with all guide RNAs of interest");
+					Collection<GuideRNA> thisRNA = new ArrayList<GuideRNA>();
+					thisRNA.add(guideRNA);
+					Map<GuideRNA, Double> thisScore = scoreSequences(thisRNA);
+					double score = thisScore.get(guideRNA);
+					scores.put(guideRNA, Double.valueOf(score));
+				}
+				return scores.get(guideRNA).doubleValue();
+			}
 		}
-		return scores.get(guideRNA).doubleValue();
 	}
 	
 	/**
@@ -286,6 +295,11 @@ public class GuideEfficacyScore implements GuideRNAScore {
 	 */
 	private void writeTrainingFile(String outFile) throws IOException {
 		logger.debug("Writing training file to " + outFile);
+		File of = new File(outFile);
+		if(of.exists()) {
+			logger.debug("File already exists. Not rewriting.");
+			return;
+		}
 		FileWriter w = new FileWriter(outFile);
 		w.write("gRNA\tINIT\tFIN\tstrand.wrt\tl2fc\tgene\tBP1A\tBP1C\tBP1T\tBP1G\tBP2A\tBP2C\tBP2T\tBP2G\tBP3A\tBP3C\tBP3T\tBP3G\tBP4A\tBP4C\tBP4T\tBP4G\tBP5A\tBP5C\tBP5T\tBP5G\tBP6A\tBP6C\tBP6T\tBP6G\tBP7A\tBP7C\tBP7T\tBP7G\tBP8A\tBP8C\tBP8T\tBP8G\tBP9A\tBP9C\tBP9T\tBP9G\tBP10A\tBP10C\tBP10T\tBP10G\tBP11A\tBP11C\tBP11T\tBP11G\tBP12A\tBP12C\tBP12T\tBP12G\tBP13A\tBP13C\tBP13T\tBP13G\tBP14A\tBP14C\tBP14T\tBP14G\tBP15A\tBP15C\tBP15T\tBP15G\tBP16A\tBP16C\tBP16T\tBP16G\tBP17A\tBP17C\tBP17T\tBP17G\tBP18A\tBP18C\tBP18T\tBP18G\tBP19A\tBP19C\tBP19T\tBP19G\tBP20A\tBP20C\tBP20T\tBP20G\tmeddiff\n");
 		w.write("RPL12_p130211606\t703\t0\t0\t-11.28397219\tRPL12\t1\t0\t0\t0\t0\t0\t1\t0\t0\t0\t0\t1\t1\t0\t0\t0\t0\t0\t1\t0\t0\t1\t0\t0\t1\t0\t0\t0\t0\t0\t0\t1\t0\t0\t0\t1\t0\t0\t0\t1\t0\t1\t0\t0\t1\t0\t0\t0\t0\t0\t0\t1\t1\t0\t0\t0\t0\t0\t0\t1\t0\t0\t0\t1\t0\t1\t0\t0\t1\t0\t0\t0\t0\t0\t0\t1\t1\t0\t0\t0\t-8.470000219\n");
