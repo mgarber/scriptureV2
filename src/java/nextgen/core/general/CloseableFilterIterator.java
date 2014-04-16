@@ -28,7 +28,7 @@ public class CloseableFilterIterator<T> implements CloseableIterator<T> {
 	}
 	
 	public void remove() {
-		throw new UnsupportedOperationException();
+		filterIterator.remove();
 	}
 	
 	public void close() {

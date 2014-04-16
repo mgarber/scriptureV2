@@ -66,7 +66,7 @@ public class FastaUtils {
             if(drmaaSession == null) {
                     throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
             }
-            OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "index_fasta");
+            OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "index_fasta", null);
             ogsJob.submit();
             logger.info("OGS job ID is " + ogsJob.getID() + ".");
 			logger.info("Waiting for samtools faidx job to finish...");

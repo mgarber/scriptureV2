@@ -118,6 +118,17 @@ public class SingleCleavageTypeIIRestrictionEnzyme implements RestrictionEnzyme 
 		}
 		return false;
 	}
+
+	@Override
+	public boolean sequenceContainsTopStrandRecognitionSequence(String seq) {
+		Collection<String> recSeqs = getTopStrandRecognitionSequence();
+		for(String recSeq : recSeqs) {
+			if(seq.contains(recSeq)) {
+				return true;
+			}
+		}
+		return false;
+	}
 	
 
 	

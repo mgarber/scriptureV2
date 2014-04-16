@@ -10,17 +10,26 @@ import nextgen.core.alignment.SmithWatermanAlignment;
 
 import org.apache.log4j.Logger;
 
+import com.sleepycat.persist.model.Persistent;
+
 /**
  * A sequence of read elements that should be present in a read
  * Can have other stuff between them
  * @author prussell
  *
  */
+@Persistent
 public class ReadLayout {
 	
 	private ArrayList<ReadSequenceElement> elements;
 	private int readLen;
 	public static Logger logger = Logger.getLogger(ReadLayout.class.getName());
+	
+	/**
+	 * For Berkeley DB only
+	 * Do not use this constructor
+	 */
+	public ReadLayout() {}
 	
 	/**
 	 * @param elementSequence Sequence of elements expected in each read
@@ -119,45 +128,47 @@ public class ReadLayout {
 				return null;
 			}
 			// If current element is repeatable, look for next element at this position
-			if(currElt.isRepeatable() && !(currStart + nextElt.getLength() > readLen)) {
-				boolean lookNext = false;
-				if(!stopSignalPos.containsKey(currElt)) {
-					lookNext = true;
-				} else if(stopSignalPos.get(currElt).intValue() == currStart) {
-					lookNext = true;
-				}
-				if(lookNext) {
-					logger.debug("LOOKING_FOR_NEXT_ELT\tLooking for " + nextElt.elementName() + " at position " + currStart);
-					if(nextElt != null && nextElt.matchesSubstringOf(readSequence, currStart)) {
-						if(!found[elements.indexOf(currElt)]) {
-							// Next element was found before any instance of current element
-							logger.debug("FOUND_NEXT_BEFORE_CURRENT\tFound match for next element " + nextElt.elementName() + " before any instance of " + currElt.elementName());
-							return null;
-						}
-						logger.debug("FOUND_NEXT_OK\tFound match for next element " + nextElt.elementName() + " at start position " + currStart + " of read " + readSequence);
-						found[elements.indexOf(nextElt)] = true;
-						rtrn.get(elements.indexOf(nextElt)).add(nextElt.matchedElement(readSequence.substring(currStart, currStart + nextElt.getLength())));
-						logger.debug("NUM_MATCHES\tThere are " + rtrn.get(elements.indexOf(nextElt)).size() + " matches for this element");
-						currStart += nextElt.getLength();
-						if(!elementIter.hasNext()) {
-							// We have found a match for the last element; return
-							logger.debug("MATCHED_LAYOUT\tFound match for entire read layout");
-							return rtrn;
-						} 
-						// Now look for the element after "nextElt"
-						currElt = elementIter.next();
-						logger.debug("NEW_CURR_ELT\t" + currElt.elementName());
-						if(elementIter.hasNext()) {
-							nextElt = elementIter.next();
-							logger.debug("NEW_NEXT_ELT\t" + nextElt.elementName());
-						} else {
-							logger.debug("NEW_NEXT_ELT\tnull");
-							nextElt = null;
-						}
-						continue;
+			if(currElt.isRepeatable() && nextElt != null) {
+				if(!(currStart + nextElt.getLength() > readLen)) {
+					boolean lookNext = false;
+					if(!stopSignalPos.containsKey(currElt)) {
+						lookNext = true;
+					} else if(stopSignalPos.get(currElt).intValue() == currStart) {
+						lookNext = true;
 					}
+					if(lookNext) {
+						logger.debug("LOOKING_FOR_NEXT_ELT\tLooking for " + nextElt.elementName() + " at position " + currStart);
+						if(nextElt != null && nextElt.matchesSubstringOf(readSequence, currStart)) {
+							if(!found[elements.indexOf(currElt)]) {
+								// Next element was found before any instance of current element
+								logger.debug("FOUND_NEXT_BEFORE_CURRENT\tFound match for next element " + nextElt.elementName() + " before any instance of " + currElt.elementName());
+								return null;
+							}
+							logger.debug("FOUND_NEXT_OK\tFound match for next element " + nextElt.elementName() + " at start position " + currStart + " of read " + readSequence);
+							found[elements.indexOf(nextElt)] = true;
+							rtrn.get(elements.indexOf(nextElt)).add(nextElt.matchedElement(readSequence.substring(currStart, currStart + nextElt.getLength())));
+							logger.debug("NUM_MATCHES\tThere are " + rtrn.get(elements.indexOf(nextElt)).size() + " matches for this element");
+							currStart += nextElt.getLength();
+							if(!elementIter.hasNext()) {
+								// We have found a match for the last element; return
+								logger.debug("MATCHED_LAYOUT\tFound match for entire read layout");
+								return rtrn;
+							} 
+							// Now look for the element after "nextElt"
+							currElt = elementIter.next();
+							logger.debug("NEW_CURR_ELT\t" + currElt.elementName());
+							if(elementIter.hasNext()) {
+								nextElt = elementIter.next();
+								logger.debug("NEW_NEXT_ELT\t" + nextElt.elementName());
+							} else {
+								logger.debug("NEW_NEXT_ELT\tnull");
+								nextElt = null;
+							}
+							continue;
+						}
+					}
+					logger.debug("NOT_LOOKING_FOR_NEXT_ELT\tNot looking for " + nextElt.elementName() + " at position " + currStart);
 				}
-				logger.debug("NOT_LOOKING_FOR_NEXT_ELT\tNot looking for " + nextElt.elementName() + " at position " + currStart);
 			}
 			// Look for current element
 			if(currElt.matchesSubstringOf(readSequence, currStart)) {

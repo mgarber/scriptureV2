@@ -184,7 +184,7 @@ public class FastqUtils {
 					if(drmaaSession == null) {
 						throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 					}
-					OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "fastx_clip_adapters");
+					OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "fastx_clip_adapters", null);
 					ogsJob.submit();
 					logger.info("OGS job ID is " + ogsJob.getID() + ".");
 					jobs.add(ogsJob);
@@ -228,7 +228,7 @@ public class FastqUtils {
 							if(drmaaSession == null) {
 								throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 							}
-							OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "fastx_clip_adapters");
+							OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "fastx_clip_adapters", null);
 							ogsJob.submit();
 							logger.info("OGS job ID is " + ogsJob.getID() + ".");
 							jobs.add(ogsJob);
@@ -296,7 +296,7 @@ public class FastqUtils {
 				if(drmaaSession == null) {
 					throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 				}
-				OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "filter_fastq");
+				OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "filter_fastq", null);
 				ogsJob.submit();
 				logger.info("OGS job ID is " + ogsJob.getID() + ".");
 				filterJobs.add(ogsJob);

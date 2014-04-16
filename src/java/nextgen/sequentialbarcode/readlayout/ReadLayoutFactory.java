@@ -41,9 +41,9 @@ public class ReadLayoutFactory {
 			BarcodeSet evenBarcodesSet = new BarcodeSet("even_barcodes", evenBarcodes, maxMismatchBarcode);
 			for(int i = 0; i < totalNumBarcodes; i++) {
 				if(i % 2 == 0) {
-					eltsSequence.add(oddBarcodesSet);
-				} else {
 					eltsSequence.add(evenBarcodesSet);
+				} else {
+					eltsSequence.add(oddBarcodesSet);
 				}
 			}
 		} else {

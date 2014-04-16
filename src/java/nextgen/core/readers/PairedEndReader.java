@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import org.apache.log4j.Logger;
 import org.broad.igv.Globals;
 
 import broad.core.util.CLUtil;
@@ -39,7 +40,8 @@ public class PairedEndReader {
 	
 	public static enum AlignmentType { PAIRED_END, SINGLE_END };
     private boolean warned = false;
-    
+    private static Logger logger = Logger.getLogger(PairedEndIterator.class.getName());
+
 	private CloseableIterator<Alignment> mCurrentIterator = null;
 	private SAMFileReader reader;
 	private SAMFileHeader header;
@@ -65,10 +67,10 @@ public class PairedEndReader {
 		alignmentType = getAlignmentType(this.header);
 		strand = read;
 		if(alignmentType==AlignmentType.PAIRED_END){
-			System.out.println("Alignment is Paired");
+			logger.info("Alignment is Paired");
 		}
 		else{
-			System.out.println("Alignment is Single");
+			logger.info("Alignment is Single");
 		}
 		
 		setFragmentFlag(fra);

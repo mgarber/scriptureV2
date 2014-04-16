@@ -30,6 +30,7 @@ import nextgen.core.pipeline.util.AlignmentUtils;
 import nextgen.core.pipeline.util.BamUtils;
 import nextgen.core.pipeline.util.FastaUtils;
 import nextgen.core.pipeline.util.FastqUtils;
+import nextgen.core.pipeline.util.OGSUtils;
 import nextgen.core.pipeline.util.WigUtils;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.ProperPairFilter;
@@ -794,7 +795,7 @@ public class RNASeqPipeline {
 		}
 		
 		// Make paired end bam files
-		logger.info("");
+		/*logger.info("");
 		logger.info("Making paired end bam files.");
 		Collection<String> bamFilesToTranslate = new TreeSet<String>();
 		for(String sample : sampleNames) {
@@ -809,6 +810,7 @@ public class RNASeqPipeline {
 			bamFilesToTranslate.add(sortedBamOutput.get(sample));
 		}
 		BamUtils.createPairedEndBamFiles(bamFilesToTranslate, configFile.getSingleValueField(sectionBasicOptions, optionTranscriptionRead), ".", configFile.getSingleValueField(sectionBasicOptions, optionPairedEndWriterJar), scheduler, drmaaSession);
+		*/
 		
 		// Make tdf of paired end bam files
 		logger.info("");
@@ -1103,9 +1105,7 @@ public class RNASeqPipeline {
 		if(configFile.hasOption(sectionBasicOptions, optionWigWriterJar) && configFile.hasOption(sectionBasicOptions, optionBedFileForWig)) {
 			logger.info("");
 			logger.info("Making wig files of position fragment counts and position counts normalized to transcript average coverage.");
-			logger.info("TODO: uses too much memory. Skipping.");
-			//TODO uses too much memory
-			//writeWigPositionCount(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionBedFileForWig), configFile.getSingleValueField(sectionBasicOptions, optionGenomeFasta));
+			writeWigPositionCount(currentBamFiles, currentBamDir, configFile.getSingleValueField(sectionBasicOptions, optionBedFileForWig), configFile.getSingleValueField(sectionBasicOptions, optionGenomeFasta));
 			logger.info("");
 			logger.info("Done writing wig files.\n");
 		}
@@ -1193,7 +1193,7 @@ public class RNASeqPipeline {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "unmapped_fastq");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "unmapped_fastq", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 convertJobs.add(ogsJob);
@@ -1385,7 +1385,7 @@ public class RNASeqPipeline {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, getHeaderCmmd, "replace_sam_header");
+                OGSJob ogsJob = new OGSJob(drmaaSession, getHeaderCmmd, "replace_sam_header", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
 				logger.info("Waiting for samtools view to finish...");
@@ -1492,7 +1492,7 @@ public class RNASeqPipeline {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "merge_tophat_novoalign");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "merge_tophat_novoalign", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 mergeJobs.add(ogsJob);
@@ -1618,7 +1618,7 @@ public class RNASeqPipeline {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "reorder_bam");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "reorder_bam", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 reorderJobs.add(ogsJob);
@@ -1743,7 +1743,7 @@ public class RNASeqPipeline {
                 if(drmaaSession == null) {
                         throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                 }
-                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "merge_bam_files");
+                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "merge_bam_files", null);
                 ogsJob.submit();
                 logger.info("OGS job ID is " + ogsJob.getID() + ".");
                 jobs.add(ogsJob);
@@ -1924,7 +1924,7 @@ public class RNASeqPipeline {
                     if(drmaaSession == null) {
                             throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                     }
-                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics");
+                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics", null);
                     ogsJob.submit();
                     logger.info("OGS job ID is " + ogsJob.getID() + ".");
                     pmJobs.add(ogsJob);
@@ -1958,7 +1958,7 @@ public class RNASeqPipeline {
                     if(drmaaSession == null) {
                             throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                     }
-                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics");
+                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics", null);
                     ogsJob.submit();
                     logger.info("OGS job ID is " + ogsJob.getID() + ".");
                     pmJobs.add(ogsJob);
@@ -1998,7 +1998,7 @@ public class RNASeqPipeline {
                     if(drmaaSession == null) {
                             throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
                     }
-                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics");
+                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "picard_metrics", null);
                     ogsJob.submit();
                     logger.info("OGS job ID is " + ogsJob.getID() + ".");
                     pmJobs.add(ogsJob);
@@ -2214,7 +2214,7 @@ public class RNASeqPipeline {
 	
 	private static ConfigFileOption optionScheduler = new ConfigFileOption("scheduler", 2, false, false, true);
 	private static ConfigFileOption optionTranscriptionRead = new ConfigFileOption("transcription_read", 2, false, false, true);
-	private static ConfigFileOption optionPairedEndWriterJar = new ConfigFileOption("paired_end_writer_jar", 2, false, false, true);
+	//private static ConfigFileOption optionPairedEndWriterJar = new ConfigFileOption("paired_end_writer_jar", 2, false, false, true);
 	private static ConfigFileOption optionSplitTrimBarcodes = new ConfigFileOption("SPLIT_TRIM_BARCODES", 1, false, false, false);
 	private static ConfigFileOption optionTrimAdapters = new ConfigFileOption("TRIM_ADAPTERS", 1, false, false, false);
 	private static ConfigFileOption optionComputeLibraryStats = new ConfigFileOption("LIBRARY_STATS", 1, false, false, false);
@@ -2323,7 +2323,7 @@ public class RNASeqPipeline {
 		sectionBasicOptions.addAllowableOption(optionTranscriptomeSpaceStatsBedFile);
 		sectionBasicOptions.addAllowableOption(optionGenomicSpaceStatsSizeFile);
 		sectionBasicOptions.addAllowableOption(optionTranscriptionRead);
-		sectionBasicOptions.addAllowableOption(optionPairedEndWriterJar);
+		//sectionBasicOptions.addAllowableOption(optionPairedEndWriterJar);
 		
 		sectionFragmentSizeDistribution.addAllowableOption(optionFragmentSizeDistBedAnnotation);
 		sectionFragmentSizeDistribution.addAllowableOption(optionFragmentSizeDistMaxSize);

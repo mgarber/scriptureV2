@@ -22,7 +22,9 @@ public class GuideSufficientEfficacy implements GuideRNAPredicate {
 	@Override
 	public boolean evaluate(GuideRNA g) {
 		try {
-			return score.getScore(g) < maxScore;
+			synchronized(score) {
+				return score.getScore(g) < maxScore;
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new IllegalStateException();

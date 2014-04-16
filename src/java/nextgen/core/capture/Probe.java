@@ -9,12 +9,14 @@ import broad.core.sequence.Sequence;
  */
 public class Probe implements Comparable<Probe> {
 	
-	private Sequence parent;
+	private Sequence parent = null;
+	private String parentSequenceId;
 	private String id;
 	private int start;
 	private int size;
 	private boolean antisense;
-	private ProbeLayout probeLayout;
+	private ProbeLayout probeLayout = null;
+	private String probeLayoutString = null;
 	
 	
 	/**
@@ -34,6 +36,15 @@ public class Probe implements Comparable<Probe> {
 		probeLayout = layout;
 	}
 	
+	public Probe(String parentSequenceId, String layoutString, String probeID, int startPosOnTranscript, int probeSize, boolean antisenseToTranscript) {
+		this.parentSequenceId = parentSequenceId;
+		id = probeID;
+		start = startPosOnTranscript;
+		size = probeSize;
+		antisense = antisenseToTranscript;
+		probeLayoutString = layoutString;
+	}
+	
 	
 	/**
 	 * @return Probe ID
@@ -47,6 +58,10 @@ public class Probe implements Comparable<Probe> {
 	 */
 	public Sequence getParentTranscript() {
 		return parent;
+	}
+	
+	public String getParentTranscriptId() {
+		return (parent == null) ? parentSequenceId : parent.getId();
 	}
 	
 	/**
@@ -75,6 +90,11 @@ public class Probe implements Comparable<Probe> {
 	 */
 	public ProbeLayout getProbeLayout() {
 		return probeLayout;
+	}
+	
+	public String getProbeLayoutString() {
+		if (probeLayout == null) return probeLayoutString;
+		else return probeLayout.toString();
 	}
 	
 	/**

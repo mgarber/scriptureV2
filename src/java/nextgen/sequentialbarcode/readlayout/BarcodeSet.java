@@ -22,11 +22,7 @@ public class BarcodeSet implements ReadSequenceElement {
 	private String id;
 	private boolean repeatable;
 	private String nextStringForRepeatable;
-	
-	/**
-	 * Empty constructor that should only be used when calling elementName()
-	 */
-	public BarcodeSet() {};
+	private static String DUMMY_STOP_SIGNAL = "X";
 	
 	/**
 	 * @param setId Barcode set ID
@@ -37,6 +33,16 @@ public class BarcodeSet implements ReadSequenceElement {
 		this(setId, barcodeSet, maxMismatches, false, null);
 	}
 	
+	/**
+	 * @param setId Barcode set ID
+	 * @param barcodeSet The barcodes
+	 * @param maxMismatches Max number of mismatches when identifying each barcode in reads
+	 * @param isRepeatable Whether to look for multiple matches in sequence
+	 */
+	public BarcodeSet(String setId, Collection<Barcode> barcodeSet, int maxMismatches, boolean isRepeatable) {
+		this(setId, barcodeSet, maxMismatches, isRepeatable, DUMMY_STOP_SIGNAL);
+	}
+		
 	/**
 	 * @param setId Barcode set ID
 	 * @param barcodeSet The barcodes

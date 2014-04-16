@@ -1,5 +1,6 @@
 package nextgen.sequentialbarcode.fragmentgroup;
 
+import java.util.Collection;
 import java.util.Map;
 
 import nextgen.core.annotation.Annotation;
@@ -35,6 +36,11 @@ public class LightweightBarcodedFragmentGroup implements FragmentGroup {
 	@Override
 	public String toSamAttributeString() {
 		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public Collection<Annotation> getRegions() {
+		return locations.keySet();
 	}
 	
 	

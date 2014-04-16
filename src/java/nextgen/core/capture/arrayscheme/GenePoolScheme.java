@@ -35,7 +35,6 @@ public class GenePoolScheme implements PoolScheme {
 	
 	@Override
 	public Collection<ProbeSet> getProbes(Collection<Sequence> transcripts) {
-		logger.info("");
 		Collection<ProbeSet> rtrn = new ArrayList<ProbeSet>();
 		for(Sequence transcript : transcripts) {
 			if (transcript.getSequenceBases().toUpperCase().indexOf("GNIL") != -1) {

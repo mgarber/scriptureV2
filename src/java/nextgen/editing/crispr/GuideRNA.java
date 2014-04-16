@@ -7,9 +7,10 @@ import java.util.TreeSet;
 import org.apache.log4j.Logger;
 
 import nextgen.core.annotation.Annotation;
-import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
+import nextgen.core.general.TabbedReader;
+import broad.core.error.ParseException;
 import broad.core.sequence.Sequence;
 
 /**
@@ -17,11 +18,10 @@ import broad.core.sequence.Sequence;
  * @author prussell
  */
 public class GuideRNA extends BasicAnnotation {
-	
-	private Sequence chr;
+
 	public static Logger logger = Logger.getLogger(GuideRNA.class.getName());
 	private Sequence sequence20, sequence23;
-	private Gene target;
+	private Gene target = null;
 
 	
 	/**
@@ -35,8 +35,7 @@ public class GuideRNA extends BasicAnnotation {
 		super(chromosome.getId(), start, end, orientation);
 		validateStartEnd(start, end);
 		validateStrand(orientation);
-		chr = chromosome;
-		setName(chr.getId() + ":" + start + "-" + end + ":" + orientation.toString());
+		setNameFromTarget();
 		target = targetGene;
 		
 		int start20;
@@ -69,6 +68,26 @@ public class GuideRNA extends BasicAnnotation {
 		validateSequence23(sequence23);
 	}
 
+	
+	public GuideRNA(Annotation a, String sequence) {
+		super(a);
+		validateStartEnd(getStart(), getEnd());
+		validateStrand(getOrientation());
+		setNameFromTarget();
+		sequence20 = new Sequence(getName());
+		sequence20.setSequenceBases(sequence.substring(0,20));
+		sequence20.setForwardStrand(getOrientation() == Strand.POSITIVE);
+		
+		sequence23 = new Sequence(getName());
+		sequence23.setSequenceBases(sequence);
+		sequence23.setForwardStrand(getOrientation() == Strand.POSITIVE);
+	}
+	
+	
+	private void setNameFromTarget() {
+		setName(getReferenceName() + ":" + getStart() + "-" + getEnd() + ":" + getOrientation().toString());
+	}
+	
 	
 	public boolean isPlusStrand() {
 		return getStrand().equals(Strand.POSITIVE);
@@ -118,7 +137,7 @@ public class GuideRNA extends BasicAnnotation {
 	}
 	
 	public String toString() {
-		return chr.getId() + ":" + getStart() + "-" + getEnd() + ":" + getStrand().toString() + ":" + sequence20.getSequenceBases();
+		return getReferenceName() + ":" + getStart() + "-" + getEnd() + ":" + getStrand().toString() + ":" + sequence20.getSequenceBases();
 	}
 	
 	/**
@@ -359,7 +378,8 @@ public class GuideRNA extends BasicAnnotation {
 	}
 
 	public int hashCode() {
-		String s = toBED() + getName() + sequence20.getSequenceBases() + target.toBED();
+		String s = toBED() + getName() + sequence20.getSequenceBases();
+		if (target != null) s = s + target.toBED();
 		return s.hashCode();
 	}
 	
@@ -368,5 +388,33 @@ public class GuideRNA extends BasicAnnotation {
 		GuideRNA g = (GuideRNA)o;
 		return hashCode() == g.hashCode();
 	}
+
 	
+	public String toBedWithSequence() {
+		return toBED() + "\t" + sequence23.getSequenceBases();
+	}
+
+	/**
+	 * @author engreitz
+	 * For files stored in BED12 plus the 23-mer sequence in column 13
+	 */
+	public static class Factory implements TabbedReader.Factory<GuideRNA> {
+		@Override
+		public GuideRNA create(String[] rawFields) throws ParseException {
+			Annotation a = new BasicAnnotation.Factory().create(rawFields);
+			return new GuideRNA(a, rawFields[12]);
+		}
+	}
+	
+	/**
+	 * @author engreitz
+	 * For files stored in BED6 with 23-mer sequence in the name column
+	 */
+	public static class FactoryBED6 implements TabbedReader.Factory<GuideRNA> {
+		@Override
+		public GuideRNA create(String[] rawFields) throws ParseException {
+			Annotation a = new BasicAnnotation.Factory().create(rawFields);
+			return new GuideRNA(a.trim(0,3), a.getName());
+		}
+	}
 }

@@ -1394,7 +1394,8 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		
 		@Override
 		public boolean hasNext() {
-			if(currentIter!=null && currentIter.hasNext()){return true;}
+			if(currentIter!=null && currentIter.hasNext()){
+				return true;}
 			else if(iter.hasNext()){
 				currentIter=iter.next().containedReads.iterator();
 				return true;

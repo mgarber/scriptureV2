@@ -6,6 +6,8 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 
+import com.sleepycat.persist.model.Persistent;
+
 import broad.core.parser.StringParser;
 
 import net.sf.samtools.SAMRecord;
@@ -16,6 +18,7 @@ import nextgen.sequentialbarcode.readlayout.Barcode;
  * @author prussell
  *
  */
+@Persistent
 public class BarcodeSequence implements Comparable<BarcodeSequence> {
 	
 	private List<Barcode> barcodes;

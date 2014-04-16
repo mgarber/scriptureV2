@@ -1,7 +1,6 @@
 package nextgen.core.model.score;
 
 import broad.core.math.ScanStatistics;
-import broad.pda.seq.segmentation.AlignmentDataModelStats;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.annotation.Annotation;

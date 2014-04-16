@@ -73,12 +73,14 @@ public class Sequence {
 		sequenceBases = new StringBuilder(expectedSize);
 
 	}
+	
+
 
 	public String getId() {
 		return id;
 	}
 	
-	protected void setForwardStrand(boolean isForwardStrand) { this.forwardStrand = isForwardStrand;}
+	public void setForwardStrand(boolean isForwardStrand) { this.forwardStrand = isForwardStrand;}
 
 	public void setId(String id) {
 		this.id = id;

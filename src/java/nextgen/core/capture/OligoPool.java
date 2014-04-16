@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -16,13 +17,15 @@ import java.util.TreeSet;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.capture.arrayscheme.*;
 import nextgen.core.capture.filter.*;
+import nextgen.core.general.TabbedReader;
 import nextgen.core.pipeline.ConfigFile;
 import nextgen.core.pipeline.ConfigFileOption;
 import nextgen.core.pipeline.ConfigFileOptionValue;
 import nextgen.core.pipeline.ConfigFileSection;
-
+import broad.core.error.ParseException;
 import broad.core.parser.CommandLineParser;
 import broad.core.primer3.PrimerPair;
 import broad.core.primer3.PrimerUtils;
@@ -43,8 +46,7 @@ public class OligoPool {
 	private Collection<Sequence> transcripts;
 	private List<ProbeFilter> probeFilters;
 	private Collection<PrimerFilter> primerFilters;
-	private Map<PrimerPair,Integer> primerCounts;
-	private Collection<Oligo> oligos;
+	private Map<String, List<FullDesignEntry>> probeSetDesign;
 	private int primerSize;
 	private String primer3corePath;
 	/**
@@ -79,7 +81,6 @@ public class OligoPool {
 		logger.info("");
 		logger.info("Getting primer filters...");
 		primerFilters = getPrimerFiltersFromConfigFile();
-		oligos = new TreeSet<Oligo>();
 		logger.info("");
 		logger.info("Done instantiating oligo pool.");
 	}
@@ -103,9 +104,9 @@ public class OligoPool {
 	 */
 	public static ConfigFileSection arraySchemeSection = new ConfigFileSection(arraySchemeSectionFlag, true);
 	private static String sequenceFastaOptionFlag = "sequence_fasta";
-	private static ConfigFileOption sequenceFastaOption = new ConfigFileOption(sequenceFastaOptionFlag, 2, false, false, true);
+	public static ConfigFileOption sequenceFastaOption = new ConfigFileOption(sequenceFastaOptionFlag, 2, false, false, true);
 	private static String sequencesSectionFlag = "Sequences";
-	private static ConfigFileSection sequencesSection = new ConfigFileSection(sequencesSectionFlag, true);
+	public static ConfigFileSection sequencesSection = new ConfigFileSection(sequencesSectionFlag, true);
 	private static String primerSizeOptionFlag = "primer_size";
 	private static ConfigFileOption primerSizeOption = new ConfigFileOption(primerSizeOptionFlag, 2, false, false, true);
 	private static String primer3corePathOptionFlag = "primer3_core_path";
@@ -157,7 +158,7 @@ public class OligoPool {
 	private static ProbeFilter getProbeFilterFromConfigFileValue(ConfigFileOptionValue value) {
 		
 		// Add additional filter classes to this array:
-		ProbeFilter[] filters = new ProbeFilter[] { new RepeatFilter(), new PolyBaseFilter() };
+		ProbeFilter[] filters = new ProbeFilter[] { new RepeatFilter(), new PolyBaseFilter(), new LowComplexityFilter() };
 		
 		for (ProbeFilter filter : filters) {
 			if(filter.validConfigFileValue(value)) {
@@ -219,7 +220,7 @@ public class OligoPool {
 		ConfigFileOptionValue poolSchemeVal = configFile.getSingleValue(arraySchemeSection, poolSchemeOption);
 		
 		// Add additional scheme classes to this array:
-		PoolScheme[] schemes = new PoolScheme[] { new SimplePoolScheme(), new StackedSimplePoolScheme(), new GenePoolScheme() };
+		PoolScheme[] schemes = new PoolScheme[] { new SimplePoolScheme(), new StackedSimplePoolScheme(), new GenePoolScheme(), new GroupedStackedPoolScheme(), new MultipleLayoutGenePoolScheme() };
 		
 		for (PoolScheme scheme : schemes) {
 			if (scheme.validConfigFileValue(poolSchemeVal)) {
@@ -288,16 +289,74 @@ public class OligoPool {
 		return rtrn;
 	}
 	
-	private void createOligos(String outFilePrefix) throws IOException {
+	
+	/**
+	 * @param outFilePrefix
+	 * @param changePrimersInputFile
+	 * @throws IOException
+	 * Main scripting function to create/read oligos and assign primers
+	 */
+	private void createOligos(String outFilePrefix, String changePrimersInputFile, boolean reassignPrimers) throws IOException {
+		
+		probeSetDesign = new TreeMap<String, List<FullDesignEntry>>();
+		
+		if (changePrimersInputFile != null) {	
+			// Read in oligos from file
+			logger.info("Reading oligos from file: " + changePrimersInputFile);
+			CloseableIterator<FullDesignEntry> itr = TabbedReader.read(new File(changePrimersInputFile), FullDesignEntry.class, new Factory(), 1);  // 1 = number of rows to skip at beginning of file
+			
+			while (itr.hasNext()) {
+				FullDesignEntry entry = itr.next();
+				if (probeSetDesign.containsKey(entry.probeSetName)) {
+					probeSetDesign.get(entry.probeSetName).add(entry);
+				} else {
+					List<FullDesignEntry> probeSet = new ArrayList<FullDesignEntry>();
+					probeSet.add(entry);
+					probeSetDesign.put(entry.probeSetName, probeSet);
+				}
+			}
+		} else {
+			// Create probes
+			Collection<ProbeSet> probeSets = createProbes(outFilePrefix);
+			probeSets = filterProbes(probeSets, outFilePrefix);
+			// Convert oligos to text probe sets for easy input/output after this point
+			for (ProbeSet probeSet : probeSets) {
+				if (!probeSet.getProbes().iterator().hasNext()) continue;
+				
+				List<FullDesignEntry> entries = new ArrayList<FullDesignEntry>();
+				for (Probe probe : probeSet.getProbes()) {
+					entries.add(new FullDesignEntry(probe, probeSet.getName(), probeSet.getProbes().size()));
+				}
+				probeSetDesign.put(probeSet.getName(), entries);
+			}		
+		}
+		
+		if (reassignPrimers || changePrimersInputFile == null) {
+			assignPrimers();
+		}
+	}
+	
+		
+	/**
+	 * @param outFilePrefix
+	 * @return
+	 * @throws IOException
+	 * Generate and filter probe sequences
+	 */
+	private Collection<ProbeSet> createProbes(String outFilePrefix) throws IOException {
 		logger.info("");
 		logger.info("Creating oligos...");
 		Collection<ProbeSet> probeSets = poolScheme.getProbes(transcripts);
-		primerCounts = new TreeMap<PrimerPair,Integer>();
 		int numProbes = 0;
 		for(ProbeSet probeSet : probeSets) {
 			numProbes += probeSet.getProbes().size();
 		}
 		logger.info("There are " + probeSets.size() + " probe sets with a total of " + numProbes + " probes.");
+		return probeSets;
+	}
+	
+	
+	private Collection<ProbeSet> filterProbes(Collection<ProbeSet> probeSets, String outFilePrefix) throws IOException {
 		// Filter probes
 		logger.info("Filtering probes...");
 		
@@ -311,10 +370,12 @@ public class OligoPool {
 		}
 		w.write("\n");
 		
-		
 		int removed = 0;
 		int remaining = 0;
 		for(ProbeSet probeSet : probeSets) {
+			if(!probeSet.getProbes().iterator().hasNext()) {
+				continue;
+			}
 			w.write(probeSet.getProbes().iterator().next().getID());
 			Iterator<Probe> iter = probeSet.iter();
 			
@@ -346,39 +407,48 @@ public class OligoPool {
 			w.write("\n");
 		}
 		w.close();
-		
-		
 		logger.info("Done filtering probes. Removed " + removed + " probes. " + remaining + " probes remain.");
+		
+		return probeSets;
+	}
+		
+	
+	/**
+	 * @throws IOException
+	 * Assign primers to existing probesets
+	 */
+	private void assignPrimers() throws IOException {
 		// Assign and filter primers
-		logger.info("Assigning primers to " + probeSets.size() + " probe sets...");
+		logger.info("Assigning primers to " + probeSetDesign.keySet().size() + " probe sets...");
 		int tried = 0;
 		int succeeded = 0;
-		for(ProbeSet probeSet : probeSets) {
+		for(List<FullDesignEntry> entries : probeSetDesign.values()) {
 			boolean foundPrimer = false;
 			while(!foundPrimer) {
 				boolean rejected = false;
 				PrimerPair primer = PrimerUtils.getOneSyntheticPrimerPair(primerSize, primer3corePath, optimalTm, primerReader, null);
 				tried++;
 				for(PrimerFilter filter : primerFilters) {
-					if(filter.rejectPrimer(primer, probeSet)) {
+					if(filter.rejectPrimer(primer, entries)) {
 						rejected = true;
 					}
 				}
 				if(!rejected) {
 					// Primer is OK
-					for(Probe probe : probeSet.getProbes()) {
-						Oligo oligo = new Oligo(probe, probeSet, primer);
-						oligos.add(oligo);
+					for(FullDesignEntry oligo : entries) {
+						oligo.leftPrimer = primer.getLeftPrimer();
+						oligo.rightPrimer = primer.getRightPrimer();
+						oligo.oligoSequence = primer.getLeftPrimer().toUpperCase() + oligo.probeSequence.toUpperCase() + Sequence.reverseSequence(primer.getRightPrimer()).toUpperCase();
 					}
 					succeeded++;
 					foundPrimer = true;
-					primerCounts.put(primer, probeSet.getProbes().size());
 				}
 			}
 		}
 		logger.info("Done assigning primers. Successfully assigned " + succeeded + " primer pairs after trying " + tried + ".");
 		logger.info("Done creating oligos.");
 	}
+	
 	
 	private void writeFiles(String outFilePrefix) throws IOException {
 		logger.info("");
@@ -395,10 +465,12 @@ public class OligoPool {
 	private void writeProbeFasta(String outFile) throws IOException {
 		logger.info("Writing fasta file of probe sequences to file " + outFile);
 		List<Sequence> probeSeqs = new ArrayList<Sequence>();
-		for(Oligo oligo : oligos) {
-			Sequence seq = new Sequence(oligo.getProbe().getID());
-			seq.setSequenceBases(oligo.getProbe().getProbeSequence());
-			probeSeqs.add(seq);
+		for (List<FullDesignEntry> probeSet : probeSetDesign.values()) {
+			for (FullDesignEntry entry : probeSet) {
+				Sequence seq = new Sequence(entry.probeId);
+				seq.setSequenceBases(entry.probeSequence);
+				probeSeqs.add(seq);
+			}
 		}
 		FastaSequenceIO fsio = new FastaSequenceIO(outFile);
 		fsio.write(probeSeqs, 200);
@@ -407,8 +479,10 @@ public class OligoPool {
 	private void writeProbeList(String outFile) throws IOException {
 		logger.info("Writing list of probe sequences to file " + outFile);
 		FileWriter w = new FileWriter(outFile);
-		for(Oligo oligo : oligos) {
-			w.write(oligo.getProbe().getProbeSequence() + "\n");
+		for (List<FullDesignEntry> probeSet : probeSetDesign.values()) {
+			for (FullDesignEntry entry : probeSet) {
+				w.write(entry.probeSequence + "\n");
+			}
 		}
 		w.close();
 	}
@@ -416,10 +490,12 @@ public class OligoPool {
 	private void writeOligoFasta(String outFile) throws IOException {
 		logger.info("Writing fasta file of full oligo sequences to file " + outFile);
 		List<Sequence> oligoSeqs = new ArrayList<Sequence>();
-		for(Oligo oligo : oligos) {
-			Sequence seq = new Sequence(oligo.getProbe().getID());
-			seq.setSequenceBases(oligo.getOligoBases());
-			oligoSeqs.add(seq);
+		for (List<FullDesignEntry> probeSet : probeSetDesign.values()) {
+			for (FullDesignEntry entry : probeSet) {
+				Sequence seq = new Sequence(entry.probeId);
+				seq.setSequenceBases(entry.oligoSequence);
+				oligoSeqs.add(seq);
+			}
 		}
 		FastaSequenceIO fsio = new FastaSequenceIO(outFile);
 		fsio.write(oligoSeqs, 200);
@@ -428,32 +504,32 @@ public class OligoPool {
 	private void writeOligoList(String outFile) throws IOException {
 		logger.info("Writing list of full oligo sequences to file " + outFile);
 		FileWriter w = new FileWriter(outFile);
-		for(Oligo oligo : oligos) {
-			if (oligo.getOligoBases().toUpperCase().indexOf("GNIL") != -1) {
-				w.close();
-				throw new IllegalArgumentException("found GNIL");
-			}
-			w.write(oligo.getOligoBases() + "\n");
+		
+		for (List<FullDesignEntry> probeSet : probeSetDesign.values()) {
+			for (FullDesignEntry entry : probeSet) {
+				if (entry.oligoSequence.toUpperCase().indexOf("GNIL") != -1) {
+					w.close();
+					throw new IllegalArgumentException("found GNIL");
+				}
+				w.write(entry.oligoSequence + "\n");
+			}	
 		}
 		w.close();
 	}
 	
 	private void writePrimers(String outFile) throws IOException {
 		logger.info("Writing primers to file " + outFile);
-		Map<PrimerPair, String> layoutsByPrimer = new TreeMap<PrimerPair, String>();
-		for(Oligo oligo : oligos) {
-			String layout = oligo.getProbeSet().getName();
-			layoutsByPrimer.put(oligo.getPrimer(), layout);
-		}
-		String header = "Probe_layout\t";
+
+		String header = "Probe_set\t";
 		header += "Left_primer\t";
 		header += "Right_primer\t";
 		FileWriter w = new FileWriter(outFile);
 		w.write(header + "\n");
-		for(PrimerPair p : layoutsByPrimer.keySet()) {
-			String line = layoutsByPrimer.get(p) + "\t";
-			line += p.getLeftPrimer() + "\t";
-			line += p.getRightPrimer() + "\t";
+		for(String probeSetName : probeSetDesign.keySet()) {
+			// assumes that all probes in the probe set correctly have the same primer assigned
+			String line = probeSetName + "\t";
+			line += probeSetDesign.get(probeSetName).get(0).leftPrimer + "\t";
+			line += probeSetDesign.get(probeSetName).get(0).rightPrimer + "\t";
 			w.write(line + "\n");
 		}
 		w.close();
@@ -462,37 +538,105 @@ public class OligoPool {
 	private void writeFullTable(String outFile) throws IOException {
 		logger.info("Writing full design table to file " + outFile);
 		FileWriter w = new FileWriter(outFile);
-		String header = "Probe_ID\t";
-		header += "Parent_sequence\t";
-		header += "Probeset_size\t";
-		header += "Start\t";
-		header += "End\t";
-		header += "Orientation\t";
-		header += "Probe_layout\t";
-		header += "Left_primer\t";
-		header += "Right_primer\t";
-		header += "Probe_sequence\t";
-		header += "Full_oligo\t";
-		w.write(header + "\n");
-		for(Oligo oligo : oligos) {
-			Probe probe = oligo.getProbe();
-			PrimerPair primer = oligo.getPrimer();
-			String line = probe.getID() + "\t";
-			line += probe.getParentTranscript().getId() + "\t";
-			line += primerCounts.get(primer) + "\t";
-			line += probe.getStartPosOnTranscript() + "\t";
-			int end = probe.getEndPosOnTranscript() - 1;
-			line += end + "\t";
-			line += probe.isAntisenseToTranscript() ? "antisense\t" : "sense\t";
-			line += probe.getProbeLayout().toString() + "\t";
-			line += primer.getLeftPrimer() + "\t";
-			line += primer.getRightPrimer() + "\t";
-			line += probe.getProbeSequence() + "\t";
-			line += oligo.getOligoBases() + "\t";
-			w.write(line + "\n");
+		
+		w.write(FullDesignEntry.header + "\n");
+		for (List<FullDesignEntry> list : probeSetDesign.values()) {
+			for (FullDesignEntry entry : list) {
+				w.write(entry.toString() + "\n");
+			}	
 		}
 		w.close();
 	}
+	
+	
+	/**
+	 * @author engreitz
+	 * This class contains all of the information written to the full design output file in String/integer format, allowing for
+	 * input/output of this design file without creating all of the objects contained by Oligo (e.g., PrimerPair, ProbeLayout, etc.)
+	 */
+	public class FullDesignEntry {
+		public String probeId, parentTranscriptId, probeSetName, senseOrAntisense, probeLayoutString, leftPrimer, rightPrimer, probeSequence, oligoSequence;
+		public int probeSetSize, start, end;
+		
+		// Note:  Do not change the header column names without also changing the R scripts that read them
+		public static final String header = 	"Probe_ID\t" +
+										"Parent_sequence\t" +
+										"Probe_set\t" +
+										"Probe_set_size\t" +
+										"Start\t" +
+										"End\t" +
+										"Orientation\t" +
+										"Probe_layout\t" +
+										"Left_primer\t" +
+										"Right_primer\t" +
+										"Probe_sequence\t" +
+										"Full_oligo";
+		
+		public FullDesignEntry(Probe probe, String probeSetName, int probeSetSize) {
+			probeId = probe.getID();
+			parentTranscriptId = probe.getParentTranscriptId();
+			this.probeSetName = probeSetName;
+			this.probeSetSize = probeSetSize;
+			start = probe.getStartPosOnTranscript();
+			end = probe.getEndPosOnTranscript() - 1;
+			senseOrAntisense = probe.isAntisenseToTranscript() ? "antisense" : "sense";
+			probeLayoutString = probe.getProbeLayoutString();
+			leftPrimer = "none";
+			rightPrimer = "none";
+			probeSequence = probe.getProbeSequence();
+			oligoSequence = "none";
+		}
+		
+		public FullDesignEntry(String probeId, String parentTranscriptId, String probeSetName, int probeSetSize, int start, int end, String senseOrAntisense, String probeLayoutString, String leftPrimer, String rightPrimer, String probeSequence, String oligoSequence) {
+			this.probeId = probeId;
+			this.parentTranscriptId = parentTranscriptId;
+			this.probeSetName = probeSetName;
+			this.probeSetSize = probeSetSize;
+			this.start = start;
+			this.end = end;
+			this.senseOrAntisense = senseOrAntisense;
+			this.probeLayoutString = probeLayoutString;
+			this.leftPrimer = leftPrimer;
+			this.rightPrimer = rightPrimer;
+			this.probeSequence = probeSequence;
+			this.oligoSequence = oligoSequence;
+		}
+		
+		public String toTabbedString() {
+			return probeId + "\t" + 
+					parentTranscriptId + "\t" + 
+					probeSetName + "\t" + 
+					probeSetSize + "\t" + 
+					start + "\t" + 
+					end + "\t" + 
+					senseOrAntisense + "\t" + 
+					probeLayoutString + "\t" + 
+					leftPrimer + "\t" + 
+					rightPrimer + "\t" +
+					probeSequence + "\t" + 
+					oligoSequence;
+		}
+		public String toString() { return toTabbedString(); }
+	}
+	
+	public class Factory implements TabbedReader.Factory<FullDesignEntry> {
+		public FullDesignEntry create(String[] rawFields) throws ParseException {
+			if (rawFields.length != 12) throw new ParseException("Incorrect number of fields when reading full design file");
+			return new FullDesignEntry(rawFields[0], 
+						rawFields[1], 
+						rawFields[2], 
+						Integer.parseInt(rawFields[3]),
+						Integer.parseInt(rawFields[4]),
+						Integer.parseInt(rawFields[5]),
+						rawFields[6],
+						rawFields[7],
+						rawFields[8],
+						rawFields[9],
+						rawFields[10],
+						rawFields[11]);
+		}
+	}
+	
 	
 	/**
 	 * @param args
@@ -504,19 +648,24 @@ public class OligoPool {
 		p.addStringArg("-c", "Config file", true);
 		p.addStringArg("-o", "Output file prefix", true);
 		p.addStringArg("-l", "Logger level", false);
+		p.addStringArg("-i", "Path to existing design; if using this argument, this designer will use these oligos rather than generating new ones from the FASTA file", false);
+		p.addBooleanArg("-p", "Flag to re-assign primers to probesets; must specify -i input", false, false);
+		
 		p.parse(args);
 		String configFile = p.getStringArg("-c");
 		String outFilePrefix = p.getStringArg("-o");
 		String levelString = p.getStringArg("-l");
+		String changePrimersInputFile = p.getStringArg("-i");
+		boolean reassignPrimers = p.getBooleanArg("-p");
 		
 		Level level = Level.toLevel(levelString, Level.INFO);
 		logger.setLevel(level);
-		
+
 		// Instantiate OligoPool from config file
 		OligoPool oligoPool = new OligoPool(configFile);
 		
 		// Create oligos
-		oligoPool.createOligos(outFilePrefix);
+		oligoPool.createOligos(outFilePrefix, changePrimersInputFile, reassignPrimers);
 		
 		// Write files
 		oligoPool.writeFiles(outFilePrefix);

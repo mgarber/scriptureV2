@@ -58,18 +58,22 @@ public class GuideSufficientIsolation implements GuideRNAPredicate {
 		Map<String, Collection<Gene>> toRemove = new TreeMap<String, Collection<Gene>>();
 		for(Gene ignore : ignoreOverlappersOfTheseGenes) {
 			String chr = ignore.getChr();
-			for(Gene gene : genes.get(chr)) {
-				if(gene.overlaps(ignore, true)) {
-					if(!toRemove.containsKey(chr)) {
-						toRemove.put(chr, new TreeSet<Gene>());
+			synchronized(genes) {
+				for(Gene gene : genes.get(chr)) {
+					if(gene.overlaps(ignore, true)) {
+						if(!toRemove.containsKey(chr)) {
+							toRemove.put(chr, new TreeSet<Gene>());
+						}
+						toRemove.get(chr).add(gene);
 					}
-					toRemove.get(chr).add(gene);
 				}
 			}
 		}
 		for(String chr : toRemove.keySet()) {
 			for(Gene gene : toRemove.get(chr)) {
-				genes.get(chr).remove(gene);
+				synchronized(genes) {
+					genes.get(chr).remove(gene);
+				}
 			}
 		}
 		minDistance = minDistNearestGene;
@@ -84,11 +88,15 @@ public class GuideSufficientIsolation implements GuideRNAPredicate {
 	@Override
 	public boolean evaluate(GuideRNA guideRNA) {
 		String chr = guideRNA.getChr();
-		Collection<Gene> genesThisChr = genes.get(chr);
+		Collection<Gene> genesThisChr = new TreeSet<Gene>();
+		synchronized(genes) {
+			genesThisChr.addAll(genes.get(chr));
+		}
 		int start = guideRNA.getStart() - minDistance;
 		int end = guideRNA.getEnd() + minDistance;
 		Strand strand = guideRNA.getTargetGene().getOrientation();
 		Collection<Gene> overlappers = Gene.getOverlappers(genesThisChr, chr, start, end, strand, !sameStrand);
+		
 		if(!overlappers.isEmpty()) {
 			for(Gene overlapper : overlappers) {
 				logger.debug("NOT_SUFFICIENTLY_ISOLATED\t" + guideRNA.getName() + " is within " + minDistance + " of gene " + overlapper.getName());

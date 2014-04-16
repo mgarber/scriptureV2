@@ -125,7 +125,7 @@ public class WigUtils {
 		                if(drmaaSession == null) {
 		                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 		                }
-		                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_fragment_ends");
+		                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_fragment_ends", null);
 		                ogsJob.submit();
 		                logger.info("OGS job ID is " + ogsJob.getID() + ".");
 		                wigJobs.add(ogsJob);
@@ -163,7 +163,7 @@ public class WigUtils {
 	                if(drmaaSession == null) {
 	                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 	                }
-	                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_fragment_midpoints");
+	                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_fragment_midpoints", null);
 	                ogsJob.submit();
 	                logger.info("OGS job ID is " + ogsJob.getID() + ".");
 	                wigJobs.add(ogsJob);
@@ -200,7 +200,7 @@ public class WigUtils {
 		                if(drmaaSession == null) {
 		                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 		                }
-		                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_fragment_ends");
+		                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_fragment_ends", null);
 		                ogsJob.submit();
 		                logger.info("OGS job ID is " + ogsJob.getID() + ".");
 		                wigJobs.add(ogsJob);
@@ -244,7 +244,7 @@ public class WigUtils {
 	                if(drmaaSession == null) {
 	                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 	                }
-	                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "bigwig_fragment_ends");
+	                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "bigwig_fragment_ends", null);
 	                ogsJob.submit();
 	                logger.info("OGS job ID is " + ogsJob.getID() + ".");
 	                bigwigJobs.add(ogsJob);
@@ -277,7 +277,7 @@ public class WigUtils {
 	                if(drmaaSession == null) {
 	                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 	                }
-	                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "bigwig_fragment_ends");
+	                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "bigwig_fragment_ends", null);
 	                ogsJob.submit();
 	                logger.info("OGS job ID is " + ogsJob.getID() + ".");
 	                bigwigJobs.add(ogsJob);
@@ -310,7 +310,7 @@ public class WigUtils {
 	                if(drmaaSession == null) {
 	                        throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 	                }
-	                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "bigwig_fragment_ends");
+	                OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "bigwig_fragment_ends", null);
 	                ogsJob.submit();
 	                logger.info("OGS job ID is " + ogsJob.getID() + ".");
 	                bigwigJobs.add(ogsJob);
@@ -434,7 +434,7 @@ public class WigUtils {
 	                    if(drmaaSession == null) {
 	                            throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 	                    }
-	                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_position_count");
+	                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_position_count", null);
 	                    ogsJob.submit();
 	                    logger.info("OGS job ID is " + ogsJob.getID() + ".");
 	                    wigJobs.add(ogsJob);
@@ -475,7 +475,7 @@ public class WigUtils {
 	                    if(drmaaSession == null) {
 	                            throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 	                    }
-	                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_position_count");
+	                    OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_position_count", null);
 	                    ogsJob.submit();
 	                    logger.info("OGS job ID is " + ogsJob.getID() + ".");
 	                    wigJobs.add(ogsJob);
@@ -556,7 +556,7 @@ public class WigUtils {
 	            if(drmaaSession == null) {
 	                    throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 	            }
-	            OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_position_count");
+	            OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_position_count", null);
 	            ogsJob.submit();
 	            logger.info("OGS job ID is " + ogsJob.getID() + ".");
 	            bigwigJobs.add(ogsJob);
@@ -590,7 +590,7 @@ public class WigUtils {
 	            if(drmaaSession == null) {
 	                    throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
 	            }
-	            OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_position_count");
+	            OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "wig_position_count", null);
 	            ogsJob.submit();
 	            logger.info("OGS job ID is " + ogsJob.getID() + ".");
 	            bigwigJobs.add(ogsJob);
