@@ -232,7 +232,7 @@ public class GeneSetIntersect {
 	 */
 	private static int totalBases(Map<String, Collection<Gene>> genes) {
 		int rtrn = 0;
-		Map<String, Collection<Gene>> collapsed = AnnotationUtils.collapseOverlappers(genes);
+		Map<String, Collection<Gene>> collapsed = AnnotationUtils.collapseOverlappersIgnoreStrand(genes);
 		for(String chr : collapsed.keySet()) {
 			for(Gene gene : collapsed.get(chr)) {
 				rtrn += gene.getSize();

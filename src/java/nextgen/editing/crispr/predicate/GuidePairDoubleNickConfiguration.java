@@ -1,6 +1,6 @@
 package nextgen.editing.crispr.predicate;
 
-import nextgen.editing.crispr.GuideRNAPair;
+import nextgen.editing.crispr.NickingGuideRNAPair;
 
 import org.apache.log4j.Logger;
 
@@ -11,11 +11,17 @@ import org.apache.log4j.Logger;
 public class GuidePairDoubleNickConfiguration implements GuideRNAPairPredicate {
 	
 	public static Logger logger = Logger.getLogger(GuidePairDoubleNickConfiguration.class.getName());
-
-	public GuidePairDoubleNickConfiguration() {}
+	private int maxInnerDistance;
+	
+	/**
+	 * @param maxInnerDist Max inner distance between the two guide RNAs
+	 */
+	public GuidePairDoubleNickConfiguration(int maxInnerDist) {
+		maxInnerDistance = maxInnerDist;
+	}
 	
 	@Override
-	public boolean evaluate(GuideRNAPair guideRnaPair) {
+	public boolean evaluate(NickingGuideRNAPair guideRnaPair) {
 		// The two guide RNAs cannot overlap
 		if(!guideRnaPair.nonoverlapping()) {
 			//logger.debug("INVALID_PAIR\tGuide RNAs overlap:\t" + guideRnaPair.toString());
@@ -32,8 +38,8 @@ public class GuidePairDoubleNickConfiguration implements GuideRNAPairPredicate {
 			//logger.debug("INVALID_PAIR\tInner distance < 0:\t" + guideRnaPair.toString());
 			return false;
 		}
-		if(innerDist > 40) {
-			//logger.debug("INVALID_PAIR\tInner distance > 40:\t" + guideRnaPair.toString());
+		if(innerDist > maxInnerDistance) {
+			//logger.debug("INVALID_PAIR\tInner distance > " + maxInnerDistance + ":\t" + guideRnaPair.toString());
 			return false;
 		}
 		// If all the criteria are met return true
@@ -47,7 +53,7 @@ public class GuidePairDoubleNickConfiguration implements GuideRNAPairPredicate {
 	}
 
 	@Override
-	public String getShortFailureMessage(GuideRNAPair g) {
+	public String getShortFailureMessage(NickingGuideRNAPair g) {
 		return("not_valid_double_nick_configuration");
 	}
 

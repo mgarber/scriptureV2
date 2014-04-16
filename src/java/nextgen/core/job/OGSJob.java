@@ -8,7 +8,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 
-import nextgen.core.pipeline.OGSUtils;
+import nextgen.core.pipeline.util.OGSUtils;
 
 import org.apache.log4j.Logger;
 import org.ggf.drmaa.DrmaaException;
@@ -148,6 +148,7 @@ public class OGSJob implements Job {
 		jobTemplate.setJobName(uniqueName);
 		jobTemplate.setErrorPath(":" + uniqueName + ".err");
 		jobTemplate.setOutputPath(":" + uniqueName + ".out");
+		jobTemplate.setNativeSpecification("-w n");
 		if(email != null) {
 			jobTemplate.setBlockEmail(false);
 			Set<String> emails = new TreeSet<String>();

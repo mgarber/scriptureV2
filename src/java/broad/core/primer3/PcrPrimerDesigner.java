@@ -836,6 +836,18 @@ public class PcrPrimerDesigner  {
 	}
 	
 	/**
+	 * Design primers that amplify the entire sequence using primer3 and get the one with the lowest penalty
+	 * @param seq Sequence
+	 * @param pathPrimer3core primer3core executable
+	 * @return Primer with lowest penalty whose product is the entire sequence, or null if there are no valid primers
+	 * @throws IOException
+	 */
+	public static PrimerPair designBestPrimersFullSequence(Sequence seq, String pathPrimer3core) throws IOException {
+		Primer3Configuration config = Primer3ConfigurationFactory.getSpecificLengthPCRConfiguration(seq.getLength());
+		return designBestPrimer(config, seq, pathPrimer3core);
+	}
+	
+	/**
 	 * Design primers using primer3
 	 * @param config Primer3 configuration
 	 * @param seq Sequence

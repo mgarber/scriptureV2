@@ -445,8 +445,8 @@ public class BasicAnnotation extends AbstractAnnotation implements java.io.Seria
 		this.referenceName = refName != null ? refName.intern() : null;
 	}
 	
-	public void setName(String name) {
-		this.name =  name;
+	public void setName(String n) {
+		this.name =  n;
 	}
 	
 	public void setScore(double s) {

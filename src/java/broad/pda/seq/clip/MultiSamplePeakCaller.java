@@ -46,8 +46,8 @@ import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.MultiScore;
 import nextgen.core.model.score.WindowProcessor;
 import nextgen.core.model.score.WindowScoreIterator;
-import nextgen.core.pipeline.OGSUtils;
 import nextgen.core.pipeline.Scheduler;
+import nextgen.core.pipeline.util.OGSUtils;
 import nextgen.core.utils.AlignmentUtils;
 import nextgen.core.utils.AnnotationUtils;
 import nextgen.core.feature.GeneWindow;
@@ -1331,7 +1331,7 @@ public class MultiSamplePeakCaller implements PeakCaller {
 	// Methods to parse command line arguments and sample file and set parameters for output
 
 	private static CommandLineParser getCommandLineParser(String[] commandArgs) {
-		CommandLineParser p = new CommandLineParser(true);
+		CommandLineParser p = new CommandLineParser();
 		p.addStringArg("-l", "Sample list file", true);
 		p.addStringArg("-b", "Bed file of genes", true);
 		p.addIntArg("-w", "Window size", false, DEFAULT_WINDOW_SIZE);

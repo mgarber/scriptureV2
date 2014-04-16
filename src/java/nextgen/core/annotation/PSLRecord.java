@@ -1,5 +1,8 @@
 package nextgen.core.annotation;
 
+
+import org.apache.log4j.Logger;
+
 import nextgen.core.general.TabbedReader;
 import broad.core.error.ParseException;
 
@@ -10,12 +13,13 @@ import broad.core.error.ParseException;
  * Class that I started writing but didn't finish to represent a PSL annotation file (output by BLAT)
  * NOTE:  Checking in because it might be helpful down the line, but it is not currently used anywhere
  */
-public class PSL extends BasicAnnotation {
+public class PSLRecord extends BasicAnnotation {
 
 	protected int match, mismatch, repMatch, Ncount, queryGap, queryGapBases, targetGap, targetGapBases, querySize, queryStart, queryEnd, targetSize;
 	protected int[] queryStarts;
+	private static Logger logger = Logger.getLogger(PSLRecord.class.getName());
 	
-	public PSL(BasicAnnotation annotation) {
+	public PSLRecord(BasicAnnotation annotation) {
 		super(annotation);
 	}
 	
@@ -32,12 +36,20 @@ public class PSL extends BasicAnnotation {
 	public void setQueryEnd(int x) { queryEnd = x; }
 	public void setTargetSize(int x) { targetSize = x; }
 	
-	public int getMatch() { return match; }
-
 	
-	public static class Factory implements TabbedReader.Factory<PSL> {
+	public int getMatch() { return match; }
+	
+	/**
+	 * Get percent identity of match
+	 * @return Number of matched bases divided by total length of aligned segments
+	 */
+	public float getPercentIdentity() {
+		return (float) match / (float) getSize();
+	}
+	
+	public static class Factory implements TabbedReader.Factory<PSLRecord> {
 		@Override
-		public PSL create(String[] rawFields) throws ParseException {
+		public PSLRecord create(String[] rawFields) throws ParseException {
 			if (rawFields.length < 21) {
 				throw new IllegalArgumentException("Cannot create BasicAnnotation from less than 21 fields");
 			}
@@ -53,24 +65,27 @@ public class PSL extends BasicAnnotation {
 						") items does not agree with the blockCount " + nBlocks);
 			}
 			
-			PSL p = null;
-			int[] qstarts = new int[nBlocks];
+			PSLRecord p = null;
 			String chr = rawFields[13];
-			int start = Integer.parseInt(rawFields[15]);
 
 			for (int i = 0; i < nBlocks; i++) {
 				int blockSize = Integer.parseInt(sizes[i]);
-				int queryStart = Integer.parseInt(queryStarts[i]);
-				qstarts[i] = queryStart;
 				int targetStart = Integer.parseInt(targetStarts[i]);
 				
 				if (i == 0) {
-					p = new PSL(new BasicAnnotation(chr, start, start + blockSize));
+					p = new PSLRecord(new BasicAnnotation(chr, targetStart, targetStart + blockSize));
 				} else {
-					p.addBlocks(new BasicAnnotation(chr, start + targetStart, start + targetStart + blockSize));
+					p.addBlocks(new BasicAnnotation(chr, targetStart, targetStart + blockSize));
 				}
 			}
-			if (p.getEnd() != Integer.parseInt(rawFields[16])) throw new IllegalArgumentException("End specified by blocks does not match BED end");
+			if (p.getEnd() != Integer.parseInt(rawFields[16])) {
+				String print = "";
+				for(int i = 0; i < rawFields.length; i++) {
+					print += rawFields[i] + "\t";
+				}
+				logger.info(print);
+				throw new IllegalArgumentException("End specified by blocks does not match BED end (" + p.getEnd() + "," + rawFields[16] + ")");
+			}
 
 			p.setMatch(Integer.parseInt(rawFields[0]));
 			p.setMismatch(Integer.parseInt(rawFields[1]));
@@ -90,4 +105,7 @@ public class PSL extends BasicAnnotation {
 			return p;
 		}
 	}
+	
+
+	
 }

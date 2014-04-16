@@ -1,0 +1,60 @@
+#############################
+## Jesse Engreitz
+## April 14, 2014
+## Before running: Check that you have the optparse R package installed
+##                 Define variables at the top
+##                 Change name of FASTA file in config file to a full path, not a relative path
+############################
+
+## Working directory
+PROJECT=/seq/lincRNA/RAP/Probes/140401_RAP_Array/
+
+## Location of R scripts
+RSCRIPTS=/seq/lincRNA/RAP/Probes/130929_Array_Design/
+
+BLAT_PATH=blat
+SCRIPTUREV2=/seq/lincRNA/Jesse/bin/scripts/Nextgen.jar
+CONFIG_FILE=$PROJECT/config.test
+OUTPUT_DIR=$PROJECT/OligoPoolTest
+
+## Directory containing files chr*.fa
+MM9_FASTA_DIR=/seq/lincRNA/data/mm9/
+  
+#############################
+## Design probesets
+java -cp $SCRIPTUREV2 nextgen.core.capture.OligoPool -c $CONFIG_FILE -o $OUTPUT_DIR/targets_mm9
+  
+#############################
+## Filter with BLAT
+cd $OUTPUT_DIR
+mkdir blat
+for file in $MM9_FASTA_DIR/chr*.fa; do bsub -P RAP -q gsa -o blat/bsub.mm9 -M 6 -q week $BLAT_PATH -minMatch=1 -minScore=25 $file targets_mm9_oligos.fa blat/targets_mm9_oligos.$(basename $file .fa).psl; done &
+
+## Blat separately for other organisms
+#for file in /seq/genome/human/human_hg19/*/*.fa; do bsub -P RAP -o blat/bsub.hg19 -M 6 -q week $BLAT_PATH -minMatch=1 -minScore=25 $file targets_hg19_oligos.fa blat/targets_hg19_oligos.$(basename $file .fa).psl; done &
+#for file in /seq/genome/monodelphis/monDomV5/*/*.fa; do bsub -P RAP -o blat/bsub.monDom -M 6 -q week blat -minMatch=1 -minScore=25 $file targets_monDom5_oligos.fa blat/targets_monDom5_oligos.$(basename $file .fa).psl; done &
+
+## Combine BLAT results and generate a list of oligos to remove
+cd $OUTPUT_DIR/blat
+for genome in mm9; do
+  rm targets_${genome}_oligos.psl
+  for file in targets_${genome}_oligos.chr*.psl; do tail -n +6 $file >> targets_${genome}_oligos.psl; done
+  Rscript $RSCRIPTS/BlatFilter.R \
+    --input targets_${genome}_oligos.psl \
+    --output targets_${genome}_oligos.blat_filtered.psl \
+    --stats targets_${genome}_oligos.blat_stats.txt \
+    --remove targets_${genome}_oligos.removed.txt
+done
+   
+## Filter out the list of oligos to remove from the full design
+## Can specify transcripts where you want to ignore the BLAT filter
+Rscript $RSCRIPTS/ApplyBlatFilter.R --input $OUTPUT_DIR/targets_mm9_full_design.out --remove $OUTPUT_DIR/blat/targets_mm9_oligos.removed.txt --output $OUTPUT_DIR/targets_mm9_full_design.blat_filtered.out --stats targets_mm9_full_design\
+.stats.txt --ignore 'Comma,separated,Parent_sequence,names,to,ignore,BLAT,filter'
+
+## Take list of filtered oligos and create even/odd probesets
+Rscript $RSCRIPTS/CreateEvenOddProbesets.R -i $OUTPUT_DIR/targets_mm9_full_design.blat_filtered.out -o $OUTPUT_DIR/targets_mm9_full_design.even_odd.out.tmp
+
+## Reassign primers to the probesets
+java -cp $SCRIPTUREV2 nextgen.core.capture.OligoPool -c $CONFIG_FILE -i $OUTPUT_DIR/targets_mm9_full_design.even_odd.out.tmp -p true -o $OUTPUT_DIR/targets_mm9_full_design.even_odd
+
+## ALL DONE!

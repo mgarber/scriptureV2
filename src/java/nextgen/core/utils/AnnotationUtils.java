@@ -2,7 +2,6 @@ package nextgen.core.utils;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
@@ -26,7 +25,7 @@ public class AnnotationUtils {
 
 	public static Logger logger = Logger.getLogger(AnnotationUtils.class.getName());
 	
-	public static Map<String, Collection<Gene>> collapseOverlappers(Map<String, Collection<Gene>> genes) {		
+	public static Map<String, Collection<Gene>> collapseOverlappersIgnoreStrand(Map<String, Collection<Gene>> genes) {		
 		Map<String, Collection<Gene>> rtrn = new TreeMap<String, Collection<Gene>>();
 		for(String chr : genes.keySet()) {
 			Collection<Gene> genesThisChr = genes.get(chr);
@@ -57,6 +56,29 @@ public class AnnotationUtils {
 		return rtrn;
 	}
 
+	/**
+	 * Check if the entire set is pairwise non-overlapping, ignoring strand
+	 * @param regions Set of regions
+	 * @return True if no blocks overlap
+	 */
+	public static boolean pairwiseNonoverlappingIgnoreStrand(Collection<Annotation> regions) {
+		Map<String, Collection<Gene>> byChr = new TreeMap<String, Collection<Gene>>();
+		for(Annotation region : regions) {
+			Gene gene = new Gene(region);
+			String chr = gene.getChr();
+			if(!byChr.containsKey(chr)) {
+				byChr.put(chr, new TreeSet<Gene>());
+			}
+			byChr.get(chr).add(gene);
+		}
+		Map<String, Collection<Gene>> collapsed = collapseOverlappersIgnoreStrand(byChr);
+		for(String chr : collapsed.keySet()) {
+			if(byChr.get(chr).size() != collapsed.get(chr).size()) {
+				return false;
+			}
+		}
+		return true;
+	}
 	
 	/**
 	 * Merge annotations that overlap in the same orientation as each other, and leave singleton windows the same
@@ -123,6 +145,7 @@ public class AnnotationUtils {
 		growingExonSet.addAll(firstWindow.getBlocks());
 		
 		Collection<String> names = new TreeSet<String>();
+		names.add(firstWindow.getName());
 		
 		while(iter.hasNext()) {
 			

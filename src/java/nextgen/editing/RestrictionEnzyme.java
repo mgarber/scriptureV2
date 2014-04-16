@@ -30,5 +30,12 @@ public interface RestrictionEnzyme {
 	 */
 	public boolean hasTopStrandRecognitionSequence(String seq);
 	
+	/**
+	 * Whether the sequence contains a recognition sequence of this enzyme
+	 * @param seq The sequence
+	 * @return True iff the sequence contains a recognition sequence of this enzyme
+	 */
+	public boolean sequenceContainsTopStrandRecognitionSequence(String seq);
+	
 	
 }

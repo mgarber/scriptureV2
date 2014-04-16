@@ -290,6 +290,7 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 		private DatabaseStore entityStore;
 		
 		/**
+		 * Data accessor object. MUST BE CLOSED WHEN DONE.
 		 * @param environmentHome Database environment home directory
 		 * @param storeName Name of database store
 		 * @param readOnly Whether environment should be read only
@@ -319,12 +320,12 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 			secondaryIndexBarcodeString = entityStore.getStore().getSecondaryIndex(primaryIndex, String.class, "barcodeString");
 
 			// Attach shutdown hook to close
-			Runtime.getRuntime().addShutdownHook(new Thread() {
+			/*Runtime.getRuntime().addShutdownHook(new Thread() {
 				@Override
 				public void run() {
 					close();
 				}
-			});
+			});*/
 			
 		}
 		

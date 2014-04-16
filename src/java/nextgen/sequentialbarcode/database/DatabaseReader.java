@@ -67,6 +67,7 @@ public class DatabaseReader {
 				}
 				logger.info(gene.getName() + "\t" + gene.toUCSC() + "\t" + count);
 			}
+			dataAccessor.close();
 		}
 		
 	}
@@ -205,6 +206,7 @@ public class DatabaseReader {
 			iter.close();
 		}
 		
+		dataAccessor.close();
 		
 		logger.info("");
 		logger.info("All done.");

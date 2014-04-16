@@ -20,9 +20,12 @@ import broad.pda.seq.rap.CRISPRDesigner;
  * This class dumps all guide sequences in a given FASTA file to a file.  Build
  * to be completely lightweight, since I'm using this to dump all guides in the
  * entire genome.
+ * 
+ * At the moment, this differs from crispr.mit.edu in that it dumps only NGGs
+ * and not also NAGs.
  */
 public class DumpAllGuideSequences extends CommandLineProgram {
-    private static final Log log = Log.getInstance(CRISPRDesigner.class);
+    private static final Log log = Log.getInstance(DumpAllGuideSequences.class);
 
 	@Option(doc="Genome fasta file")
 	public File GENOME_FASTA = new File("/seq/lincRNA/data/mm9.nonrandom.fa");
@@ -85,7 +88,7 @@ public class DumpAllGuideSequences extends CommandLineProgram {
 		for (int i = 0; i < seq.getLength() - 23; i++) {
 			m.region(i,i+23);
 			if (m.find()) {
-				bw.write(seq.getId() + "\t" + i + "\t" + (i+23) + "\t" + m.group() + "\t0\t-");
+				bw.write(seq.getId() + "\t" + i + "\t" + (i+23) + "\t" + SequenceRegion.reverseSequence(m.group()) + "\t0\t-");
 				bw.newLine();
 			}
 		}

@@ -20,7 +20,6 @@ public final class CommandLineParser {
 	
 	private boolean isParsed;
 	private ArrayList<String> programDescription;
-	private boolean allowDuplicateFlags;
 
 	private Map<String,String> stringArgDescriptions;
 	private Map<String,String> stringListArgDescriptions;
@@ -44,7 +43,7 @@ public final class CommandLineParser {
 	/**
 	 * 
 	 */
-	public CommandLineParser(boolean allowDuplicates) {
+	public CommandLineParser() {
 		isParsed = false;
 		
 		stringArgDescriptions = new HashMap<String,String>();
@@ -66,15 +65,8 @@ public final class CommandLineParser {
 		commandLineValues = new HashMap<String,String>();
 		duplicateCommandLineValues = new HashMap<String,ArrayList<String>>();
 		
-		allowDuplicateFlags = allowDuplicates;
 	}
 	
-	/**
-	 * 
-	 */
-	public CommandLineParser() {
-		this(false);
-	}
 
 	/**
 	 * Sets program description to be printed as part of help menu
@@ -344,7 +336,7 @@ public final class CommandLineParser {
 		
 		// Make sure all required arguments have been provided
 		for(String req : requiredArgs) {
-			if(!commandLineValues.containsKey(req)) {
+			if(!commandLineValues.containsKey(req) && (!allowDuplicateTags || (allowDuplicateTags && !duplicateCommandLineValues.containsKey(req)))) {
 				printHelpMessage();
 				throw new IllegalArgumentException("Invalid command line: argument " + req + " is required");
 			}
