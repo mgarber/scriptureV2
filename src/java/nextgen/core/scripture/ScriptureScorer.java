@@ -20,6 +20,7 @@ import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.MappingQualityFilter;
+import nextgen.core.readFilters.PCRDuplicateFilter;
 
 import org.apache.commons.collections15.Predicate;
 import org.apache.log4j.Logger;
@@ -36,6 +37,7 @@ import broad.pda.annotation.BEDFileParser;
  *
  */
 public class ScriptureScorer {
+	
 	
 	static Logger logger = Logger.getLogger(ScriptureScorer.class.getName());
 	static int DEFAULT_MIN_MAPPING_QUALITY = -1;
@@ -152,7 +154,10 @@ public class ScriptureScorer {
 			logger.info("Paired flag is "+pairedFlag);
 			//CoordinateSpace space = new TranscriptomeSpace(annotations);
 			AlignmentModel model = new AlignmentModel(alignmentFiles.get(i), null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
-			
+			if(removePCRDuplicatesFlag){
+				logger.info("Duplicates will be removed");
+				model.addFilter(new PCRDuplicateFilter());
+			}	
 			//Add read filters
 			model.addFilter(new MappingQualityFilter(minimumMappingQuality,minimumMappingQuality));
 			//Will not allow more than 500kB fragments
@@ -242,9 +247,7 @@ public class ScriptureScorer {
 		 * FALSE by default
 		 * Convert string to boolean
 		 */
-		//TODO: Add this read filter
-		removePCRDuplicatesFlag = argMap.isPresent("removePCRDuplicatesFlag")? (Boolean.parseBoolean(argMap.get("removePCRDuplicatesFlag"))): false;
-
+		removePCRDuplicatesFlag = argMap.isPresent("removePCRDuplicatesFlag");
 		/*
 		 * FLAG to return a normalized matrix 
 		 * FALSE by default

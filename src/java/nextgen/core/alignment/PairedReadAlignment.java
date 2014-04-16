@@ -33,6 +33,8 @@ public class PairedReadAlignment extends AbstractPairedEndAlignment {
     	this.firstMate = read1;
         this.secondMate = read2;
         setFragmentStrand(strand);
+        firstMate.setOrientation(this.getFragmentStrand());
+        secondMate.setOrientation(this.getFragmentStrand());
         refreshAttributeMap();
     }
     

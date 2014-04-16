@@ -884,6 +884,16 @@ public class Gene extends BasicAnnotation {
 		return introns.get3PrimeExon();
 	}
 	
+	/**
+	 * Returns the first intron of this gene
+	 * @return
+	 */
+	public Annotation getFirstIntron() {
+		Gene introns = getIntrons();
+		if(introns == null) return introns;
+		return introns.get5PrimeExon();
+	}
+	
 	public Alignments[] getIntronsBlocks(){
 		
 		Object[] sortedUniqueExons=this.getSortedAndUniqueExons().toArray();

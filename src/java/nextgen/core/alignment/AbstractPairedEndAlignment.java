@@ -399,6 +399,12 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 		return firstMate.union(secondMate);
 	}
 
+	public Collection<Alignment> getReadMates(){
+		Collection<Alignment> mates=new TreeSet<Alignment>();
+		mates.add(getFirstMate());
+		mates.add(getSecondMate());
+		return mates;
+	}
 	@Override
 	public String toString(){
 		/*
