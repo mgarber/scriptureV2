@@ -64,7 +64,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	private double globalCount = -99;
 	private double globalCountReferenceSeqs = -99;
 	private double globalLambda = -99;
-	private double globalPairedFragments = -99;
+//	private double globalPairedFragments = -99;
 	//private double globalRpkmConstant = -99;
 	private Cache cache;
 	int cacheSize=500000;
@@ -210,7 +210,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			return false;
 		}
 		
-		if (!statsNames.contains("globalLength") || !statsNames.contains("globalCount") || !statsNames.contains("globalLambda") || !statsNames.contains("globalPairedFragments")) {
+		if (!statsNames.contains("globalLength") || !statsNames.contains("globalCount") || !statsNames.contains("globalLambda")) {
 			logger.warn("Stats not validated due to missing global stats");
 			return false;
 		}
@@ -258,20 +258,21 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 				stats = getReferenceSequenceCounts();
 				
 				this.globalLength = (double) coordinateSpace.getLength();
-				this.globalCount = computeGlobalNumReads();
+				
+				globalCount = 0.0;
+				//Since stats already calculated reference sequence counts
+				for(String ref:coordinateSpace.getChromosomeNames())
+					globalCount += stats.get(ref);
 				this.globalLambda = this.globalCount / this.globalLength;
-				this.globalPairedFragments = computeGlobalPairedFragments();
 				stats.put("globalLength", this.globalLength);
 				stats.put("globalCount", this.globalCount);
 				stats.put("globalLambda", this.globalLambda);
-				stats.put("globalPairedFragments", this.globalPairedFragments);
 				logger.info("Done computing global stats.");
 			}
 
 			this.globalLength = stats.get("globalLength");
 			this.globalCount = stats.get("globalCount");
 			this.globalLambda = stats.get("globalLambda");
-			this.globalPairedFragments = stats.get("globalPairedFragments");
 			
 			double refSeqTotal = 0;
 			for(String s : stats.keySet()) {
@@ -294,7 +295,6 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			stats.remove("globalLength");
 			stats.remove("globalCount");
 			stats.remove("globalLambda");
-			stats.remove("globalPairedFragments");
 			refSequenceCounts = stats;
 		} catch (IOException e) {
 			throw new RuntimeIOException(e.getMessage());
@@ -321,7 +321,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	 * @author skadri
 	 * @return
 	 */
-	private double computeGlobalPairedFragments(){
+/*	private double computeGlobalPairedFragments(){
 		
 		logger.info("Calculating global paired end fragments");
 		double globalFragments = 0;
@@ -336,7 +336,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		}
 				
 		return globalFragments;
-	}
+	}*/
 	
 	/**
 	 * Returns the counts for the specified reference sequence
@@ -441,11 +441,12 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return this.globalLength;
 	}
 	
+	@Deprecated
 	public double getGlobalPairedFragments() {
 		if (!this.hasGlobalStats) {
 			computeGlobalStats();
 		}
-		return this.globalPairedFragments;
+		return this.globalCount;
 	}
 	
 	/**
@@ -1020,7 +1021,7 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 			this.fullyContained = fullyContained;
 
 			Window update=new GenomeWindow(this.cacheChr, this.cacheStart, this.cacheEnd);
-
+			//logger.info("CACHE UPDATED FOR "+update.toUCSC());
 			this.cachedTree=getIntervalTree(update, fullyContained);
 		}
 		
