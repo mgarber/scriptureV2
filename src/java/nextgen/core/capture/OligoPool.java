@@ -12,7 +12,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.TreeSet;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -115,6 +114,10 @@ public class OligoPool {
 	private static ConfigFileOption optimalTmOption = new ConfigFileOption(optimalTmOptionFlag, 2, false, false, true);
 	private static String primerFileOptionFlag = "primer_file";
 	private static ConfigFileOption primerFileOption = new ConfigFileOption(primerFileOptionFlag, 2, false, false, false);
+	private static String flank5primeOptionFlag = "extra_flank_5prime";
+	private static ConfigFileOption flank5primeOption = new ConfigFileOption(flank5primeOptionFlag, 2, false, false, false, "");
+	private static String flank3primeOptionFlag = "extra_flank_3prime";
+	private static ConfigFileOption flank3primeOption = new ConfigFileOption(flank3primeOptionFlag, 2, false, false, false, "");
 	/**
 	 * Probe filter option flag
 	 */
@@ -135,6 +138,8 @@ public class OligoPool {
 		arraySchemeSection.addAllowableOption(primer3corePathOption);
 		arraySchemeSection.addAllowableOption(optimalTmOption);
 		arraySchemeSection.addAllowableOption(primerFileOption);
+		arraySchemeSection.addAllowableOption(flank3primeOption);
+		arraySchemeSection.addAllowableOption(flank5primeOption);
 		sequencesSection.addAllowableOption(sequenceFastaOption);
 		probeFiltersSection.addAllowableOption(probeFilterOption);
 		primerFiltersSection.addAllowableOption(primerFilterOption);
@@ -144,6 +149,14 @@ public class OligoPool {
 		sections.add(probeFiltersSection);
 		sections.add(primerFiltersSection);
 		return new ConfigFile(sections, fileName);
+	}
+	
+	private String getFlank5primeFromConfigFile() {
+		return configFile.getSingleValueField(arraySchemeSection, flank5primeOption);
+	}
+	
+	private String getFlank3primeFromConfigFile() {
+		return configFile.getSingleValueField(arraySchemeSection, flank3primeOption);
 	}
 	
 	private Collection<Sequence> getTranscriptsFromConfigFile() throws IOException {
@@ -331,6 +344,14 @@ public class OligoPool {
 			}		
 		}
 		
+		// Add extra flanking sequences if specified in config file
+		String flank5p = getFlank5primeFromConfigFile();
+		String flank3p = getFlank3primeFromConfigFile();
+		
+		if(flank5p != "" || flank3p != "") {
+			addFlankingSequences(flank5p, flank3p);
+		}
+		
 		if (reassignPrimers || changePrimersInputFile == null) {
 			assignPrimers();
 		}
@@ -413,6 +434,16 @@ public class OligoPool {
 	}
 		
 	
+	private void addFlankingSequences(String flank5prime, String flank3prime) {
+		logger.info("Adding flanking sequences " + flank5prime + " and " + flank3prime);
+		for(List<FullDesignEntry> entries : probeSetDesign.values()) {
+			for(FullDesignEntry oligo : entries) {
+				oligo.setFlank5prime(flank5prime);
+				oligo.setFlank3prime(flank3prime);
+			}
+		}
+	}
+	
 	/**
 	 * @throws IOException
 	 * Assign primers to existing probesets
@@ -438,7 +469,7 @@ public class OligoPool {
 					for(FullDesignEntry oligo : entries) {
 						oligo.leftPrimer = primer.getLeftPrimer();
 						oligo.rightPrimer = primer.getRightPrimer();
-						oligo.oligoSequence = primer.getLeftPrimer().toUpperCase() + oligo.probeSequence.toUpperCase() + Sequence.reverseSequence(primer.getRightPrimer()).toUpperCase();
+						oligo.oligoSequence = oligo.getFlank5Prime() + primer.getLeftPrimer().toUpperCase() + oligo.probeSequence.toUpperCase() + Sequence.reverseSequence(primer.getRightPrimer()).toUpperCase() + oligo.getFlank3Prime();
 					}
 					succeeded++;
 					foundPrimer = true;
@@ -555,7 +586,7 @@ public class OligoPool {
 	 * input/output of this design file without creating all of the objects contained by Oligo (e.g., PrimerPair, ProbeLayout, etc.)
 	 */
 	public class FullDesignEntry {
-		public String probeId, parentTranscriptId, probeSetName, senseOrAntisense, probeLayoutString, leftPrimer, rightPrimer, probeSequence, oligoSequence;
+		public String probeId, parentTranscriptId, probeSetName, senseOrAntisense, probeLayoutString, leftPrimer, rightPrimer, flank5prime, flank3prime, probeSequence, oligoSequence;
 		public int probeSetSize, start, end;
 		
 		// Note:  Do not change the header column names without also changing the R scripts that read them
@@ -583,10 +614,28 @@ public class OligoPool {
 			probeLayoutString = probe.getProbeLayoutString();
 			leftPrimer = "none";
 			rightPrimer = "none";
+			flank5prime = "";
+			flank3prime = "";
 			probeSequence = probe.getProbeSequence();
 			oligoSequence = "none";
 		}
 		
+		public void setFlank3prime(String flank3p) {
+			flank3prime = flank3p;
+		}
+
+		public void setFlank5prime(String flank5p) {
+			flank5prime = flank5p;
+		}
+
+		public String getFlank3Prime() {
+			return flank3prime;
+		}
+
+		public String getFlank5Prime() {
+			return flank5prime;
+		}
+
 		public FullDesignEntry(String probeId, String parentTranscriptId, String probeSetName, int probeSetSize, int start, int end, String senseOrAntisense, String probeLayoutString, String leftPrimer, String rightPrimer, String probeSequence, String oligoSequence) {
 			this.probeId = probeId;
 			this.parentTranscriptId = parentTranscriptId;
@@ -598,6 +647,8 @@ public class OligoPool {
 			this.probeLayoutString = probeLayoutString;
 			this.leftPrimer = leftPrimer;
 			this.rightPrimer = rightPrimer;
+			this.flank5prime = "";
+			this.flank3prime = "";
 			this.probeSequence = probeSequence;
 			this.oligoSequence = oligoSequence;
 		}
