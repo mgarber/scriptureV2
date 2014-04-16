@@ -11,6 +11,8 @@ import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
+import com.sleepycat.persist.model.Persistent;
+
 import net.sf.samtools.Cigar;
 import net.sf.samtools.CigarElement;
 import net.sf.samtools.CigarOperator;
@@ -27,6 +29,7 @@ import broad.core.parser.StringParser;
  * @author engreitz
  * Coordinate system:  0-based, including first base but not the last
  */
+@Persistent
 public class BasicAnnotation extends AbstractAnnotation implements java.io.Serializable {
 	protected CompoundInterval blocks = new CompoundInterval();
 	private String referenceName;
@@ -39,9 +42,11 @@ public class BasicAnnotation extends AbstractAnnotation implements java.io.Seria
 	 * CONSTRUCTORS
 	 */
 	
-	public BasicAnnotation() {
-		throw new UnsupportedOperationException("This is a stupid constructor");
-	}
+	/**
+	 * For Berkeley DB only
+	 * Do not use this constructor
+	 */
+	public BasicAnnotation() {}
 	
 	/**
 	 * Create an annotation from a sam record
@@ -440,8 +445,8 @@ public class BasicAnnotation extends AbstractAnnotation implements java.io.Seria
 		this.referenceName = refName != null ? refName.intern() : null;
 	}
 	
-	public void setName(String name) {
-		this.name =  name;
+	public void setName(String n) {
+		this.name =  n;
 	}
 	
 	public void setScore(double s) {
