@@ -463,6 +463,16 @@ public class SingleEndAlignment extends BasicAnnotation implements Alignment,jav
 	}
 	
 	/**
+	 * Returns the alignment object
+	 * @return
+	 */
+	public Collection<Alignment> getReadMates(){
+		Collection<Alignment> mates=new TreeSet<Alignment>();
+		mates.add(this);
+		return mates;
+	}
+	
+	/**
 	 * Sets the strand for the fragment to the strand passed as argument
 	 * @param strand
 	 * TODO: CHECK IF THIS IS CORRECT

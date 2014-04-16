@@ -49,7 +49,7 @@ public class EndPileUpScanner {
 	
 	static final String usage = "Usage: EndPileUpScanner -task <task name> "+
 			"\n\tTASK 1: 5p: Identifies the significant 5' gene ends in the end RNA-Seq data for a given annotation set." + 
-			"\n\n\tTASK 2	3p: Identifies the significant 3' gene ends in the end RNA-Seq data for a given annotation set." + 
+			"\n\n\tTASK 2 3p: Identifies the significant 3' gene ends in the end RNA-Seq data for a given annotation set." + 
 			"\n**************************************************************"+
 			"\n\t\tArguments"+
 			"\n**************************************************************"+

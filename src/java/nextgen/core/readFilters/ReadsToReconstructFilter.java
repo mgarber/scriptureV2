@@ -16,7 +16,7 @@ public class ReadsToReconstructFilter implements Predicate<Alignment> {
 		if(!read.isPaired()){
 				return true;
 		}
-		//Read is not paired
+		//Read is paired
 		else{
 			if(read.isProperPair())
 				return true;
