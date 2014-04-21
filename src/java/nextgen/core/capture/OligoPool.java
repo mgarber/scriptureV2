@@ -621,13 +621,13 @@ public class OligoPool {
 		}
 		
 		public void setFlank3prime(String flank3p) {
-			if(flank3p != null) {
+			if(flank3p != null && flank3p != "null") {
 				flank3prime = flank3p;
 			}
 		}
 
 		public void setFlank5prime(String flank5p) {
-			if(flank5p != null) {
+			if(flank5p != null && flank5p != "null") {
 				flank5prime = flank5p;
 			}
 		}
