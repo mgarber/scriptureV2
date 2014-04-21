@@ -25,13 +25,19 @@ public class AnnotationUtils {
 
 	public static Logger logger = Logger.getLogger(AnnotationUtils.class.getName());
 	
-	public static Map<String, Collection<Gene>> collapseOverlappersIgnoreStrand(Map<String, Collection<Gene>> genes) {		
+	public static Map<String, Collection<Gene>> collapseOverlappers(Map<String, Collection<Gene>> genes, boolean ignoreStrand) {
+		return collapseOverlappersSerial(collapseOverlappersSerial(genes, ignoreStrand), ignoreStrand);
+	}
+	
+	private static Map<String, Collection<Gene>> collapseOverlappersSerial(Map<String, Collection<Gene>> genes, boolean ignoreStrand) {		
 		Map<String, Collection<Gene>> rtrn = new TreeMap<String, Collection<Gene>>();
 		for(String chr : genes.keySet()) {
 			Collection<Gene> genesThisChr = genes.get(chr);
 			Collection<Gene> collapsedThisChr = new TreeSet<Gene>();
 			for(Gene gene : genesThisChr) {
-				gene.setOrientation(Strand.UNKNOWN);
+				if(ignoreStrand) {
+					gene.setOrientation(Strand.UNKNOWN);
+				}
 				if(collapsedThisChr.isEmpty()) {
 					collapsedThisChr.add(gene);
 					continue;
@@ -71,7 +77,7 @@ public class AnnotationUtils {
 			}
 			byChr.get(chr).add(gene);
 		}
-		Map<String, Collection<Gene>> collapsed = collapseOverlappersIgnoreStrand(byChr);
+		Map<String, Collection<Gene>> collapsed = collapseOverlappers(byChr, true);
 		for(String chr : collapsed.keySet()) {
 			if(byChr.get(chr).size() != collapsed.get(chr).size()) {
 				return false;
