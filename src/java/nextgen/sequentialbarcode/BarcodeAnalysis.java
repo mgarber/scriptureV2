@@ -305,10 +305,6 @@ public class BarcodeAnalysis {
 			throw new IllegalArgumentException("Number of fastq files must be at least 1.");
 		}
 		
-		if(countBarcodes) {
-			countRead2BarcodesRnaDna3D(read2fastq, readLength, oddBarcodeList, evenBarcodeList, rpm, maxMismatchBarcode, maxMismatchRpm);
-		}
-		
 		if(outRD3 != null) {
 			if(batch) {
 				if(jar == null) {
@@ -319,6 +315,11 @@ public class BarcodeAnalysis {
 				findRead2BarcodesRnaDna3D(read2fastq, readLength, oddBarcodeList, evenBarcodeList, rpm, maxMismatchBarcode, maxMismatchRpm, enforceOddEven, outRD3, verbose);
 			}
 		}
+
+		if(countBarcodes) {
+			countRead2BarcodesRnaDna3D(read2fastq, readLength, oddBarcodeList, evenBarcodeList, rpm, maxMismatchBarcode, maxMismatchRpm);
+		}
+		
 		
 		logger.info("");
 		logger.info("All done.");

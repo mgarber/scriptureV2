@@ -1,0 +1,90 @@
+#############################
+## Jesse Engreitz, modified by Pam Russell to work at Caltech
+## April 14, 2014
+## Before running: Check that you have the optparse R package installed
+##                 Make sure blat is on your path
+##                 Change variables marked with "CHANGE"
+##                 Make sure all paths in config file are absolute paths
+############################
+
+echo
+echo "##### Setting variables #####"
+echo
+
+## Project name for file prefixes ##
+## ***** CHANGE *****
+PREFIX=lcnRNA_introns_April_2014
+
+## Working directory
+## ***** CHANGE *****
+PROJECT=/storage/Projects/Arrays/lncRNA_introns_April_2014/
+
+## Location of R scripts
+RSCRIPTS=/storage/Software/ArrayDesign/
+
+BLAT_PATH=blat
+## ***** CHANGE *****
+OLIGOPOOL=/storage/Users/prussell/Software/Jar/Array/OligoPool.jar
+## ***** CHANGE *****
+CONFIG_FILE=$PROJECT/configFile
+OUTPUT_DIR=$PROJECT/oligoPoolOutput
+mkdir $OUTPUT_DIR
+
+## Genome fasta
+MM9_FASTA=/storage/Projects/Arrays/lncRNA_introns_April_2014/sequences/mm9_plus_Sp_Onecut1_locus.fa
+  
+#############################
+## Design probesets
+
+echo
+echo "##### Running oligo pool designer #####"
+echo
+java -jar $OLIGOPOOL -c $CONFIG_FILE -o $OUTPUT_DIR/${PREFIX}
+  
+#############################
+## Filter with BLAT
+echo
+echo "##### Running BLAT #####"
+echo
+cd $OUTPUT_DIR
+mkdir blat
+$BLAT_PATH -minMatch=1 -minScore=25 $MM9_FASTA ${PREFIX}_oligos.fa blat/${PREFIX}_oligos.psl
+
+## Combine BLAT results and generate a list of oligos to remove
+cd $OUTPUT_DIR/blat
+genome=mm9
+tail -n +6 ${PREFIX}_oligos.psl > ${PREFIX}_oligos.no_header.psl
+Rscript $RSCRIPTS/BlatFilter.R \
+    --input ${PREFIX}_oligos.no_header.psl \
+    --output ${PREFIX}_oligos.blat_filtered.psl \
+    --stats ${PREFIX}_oligos.blat_stats.txt \
+    --remove ${PREFIX}_oligos.removed.txt
+   
+## Filter out the list of oligos to remove from the full design
+## Can specify transcripts where you want to ignore the BLAT filter
+echo
+echo "##### Filtering oligos #####"
+echo
+
+Rscript $RSCRIPTS/ApplyBlatFilter.R --input $OUTPUT_DIR/${PREFIX}_full_design.out --remove $OUTPUT_DIR/blat/${PREFIX}_oligos.removed.txt --output $OUTPUT_DIR/${PREFIX}_full_design.blat_filtered.out --stats ${PREFIX}_full_design\
+.stats.txt --ignore 'Comma,separated,Parent_sequence,names,to,ignore,BLAT,filter'
+
+## Take list of filtered oligos and create even/odd probesets
+echo
+echo "##### Creating even/odd probesets #####"
+echo
+
+Rscript $RSCRIPTS/CreateEvenOddProbesets.R -i $OUTPUT_DIR/${PREFIX}_full_design.blat_filtered.out -o $OUTPUT_DIR/${PREFIX}_full_design.even_odd.out.tmp
+
+## Reassign primers to the probesets
+echo
+echo "##### Reassigning primers #####"
+echo
+
+java -jar $OLIGOPOOL -c $CONFIG_FILE -i $OUTPUT_DIR/${PREFIX}_full_design.even_odd.out.tmp -p true -o $OUTPUT_DIR/${PREFIX}_full_design.even_odd
+
+echo
+echo "##### All done. #####"
+echo
+
+## ALL DONE!

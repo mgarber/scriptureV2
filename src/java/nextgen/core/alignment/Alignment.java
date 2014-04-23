@@ -191,6 +191,11 @@ public interface Alignment extends Annotation {
 	 * @param space Coordinate Space to return the blocks in
 	 */
 	public Collection<Annotation> getReadAlignments(CoordinateSpace space);
+	
+	/**
+	 * This will return the actual read alignment objects NOT BLOCKS
+	 */
+	public Collection<Alignment> getReadMates();
 
 	/**
 	 * Return the splice connections contained within this read

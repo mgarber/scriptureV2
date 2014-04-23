@@ -18,9 +18,6 @@ getTilingPathFromFullDesign <- function(x, evenOdd=TRUE) {
   ##
   ## Then, choose the tiling path with the most probes and lowest variance in distance
   ## between probes
-  ##
-  ## In the case where even/odd probesets are requested but there is only one probe in the best
-  ## tiling path, then one single probeset is returned and the name of the probeset is unchanged.
 
   stopifnot(all(x$Probe_set== x$Probe_set[1]))
   x <- x[order(x$Start),]
