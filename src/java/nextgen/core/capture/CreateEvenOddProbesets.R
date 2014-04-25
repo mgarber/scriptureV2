@@ -27,8 +27,8 @@ getTilingPathFromFullDesign <- function(x, evenOdd=TRUE) {
   
   first.end <- x$End[1]
   curr.start.index <- 1
-  
-  while (x$Start[curr.start.index] < first.end) {
+ 
+  while (x$Start[curr.start.index] < first.end & curr.start.index <= nrow(x)) {
     ## Start a new tiling path
     indices.to.include <- c()
     curr.probe.end <- -1
@@ -61,7 +61,7 @@ getTilingPathFromFullDesign <- function(x, evenOdd=TRUE) {
   result <- tiling.paths[[which.path]]
 
   if (!evenOdd | nrow(result) == 1) {
-    result$Probeset_size <- nrow(result)
+    result$Probe_set_size <- nrow(result)
   } else {
     ## Split into even and odd probesets
     which.odd <- seq(1,nrow(result),2)

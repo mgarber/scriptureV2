@@ -115,9 +115,9 @@ public class OligoPool {
 	private static String primerFileOptionFlag = "primer_file";
 	private static ConfigFileOption primerFileOption = new ConfigFileOption(primerFileOptionFlag, 2, false, false, false);
 	private static String flank5primeOptionFlag = "extra_flank_5prime";
-	private static ConfigFileOption flank5primeOption = new ConfigFileOption(flank5primeOptionFlag, 2, false, false, false, "");
+	private static ConfigFileOption flank5primeOption = new ConfigFileOption(flank5primeOptionFlag, 2, false, false, false);
 	private static String flank3primeOptionFlag = "extra_flank_3prime";
-	private static ConfigFileOption flank3primeOption = new ConfigFileOption(flank3primeOptionFlag, 2, false, false, false, "");
+	private static ConfigFileOption flank3primeOption = new ConfigFileOption(flank3primeOptionFlag, 2, false, false, false);
 	/**
 	 * Probe filter option flag
 	 */
@@ -348,7 +348,7 @@ public class OligoPool {
 		String flank5p = getFlank5primeFromConfigFile();
 		String flank3p = getFlank3primeFromConfigFile();
 		
-		if(flank5p != "" || flank3p != "") {
+		if(flank5p != null || flank3p != null) {
 			addFlankingSequences(flank5p, flank3p);
 		}
 		
@@ -621,11 +621,15 @@ public class OligoPool {
 		}
 		
 		public void setFlank3prime(String flank3p) {
-			flank3prime = flank3p;
+			if(flank3p != null && flank3p != "null") {
+				flank3prime = flank3p;
+			}
 		}
 
 		public void setFlank5prime(String flank5p) {
-			flank5prime = flank5p;
+			if(flank5p != null && flank5p != "null") {
+				flank5prime = flank5p;
+			}
 		}
 
 		public String getFlank3Prime() {

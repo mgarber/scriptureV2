@@ -911,7 +911,7 @@ public class Gene extends BasicAnnotation {
 	}
 	
 	public Collection<? extends Annotation> getIntronSet(){
-		Collection<Alignments> rtrn=new TreeSet<Alignments>(); 
+		Collection<BasicAnnotation> rtrn=new TreeSet<BasicAnnotation>(); 
 		
 		List<? extends Annotation> sortedUniqueExons=this.getBlocks();
 		
@@ -919,10 +919,11 @@ public class Gene extends BasicAnnotation {
 			Annotation current = sortedUniqueExons.get(i);
 			Annotation next = sortedUniqueExons.get(i+1);
 			//Alignments align=new Alignments(this.chr, current.getEnd()+1, next.getStart()-1); // If we assume Exons are in [start,end) format there should be no need add one to the end.  
-			Alignments align=new Alignments(getChr(), current.getEnd(), next.getStart());   
+			BasicAnnotation intron=new BasicAnnotation(getChr(), current.getEnd(), next.getStart());   
 			//if(align.getSize()<0){System.err.println(align.toUCSC()+" "+current.toUCSC()+" "+next.toUCSC()+" "+toBED());}
-			align.setOrientation(getOrientation().toString());
-			rtrn.add(align);
+			intron.setOrientation(getOrientation());
+			intron.setName(getName() + "_intron_" + i);
+			rtrn.add(intron);
 		}
 		return rtrn;
 	}
