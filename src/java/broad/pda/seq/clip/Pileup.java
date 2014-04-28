@@ -779,8 +779,8 @@ public class Pileup {
 		p.addStringArg("-oc", "Region overlapper count file to use instead of bam file or wig file (format: region_name\tcount", false, null);
 		p.addStringArg("-pb", "When using bam file, bed file of region to use for randomized positions per region. If not provided or incomplete for some regions, program will compute from bam file and use subregion of the parent gene enclosing all reads overlapping the region. Bed name is the same as region name.", false, null);
 		p.addStringArg("-wf", "Wig file of fragment end pileups to use instead of getting overlappers from bam file", false, null);
-		p.addStringArg("-otw", "Output table for position P values based on wig counts", false, null);
-		p.addStringArg("-obs", "Output bed file of significant pileup positions", false, null);
+		p.addStringArg("-otw", "Output table for position P values based on wig counts (requires -np and -obs)", false, null);
+		p.addStringArg("-obs", "Output bed file of significant pileup positions (requires -np and -otw)", false, null);
 		p.addDoubleArg("-p", "P value cutoff for significant pileup", false, 0.001);
 		p.parse(args);
 		if(p.getBooleanArg("-d")) {
