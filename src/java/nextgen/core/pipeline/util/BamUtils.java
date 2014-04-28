@@ -30,6 +30,51 @@ public class BamUtils {
 	private static Logger logger = Logger.getLogger(BamUtils.class.getName());
 	
 	/**
+	 * Merge bam files
+	 * @param inputBams Names of bam files to merge
+	 * @param outputMergedBam Output merged bam file to write
+	 * @param scheduler Scheduler
+	 * @param drmaaSession DRMAA session if using OGS or null otherwise
+	 * @param picardJarDir Directory containing Picard jar files
+	 * @param assumeSorted Assume input files are sorted
+	 * @throws DrmaaException
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	public static void mergeBams(Collection<String> inputBams, String outputMergedBam, Scheduler scheduler, Session drmaaSession, String picardJarDir, boolean assumeSorted) throws DrmaaException, IOException, InterruptedException {
+		logger.info("Creating merged bam file " + outputMergedBam + ".");
+		String inputs = "";
+		for(String bam : inputBams) {
+			inputs += "INPUT=" + bam + " ";
+		}
+		String output = "OUTPUT=" + outputMergedBam;
+		String cmmd = "java -jar " + picardJarDir + "/MergeSamFiles.jar " + inputs + " " + output + " ASSUME_SORTED=" + assumeSorted + " MERGE_SEQUENCE_DICTIONARIES=true";
+		logger.info("Running picard command: " + cmmd);
+		switch(scheduler) {
+		case LSF:
+			String jobID = Long.valueOf(System.currentTimeMillis()).toString();
+			logger.info("LSF job ID is " + jobID + ".");
+			// Submit job
+			LSFJob job = new LSFJob(Runtime.getRuntime(), jobID, cmmd, "merge_bam_files_" + jobID + ".bsub", "week", 8);	
+			job.submit();
+			job.waitFor();
+			break;
+        case OGS:
+            if(drmaaSession == null) {
+                    throw new IllegalArgumentException("DRMAA session is null. Must provide an active DRMAA session to use OGS. There can only be one active session at a time. Session should have been created in the main method of the class calling this method.");
+            }
+            OGSJob ogsJob = new OGSJob(drmaaSession, cmmd, "merge_bam_files", null);
+            ogsJob.submit();
+            logger.info("OGS job ID is " + ogsJob.getID() + ".");
+            ogsJob.waitFor();
+            break;
+		default:
+			throw new IllegalArgumentException("Scheduler " + scheduler.toString() + " is not supported.");
+		}
+
+	}
+	
+	/**
 	 * Sort a bam file in coordinate order and write to a new file
 	 * @param input Input bam file
 	 * @param output Output sorted bam file
