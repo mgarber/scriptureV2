@@ -5,11 +5,15 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.ggf.drmaa.DrmaaException;
+import org.ggf.drmaa.Session;
 
 import broad.core.parser.CommandLineParser;
 import broad.core.parser.StringParser;
@@ -18,6 +22,12 @@ import net.sf.samtools.BAMFileWriter;
 import net.sf.samtools.SAMFileReader;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMRecordIterator;
+import nextgen.core.job.Job;
+import nextgen.core.job.JobUtils;
+import nextgen.core.job.OGSJob;
+import nextgen.core.pipeline.Scheduler;
+import nextgen.core.pipeline.util.BamUtils;
+import nextgen.core.pipeline.util.OGSUtils;
 import nextgen.core.utils.CountLogger;
 import nextgen.sequentialbarcode.fragmentgroup.FragmentGroup;
 import nextgen.sequentialbarcode.fragmentgroup.NamedBarcodedFragmentGroup;
@@ -29,6 +39,8 @@ import nextgen.sequentialbarcode.fragmentgroup.NamedBarcodedFragmentGroup;
  */
 public class BarcodedBamWriter {
 	
+	private static Session drmaaSession;
+
 	/**
 	 * Sam tag for barcode attribute
 	 */
@@ -88,6 +100,7 @@ public class BarcodedBamWriter {
 	 * @param barcodesByReadId Map of read ID to barcode sequence
 	 * @throws IOException
 	 */
+	@SuppressWarnings("unused")
 	private static void writeBarcodedGroupedBam(String inputBam, Map<String, BarcodeSequence> barcodesByReadId) throws IOException {
 		
 		String barcodedBam = getBarcodedBamFileName(inputBam);
@@ -178,11 +191,103 @@ public class BarcodedBamWriter {
 	/**
 	 * Add barcode attribute to bam file entries using a barcode mapping
 	 * @param inputBam Regular bam file
-	 * @param barcodesByReadId Table of read name and barcode sequence
+	 * @param barcodeTable Table of read name and barcode sequence
+	 * @param overrideOutputName Name for output bam file other than default. Warning: file will not be recognized by other code.
+	 * @throws IOException
+	 */
+	public static void writeBarcodedBam(String inputBam, String barcodeTable, String overrideOutputName) throws IOException {
+		writeBarcodedBam(inputBam, readBarcodesFromTable(barcodeTable), overrideOutputName);
+	}
+	
+	/**
+	 * Add barcode attribute to bam file entries using a barcode mapping
+	 * @param inputBam Regular bam file
+	 * @param barcodeTable Table of read name and barcode sequence
 	 * @throws IOException
 	 */
 	public static void writeBarcodedBam(String inputBam, String barcodeTable) throws IOException {
 		writeBarcodedBam(inputBam, readBarcodesFromTable(barcodeTable));
+	}
+	
+	/**
+	 * Add barcode attribute to bam file entries using a barcode mapping
+	 * Use OGS to batch out writing of barcoded bam file
+	 * @param inputBam Regular bam file
+	 * @param barcodeTable Table of read name and barcode sequence
+	 * @param drmaaSession Active DRMAA session
+	 * @param barcodedBamWriterJar Jar file of BarcodedBamWriter class
+	 * @param picardJarDir Directory containing Picard jar files
+	 * @throws IOException 
+	 * @throws InterruptedException 
+	 * @throws DrmaaException 
+	 */
+	public static void batchWriteBarcodedBam(String inputBam, String barcodeTable, Session drmaaSession, String barcodedBamWriterJar, String picardJarDir) throws IOException, DrmaaException, InterruptedException {
+		batchWriteBarcodedBam(inputBam, barcodeTable, drmaaSession, 10000000, barcodedBamWriterJar, picardJarDir);
+	}
+	
+	/**
+	 * Add barcode attribute to bam file entries using a barcode mapping
+	 * Use OGS to batch out writing of barcoded bam file then merge bam files at the end
+	 * @param inputBam Regular bam file
+	 * @param barcodeTable Table of read name and barcode sequence
+	 * @param drmaaSession Active DRMAA session
+	 * @param readsPerJob Number of reads for each OGS job
+	 * @param barcodedBamWriterJar Jar file of BarcodedBamWriter class
+	 * @param picardJarDir Directory containing Picard jar files
+	 * @throws IOException 
+	 * @throws DrmaaException 
+	 * @throws InterruptedException 
+	 */
+	public static void batchWriteBarcodedBam(String inputBam, String barcodeTable, Session drmaaSession, int readsPerJob, String barcodedBamWriterJar, String picardJarDir) throws IOException, DrmaaException, InterruptedException {
+		logger.info("");
+		logger.info("Adding barcode attribute to bam file " + inputBam + " by batching out to OGS cluster.");
+		logger.info("Reading barcodes from " + barcodeTable + ".");
+		logger.warn("Not enforcing same reads in bam file and table!");
+		
+		FileReader r = new FileReader(barcodeTable);
+		BufferedReader b = new BufferedReader(r);
+
+		int jobNum = 0;
+		Collection<Job> jobs = new ArrayList<Job>();
+		Collection<String> outBams = new ArrayList<String>();
+		
+		while(writeNextBarcodesFromTable(b, readsPerJob, barcodeTable + "." + jobNum)) {
+			
+			String outBam = getBarcodedBamFileName(inputBam) + "." + jobNum;
+			outBams.add(outBam);
+			String cmmd = "java -jar -Xmx29g -Xms25g -Xmn20g " + barcodedBamWriterJar + " -b false -ib " + inputBam + " -bt " + barcodeTable + "." + jobNum + " -on " + outBam;
+			logger.info("Submitting OGS job: " + cmmd);
+			OGSJob job = new OGSJob(drmaaSession, cmmd);
+			job.submit();
+			jobs.add(job);
+			
+			jobNum++;
+		}
+		
+		r.close();
+		b.close();
+
+		// Wait for jobs
+		logger.info("");
+		logger.info("Waiting for " + jobs.size() + " jobs.");
+		JobUtils.waitForAll(jobs);
+		
+		// Merge bam files
+		BamUtils.mergeBams(outBams, getBarcodedBamFileName(inputBam), Scheduler.OGS, drmaaSession, picardJarDir, false);
+		
+		// Delete temp files
+		for(String bam : outBams) {
+			File file = new File(bam);
+			file.delete();
+		}
+		
+		for(int i = 0; i < jobs.size(); i++) {
+			String file = barcodeTable + "." + jobNum;
+			File f = new File(file);
+			f.delete();
+		}
+		
+		
 	}
 	
 	/**
@@ -192,16 +297,27 @@ public class BarcodedBamWriter {
 	 * @throws IOException
 	 */
 	private static void writeBarcodedBam(String inputBam, Map<String, BarcodeSequence> barcodesByReadId) throws IOException {
+		writeBarcodedBam(inputBam, barcodesByReadId, null);
+	}
+	
+	/**
+	 * Add barcode attribute to bam file entries using a barcode mapping
+	 * @param inputBam Regular bam file
+	 * @param barcodesByReadId Map of read name to barcode sequence
+	 * @param overrideOutputName Name for output bam file other than default. Warning: file will not be recognized by other code. Pass null to use default.
+	 * @throws IOException
+	 */
+	private static void writeBarcodedBam(String inputBam, Map<String, BarcodeSequence> barcodesByReadId, String overrideOutputName) throws IOException {
 		
-		String outputBam = getBarcodedBamFileName(inputBam);
-		String outputNames = getNameMappingFileName(outputBam);
+		String outputBam = overrideOutputName == null ? getBarcodedBamFileName(inputBam) : overrideOutputName;
+		//String outputNames = getNameMappingFileName(outputBam);
 		
 		logger.info("");
 		logger.info("Writing barcoded version of " + inputBam + " to " + outputBam + "...");
-		logger.info("Writing mapping of read names to shortened IDs to " + outputNames + "...");
+		//logger.info("Writing mapping of read names to shortened IDs to " + outputNames + "...");
 		
 		BAMFileWriter w = new BAMFileWriter(new File(outputBam));
-		FileWriter nw = new FileWriter(outputNames);
+		//FileWriter nw = new FileWriter(outputNames);
 		
 		// Get header from original bam file
 		SAMFileReader r = new SAMFileReader(new File(inputBam));
@@ -212,7 +328,7 @@ public class BarcodedBamWriter {
 		int unmapped = 0;
 		// Go through the bam file in order
 		SAMRecordIterator iter = r.iterator();
-		int recordNum = 0;
+		//int recordNum = 0;
 		while(iter.hasNext()) {
 			numDone++;
 			if(numDone != 0 && numDone % 100000 == 0) {
@@ -220,9 +336,9 @@ public class BarcodedBamWriter {
 			}
 			SAMRecord record = iter.next();
 			String oldName = record.getReadName();
-			String newName = "r" + recordNum;
-			nw.write(oldName + "\t" + newName + "\n");
-			recordNum++;
+			//String newName = "r" + recordNum;
+			//nw.write(oldName + "\t" + newName + "\n");
+			//recordNum++;
 			
 			if(record.getReadUnmappedFlag()) {
 				unmapped++;
@@ -240,10 +356,75 @@ public class BarcodedBamWriter {
 		
 		r.close();		
 		w.close();
-		nw.close();
+		//nw.close();
 		
 		logger.info("Done writing file.");
 				
+	}
+	
+	/**
+	 * Read a specified number of barcodes from an existing buffered reader
+	 * @param tableReader Buffered reader for barcode table file with line format: read_ID   barcode_sequence_as_SAM_attribute
+	 * @param numToGet Number of reads to get
+	 * @return The requested number of reads or less if runs out, or null if reader is not ready
+	 * @throws IOException
+	 */
+	@SuppressWarnings("unused")
+	private static Map<String, BarcodeSequence> readNextBarcodesFromTable(BufferedReader tableReader, int numToGet) throws IOException {
+		
+		if(!tableReader.ready()) {
+			return null;
+		}
+		
+		logger.info("");
+		logger.info("Reading next " + numToGet + " fragment barcodes from file...");
+		
+		int numDone = 0;
+		Map<String, BarcodeSequence> rtrn = new HashMap<String, BarcodeSequence>();
+		StringParser s = new StringParser();
+		while(tableReader.ready() && numDone < numToGet) {
+			numDone++;
+			if(numDone % 100000 == 0) {
+				logger.info("Finished " + numDone);
+			}
+			s.parse(tableReader.readLine());
+			String name = s.asString(0);
+			rtrn.put(name, BarcodeSequence.fromSamAttributeString(s.asString(1)));
+		}
+		return rtrn;
+	}
+	
+	/**
+	 * Read a specified number of barcodes from an existing buffered reader
+	 * @param tableReader Buffered reader for barcode table file with line format: read_ID   barcode_sequence_as_SAM_attribute
+	 * @param numToGet Number of reads to get
+	 * @param outTable Output table
+	 * @return True if wrote some lines, false if there were no more lines to write
+	 * @throws IOException
+	 */
+	private static boolean writeNextBarcodesFromTable(BufferedReader tableReader, int numToGet, String outTable) throws IOException {
+		
+		if(!tableReader.ready()) {
+			return false;
+		}
+		
+		logger.info("");
+		logger.info("Writing next " + numToGet + " fragment barcodes to file " + outTable + "...");
+		
+		FileWriter w = new FileWriter(outTable);
+		
+		int numDone = 0;
+		while(tableReader.ready() && numDone < numToGet) {
+			numDone++;
+			w.write(tableReader.readLine() + "\n");
+		}
+		
+		w.close();
+		
+		logger.info("Done writing to " + outTable + ".");
+		
+		return true;
+		
 	}
 	
 	/**
@@ -377,12 +558,19 @@ public class BarcodedBamWriter {
 		return rtrn;
 	}
 
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException, DrmaaException, InterruptedException {
 		
+		drmaaSession = OGSUtils.getDrmaaSession();
+
 		CommandLineParser p = new CommandLineParser();
 		p.addStringArg("-ib", "Input bam file", true);
-		p.addStringArg("-bt", "Table of barcodes by read name (required if barcoded bam file does not exist)", false, null);
+		p.addStringArg("-bt", "Table of barcodes by read name", true);
+		p.addStringArg("-on", "Output bam file name to override default. Warning: other code will not recognize this file.", false);
 		p.addBooleanArg("-d", "Debug logging on", false, false);
+		p.addIntArg("-rj", "When batching out writing of barcoded bam file, number of reads per job", false, 10000000);
+		p.addStringArg("-bbj", "Barcoded bam writer jar file (needed for batching)", false, null);
+		p.addStringArg("-pj", "Picard jar director (needed for batching)", false, null);
+		p.addBooleanArg("-b", "Batch out to cluster", false, false);
 		p.parse(args);
 		
 		if(p.getBooleanArg("-d")) {
@@ -390,15 +578,26 @@ public class BarcodedBamWriter {
 		}
 		
 		String inputBam = p.getStringArg("-ib");
-		String barcodedBam = getBarcodedBamFileName(inputBam);
 		String barcodeTable = p.getStringArg("-bt");
-		File tableFile = new File(barcodeTable);
-		File barcodeBamFile = new File(barcodedBam);
-		if(!barcodeBamFile.exists() && barcodeTable == null) {
-			throw new IllegalArgumentException("Must provide barcode table");
-		}
+		String overrideName = p.getStringArg("-on");
+		int readsPerJob = p.getIntArg("-rj");
+		String barcodedBamWriterJar = p.getStringArg("-bbj");
+		String picardJarDir = p.getStringArg("-pj");
 		
-		writeBarcodedGroupedBam(inputBam, tableFile.exists() ? readBarcodesFromTable(barcodeTable) : null);
+		if(p.getBooleanArg("-b")) {
+			if(barcodeTable == null) {
+				throw new IllegalArgumentException("Must provide table of barcodes by read name with -bt option");
+			}
+			if(barcodedBamWriterJar == null) {
+				throw new IllegalArgumentException("Must provide BarcodedBamWriter.jar file with -bbj option");
+			}
+			if(picardJarDir == null) {
+				throw new IllegalArgumentException("Must provide Picard jar directory with -pj option");
+			}
+			BarcodedBamWriter.batchWriteBarcodedBam(inputBam, barcodeTable, drmaaSession, readsPerJob, barcodedBamWriterJar, picardJarDir);
+		} else {
+			writeBarcodedBam(inputBam, barcodeTable, overrideName);
+		}
 		
 		logger.info("");
 		logger.info("All done.");
