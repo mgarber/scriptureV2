@@ -22,9 +22,9 @@ import nextgen.sequentialbarcode.BarcodedFragmentImpl;
 import broad.core.parser.CommandLineParser;
 import broad.pda.annotation.BEDFileParser;
 
-public class DatabaseReader {
+public class DatabaseQueryTest {
 	
-	private static Logger logger = Logger.getLogger(DatabaseReader.class.getName());
+	private static Logger logger = Logger.getLogger(DatabaseQueryTest.class.getName());
 	
 	/**
 	 * Concurrent query to individual genes
@@ -86,10 +86,10 @@ public class DatabaseReader {
 		p.addStringArg("-chr", "Interval chromosome", false, null);
 		p.addIntArg("-start", "Interval start", false, -1);
 		p.addIntArg("-end", "Interval end", false, -1);
-		p.addStringArg("-bb", "Barcoded bam file for to query interval or genome wide windows", false, null);
-		p.addIntArg("-w", "Window size. Scan non-overlapping windows over the whole genome, get all reads with same barcodes as reads in window, print summary", false, -1);
+		p.addStringArg("-bb", "Barcoded bam file to query interval or genome wide windows", false, null);
+		p.addIntArg("-w", "Window size. Scan non-overlapping windows over the whole genome, get all reads with same barcodes as reads in window, print summary. Leave out to query whole genes.", false, -1);
 		p.addStringArg("-cs", "Chromosome size file for scanning windows in genomic space", false, null);
-		p.addStringArg("-bd", "Bed file for scanning windows in transcriptome space. Leave out to query whole genes.", false, null);
+		p.addStringArg("-bd", "Bed file for transcriptome space", false, null);
 		p.addIntArg("-nt", "Number of threads for whole genes", false, 1);
 		p.parse(args);
 		String envHome = p.getStringArg("-e");
@@ -136,7 +136,7 @@ public class DatabaseReader {
 			
 			for(int i = 0; i < numThreads; i++) {
 				AlignmentModel model = new AlignmentModel(bam, coordSpace, false);
-				GeneQuery q = (new DatabaseReader()).new GeneQuery(model, geneQueue, envHome, storeName, true);
+				GeneQuery q = (new DatabaseQueryTest()).new GeneQuery(model, geneQueue, envHome, storeName, true);
 				Thread t = new Thread(q);
 				threads.add(t);
 				t.start();

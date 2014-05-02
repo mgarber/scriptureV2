@@ -1376,8 +1376,8 @@ public class EndSeq {
 						//
 					}
 					else{
-						if((gene.getEnd()+bestExtension) > model5p.getRefSequenceLength(chr)){
-							end =(int) (model5p.getRefSequenceLength(chr)-gene.getEnd()-1);
+						if((gene.getEnd()+bestExtension) > model3p.getRefSequenceLength(chr)){
+							end =(int) (model3p.getRefSequenceLength(chr)-gene.getEnd()-1);
 							//logger.info(model5p.getRefSequenceLength(chr));
 							//logger.info(gene.getEnd());
 						}
@@ -1718,8 +1718,9 @@ public class EndSeq {
 		if(intron!=null){
 			logger.info(intron.toBED());
 			if(intron.size()>100000){
-				logger.info("Intron size is more than 100kB");
-				return;
+				logger.info("Before: "+intron.toBED());
+				intron = intron.trim(0, intron.length()-100000);
+				logger.info("After: "+intron.toBED());
 			}
 			boolean has5pPeak = false;
 			intron.setOrientation(ge.getOrientation());

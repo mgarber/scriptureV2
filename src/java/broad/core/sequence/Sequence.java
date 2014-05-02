@@ -519,6 +519,35 @@ public class Sequence {
 	}
 	
 	/**
+	 * Mask part of sequence
+	 * @param region Region to mask. Masks blocks only.
+	 * @param softmask If true, mask to lower case. If false, mask to Ns.
+	 */
+	public void mask(Annotation region, boolean softmask) {
+		if(!region.getChr().equals(id)) {
+			throw new IllegalArgumentException("Region chromosome (" + region.getChr() + " does not match sequence name " + id);
+		}
+		for(Annotation block : region.getBlocks()) {
+			int start = block.getStart();
+			int end = block.getEnd();
+			if(softmask) {
+				String origStr = getSequenceBases().substring(start, end);
+				String lower = origStr.toLowerCase();
+				sequenceBases.replace(start, end, lower);
+				//logger.info("Changed " + origStr + " to " + lower + ". Now: " + getSubSequence("", start, end).getSequenceBases());
+			} else {
+				int len = end - start;
+				String ns = "";
+				for(int i = 0; i < len; i++) {
+					ns += "N";
+				}
+				sequenceBases.replace(start, end, ns);
+			}
+			
+		}
+	}
+	
+	/**
 	 * 
 	 * @param start - start of the region to extract the starting base will be included starting at 0
 	 * @param end - the end of the region to extract, the base at position end will not be included.

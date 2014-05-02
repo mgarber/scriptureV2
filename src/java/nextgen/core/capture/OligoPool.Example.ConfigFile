@@ -1,0 +1,95 @@
+###################################################
+#--------------------------------------------------
+#------ CONFIG FILE FOR OLIGO POOL DESIGNER -------
+#--------------------------------------------------
+###################################################
+
+
+###################################################
+##### Sequences section 
+##### The transcripts to design probes against
+###################################################
+
+:Sequences
+sequence_fasta	/full/path/to/targets.fa	
+
+
+###################################################
+##### Array scheme section
+##### Description of probe layout on transcripts and how probes are pooled under shared primers
+###################################################
+
+:Array_scheme
+
+##### The size of the synthetic primers to add to probes
+primer_size	20
+
+##### Optimal Tm for primers
+optimal_tm_for_primers  67
+
+###### Existing file of primers to try first
+###### Leave out to generate new primers
+primer_file	primers_20_67_full_table	
+
+###### Extra flanking sequences for ends of oligos (optional)
+extra_flank_5prime      CCCCCCCCCC
+extra_flank_3prime      AAAAAAAAAA
+
+###### Probe layouts along transcripts
+###### Can include multiple layouts that will be combined according to the pool scheme
+
+### 120bp oligos tiled every 15bp starting at position 0, antisense to transcript
+#probe_layout	single_tiling_probe_layout	120	15	0	antisense
+
+###### Pool scheme
+###### Specifies how probe sets are pooled under shared primers
+
+### A single primer for all oligos
+#pool_scheme	simple_pool_scheme
+
+### For each probe layout, pool all oligos under one primer
+#pool_scheme	stacked_simple_pool_scheme
+
+### A primer for each gene. There must be exactly one probe layout provided.
+#pool_scheme	gene_pool_scheme
+
+### A primer for each gene and each probe layout
+#pool_scheme	multiple_layout_gene_pool_scheme
+
+### Genes are grouped under shared primers using the information in a table
+### Each probe layout specified above has its own primer
+#pool_scheme	grouped_stacked_pool_scheme	sequence_groups
+
+##### The primer3_core executable file
+primer3_core_path	./primer3_core
+
+
+###################################################
+##### Probe filters section
+##### Filters that are applied to all probes
+##### Repeat masking filter is the only filter currently implemented
+###################################################
+
+:Probe_filters
+
+### Filter probes with a certain percentage of repeat masked bases indicated by lower case
+probe_filter	repeat_filter	0.07	lower
+### Filter probes with a certain percentage of repeat masked bases indicated by N
+probe_filter	repeat_filter	0.07	N
+### Filter probes with large number of single bases in a row
+probe_filter    poly_base_filter        15      0.8     ATCG
+### Filter low complexity sequences
+probe_filter    low_complexity_filter
+
+
+###################################################
+##### Primer filters section
+##### Filters that are applied to all primers taking into account the probes and probe sets they are assigned to
+##### No primer filters are currently implemented
+###################################################
+
+:Primer_filters
+
+### Remove primers with large number of single bases in a row
+primer_filter	poly_base_filter	6	1.0	ATCG
+

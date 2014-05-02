@@ -40,7 +40,6 @@ import broad.core.datastructures.MatrixWithHeaders;
 import broad.core.error.ParseException;
 import broad.core.util.CLUtil;
 import broad.core.util.CLUtil.ArgumentMap;
-import broad.pda.annotation.BEDAnnotationCollection;
 import broad.pda.annotation.BEDFileParser;
 import broad.pda.gene.GeneWithIsoforms;
 

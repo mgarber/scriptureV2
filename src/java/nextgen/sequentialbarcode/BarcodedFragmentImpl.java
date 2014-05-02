@@ -49,6 +49,7 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 	protected String id;
 	protected String read1sequence;
 	protected String read2sequence;
+	protected String unpairedSequence;
 	protected Annotation location;
 	protected ReadLayout read1layout;
 	protected ReadLayout read2layout;
@@ -82,6 +83,14 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 		fragmentGroup = new NamedBarcodedFragmentGroup(barcodes);
 	}
 	
+	/**
+	 * Get number of barcodes
+	 * @return Number of barcodes
+	 */
+	public int getNumBarcodes() {
+		return barcodes.getNumBarcodes();
+	}
+	
 	private void setBarcodes(BarcodeSequence bs) {
 		barcodes = bs;
 		barcodeString = barcodes.toString();
@@ -96,14 +105,16 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 		String fragmentId = StringParser.firstField(samRecord.getReadName());
 		read1sequence = null;
 		read2sequence = null;
-		try {
-			String seq = samRecord.getReadString();
+		String seq = samRecord.getReadString();
+		if(samRecord.getReadPairedFlag()) {
 			if(samRecord.getFirstOfPairFlag()) {
 				read1sequence = seq;
-			} else {
+			} else if(samRecord.getSecondOfPairFlag()) {
 				read2sequence = seq;
-			}
-		} catch (IllegalStateException e) {}
+			} 
+		} else {
+			unpairedSequence = seq;
+		}
 		String barcodeString = samRecord.getStringAttribute(BarcodedBamWriter.BARCODES_SAM_TAG);
 		BarcodeSequence barcodeSignature = BarcodeSequence.fromSamAttributeString(barcodeString);
 		
@@ -204,6 +215,10 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 	
 	public String getId() {
 		return id;
+	}
+	
+	public String getUnpairedSequence() {
+		return unpairedSequence;
 	}
 	
 	public String getRead1Sequence() {
@@ -362,6 +377,23 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 		public EntityCursor<BarcodedFragmentImpl> getAllFragments() {
 			return primaryIndex.entities();
 		}
+		
+		
+		/**
+		 * Get an iterator over all fragments sharing barcodes with fragments mapping to the window
+		 * @param barcodedBam Barcoded bam file
+		 * @param chr Window chromsome
+		 * @param start Window start
+		 * @param end Window end
+		 * @param contained Fully contained reads only
+		 * @return Iterator over all fragments sharing barcodes with fragments mapping to the window, or null if the window contains no mappings
+		 * @throws Exception
+		 */
+		public JoinedEntityCursor<BarcodedFragmentImpl> getAllFragmentsWithBarcodesMatchingFragmentInChr(String barcodedBam, String chr) throws Exception {
+			return getAllFragmentsWithBarcodesMatchingFragmentInWindow(barcodedBam, chr, 0, Integer.MAX_VALUE, true);
+		}
+		
+
 		
 		/**
 		 * Get an iterator over all fragments sharing barcodes with fragments mapping to the window
