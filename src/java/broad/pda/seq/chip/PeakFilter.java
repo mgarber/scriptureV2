@@ -92,7 +92,9 @@ public class PeakFilter {
 				//System.err.println("peak " + peak.toUCSC() + " fold " + peak.getExtraScore(peak.getExtraScores().size() - 1));
 				if(fold > minFold) {
 					//peak.setScore(fold);
-					bw.write(peak.toShortString());
+					//bw.write(peak.toShortString());
+					bw.write(peak.toBED());
+					logger.debug("Doing full bed");
 					bw.newLine();
 					passing++;
 				}

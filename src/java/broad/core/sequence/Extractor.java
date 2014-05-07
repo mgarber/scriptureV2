@@ -31,6 +31,7 @@ public class Extractor {
 	"\t\t9. Extract GC percent for the specified window size: -in <sequence file> -out <GC percent outout file> -windowSize <window size>\n" +
 	"\t\t10. Reverse complement sequences in file: -in <sequence file or standard input> -out <file to output reverse-complemented sequences>" +
 	"\n\t\t11. Extract sequences that are of at least the given length: -in <sequence file or standard input> -out <file to output or standard out> + -minLength <Minumum length of sequences to return>" +
+	"\n\\t\t12. Extract sequences with names matching regular expression -in <sequence file or standard input> -out <file to output or standard out> -pattern <regex patterh>" +
     "\n";
 
 
@@ -321,7 +322,24 @@ public class Extractor {
             fsio.writeRecordsWithMinLength(minLength,inIs, bw);
             inIs.close();
             bw.close();
-        }else {
+        } else if("12".equals(argMap.getTask())){
+			String regex = argMap.getMandatory("pattern");
+			String out   = argMap.getOutput();
+			FastaSequenceIO fsio = new FastaSequenceIO(argMap.getInput());
+			Pattern p = Pattern.compile(regex);
+		
+			List<Sequence> matches = new ArrayList<Sequence>();
+			Iterator<Sequence> allIt = fsio.loadAll().iterator();
+			while(allIt.hasNext()) {
+				Sequence seq = allIt.next();
+				Matcher m = p.matcher(seq.getId());
+				if (m.find()) {
+					matches.add(seq);
+				}
+			}
+			fsio.write(matches, out);
+	
+		}else {
 			System.err.println(USAGE);
 		}
 	}

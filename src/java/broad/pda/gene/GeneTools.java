@@ -113,7 +113,7 @@ public class GeneTools {
 	
 	static Logger logger = Logger.getLogger(GeneTools.class.getName());
 	
-	/*public static void main(String [] args) throws Exception  {
+	public static void main(String [] args) throws Exception  {
 		ArgumentMap argmap = CLUtil.getParameters(args, usage, "orient");
 		
 		if("orient".equalsIgnoreCase(argmap.getTask())) {
@@ -309,19 +309,7 @@ public class GeneTools {
 			}
 			bw.close();
 			}
-		}
-			else if ("introns".equalsIgnoreCase(argmap.getTask())) {
-				String data = argmap.getInput();
-				BEDFileParser set = new BEDFileParser(data);
-				BufferedWriter bw = argmap.getOutputWriter();
-					for(Gene g : set.GetGenes()) {
-						Collection<Alignments> introns = g.getIntronSet();
-						for(Alignments intron : introns) {
-							bw.write(new BED(intron).toShortString());
-							bw.newLine();
-						}
-					}
-				bw.close();
+
 		}
 			else if ("sampleIntrons".equalsIgnoreCase(argmap.getTask())) {
 				String data = argmap.getInput();
@@ -358,37 +346,10 @@ public class GeneTools {
 				
 			}
 			writeFullBED(out, set2);			
-		}else if ("lastExon".equalsIgnoreCase(argmap.getTask())) {
-			String data = argmap.getInput();
-			boolean five = !argmap.isPresent("three");
-			Map<String, Collection<Gene>> set = BEDFileParser.loadDataByChr(new File(data));
-			
-			BufferedWriter bw = argmap.getOutputWriter();
-			for(String  chr : set.keySet() ) {
-				for(Gene g : set.get(chr)) {
-					Alignments lastExon = five ? g.get5PrimeExon() : g.get3PrimeExon();
-					bw.write(new BED(lastExon).toShortString());
-					bw.newLine();
-				}
-			}
-			bw.close();
 		}
 		
 		//Moran 17/3/2010 - TODO: make this work!
-		else if ("exonsToGene".equalsIgnoreCase(argmap.getTask())) {
-			String data = argmap.getInput();
-			
-			Map<String, Collection<RefSeqGene>> exon_set = BEDFileParser.loadDataByChr(new File(data));
-			
-			Map<String, IntervalTree<RefSeqGene>> gene_set= joinExonsToGene(exon_set);
-			
-			BufferedWriter bw = argmap.getOutputWriter();
-			for(String  chr : gene_set.keySet() ) {
-				writeFullBED(bw, gene_set.get(chr));
-				}
-			
-			bw.close();
-		}
+
 		else if ("togff".equalsIgnoreCase(argmap.getTask())) {
 			String source = argmap.getMandatory("source");
 			String file = argmap.getInput();
@@ -454,84 +415,9 @@ public class GeneTools {
 			
 			writeExtendedFullBED(save, scores);
 			
-		}
 		
-		else if ("PickHighScoringIsoform".equalsIgnoreCase(argmap.getTask())){
-			
-			String data = argmap.getInput();
-			BEDFileParser set = new BEDFileParser(data);
-			BEDFileParser mergedSet = new BEDFileParser(data);
-			mergedSet.merge();
-			BEDFileParser selectedIsoforms = selectHighScoringIsoforms( set,  mergedSet);
-			String save = argmap.getOutput();
-			selectedIsoforms.writeFullBed(save);
-			
-			
-		}
-		
-		else if ("overlapByGenomicRegion".equalsIgnoreCase(argmap.getTask())) {
-			String set1In = argmap.getMandatory("set1");
-			String set2In = argmap.getMandatory("set2");
-			String considrOrientation = argmap.getMandatory("considerOrientation");
-			BufferedWriter bw = argmap.getOutputWriter();
-			Integer extendUtr= argmap.containsKey("set2ExtendUtr")? new Integer(argmap.getMandatory("set2ExtendUtr")) : 0;
-			boolean byChr =  argmap.containsKey("byChr")? true: false;
-			BEDFileParser resSet=new BEDFileParser() ;
-			
-			if (byChr){
-				String seqDir=argmap.getMandatory("seqDir");
-				Collection<Sequence> chrList=FastaSequenceIO.loadSequencesByNameFromDirectory(new File(seqDir)).values();
-				for (Sequence seq : chrList){
-					String chr=seq.getId();
-					BEDFileParser set1=set1In.endsWith(".gtf") ? new GTFFileParser(set1In, chr) : new BEDFileParser(set1In,chr);
-					BEDFileParser set2=set2In.endsWith("gtf") ? new GTFFileParser(set2In, chr) : new BEDFileParser(set2In,chr);
-					resSet.addRefSeqSet(set1.overlapByGenomicRegion(set2,considrOrientation).GetGenes());
-				}
-			}	
-			else{	
-			
-				BEDFileParser set1=set1In.endsWith(".gtf") ? new GTFFileParser(set1In) : new  BEDFileParser(set1In);
-				BEDFileParser set2=set2In.endsWith("gtf") ? new GTFFileParser(set2In) : new BEDFileParser(set2In);			
-				if (extendUtr>0){
-					BEDFileParser	set3=BEDFileParser.expanedUtrs(set2,extendUtr,extendUtr);
-					set2.clear();
-					set2=set3;
-				}
-				resSet= set1.overlapByGenomicRegion(set2,considrOrientation);
-			}
-			resSet.updateScrToBedScore();
-			resSet.writeFullBed(bw);
-			bw.close();
-		}
-		
-		else if ("DifferenceByGenomicRegion".equalsIgnoreCase(argmap.getTask())) {
-			String set1In = argmap.getMandatory("set1");
-			String set2In = argmap.getMandatory("set2");
-			String considrOrientation = argmap.getMandatory("considerOrientation");
-			BufferedWriter bw = argmap.getOutputWriter();
-			boolean byChr =  argmap.containsKey("byChr")? true: false;
-			BEDFileParser resSet=new BEDFileParser() ;
-			
-			if (byChr){
-				String seqDir=argmap.getMandatory("seqDir");
-				Collection<Sequence> chrList=FastaSequenceIO.loadSequencesByNameFromDirectory(new File(seqDir)).values();
-				for (Sequence seq : chrList){
-					String chr=seq.getId();
-					BEDFileParser set1=new BEDFileParser(set1In,chr);
-					BEDFileParser set2=new BEDFileParser(set2In,chr);
-					resSet.addRefSeqSet(set1.differenceByGenomicRegion(set2,considrOrientation).GetGenes());
-				}
 				
-			}	
-			else{
-				BEDFileParser set1=new BEDFileParser(set1In);
-				BEDFileParser set2=new BEDFileParser(set2In);
-				resSet= set1.differenceByGenomicRegion(set2,considrOrientation);
-			}
-			
-			resSet.updateScrToBedScore();
-			resSet.writeFullBed(bw);
-			bw.close();
+		
 		} else if (argmap.getTask().toLowerCase().contains("dedup")) {
 			String data = argmap.getInput();
 			BEDFileParser set = new BEDFileParser(data);
@@ -540,21 +426,7 @@ public class GeneTools {
 			set.writeFullBed(bw);
 			bw.close();
 			
-		}else if (argmap.getTask().toLowerCase().contains("collapse")) {
-			String data = argmap.getInput();
-			int exonFudgeFactor = argmap.getInteger("exonFudge");
-			BEDFileParser set = new BEDFileParser(data);
-			System.err.println("Collapsing single exon transcripts");
-			set.collapseSingleExonTranscripts();
-			System.err.println("Done. Now collapsing similar structures");
-			set.collapse(exonFudgeFactor);
-			//System.err.println("Done. Now collapsing 3' UTRs");
-			//set.collapseBy3pUTR();
-			BufferedWriter bw = argmap.getOutputWriter();
-			set.writeFullBed(bw);
-			bw.close();
-			
-		}  else if (argmap.getTask().equalsIgnoreCase("extract") ){ 
+		} else if (argmap.getTask().equalsIgnoreCase("extract") ){ 
 			String data = argmap.getInput();
 			BEDFileParser set = new BEDFileParser(data);
 			int mRNAStart = argmap.getInteger("mRNAStart");
@@ -585,20 +457,6 @@ public class GeneTools {
 			findCompatibleTranscripts (set1In,set2In,bw);
 			bw.close();
 			
-		}
-		else if ("RmHighIsoformLoci".equalsIgnoreCase(argmap.getTask())){
-			
-			String data = argmap.getInput();
-			Integer t = Integer.valueOf(argmap.getMandatory("threshold"));
-			BEDFileParser set = new BEDFileParser(data);
-			BEDFileParser mergedSet = new BEDFileParser(data);
-			mergedSet.merge();
-			BEDFileParser selectedIsoforms = RmHighIsoformLoci( set,mergedSet,t);
-			String save = argmap.getOutput();
-			selectedIsoforms.writeFullBed(save);
-			
-			
-
 		}
 		else if ("updateScore".equalsIgnoreCase(argmap.getTask())){
 			
@@ -721,7 +579,7 @@ public class GeneTools {
 	    		   ArrayList<Sequence> tmpSequences = new ArrayList<Sequence>();
 	    		   while(chrGeneIt.hasNext()) {
 	    			   Gene gene = chrGeneIt.next();
-	    			   //System.err.println("Gene " + gene.getName() + " " + gene.toUCSC());
+	    			   System.err.println("Gene " + gene.getName() + " " + gene.toUCSC());
 	    			   gene.setSequenceFromChromosome(c);
 	    			   Sequence geneSeq = gene.getSequenceObject();
 	    			   tmpSequences.add(geneSeq);
@@ -826,7 +684,7 @@ public class GeneTools {
        
 		else{System.err.println(usage);}
 
- }*/
+ }
 	
 
 

@@ -54,7 +54,7 @@ public class ConservationUtils {
 			String nodeName = nodeNameIt.next();
 			//System.out.println("ToPrune: " + nodeName);
 			Collection<String> nodesForName = prunned.getNodes(nodeName);
-			if(!nodesForName.isEmpty()) {
+			if(nodesForName != null && !nodesForName.isEmpty()) {
 				prunned.removeExtNode(prunned.getNode(nodeName));
 			} else {
 				logger.debug("Node " + nodeName + " was not in tree");
