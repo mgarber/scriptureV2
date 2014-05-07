@@ -26,11 +26,13 @@ public class DatabaseEnvironment {
 	 * Set up the environment
 	 * @param home Environment home directory
 	 * @param readOnly Whether the environment should be read only
+	 * @param transactional Whether the environment should be transactional (see berkeley db documentation)
 	 */
-	public void setup(File home, boolean readOnly) {
+	public void setup(File home, boolean readOnly, boolean transactional) {
 		EnvironmentConfig config = new EnvironmentConfig();
 		config.setReadOnly(readOnly);
 		config.setAllowCreate(!readOnly);
+		config.setTransactional(transactional);
 		environment = new Environment(home, config);
 		printCurrentProperties();
 	}
@@ -51,8 +53,9 @@ public class DatabaseEnvironment {
 	public void printCurrentProperties() {
 		EnvironmentConfig config = environment.getConfig();
 		String r = config.getReadOnly() ? "is" : "is not";
+		String t = config.getTransactional() ? "is" : "is not";
 		logger.info("");
-		logger.info("Cache size is " + config.getCacheSize() + ". Database " + r + " read only.");
+		logger.info("Cache size is " + config.getCacheSize() + ". Database " + r + " read only. Database " + t + " transactional.");
 	}
 	
 }

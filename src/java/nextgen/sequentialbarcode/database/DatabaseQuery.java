@@ -44,7 +44,7 @@ public class DatabaseQuery {
 			throw new IllegalArgumentException("Choose one: -b or -in");
 		}
 		
-		BarcodedFragmentImpl.DataAccessor dataAccessor = BarcodedFragmentImpl.getDataAccessor(envHome, storeName, true);
+		BarcodedFragmentImpl.DataAccessor dataAccessor = BarcodedFragmentImpl.getDataAccessor(envHome, storeName, true, false);
 		
 		// Single barcode sequence
 		if(barcodes != null) {

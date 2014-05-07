@@ -48,7 +48,7 @@ public class DatabaseQueryTest {
 		public GeneQuery(AlignmentModel data, ConcurrentLinkedQueue<Gene> genes, String environmentHome, String storeName, boolean readOnly) {
 			geneQueue = genes;
 			alignmentModel = data;
-			dataAccessor = BarcodedFragmentImpl.getDataAccessor(environmentHome, storeName, true);
+			dataAccessor = BarcodedFragmentImpl.getDataAccessor(environmentHome, storeName, true, false);
 		}
 		
 		@Override
@@ -81,7 +81,6 @@ public class DatabaseQueryTest {
 		CommandLineParser p = new CommandLineParser();
 		p.addStringArg("-e", "Database environment home", true);
 		p.addStringArg("-s", "Database store name", true);
-		p.addStringArg("-id", "Fragment ID to get", false, null);
 		p.addStringArg("-b", "Barcodes to get (SAM attribute format)", false, null);
 		p.addStringArg("-chr", "Interval chromosome", false, null);
 		p.addIntArg("-start", "Interval start", false, -1);
@@ -94,7 +93,6 @@ public class DatabaseQueryTest {
 		p.parse(args);
 		String envHome = p.getStringArg("-e");
 		String storeName = p.getStringArg("-s");
-		String id = p.getStringArg("-id");
 		String barcodes = p.getStringArg("-b");
 		String chr = p.getStringArg("-chr");
 		int start = p.getIntArg("-start");
@@ -105,7 +103,7 @@ public class DatabaseQueryTest {
 		String bedFile = p.getStringArg("-bd");
 		int numThreads = p.getIntArg("-nt");
 		
-		BarcodedFragmentImpl.DataAccessor dataAccessor = BarcodedFragmentImpl.getDataAccessor(envHome, storeName, true);
+		BarcodedFragmentImpl.DataAccessor dataAccessor = BarcodedFragmentImpl.getDataAccessor(envHome, storeName, true, false);
 		
 		CoordinateSpace coordSpace = null;
 		if(chrSizeFile != null && bedFile != null) {
@@ -177,13 +175,6 @@ public class DatabaseQueryTest {
 			
 		}
 		
-		// Single gene
-		if(id != null) {
-			BarcodedFragmentImpl fragment = dataAccessor.getFragmentByID(id);
-			logger.info("");
-			logger.info("Fragment with ID " + id + ":");
-			logger.info(fragment.getId() + "\t" + fragment.getBarcodes().toSamAttributeString());
-		}
 		
 		// Single barcode sequence
 		if(barcodes != null) {
@@ -201,7 +192,7 @@ public class DatabaseQueryTest {
 			JoinedEntityCursor<BarcodedFragmentImpl> iter = dataAccessor.getAllFragmentsWithBarcodesMatchingFragmentInWindow(bam, chr, start, end, false);
 			while(iter.hasNext()) {
 				BarcodedFragmentImpl fragment = iter.next();
-				logger.info(fragment.getId() + "\t" + fragment.getMappedLocation().toUCSC() + "\t" + fragment.getBarcodes().toSamAttributeString());
+				logger.info(fragment.getId() + "\t" + fragment.getFullInfoString() + "\t" + fragment.getBarcodes().toSamAttributeString());
 			}
 			iter.close();
 		}

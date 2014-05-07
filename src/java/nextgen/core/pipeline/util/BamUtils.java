@@ -9,7 +9,12 @@ import java.util.TreeMap;
 
 import net.sf.picard.sam.BuildBamIndex;
 import net.sf.picard.sam.SortSam;
+import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMFileReader;
+import net.sf.samtools.SAMFileWriter;
+import net.sf.samtools.SAMFileWriterFactory;
+import net.sf.samtools.SAMRecord;
+import net.sf.samtools.SAMRecordIterator;
 import nextgen.core.job.Job;
 import nextgen.core.job.JobUtils;
 import nextgen.core.job.LSFJob;
@@ -28,6 +33,77 @@ import org.ggf.drmaa.Session;
 public class BamUtils {
 	
 	private static Logger logger = Logger.getLogger(BamUtils.class.getName());
+	
+	/**
+	 * Split a bam file into several smaller bam files
+	 * @param inputBam Bam file to split
+	 * @param numFilesToWrite Number of smaller files to write
+	 * @return The names of the smaller files
+	 */
+	public static Collection<String> splitBam(String inputBam, int numFilesToWrite) {
+		return splitBam(inputBam, numFilesToWrite, false);
+	}
+	
+	/**
+	 * Split a bam file into several smaller bam files
+	 * @param inputBam Bam file to split
+	 * @param numFilesToWrite Number of smaller files to write
+	 * @param getNamesOnly Only get split file names, do not actually write files
+	 * @return The names of the smaller files
+	 */
+	public static Collection<String> splitBam(String inputBam, int numFilesToWrite, boolean getNamesOnly) {
+		
+		if(numFilesToWrite < 1) {
+			throw new IllegalArgumentException("Must write at least 1 file");
+		}
+		
+		logger.info("");
+		logger.info("Splitting " + inputBam + " into " + numFilesToWrite + " files.");
+		
+		SAMFileReader reader = new SAMFileReader(new File(inputBam));
+		SAMFileHeader header = reader.getFileHeader();
+		
+		Collection<String> rtrn = new ArrayList<String>();
+		
+		ArrayList<SAMFileWriter> writers = new ArrayList<SAMFileWriter>();
+		for(int i = 0; i < numFilesToWrite; i++) {
+			String name = inputBam + "." + i;
+			rtrn.add(name);
+			if(!getNamesOnly) {
+				SAMFileWriterFactory factory = new SAMFileWriterFactory();
+				SAMFileWriter writer = factory.makeBAMWriter(header, false, new File(name));
+				writers.add(writer);
+			}
+		}
+		
+		if(getNamesOnly) {
+			reader.close();
+			return rtrn;
+		}
+		
+		int numDone = 0;
+		
+		SAMRecordIterator iter = reader.iterator();
+		while(iter.hasNext()) {
+			SAMFileWriter writer = writers.get(numDone % writers.size());
+			SAMRecord record = iter.next();
+			writer.addAlignment(record);
+			numDone++;
+			if(numDone % 1000000 == 0) {
+				logger.info("Finished " + numDone + " records.");
+			}
+		}
+		
+		reader.close();
+		
+		for(SAMFileWriter writer : writers) {
+			writer.close();
+		}
+		
+		logger.info("Done splitting bam file.");
+		return rtrn;
+		
+	}
 	
 	/**
 	 * Merge bam files

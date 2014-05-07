@@ -46,6 +46,8 @@ import nextgen.sequentialbarcode.readlayout.ReadSequenceElement;
 @Entity(version=0)
 public class BarcodedFragmentImpl implements BarcodedFragment {
 	@PrimaryKey
+	protected String infoString;
+	@SecondaryKey(relate=MANY_TO_ONE)
 	protected String id;
 	protected String read1sequence;
 	protected String read2sequence;
@@ -81,6 +83,7 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 		setBarcodes(barcodeSignature);
 		location = mappedLocation;
 		fragmentGroup = new NamedBarcodedFragmentGroup(barcodes);
+		infoString = getInfoString(id, location.getChr(), location.getStart(), location.getEnd());
 	}
 	
 	/**
@@ -97,12 +100,33 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 	}
 	
 	/**
+	 * Get the info string that is used as the unique primary key for a mapping
+	 * @param readID Read ID
+	 * @param chr Mapped chromosome
+	 * @param start Mapped start
+	 * @param end Mapped end
+	 * @return Info string
+	 */
+	public static String getInfoString(String readID, String chr, int start, int end) {
+		return readID + ":" + chr + ":" + start + "-" + end;
+	}
+	
+	/**
+	 * Get fragment ID from sam record
+	 * @param samRecord Sam record
+	 * @return Fragment ID
+	 */
+	public static String getIdFromSamRecord(SAMRecord samRecord) {
+		return StringParser.firstField(samRecord.getReadName());
+	}
+	
+	/**
 	 * Instantiate from a SAM record by reading location and attributes
 	 * @param samRecord SAM record
 	 */
 	public BarcodedFragmentImpl(SAMRecord samRecord) {
 		
-		String fragmentId = StringParser.firstField(samRecord.getReadName());
+		String fragmentId = getIdFromSamRecord(samRecord);
 		read1sequence = null;
 		read2sequence = null;
 		String seq = samRecord.getReadString();
@@ -122,6 +146,8 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 		setBarcodes(barcodeSignature);
 		location = new BasicAnnotation(samRecord);
 		fragmentGroup = NamedBarcodedFragmentGroup.fromSAMRecord(samRecord);
+		
+		infoString = getInfoString(id, location.getChr(), location.getStart(), location.getEnd());
 		
 	}
 	
@@ -149,6 +175,7 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 		setBarcodes(barcodeSignature);
 		location = mappedLocation;
 		fragmentGroup = new NamedBarcodedFragmentGroup(barcodes);
+		infoString = getInfoString(id, location.getChr(), location.getStart(), location.getEnd());
 	}
 
 	/**
@@ -277,13 +304,14 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 	 * @param environmentHome Database environment home
 	 * @param storeName Database entity store name
 	 * @param readOnly Database is read only
+	 * @param transactional Database is transactional
 	 * @return Data accessor
 	 */
-	public static DataAccessor getDataAccessor(String environmentHome, String storeName, boolean readOnly) {
+	public static DataAccessor getDataAccessor(String environmentHome, String storeName, boolean readOnly, boolean transactional) {
 		logger.info("");
 		logger.info("Getting data accessor for database environment " + environmentHome + " and entity store " + storeName + ".");
 		BarcodedFragmentImpl b = new BarcodedFragmentImpl();
-		return b.new DataAccessor(environmentHome, storeName, readOnly);
+		return b.new DataAccessor(environmentHome, storeName, readOnly, transactional);
 	}
 	
 	/*
@@ -301,6 +329,7 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 		
 		PrimaryIndex<String, BarcodedFragmentImpl> primaryIndex;
 		SecondaryIndex<String, String, BarcodedFragmentImpl> secondaryIndexBarcodeString;
+		SecondaryIndex<String, String, BarcodedFragmentImpl> secondaryIndexReadID;
 		private DatabaseEnvironment environment;
 		private DatabaseStore entityStore;
 		
@@ -309,15 +338,16 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 		 * @param environmentHome Database environment home directory
 		 * @param storeName Name of database store
 		 * @param readOnly Whether environment should be read only
+		 * @param transactional Whether environment should be transactional
 		 */
-		public DataAccessor(String environmentHome, String storeName, boolean readOnly) {
+		public DataAccessor(String environmentHome, String storeName, boolean readOnly, boolean transactional) {
 		
 			/*
 			 * http://docs.oracle.com/cd/E17277_02/html/GettingStartedGuide/persist_first.html
 			 */
 			environment = new DatabaseEnvironment();
 			try {
-				environment.setup(new File(environmentHome), readOnly);
+				environment.setup(new File(environmentHome), readOnly, transactional);
 			} catch(DatabaseException e) {
 				logger.error("Problem with environment setup: " + e.toString());
 				System.exit(-1);
@@ -354,7 +384,7 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 		}
 		
 		public void put(BarcodedFragmentImpl fragment) {
-			primaryIndex.put(fragment);
+			primaryIndex.putNoReturn(fragment);
 		}
 
 		
@@ -474,12 +504,14 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 		}
 		
 		/**
-		 * Get a fragment by its ID
+		 * Get a cursor over all fragments with a particular ID
+		 * Must close when finished
+		 * Can either use an iterator over the cursor or treat like a collection
 		 * @param id ID
-		 * @return The fragment with this ID
+		 * @return Cursor over all fragments with this ID
 		 */
-		public BarcodedFragmentImpl getFragmentByID(String id) {
-			return primaryIndex.get(id);
+		public EntityCursor<BarcodedFragmentImpl> getAllFragmentsWithID(String id) {
+			return secondaryIndexReadID.subIndex(id).entities();
 		}
 		
 	}
