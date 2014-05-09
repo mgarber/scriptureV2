@@ -8,8 +8,6 @@ import java.util.Collection;
 import net.sf.samtools.SAMFileReader;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMRecordIterator;
-import nextgen.core.job.Job;
-import nextgen.core.job.JobUtils;
 import nextgen.core.job.OGSJob;
 import nextgen.core.pipeline.util.BamUtils;
 import nextgen.core.pipeline.util.OGSUtils;
@@ -24,6 +22,47 @@ import org.ggf.drmaa.Session;
 import broad.core.parser.CommandLineParser;
 
 public class DatabaseWriter {
+	
+	private class WriterThread implements Runnable {
+		
+		private BarcodedFragmentImpl.DataAccessor dataAccessor;
+		private String barcodedBam;
+		
+		protected WriterThread(BarcodedFragmentImpl.DataAccessor accessor, String barcodeBam) {
+			dataAccessor = accessor;
+			barcodedBam = barcodeBam;
+		}
+		
+		@Override
+		public void run() {
+			SAMFileReader samReader = new SAMFileReader(new File(barcodedBam));
+			SAMRecordIterator iter = samReader.iterator();
+			int numDone = 0;
+			
+			logger.info("");
+			logger.info("Writing barcoded SAM records to database.");
+			
+			long time = System.currentTimeMillis();
+			
+			while(iter.hasNext()) {
+				numDone++;
+				if(numDone % 100000 == 0) {
+					long newTime = System.currentTimeMillis();
+					long diff = (newTime - time) / 1000;
+					time = newTime;
+					logger.info("Finished entering " + numDone + " records (" + diff + " seconds).");
+				}
+				SAMRecord record = iter.next();
+				BarcodedFragmentImpl fragment = new BarcodedFragmentImpl(record);
+				dataAccessor.put(fragment);
+			}
+			
+			// Close data accessor and sam reader
+			dataAccessor.close();
+			samReader.close();			
+		}
+		
+	}
 	
 	private static Logger logger = Logger.getLogger(DatabaseWriter.class.getName());
 	private static Session drmaaSession;
@@ -47,10 +86,9 @@ public class DatabaseWriter {
 		p.addIntArg("-rj", "When batching out writing of barcoded bam file, number of reads per job", false, 10000000);
 		p.addStringArg("-bbj", "Barcoded bam writer jar file (needed to write barcoded bam file)", false, null);
 		p.addStringArg("-pj", "Picard jar directory (needed to write barcoded bam file)", false, null);
-		p.addBooleanArg("-bw", "Batch out writing of database", false, false);
-		p.addIntArg("-bwn", "When batching out writing of database, number of bam files to split into", false, 10);
-		p.addStringArg("-dwj", "Jar file of database writer for batching out to smaller bam files", false, null);
-		p.addStringArg("-bsj", "Bam splitter jar file for batching out to smaller bam files, required if smaller files do not already exist", false, null);
+		p.addBooleanArg("-tw", "Multithread writing of database", false, false);
+		p.addIntArg("-twn", "When multithreading writing of database, number of bam files to split into", false, 10);
+		p.addStringArg("-bsj", "Bam splitter jar file for multithreading on smaller bam files, required if smaller files do not already exist", false, null);
 		p.parse(args);
 		
 		if(p.getBooleanArg("-d")) {
@@ -84,15 +122,13 @@ public class DatabaseWriter {
 		// Write to database
 		String envHome = p.getStringArg("-dbh");
 		String storeName = p.getStringArg("-dbs");
+		File e = new File(envHome);
+		e.mkdir();
 
 		// Make smaller bam files if requested
-		if(p.getBooleanArg("-bw")) {
-			int numBams = p.getIntArg("-bwn");
+		if(p.getBooleanArg("-tw")) {
+			int numBams = p.getIntArg("-twn");
 			String barcodedBam = BarcodedBamWriter.getBarcodedBamFileName(inputBam);
-			String jar = p.getStringArg("-dwj");
-			if(jar == null) {
-				throw new IllegalArgumentException("Must provide jar file to batch out database writing");
-			}
 			String splitterJar = p.getStringArg("-bsj");
 			// Split bam file
 			// Get names of split files
@@ -120,8 +156,8 @@ public class DatabaseWriter {
 				splitterJob.submit();
 				splitterJob.waitFor();
 			}
-			// Submit jobs
-			Collection<Job> jobs = new ArrayList<Job>();
+			// Create threads
+			Collection<Thread> threads = new ArrayList<Thread>();
 			for(String smallBam : smallBams) {
 				File oldFile = new File(smallBam);
 				String barcodedSmallBam = BarcodedBamWriter.getBarcodedBamFileName(smallBam);
@@ -132,40 +168,23 @@ public class DatabaseWriter {
 						throw new IllegalStateException("Could not rename " + smallBam + " to " + barcodedSmallBam);
 					}
 				}
-				String cmmd = "java -jar -Xmx29g -Xms15g -Xmn10g " + jar + " -ib " + smallBam + " -dbh " +  envHome + " -dbs " + storeName;
-				OGSJob job = new OGSJob(drmaaSession, cmmd);
-				jobs.add(job);
-				job.submit();
+				BarcodedFragmentImpl.DataAccessor dataAccessor = BarcodedFragmentImpl.getDataAccessor(envHome, storeName, false, true);
+				dataAccessor.setCachePercent(57 / smallBams.size());
+				WriterThread wt = new DatabaseWriter().new WriterThread(dataAccessor, barcodedSmallBam);
+				Thread thread = new Thread(wt);
+				thread.start();
+				threads.add(thread);
 			}
-			logger.info("Waiting for " + jobs.size() + " jobs.");
-			JobUtils.waitForAll(jobs);
-			
+			for(Thread t : threads) {
+				t.join();
+			}
 		} else {
-			File e = new File(envHome);
-			e.mkdir();
-			BarcodedFragmentImpl.DataAccessor dataAccessor = BarcodedFragmentImpl.getDataAccessor(envHome, storeName, false, true);
-			
-			// Iterate through bam file and enter into database
-			logger.info("");
-			logger.info("Writing barcoded SAM records to database.");
+			BarcodedFragmentImpl.DataAccessor dataAccessor = BarcodedFragmentImpl.getDataAccessor(envHome, storeName, false, false);
 			String barcodedBam = BarcodedBamWriter.getBarcodedBamFileName(inputBam);
-			SAMFileReader samReader = new SAMFileReader(new File(barcodedBam));
-			SAMRecordIterator iter = samReader.iterator();
-			int numDone = 0;
-			
-			while(iter.hasNext()) {
-				numDone++;
-				if(numDone % 100000 == 0) {
-					logger.info("Finished entering " + numDone + " records.");
-				}
-				SAMRecord record = iter.next();
-				BarcodedFragmentImpl fragment = new BarcodedFragmentImpl(record);
-				dataAccessor.put(fragment);
-			}
-			
-			// Close data accessor and sam reader
-			dataAccessor.close();
-			samReader.close();
+			WriterThread wt = new DatabaseWriter().new WriterThread(dataAccessor, barcodedBam);
+			Thread thread = new Thread(wt);
+			thread.start();
+			thread.join();
 		}
 		
 		logger.info("");

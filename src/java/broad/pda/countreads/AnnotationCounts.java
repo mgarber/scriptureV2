@@ -151,7 +151,7 @@ public class AnnotationCounts {
 		p.addStringArg("-c", "Single chromosome to write", false, null);
 		p.addStringArg("-o", "Output file", true);
 		p.addBooleanArg("-p", "Include position level information for each annotation (slow)", false, false);
-		p.addIntArg("-m", "Min count to include a position for -z option", false, 20);
+		p.addIntArg("-m", "Min count to include a position for -p option", false, 20);
 		p.parse(args);
 		String bamFile = p.getStringArg("-b");
 		String bedFile = p.getStringArg("-g");

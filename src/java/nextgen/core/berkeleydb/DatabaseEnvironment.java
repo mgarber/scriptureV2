@@ -29,11 +29,14 @@ public class DatabaseEnvironment {
 	 * @param transactional Whether the environment should be transactional (see berkeley db documentation)
 	 */
 	public void setup(File home, boolean readOnly, boolean transactional) {
+		
 		EnvironmentConfig config = new EnvironmentConfig();
 		config.setReadOnly(readOnly);
 		config.setAllowCreate(!readOnly);
 		config.setTransactional(transactional);
+		
 		environment = new Environment(home, config);
+		
 		printCurrentProperties();
 	}
 	

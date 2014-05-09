@@ -7,10 +7,12 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
 import com.sleepycat.je.DatabaseException;
+import com.sleepycat.je.EnvironmentMutableConfig;
 import com.sleepycat.persist.EntityCursor;
 import com.sleepycat.persist.PrimaryIndex;
 import com.sleepycat.persist.SecondaryIndex;
@@ -47,7 +49,6 @@ import nextgen.sequentialbarcode.readlayout.ReadSequenceElement;
 public class BarcodedFragmentImpl implements BarcodedFragment {
 	@PrimaryKey
 	protected String infoString;
-	@SecondaryKey(relate=MANY_TO_ONE)
 	protected String id;
 	protected String read1sequence;
 	protected String read2sequence;
@@ -374,6 +375,17 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 			
 		}
 		
+		/**
+		 * Set cache size as a percentage of JVM max memory
+		 * @param percent Percentage of JVM max memory to allocate to cache
+		 */
+		public void setCachePercent(int percent) {
+			EnvironmentMutableConfig config = environment.getEnvironment().getMutableConfig();
+			config.setCachePercentVoid(percent);
+			environment.getEnvironment().setMutableConfig(config);
+			logger.info("Changed cache size to " + environment.getEnvironment().getMutableConfig().getCacheSize());
+		}
+		
 		/*
 		 * http://docs.oracle.com/cd/E17277_02/html/GettingStartedGuide/simpleput.html
 		 */
@@ -443,10 +455,23 @@ public class BarcodedFragmentImpl implements BarcodedFragment {
 				reader.close();
 				return null;
 			}
+			// First put all barcode sequences in a tree set so they are not duplicated
+			Collection<String> barcodeSeqs = new TreeSet<String>();
 			while(iter.hasNext()) {
 				try {
 					SAMRecord record = iter.next();
 					String b = record.getStringAttribute(BarcodedBamWriter.BARCODES_SAM_TAG);
+					barcodeSeqs.add(b);
+				} catch (Exception e) {
+					for(EntityCursor<BarcodedFragmentImpl> c : cursors) {
+						c.close();
+					}
+					reader.close();
+					throw e;
+				}
+			}
+			for(String b : barcodeSeqs) {
+				try {
 					cursors.add(getAllFragmentsWithBarcodes(b));
 				} catch (Exception e) {
 					for(EntityCursor<BarcodedFragmentImpl> c : cursors) {
