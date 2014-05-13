@@ -17,7 +17,6 @@ import broad.core.annotation.MaximumContiguousSubsequence;
 import broad.core.math.Distribution;
 import broad.core.math.Statistics;
 
-import nextgen.core.analysis.PeakCaller;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.annotation.Annotation.Strand;
@@ -34,7 +33,7 @@ import nextgen.core.model.score.WindowProcessor;
  * @author prussell
  *
  */
-public class TwoSampleScanSkellamPeakCaller implements PeakCaller {
+public class TwoSampleScanSkellamPeakCaller {
 	
 	protected Map<String, Map<Gene, Double>> backgroundScanPvalues;
 	protected ScanStatisticDataAlignmentModel backgroundData;
@@ -58,18 +57,6 @@ public class TwoSampleScanSkellamPeakCaller implements PeakCaller {
 	protected WindowProcessor<CountScore> backgroundProcessor;
 	protected WindowProcessor<ScanStatisticScore> signalProcessor;
 
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#scoreWindows(java.util.List)
-	 */
-	@Override
-	public void scoreWindows(Collection<Annotation> windows) {
-		throw new UnsupportedOperationException("TODO");
-	}
-
-	/* 
-	 * Filter by scan P-value
-	 */
-	@Override
 	public Collection<Annotation> filterWindows(Collection<Annotation> windows) throws IOException {
 		TreeSet<Annotation> rtrn = new TreeSet<Annotation>();
 		for(Annotation window : windows) {
@@ -79,18 +66,7 @@ public class TwoSampleScanSkellamPeakCaller implements PeakCaller {
 		return rtrn;
 	}
 
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#mergePeaks(java.util.List)
-	 */
-	@Override
-	public List<Annotation> mergePeaks(Collection<Annotation> peaks) {
-		throw new UnsupportedOperationException("TODO");
-	}
 	
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#writeResults(java.util.List, java.lang.String)
-	 */
-	@Override
 	public void writeResults(Collection<Annotation> windows, String out) throws IOException {
 		FileWriter w = new FileWriter(out);
 		for(Annotation window : windows)	{
@@ -99,7 +75,6 @@ public class TwoSampleScanSkellamPeakCaller implements PeakCaller {
 		w.close();
 	}
 	
-	@Override
 	public void writeResult(Collection<Annotation> windows, FileWriter writer) throws IOException {
 		for(Annotation window : windows)	{
 			writer.write(window.toBED() + "\n");
@@ -107,22 +82,6 @@ public class TwoSampleScanSkellamPeakCaller implements PeakCaller {
 	}
 
 
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#setCoordinateSpace(nextgen.core.coordinatesystem.CoordinateSpace)
-	 */
-	@Override
-	public void setCoordinateSpace(CoordinateSpace space) {
-		throw new UnsupportedOperationException("TODO");
-	}
-
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#getCoordinateSpace()
-	 */
-	@Override
-	public CoordinateSpace getCoordinateSpace() {
-		throw new UnsupportedOperationException("TODO");
-	}
-	
 	/**
 	 * Given a total number of reads, a region length, and a window size, get the parameter of the Poisson distribution modeling the number of reads in a window of this size
 	 * @param regionLength The total region length
@@ -167,12 +126,6 @@ public class TwoSampleScanSkellamPeakCaller implements PeakCaller {
 		rtrn.setOrientation(window.getOrientation());	
 		return rtrn;
 
-	}
-
-
-	@Override
-	public Annotation trimPeak(Annotation peak) {
-		throw new UnsupportedOperationException();
 	}
 
 

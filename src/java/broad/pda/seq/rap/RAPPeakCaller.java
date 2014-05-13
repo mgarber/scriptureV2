@@ -20,7 +20,6 @@ import broad.core.util.CLUtil;
 import broad.core.util.CLUtil.ArgumentMap;
 import broad.pda.annotation.BEDFileParser;
 
-import nextgen.core.analysis.PeakCaller;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.AnnotationList;
 import nextgen.core.annotation.BasicAnnotation;
@@ -38,7 +37,7 @@ import nextgen.core.model.ScanStatisticDataAlignmentModel;
  *
  */
 
-public class RAPPeakCaller implements PeakCaller{
+public class RAPPeakCaller {
 
 
 	private ScanStatisticDataAlignmentModel backgroundSample;
@@ -290,63 +289,6 @@ public class RAPPeakCaller implements PeakCaller{
 	}
 	
 	
-	@Override
-	public void scoreWindows(Collection<Annotation> windows) {
-		try{
-		throw new IncompleteMethodImplementationException();
-		}
-		catch(IncompleteMethodImplementationException ex){ex.printStackTrace();}
-	}
-
-	@Override
-	public Collection<Annotation> filterWindows(Collection<Annotation> windows) {
-		try{
-			throw new IncompleteMethodImplementationException();
-			}
-			catch(IncompleteMethodImplementationException ex){ex.printStackTrace();}
-		return null;
-	}
-
-	@Override
-	public Collection<Annotation> mergePeaks(Collection<Annotation> peaks) {
-		try{
-			throw new IncompleteMethodImplementationException();
-			}
-			catch(IncompleteMethodImplementationException ex){ex.printStackTrace();}
-		return null;
-	}
-
-	@Override
-	public void writeResults(Collection<Annotation> windows, String out)
-			throws IOException {
-		try{
-			throw new IncompleteMethodImplementationException();
-			}
-			catch(IncompleteMethodImplementationException ex){ex.printStackTrace();}
-		
-	}
-
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#writeResults(java.util.Collection, java.io.FileWriter)
-	 */
-	@Override
-	public void writeResult(Collection<Annotation> windows, FileWriter writer)
-			throws IOException {
-		try{
-			throw new IncompleteMethodImplementationException();
-			}
-			catch(IncompleteMethodImplementationException ex){ex.printStackTrace();}
-		
-	}
-
-	@Override
-	public void setCoordinateSpace(CoordinateSpace space) {
-		try{
-			throw new IncompleteMethodImplementationException();
-			}
-			catch(IncompleteMethodImplementationException ex){ex.printStackTrace();}
-		
-	}
 
 	/**
 	 * Returns the coordinate space for this peak caller
@@ -400,10 +342,5 @@ public class RAPPeakCaller implements PeakCaller{
 		dummy.callKLPeaks(argMap.getOutput(),argMap.getDouble("kl"));
 	}
 
-
-	@Override
-	public Annotation trimPeak(Annotation peak) {
-		throw new UnsupportedOperationException();
-	}
 
 }

@@ -104,6 +104,9 @@ public class AnnotationCounts {
 			chrs.addAll(genes.keySet());
 		}
 		for(String chr : chrs) {
+			if(!genes.containsKey(chr)) {
+				continue;
+			}
 			for(Gene gene : genes.get(chr)) {
 				logger.info(gene.getName() + "\t" + gene.toUCSC());
 				int start = gene.getStart();

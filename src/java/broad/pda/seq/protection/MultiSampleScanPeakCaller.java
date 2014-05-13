@@ -29,7 +29,6 @@ import broad.core.parser.StringParser;
 import broad.pda.annotation.BEDFileParser;
 
 import nextgen.core.alignment.Alignment;
-import nextgen.core.analysis.PeakCaller;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.annotation.Annotation.Strand;
@@ -52,7 +51,7 @@ import nextgen.core.feature.GeneWindow;
  * @author prussell
  *
  */
-public class MultiSampleScanPeakCaller implements PeakCaller {
+public class MultiSampleScanPeakCaller {
 	
 	private TranscriptomeSpace coord;
 	protected Map<String, Collection<Gene>> genes;
@@ -1169,14 +1168,6 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	}
 	
 	
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#scoreWindows(java.util.Collection)
-	 */
-	@Override
-	public void scoreWindows(Collection<Annotation> windows) {
-		throw new UnsupportedOperationException("TODO");
-	}
-	
 	/**
 	 * Nominal P value calculated relative to null distribution of t statistic score
 	 * Where null distribution is determined by permuting the contol/signal labels of samples
@@ -1212,19 +1203,7 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 	private double tStatisticWindowScoreFDR(Gene gene, Annotation window) {
 		throw new UnsupportedOperationException("TODO");
 	}
-	
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#filterWindows(java.util.Collection)
-	 */
-	@Override
-	public Collection<Annotation> filterWindows(Collection<Annotation> windows) throws IOException {
-		throw new UnsupportedOperationException("TODO");
- 	}
 
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#mergePeaks(java.util.Collection)
-	 */
-	@Override
 	public Collection<Annotation> mergePeaks(Collection<Annotation> peaks) {
 		TreeSet<Annotation> peakTree = new TreeSet<Annotation>();
 		peakTree.addAll(peaks);
@@ -1235,43 +1214,10 @@ public class MultiSampleScanPeakCaller implements PeakCaller {
 		return mergedWindows;
 	}
 	
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#mergePeaks(java.util.Collection)
-	 */	
-	@Override
-	public Annotation trimPeak(Annotation peak) {
-		throw new UnsupportedOperationException("TODO");
-	}
-
-
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#writeResults(java.util.Collection, java.lang.String)
-	 */
-	@Override
-	public void writeResults(Collection<Annotation> windows, String out) throws IOException {
-		throw new UnsupportedOperationException("TODO");
-	}
-
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#writeResult(java.util.Collection, java.io.FileWriter)
-	 */
-	@Override
-	public void writeResult(Collection<Annotation> windows, FileWriter writer) throws IOException {
-		throw new UnsupportedOperationException("TODO");
-	}
-
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#setCoordinateSpace(nextgen.core.coordinatesystem.CoordinateSpace)
-	 */
-	@Override
 	public void setCoordinateSpace(CoordinateSpace space) {
 		coord = (TranscriptomeSpace) space;
 	}
 
-	/* (non-Javadoc)
-	 * @see nextgen.core.analysis.PeakCaller#getCoordinateSpace()
-	 */
-	@Override
 	public CoordinateSpace getCoordinateSpace() {
 		return coord;
 	}
