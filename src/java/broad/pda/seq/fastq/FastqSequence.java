@@ -66,9 +66,9 @@ public class FastqSequence {
 	 */
 	public FastqSequence trimEndBases(int numOfBasesToTrim){
 		String trimmedSequence = sequence.substring(sequence.length() - numOfBasesToTrim);
-		String trimmedQual     = quality.substring(sequence.length() - numOfBasesToTrim);
+		String trimmedQual     = quality.substring(quality.length() - numOfBasesToTrim);
 		sequence=sequence.substring(0, sequence.length() - numOfBasesToTrim);
-		quality=quality.substring(0, sequence.length() - numOfBasesToTrim);
+		quality=quality.substring(0, quality.length() - numOfBasesToTrim);
 		return new FastqSequence(name, trimmedSequence, description, trimmedQual);
 	}
 	
