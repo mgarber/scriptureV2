@@ -1850,12 +1850,12 @@ public class GenericAlignmentDataModel implements AlignmentDataModel{
 
 	@Override
 	public Map<String, Integer> getChromosomeLengths() {
-		throw new UnsupportedOperationException("TODO");
+		return this.chromosomeSizes;
 	}
 
 	@Override
 	public int getChromosomeLength(String chr) {
-		throw new UnsupportedOperationException("TODO");
+		return this.chromosomeSizes.containsKey(chr) ? this.chromosomeSizes.get(chr) : 0;
 	}
 
 	@Override
