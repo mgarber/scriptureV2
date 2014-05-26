@@ -181,17 +181,19 @@ public class FastqParser implements Iterator<FastqSequence>{
 
 	public FastqSequence next() {
 		FastqSequence seq = null;
-
 		try{
-			if (hasNext()) {
-	    		String firstLine=nextLine;
-	    		String secondLine=reader.readLine();
+
+			
+	        if (nextLine  != null) {
+        		String firstLine=nextLine;
+        		String secondLine=reader.readLine();
 				String thirdLine=reader.readLine();
-	    		String fourthLine=reader.readLine();
-	    		seq=new FastqSequence(firstLine, secondLine, thirdLine, fourthLine);
-	    		nextLine = reader.readLine();
-			}
-		}catch(Exception ex){
+        		String fourthLine=reader.readLine();
+        		seq=new FastqSequence(firstLine, secondLine, thirdLine, fourthLine);
+	        }
+	        nextLine = reader.readLine() ;
+
+		}catch(Exception ex){ 
 			logger.error("Exception thrown while reading fastq file",ex);
 		}
 
