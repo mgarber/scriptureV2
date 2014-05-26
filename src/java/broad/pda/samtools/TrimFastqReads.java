@@ -22,8 +22,8 @@ public class TrimFastqReads extends CommandLineProgram {
     @Option(doc = "FASTQ file ", shortName = "I")
 	public File INPUT;
     
-    @Option(doc = "Nucleotides to remove at start", shortName = "S")
-    public int removeAtStart;
+    @Option(doc = "Nucleotides to remove at start", shortName = "S", optional = true)
+    public int removeAtStart = 0;
     
     @Option(doc = "Nuclotides to remove at end", shortName = "E", optional = true)
     public int removeAtEnd = 0;
@@ -58,10 +58,11 @@ public class TrimFastqReads extends CommandLineProgram {
 			while (reader1.hasNext()) {
 				FastqSequence rec = reader1.next();
 
-				rec.trimEndBases(removeAtEnd);
-				rec.trimStartBases(removeAtStart);
+				if(removeAtEnd > 0)
+					rec.trimEndBases(removeAtEnd);
+				if(removeAtStart > 0 ) 
+					rec.trimStartBases(removeAtStart);
 				rec.write(writer);
-				writer.newLine();
 	
 			}
 			
