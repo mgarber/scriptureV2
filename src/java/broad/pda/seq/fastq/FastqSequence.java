@@ -30,11 +30,11 @@ public class FastqSequence {
 	}
 	
 	public void write(BufferedWriter bw) throws IOException{
-		bw.write(name);
+		bw.write( (name.startsWith("@") ) ? name : "@" + name );  // TODO: Fix, store name without @, add @ only for writing
 		bw.newLine();
 		bw.write(sequence);
 		bw.newLine();
-		bw.write(description);
+		bw.write(description.startsWith("+") ? description : "+" + description); // TODO: Fix, store description without +, add + only for writing
 		bw.newLine();
 		bw.write(quality);
 		bw.newLine();

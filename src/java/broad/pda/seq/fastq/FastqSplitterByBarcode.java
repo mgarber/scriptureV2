@@ -174,21 +174,17 @@ public class FastqSplitterByBarcode {
 				trim(pair1, pair2, bc);
 				updateReadInfoWithBarcode(pair1, bc);
 				pair1.write(pair1Writers.get(bc));
-				pair1Writers.get(bc).newLine();
 				if (isPaired()) {
 					updateReadInfoWithBarcode(pair2, bc);
 					pair2.write(pair2Writers.get(bc));
-					pair2Writers.get(bc).newLine();
 				}
 			}
 		}
 		
 		if (! found) {
 			pair1.write(pair1Writers.get(UNMATCHED));
-			pair1Writers.get(UNMATCHED).newLine();
 			if (isPaired()) {
 				pair2.write(pair2Writers.get(UNMATCHED));
-				pair2Writers.get(UNMATCHED).newLine();
 			}
 			readsPerBarcode.put(UNMATCHED, readsPerBarcode.get(UNMATCHED) + 1);
 		}
@@ -305,172 +301,7 @@ public class FastqSplitterByBarcode {
 	
 	public boolean hasMore() { return this.pair1Parser.hasNext();}
 
-	private static BarcodeInformation generateBCReport(File fqf, int innerBarcodeSize, boolean innerBCAtEnd, int minReadsToReport) throws IOException {
-		FastqParser fqparser = new FastqParser();
-		BarcodeInformation bi = new BarcodeInformation(minReadsToReport);
-		fqparser.start(fqf);
-		int numReads = 0;
-		while(fqparser.hasNext()) {
-			FastqSequence fs = fqparser.next();
-			if(fs == null) {
-				logger.info("Null fastqsequence at record " + bi.totalReads());
-				continue;
-			}
-			numReads++;
-			String nameBC = getNameBarcode(fs);
-			String bc = "NA";
-			if(innerBarcodeSize > 0 ) {
-				FastqSequence bcSeq = innerBCAtEnd ? fs.trimEndBases(innerBarcodeSize) : fs.trimStartBases(innerBarcodeSize);
-				bc = bcSeq.getSequence();
-			}
-			bi.add(nameBC, bc);
-			if(numReads % 5000000 == 0) {
-				logger.debug(numReads + " processed for report");
-			}
-			
-		}		
-		fqparser.close();
-		return bi;
-	}
 
-	private static String getNameBarcode(FastqSequence fs) {
-		String name = fs.getName();
-		String bc = "NA";
-		Matcher m = nameBarcodePattern.matcher(name);
-		//logger.debug("read name: " + name);
-		if(m.find()) {
-			//logger.debug("read matched, extracting (" +m.start()+1 +","+m.end()+")");
-			bc = name.substring(m.start()+1, m.end());
-			//logger.debug("bc: " + bc);
-		} else {
-			//logger.debug("read did not match");
-		}
-		return bc;
-	}
-	
-	public static class BarcodeInformation {
-		private int minReadsToReport = 0;
-		private Map<String, Integer> nameBCNumbers;
-		private Map<String, Map<String, Integer>> nameInnerBCNumbers;
-		private int totalReads = 0;
-		
-		public BarcodeInformation(int minReadsToReport) {
-			nameBCNumbers = new HashMap<String, Integer>();
-			nameInnerBCNumbers = new HashMap<String, Map<String, Integer>>();
-			this.minReadsToReport = minReadsToReport;
-		}
-		
-		public int totalReads() {
-			return totalReads;
-		}
-
-		public int getOuterBarcodeTotalReads(String nameBC) {
-			return 0;
-		}
-
-		public void add(String nameBC, String bc) {
-			totalReads++;
-			//logger.debug("adding: " + nameBC + ", " + bc);
-			if (nameBCNumbers.containsKey(nameBC)) {
-				nameBCNumbers.put(nameBC, nameBCNumbers.get(nameBC)+1);
-				Map<String, Integer> innerBCMap = nameInnerBCNumbers.get(nameBC);
-				if(innerBCMap == null) {
-					innerBCMap = new HashMap<String, Integer>();
-					innerBCMap.put(bc, 1);
-					nameInnerBCNumbers.put(nameBC, innerBCMap);
-				} else {
-					if(innerBCMap.containsKey(bc)) {
-						innerBCMap.put(bc, innerBCMap.get(bc)+1);
-					} else {
-						innerBCMap.put(bc, 1);
-					}
-				}				
-				
-			} else {
-				nameBCNumbers.put(nameBC, 1);
-				Map<String, Integer> innerMap = new HashMap<String, Integer>();
-				innerMap.put(bc, 1);
-				nameInnerBCNumbers.put(nameBC, innerMap);
-			}
-			
-			//logger.debug("added counts to " + nameBC + " it has now " + nameBCNumbers.get(nameBC) + " also added inner bc " + bc + " map for " + nameBC + ": " + nameInnerBCNumbers.get(nameBC).get(bc));
-			
-		}
-
-		public void write(String file) throws IOException{
-			BufferedWriter bw = new BufferedWriter(new FileWriter(file));
-			
-			bw.write("Total reads: " + totalReads);
-			bw.newLine();
-			
-			bw.write("High count barcodes (count > " + minReadsToReport + ")");
-			bw.newLine();
-			List<String> sortedNameBCs = new ArrayList<String>();
-			for(String nameBC : nameBCNumbers.keySet()) {
-				if(nameBCNumbers.get(nameBC) > minReadsToReport) {
-					sortedNameBCs.add(nameBC);
-				}
-			}
-			
-			Collections.sort(sortedNameBCs, new Comparator<String>() {
-				public int compare(String o1, String o2) {
-					return nameBCNumbers.get(o2) - nameBCNumbers.get(o1);
-				}
-			});
-			
-			int totalReadsReported = 0;
-			for( String nBC : sortedNameBCs) {
-				bw.write(nBC + "\t" + nameBCNumbers.get(nBC));
-				bw.newLine();
-				totalReadsReported += nameBCNumbers.get(nBC);
-				List<String> sortedInnerBCs = new ArrayList<String>();
-				final Map<String, Integer> innerBCMap = this.nameInnerBCNumbers.get(nBC);
-				
-				//logger.debug("inner map for " + nBC + "with counts " + nameBCNumbers.get(nBC)+ ": "+innerBCMap);
-				for(String innerBC : innerBCMap.keySet()) {
-					if(innerBCMap.get(innerBC) > minReadsToReport) {
-						sortedInnerBCs.add(innerBC);
-					}
-				}
-				
-				Collections.sort(sortedInnerBCs, new Comparator<String>() {
-					public int compare(String o1, String o2) {
-						return innerBCMap.get(o2) - innerBCMap.get(o1);
-					}
-				});
-				
-				int totalInnerBarcodeReads = 0;
-				for( String iBC : sortedInnerBCs) {
-					bw.write("\t"+iBC + "\t" + innerBCMap.get(iBC));
-					bw.newLine();
-					totalInnerBarcodeReads += innerBCMap.get(iBC);
-				}
-				
-				bw.write("\t#scattered reads: " + (nameBCNumbers.get(nBC) - totalInnerBarcodeReads));
-				bw.newLine();
-				
-			}
-			
-			bw.write("#reported reads: "+ totalReadsReported + " #unreported: " + (totalReads - totalReadsReported));
-			bw.newLine();
-			
-			
-			bw.close();
-			
-		}
-
-		public int getInnerBarcodeTotalReads(String nameBC, String bc) {
-			int total = 0;
-			if(this.nameBCNumbers.containsKey(nameBC) ) {
-				if(nameInnerBCNumbers.get(nameBC).containsKey(bc)) {
-					total = nameInnerBCNumbers.get(nameBC).get(bc);
-				}
-			}
-			return total;
-		}
-		
-	}
-	
 	public boolean isPaired() {
 		return paired;
 	}
