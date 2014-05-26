@@ -21,7 +21,7 @@ public class PeakFilter {
 	private static final Logger logger =  Logger.getLogger(PeakFilter.class.getName());
 	static final String USAGE = "\nTasks" +
 	"\n filterByOverlap -in <Set of peaks in BED format> -null <Null set of peaks> -maxOverlap <Peaks that are covered by more than the specified overlap are filtered> -out <Name of the filtered output file> "+
-	"\n filterByEnrichment -in <Set of peaks in BED format>  -null <Null alignment>  -minFoldOverNull <Minimum fold score over null peak when overlapping a null peal> -out <Name of the filtered output file>" +
+	"\n filterByEnrichment -in <Set of peaks in BED format>  -null <Null alignment>  -libAlignment <Alignment for the library> -minFoldOverNull <Minimum fold score over null peak when overlapping a null peal> -out <Name of the filtered output file>" +
 	"\n";
 	
 	
