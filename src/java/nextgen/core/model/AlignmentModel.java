@@ -124,12 +124,13 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 				
 	}
 	
-	
+		
 	/**
 	 * Populate the alignment collection
 	 * @param bamFile
 	 * @param coordinateSpace 
 	 * @param readFilters 
+	 * @param tmpDir Temp directory for sorting
 	 * @throws IOException 
 	 */
 	public AlignmentModel(String bamFile, CoordinateSpace coordinateSpace, Collection<Predicate<Alignment>> readFilters, boolean readOrCreatePairedEndBam,TranscriptionRead transcriptionRead,boolean fragment,String maskedRegionFile) {
@@ -261,8 +262,12 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 				
 				globalCount = 0.0;
 				//Since stats already calculated reference sequence counts
-				for(String ref:coordinateSpace.getChromosomeNames())
+				for(String ref:coordinateSpace.getReferenceNames()) {
+					if(!stats.containsKey(ref)) {
+						continue;
+					}
 					globalCount += stats.get(ref);
+				}
 				this.globalLambda = this.globalCount / this.globalLength;
 				stats.put("globalLength", this.globalLength);
 				stats.put("globalCount", this.globalCount);
@@ -316,6 +321,23 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return new UnpackingIterator(cache.getReads(region, false));
 	}
 
+	/**
+	 * Get list of position level counts in mature transcript
+	 * @param gene The region
+	 * @return List of position counts
+	 * @throws IOException 
+	 */
+	public List<Double> getPositionCountList(Gene gene) throws IOException {
+		List<Double> rtrn = new ArrayList<Double>();
+		WindowProcessor<CountScore> processor = new CountScore.Processor(this);
+		WindowScoreIterator<CountScore> scoreIter = scan(gene, 1, 0, processor);
+		while(scoreIter.hasNext()) {
+			rtrn.add(Double.valueOf(scoreIter.next().getCount()));
+		}
+		return rtrn;
+	}
+
+	
 	/**
 	 * This function calculates the number of proper paired end reads over the entire coordinate space
 	 * @author skadri
