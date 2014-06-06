@@ -37,15 +37,29 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 		this.regionTotal = other.regionTotal;
 	}
 	
+	/**
+	 * @param model Alignment data
+	 * @param annotation Region
+	 */
 	public CountScore(AnnotationCollection<? extends Annotation> model, Annotation annotation) {
 		this(model, annotation, false);
 	}
 	
+	/**
+	 * @param model Alignment data
+	 * @param annotation Region
+	 * @param regionTotal Override region total
+	 */
 	public CountScore(AnnotationCollection<? extends Annotation> model, Annotation annotation, double regionTotal) {
 		this(model, annotation, regionTotal, false);
 	}
 
 	
+	/**
+	 * @param model Alignment data
+	 * @param annotation Region
+	 * @param fullyContained Only count fully contained reads
+	 */
 	public CountScore(AnnotationCollection<? extends Annotation> model, Annotation annotation, boolean fullyContained) {
 		super(annotation);
 		setCount(model.getCount(annotation, fullyContained));
@@ -97,7 +111,8 @@ public class CountScore extends WindowScore.AbstractWindowScore implements Compa
 	}
 	
 	public static double asRPKM(double count, double total, int windowSize) {
-		return count / total * 1000000.0 / (windowSize / 1000.0);
+		return (1000000000.0 * count) / (total * windowSize);
+		//return count / total * 1000000.0 / (windowSize / 1000.0);
 	}
 	
 	public String toString() {

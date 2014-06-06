@@ -24,19 +24,19 @@ import org.apache.commons.collections15.iterators.FilterIterator;
 
 
 /**
- * @author engreitz
+ * @author skadri
  * Class representing a genome with defined linear chromosomes.  Masking behavior can be controlled
  * through setting masked regions and percent masked allowed parameters, which will filter out windows
  * that overlap masked regions.
  */
-public class GenomicSpace implements CoordinateSpace {
+public class TranscriptInGenomicSpace implements CoordinateSpace {
 
 	Map<String, Integer> chromosomeSizes;
 	AnnotationList<Annotation> maskedRegions = new AnnotationList<Annotation>();
 	double pctMaskedAllowed = 0;
 	boolean overlapAllowed = false;
 	
-	static Logger logger = Logger.getLogger(GenomicSpace.class.getName());
+	static Logger logger = Logger.getLogger(TranscriptInGenomicSpace.class.getName());
 	
 	static final public int PERMUTATION_ATTEMPTS = 10;
 	static private Random generator = new Random();
@@ -46,7 +46,7 @@ public class GenomicSpace implements CoordinateSpace {
 	 * 
 	 * @param chromosomeSizes
 	 */
-	public GenomicSpace(Map<String, Integer> chromosomeSizes){
+	public TranscriptInGenomicSpace(Map<String, Integer> chromosomeSizes){
 		this.chromosomeSizes=chromosomeSizes;
 	}
 	
@@ -54,11 +54,11 @@ public class GenomicSpace implements CoordinateSpace {
 	 * Chromosome name and accompanying sizes
 	 * @param chromosomeSizes
 	 */
-	public GenomicSpace(String chromosomeSizes){
+	public TranscriptInGenomicSpace(String chromosomeSizes){
 		this(BEDFileParser.loadChrSizes(chromosomeSizes));
 	}
 	
-	public GenomicSpace(String chromosomeSizes, String maskedRegionFile) {
+	public TranscriptInGenomicSpace(String chromosomeSizes, String maskedRegionFile) {
 		this(chromosomeSizes);
 		if (maskedRegionFile != null) {
 			try {
@@ -69,7 +69,7 @@ public class GenomicSpace implements CoordinateSpace {
 		}
 	}
 	
-	public GenomicSpace(Map<String, Integer> chromosomeSizes, String maskedRegionFile) {
+	public TranscriptInGenomicSpace(Map<String, Integer> chromosomeSizes, String maskedRegionFile) {
 		this(chromosomeSizes);
 		if (maskedRegionFile != null) {
 			try {
@@ -80,7 +80,7 @@ public class GenomicSpace implements CoordinateSpace {
 		}
 	}
 	
-	public GenomicSpace(String chromosomeSizes, String maskedRegionFile, double pctMaskedAllowed) {
+	public TranscriptInGenomicSpace(String chromosomeSizes, String maskedRegionFile, double pctMaskedAllowed) {
 		this(chromosomeSizes, maskedRegionFile);
 		setPercentMaskedAllowed(pctMaskedAllowed);
 	}
@@ -451,18 +451,21 @@ public class GenomicSpace implements CoordinateSpace {
 	@Override
 	public Collection<? extends Window> getFragment(Annotation annotation) {
 		
-		return getFragment(annotation.getChr(), annotation.getStart(), annotation.getEnd());
+		Collection<Window> fragments = new TreeSet<Window>();
+		for(Annotation block:annotation.getBlocks()){
+			fragments.addAll(getFragment(block.getChr(), block.getStart(), block.getEnd()));
+		}		
+		return fragments;
 	}
 
 	@Override
 	public int getSize(Annotation region) {
 		Collection<? extends Window> fragments = getFragment(region);
-		int size = fragments.iterator().next().size();
+		int size = 0;
 		for(Window window : fragments) {
-			if(window.size() != size) {
-				throw new IllegalStateException("Fragment set for annotation consists of multiple regions with different sizes.");
-			}
+			size +=window.size();
 		}
+		//logger.info("GenomicSpace " + region.getName() + " " + region.getChr() + ":" + region.getStart() + " " + region.getEnd() + " " + size);
 		return size;
 	}
 

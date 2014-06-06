@@ -16,11 +16,13 @@ import java.util.TreeMap;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.Gene;
+import nextgen.core.coordinatesystem.TranscriptInGenomicSpace;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
 import nextgen.core.readFilters.GenomicSpanFilter;
 import nextgen.core.readFilters.MappingQualityFilter;
 import nextgen.core.readFilters.PCRDuplicateFilter;
+import nextgen.core.readFilters.UniqueMappedReadsFilter;
 
 import org.apache.commons.collections15.Predicate;
 import org.apache.log4j.Logger;
@@ -57,6 +59,7 @@ public class ScriptureScorer {
 	boolean weighReadsFlag;
 	boolean removePCRDuplicatesFlag; 
 	boolean normalizedOutput;
+	private static boolean filterMultimappers;
 	
 	public ScriptureScorer(File bamFile,ArgumentMap argMap) throws IOException{
 		
@@ -153,11 +156,15 @@ public class ScriptureScorer {
 			boolean pairedFlag = !argMap.isPresent("singleEnd");
 			logger.info("Paired flag is "+pairedFlag);
 			//CoordinateSpace space = new TranscriptomeSpace(annotations);
-			AlignmentModel model = new AlignmentModel(alignmentFiles.get(i), null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
+			AlignmentModel libmodel = new AlignmentModel(alignmentFiles.get(i), null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
+			AlignmentModel model = new AlignmentModel(alignmentFiles.get(i), new TranscriptInGenomicSpace(libmodel.getRefSequenceLengths()), new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
 			if(removePCRDuplicatesFlag){
 				logger.info("Duplicates will be removed");
 				model.addFilter(new PCRDuplicateFilter());
 			}	
+			if(filterMultimappers)
+				model.addFilter(new UniqueMappedReadsFilter());
+
 			//Add read filters
 			model.addFilter(new MappingQualityFilter(minimumMappingQuality,minimumMappingQuality));
 			//Will not allow more than 500kB fragments
@@ -254,6 +261,9 @@ public class ScriptureScorer {
 		 * Convert string to boolean
 		 */
 		normalizedOutput = argMap.isPresent("normalizedOutput")? (Boolean.parseBoolean(argMap.get("normalizedOutput"))): false;
+		
+		filterMultimappers = argMap.isPresent("filterMultimappers");
+
 	}
 	/**
 	 * Writes the normalized matrix
@@ -384,7 +394,7 @@ public class ScriptureScorer {
 				rtrn.put(gene, s);
 			}
 			else{
-				rtrn.put(gene, new ScanStatisticScore(model, gene,true).getScores());
+				rtrn.put(gene, new ScanStatisticScore(model, gene,false).getScores());
 			}
 		}
 		return rtrn;

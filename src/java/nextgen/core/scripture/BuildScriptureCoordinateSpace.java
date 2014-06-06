@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -28,10 +27,8 @@ import broad.core.datastructures.Pair;
 import broad.core.math.ScanStatistics;
 import broad.core.math.Statistics;
 import broad.core.util.CLUtil;
-import broad.core.util.CollapseByIntersection;
 import broad.core.util.CLUtil.ArgumentMap;
 import broad.pda.datastructures.Alignments;
-import broad.pda.seq.graph.Path;
 
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.alignment.Alignment;
@@ -41,12 +38,11 @@ import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.CoordinateSpace;
+import nextgen.core.coordinatesystem.TranscriptInGenomicSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.general.CloseableFilterIterator;
 import nextgen.core.model.JCSAlignmentModel;
-import nextgen.core.readFilters.CanonicalSpliceFilter;
 import nextgen.core.readFilters.GenomicSpanFilter;
-import nextgen.core.readFilters.IndelFilter;
 import nextgen.core.readFilters.PairedEndFilter;
 import nextgen.core.readFilters.ReadsToReconstructFilter;
 import nextgen.core.readFilters.SplicedReadFilter;
@@ -113,7 +109,9 @@ public class BuildScriptureCoordinateSpace {
 		forceStrandSpecificity = forceStrandedness;
 		outName = outputName;
 		//TODO: CHECK IF DATA IS SINGLE END USING THE SAME HEADER
-		model=new JCSAlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),!isSingleEnd,strand,false);
+		JCSAlignmentModel libmodel=new JCSAlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),!isSingleEnd,strand,false);
+		
+		model=new JCSAlignmentModel(bamfile.getAbsolutePath(), new TranscriptInGenomicSpace(libmodel.getRefSequenceLengths()), new ArrayList<Predicate<Alignment>>(),!isSingleEnd,strand,false);
 		space=model.getCoordinateSpace();
 
 		setThresholds(argMap);
@@ -793,28 +791,7 @@ public class BuildScriptureCoordinateSpace {
 		return rtrn;
 	}
 	
-	/**
-	 * Returns true if the transcript at the oriented 3' end is a single exon transcript.
-	 * @param gene
-	 * @param other
-	 * @return
-	 */
-	private boolean secondTranscriptIsSingleExon(Gene gene,Gene other){
-		
-		Pair<Gene> orderedGenes = ConnectDisconnectedTranscripts.getOrderedAssembly(gene, other);
-		if(gene.isNegativeStrand()){
-			if(orderedGenes.getValue1().getBlocks().size()==1){
-				return true;
-			}
-		}
-		else{
-			if(orderedGenes.getValue2().getBlocks().size()==1){
-				return true;
-			}
-		}
-		return false;
-	}
-	
+
 	public static void write(String save, Map<String, Collection<Gene>> rtrn) throws IOException {
 		FileWriter writer=new FileWriter(save);
 		
@@ -859,7 +836,9 @@ public class BuildScriptureCoordinateSpace {
 	 */
 	private ChromosomeTranscriptGraph assembleDirectly(String chr,TranscriptionRead strand){
 		
-		model=new JCSAlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),!isSingleEnd,strand,false);
+		JCSAlignmentModel libmodel=new JCSAlignmentModel(bamfile.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),!isSingleEnd,strand,false);
+		
+		model=new JCSAlignmentModel(bamfile.getAbsolutePath(), new TranscriptInGenomicSpace(libmodel.getRefSequenceLengths()), new ArrayList<Predicate<Alignment>>(),!isSingleEnd,strand,false);
 		model.addFilter(new UniqueMappedReadsFilter());
 		model.addFilter(new ReadsToReconstructFilter());
 		model.addFilter(new GenomicSpanFilter(20000000));
@@ -870,7 +849,7 @@ public class BuildScriptureCoordinateSpace {
 		long start = System.currentTimeMillis();		
 		//SPLICED READS
 		//CloseableFilterIterator<Alignment> splicedIter=new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new CanonicalSpliceFilter(genomeSeq));
-/*		CloseableFilterIterator<Alignment> splicedIter=new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new SplicedReadFilter());
+		CloseableFilterIterator<Alignment> splicedIter=new CloseableFilterIterator<Alignment>(model.getOverlappingReads(chr), new SplicedReadFilter());
 		
 		IntervalTree<Assembly> splicedAssemblies=assembleDirectly(splicedIter,strand);
 		long end = System.currentTimeMillis();
@@ -882,11 +861,11 @@ public class BuildScriptureCoordinateSpace {
 		CloseableIterator<Alignment> iter=model.getOverlappingReads(chr);
 		IntervalTree<Assembly> workingAssemblies=assembleDirectly(iter, splicedAssemblies,strand);
 		end = System.currentTimeMillis();
-		try{write(workingAssemblies, outName+"."+chr+"."+"01directAsseblies.bed");}catch(IOException ex){}*/
+/*		try{write(workingAssemblies, outName+"."+chr+"."+"01directAsseblies.bed");}catch(IOException ex){}
 		CloseableIterator<Alignment> iter=model.getOverlappingReads(chr);
 		IntervalTree<Assembly> workingAssemblies=assembleAllDirectly(iter, strand);
 		try{write(workingAssemblies, outName+"."+chr+"."+"01assemblies.bed");}catch(IOException ex){}	
-		
+*/		
 		
 		/*
 		 * ONLY ALL READS
@@ -899,16 +878,11 @@ public class BuildScriptureCoordinateSpace {
 		logger.debug("TIME: ASSEMBLE NON SPLICED: "+(end-start));*/
 		logger.info("Size of direct assemblies: "+workingAssemblies.size());		
 				
-/*		model=new JCSAlignmentModel(bamFileName.getAbsolutePath(), null, new ArrayList<Predicate<Alignment>>(),true,strand,false);
-		model.addFilter(new ProperPairFilter());
-		model.addFilter(new IndelFilter());
-		model.addFilter(new GenomicSpanFilter(20000000));*/
-//		globalPairedLambda = model.getGlobalPairedFragments()/model.getGlobalLength();
 		logger.info("Intron retention filter");
 		//REMOVE SPURIOUS
 		start = System.currentTimeMillis();
 		IntervalTree<Assembly> unspuriousAssemblies = intronRetentionFilter(workingAssemblies,chr);
-		long end = System.currentTimeMillis();
+		end = System.currentTimeMillis();
 		logger.debug("TIME: REMOVE SPURIOUS: "+(end-start));
 		try{write(unspuriousAssemblies, outName+"."+chr+"."+"03intronRetentionAssemblies.bed");}catch(IOException ex){}
 									
@@ -1058,7 +1032,13 @@ public class BuildScriptureCoordinateSpace {
 		return rtrn;
 	}
 
-	private Assembly branchExonWithAssembly(Assembly exon, Assembly assembly) {
+	/**
+	 * Helper function to assembleAllDirectly
+	 * @param assembly1
+	 * @param assembly2
+	 * @return
+	 */
+/*	private Assembly branchExonWithAssembly(Assembly exon, Assembly assembly) {
 		Assembly rtrn = null;
 		
 		//order the two assemblies by which starts first
@@ -1082,7 +1062,7 @@ public class BuildScriptureCoordinateSpace {
 			rtrn.setName(assembly.getName());
 		}
 		return rtrn;
-	}
+	}*/
 
 	private Pair<Assembly> getOrderedAssembly(Assembly assembly1, Assembly assembly2) {
 		Pair<Assembly> rtrn=new Pair<Assembly>();
@@ -1255,39 +1235,6 @@ public class BuildScriptureCoordinateSpace {
 		return scores;
 	}
 	
-	/**
-	 * Returns all read counts and scan p-value for the specified gene
-	 * @param gene
-	 * @return
-	 */
-	private double[] getScoresAllReads(Annotation gene){
-		double[] scores = new double[2];
-		scores[0] = 0.0;
-		//Get all reads overlapping the transcript
-		CloseableIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(gene,true), new ReadsToReconstructFilter());
-		//For each read,
-		while(iter.hasNext()){					
-			Alignment read = iter.next();
-			boolean countRead = true;
-			for(Annotation mate:read.getReadAlignments(space)){
-				if(!compatible(gene,mate)){
-					//logger.debug("Read "+mate.toUCSC()+" is not compatible with isoform with "+isoform.getExons().length);
-					countRead=false;
-					break;
-				}
-			}
-			//For the assembly, we need to treat each read separately	
-			if(countRead){
-				scores[0] += read.getWeight();
-			}
-		}
-		iter.close();
-		//logger.debug("Count = "+scores[0]+" Int version "+new Double(scores[0]).intValue()+" global paired lambda = "+globalPairedLambda+" gene size = "+model.getCoordinateSpace().getSize(gene)+ " or "+gene.size()+" global length = "+model.getGlobalLength()+" global lambda = "+model.getGlobalLambda());
-		
-		scores[1] = ScanStatistics.calculatePVal(new Double(scores[0]).intValue(), model.getGlobalLambda(), model.getCoordinateSpace().getSize(gene), model.getGlobalLength());
-		
-		return scores;
-	}
 	
 	private void mergeAssembly(IntervalTree<Assembly> tree) {
 		//Step 1: Iterate through the working assembly and find paths that overlap
@@ -1561,64 +1508,6 @@ public class BuildScriptureCoordinateSpace {
 		return currentAssemblies;
 	}*/
 	
-	/**
-	 * This function returns true if the number of paired end reads supporting exon1 and supporting the splice junction og intron2 are comparable, 
-	 * that is, not below a certain threshold. HELPER function to removePrematureAssembliesUsingPairedEnds()
-	 * @return
-	 */
-	private boolean exonPassesPairedEndTest(Annotation exon1,Assembly overlapper,Annotation intron2){
-		
-		Annotation overlap = exon1.intersect(intron2);
-		Annotation nonoverlap = exon1.minus(intron2);
-		
-		//If exon is completely contained in the intron, pass
-		if(overlap==null || overlap.equals(exon1)){
-			return true;
-		}
-		boolean passes=true;
-		//Get paired end reads for exon1
-		CloseableIterator<Alignment> iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(exon1,true), new ReadsToReconstructFilter());
-		double exonCount = 0.0;
-		while(iter.hasNext()){
-			Alignment read = iter.next();
-			// if read is compatible with gene
-			//If either read is not compatible flag will be set to false
-			//If both mates of the pair are compatible
-			if(boundaryIsCompatibleWithPairedEnd(overlap,nonoverlap,read)){
-				exonCount = exonCount + 1.0;
-			}
-		}
-		//exonCount = exonCount/(double)exon1.length();
-		iter.close();
-		
-		//Get paired end reads for exons flanking intron2
-		
-		Annotation[] flankingExons = overlapper.getFlankingBlocks(intron2);
-		Assembly sumAssembly = new Assembly(Arrays.asList(flankingExons),false);
-		//int intronLength = flankingExons[0].length()+flankingExons[1].length();
-		iter = new CloseableFilterIterator<Alignment>(model.getOverlappingReads(sumAssembly,true), new  ReadsToReconstructFilter());
-		double intronCount = 0.0;
-		while(iter.hasNext()){
-			Alignment read = iter.next();
-			// if read is compatible with gene
-			//If either read is not compatible flag will be set to false
-			//If both mates of the pair are compatible
-			if(boundaryIsCompatibleWithPairedEnd(flankingExons[0],flankingExons[1],read)){
-				intronCount = intronCount + 1.0;
-			}
-		}
-		iter.close();
-		//intronCount = intronCount / (double)intronLength;
-		if(intronCount!=0.0){
-			double ratio = exonCount/intronCount;
-			if(ratio<0.8){
-				logger.debug("Paired end count for exon " +exon1.toUCSC()+" : "+exonCount);
-				logger.debug("Paired end count for intron " +intron2.toUCSC()+" : "+intronCount+ " ratio = "+ratio);
-				return false;
-			}
-		}
-		return passes;
-	}
 	
 	/**
 	 * Returns an array of size 2 where [0] is the first mate and [1] is the second mate
@@ -1961,7 +1850,7 @@ public class BuildScriptureCoordinateSpace {
 	 * @param strand
 	 * @return
 	 */
-	private IntervalTree<Assembly> assembleAllDirectlyOLD(CloseableIterator<Alignment> iter, TranscriptionRead strand) {
+/*	private IntervalTree<Assembly> assembleAllDirectlyOLD(CloseableIterator<Alignment> iter, TranscriptionRead strand) {
 
 		String linc="gene_v_";
 		IntervalTree<Assembly> workingAssemblies=new IntervalTree<Assembly>();
@@ -2192,7 +2081,7 @@ public class BuildScriptureCoordinateSpace {
 		}
 		return workingAssemblies;
 	}
-	
+*/	
 	
 	/**
 	 * 
@@ -2201,7 +2090,7 @@ public class BuildScriptureCoordinateSpace {
 	 * @param strand
 	 * @return
 	 */
-	private IntervalTree<Assembly> assembleAllDirectly(CloseableIterator<Alignment> iter, TranscriptionRead strand) {
+/*	private IntervalTree<Assembly> assembleAllDirectly(CloseableIterator<Alignment> iter, TranscriptionRead strand) {
 
 		String linc="gene_v_";
 		IntervalTree<Assembly> workingAssemblies=new IntervalTree<Assembly>();
@@ -2577,7 +2466,7 @@ public class BuildScriptureCoordinateSpace {
 			if(!assembly.contains(unsplicedExon))
 				return false;
 		return true;
-	}
+	}*/
 	/** 
 	 * Returns true is the exon is a subset of the assembly
 	 * AND 
@@ -2586,7 +2475,7 @@ public class BuildScriptureCoordinateSpace {
 	 * @param exon
 	 * @return
 	 */
-	private boolean exonIsSubsetOfAssembly(Annotation assembly, Annotation exon) {
+/*	private boolean exonIsSubsetOfAssembly(Annotation assembly, Annotation exon) {
 		if(assembly.contains(exon)){
 			for(Annotation exon1:assembly.getBlocks()){
 				if(exon1.overlaps(exon)){
@@ -2598,80 +2487,7 @@ public class BuildScriptureCoordinateSpace {
 			}
 		}
 		return false;
-	}
-	/**
-	 * See if the read is partially compatible with the assembly
-	 * If so, branch and merge
-	 * @param assembly
-	 * @param read
-	 * @return all branches
-	 */
-	private Collection<Assembly> newSplitBranch(Assembly assembly, Annotation read) {
-
-		Collection<Assembly> rtrn=new TreeSet<Assembly>();
-		if(read.overlaps(assembly)){
-			Assembly truncated=findMaxCompatibilityNew(assembly, read);
-			if(truncated!=null){
-				Assembly merged=mergeToAssembly(truncated, read);
-				rtrn.add(merged);
-				//Why add the assembly again? Just don't remove it above
-				//rtrn.add(assembly);
-			}
-		}
-		return rtrn;
-	}
-
-	/**
-	 * See if the read is partially compatible with the assembly
-	 * If so, branch and merge
-	 * @param assembly
-	 * @param read
-	 * @return all branches
-	 */
-	private Collection<Assembly> oldSplitBranch(Assembly assembly, Annotation read) {
-
-		Collection<Assembly> rtrn=new TreeSet<Assembly>();
-		if(read.overlaps(assembly)){
-			Assembly truncated=findMaxCompatibility(assembly, read);
-			if(truncated!=null){
-				Assembly merged=mergeToAssembly(truncated, read);
-				rtrn.add(merged);
-				//Why add the assembly again? Just don't remove it above
-				rtrn.add(assembly);
-			}
-		}
-		return rtrn;
-	}
-	
-	private Assembly findMaxCompatibilityNew(Assembly assembly, Annotation read) {
-		/*Iterator<Assembly> iter=assembly.trimNodes(read);
-		while(iter.hasNext()){
-			Assembly truncated=iter.next();
-			if(compatible(truncated, read)){
-				return truncated;
-			}
-		}
-		*/
-		Assembly trimmedAssembly = assembly.trim(read);
-		if(trimmedAssembly!=null){
-			//TODO: doesnt the logic dictate this?
-			if(compatible(trimmedAssembly.getLastBlock(), read)){
-				return trimmedAssembly;
-			}
-		}
-		return null;
-	}
-	
-	private Assembly findMaxCompatibility(Assembly assembly, Annotation read) {
-		Iterator<Assembly> iter=assembly.trimNodes();
-		while(iter.hasNext()){
-			Assembly truncated=iter.next();
-			if(compatible(truncated, read)){
-				return truncated;
-			}
-		}
-		return null;
-	}
+	}*/
 
 	/*private boolean partiallyCompatible(Annotation assembly, Annotation read) {
 		//The annotations are not compatible, so we will check if they are partially compatible
@@ -2690,63 +2506,6 @@ public class BuildScriptureCoordinateSpace {
 		//(ii) or if exons of one overlap the other but dont overlap the intron of the other
 		
 	}*/
-
-	private Collection<Annotation> branch(Annotation read, Annotation assembly) {
-		Collection<Annotation> rtrn=new TreeSet<Annotation>();
-		//Define incompatible regions
-		
-		//sanity check to ensure they physically overlap
-		if(read.overlaps(assembly)){
-			//define compatible edges: find introns that overlap but arent equal
-			//define compatible nodes: find exons that overlap and are compatible
-			Collection<Annotation> incompatible=this.getIncompatibleRegions(read, assembly);
-			try{write(incompatible, "incompatible.bed");}catch(IOException ex){}
-			Collection<Annotation> compatible=getCompatibleRegions(read, assembly, incompatible); //simple subtraction of intervals
-			for(Annotation incompatibleRegion: incompatible){
-				Annotation branch=merge(compatible, incompatibleRegion);
-				rtrn.add(branch);
-			}
-		}
-		
-		return rtrn;
-		
-	}
-
-	
-	private Collection<Annotation> getCompatibleRegions(Annotation read, Annotation assembly, Collection<Annotation> incompatible) {
-		Collection<Annotation> rtrn=new TreeSet<Annotation>();
-		
-		//simply take read and assembly and subtract the incompatible regions
-		if(!incompatible.isEmpty()){
-			Annotation ann1=(read.minus(incompatible));
-			Annotation ann2=(assembly.minus(incompatible));
-			if(ann1.getSize()>0 && compatible(ann1, read) && compatible(ann1, assembly)){
-				rtrn.add(ann1);
-			}
-			if(ann2.getSize()>0 && compatible(ann2, read) && compatible(ann2, assembly)){
-				rtrn.add(ann2);
-			}
-			
-		}
-		else{
-			rtrn.add(read);
-			rtrn.add(assembly);
-		}
-		return rtrn;
-	}
-
-	
-
-	private Annotation merge(Collection<Annotation> compatible, Annotation incompatibleRegion) {
-		//do a simple block merge
-		Collection<Annotation> blocks=new TreeSet<Annotation>();
-		for(Annotation ann: compatible){
-			blocks.addAll(ann.getBlocks());
-		}
-		blocks.addAll(incompatibleRegion.getBlocks());
-		Annotation rtrn=new BasicAnnotation(blocks);
-		return rtrn;
-	}
 
 	
 	
@@ -2832,131 +2591,9 @@ public class BuildScriptureCoordinateSpace {
 		return false;
 	}
 	
-	
-	private Collection<Annotation> getIncompatibleRegions(Annotation assembly, Annotation read){
-		
-		Collection<? extends Annotation> assemblyIntrons=assembly.getSpliceConnections();
-		Collection<? extends Annotation> readIntrons=read.getSpliceConnections();
-		
-		Collection<Annotation> rtrn1=new TreeSet<Annotation>();
-		Collection<Annotation> rtrn2=new TreeSet<Annotation>();
-		
-		//introns are compatible if:
-		//(i) all overlapping introns are identical
-		for(Annotation intron1: assemblyIntrons){
-			for(Annotation intron2: readIntrons){
-				//if overlaps but not identical
-				if(intron1.overlaps(intron2)){
-					if(!intron1.equals(intron2, forceStrandSpecificity)){
-						rtrn1.add(intron1);
-						rtrn2.add(intron2);
-						//intron1 and intron2 are not compatible
-					} //This should use strand info or not based on flag
-				}
-			}
-		}
-		
-		
-		//now check if an exon overlaps an intron in the other
-		for(Annotation exon1: assembly.getBlocks()){
-			for(Annotation intron2: readIntrons){
-				if(exon1.overlaps(intron2)){
-					//exon1 is incompatible
-					rtrn1.add(exon1);
-					rtrn2.add(intron2);
-				}
-			}
-		}
-		
-		for(Annotation exon2: read.getBlocks()){
-			for(Annotation intron1: assemblyIntrons){
-				if(exon2.overlaps(intron1)){
-					rtrn2.add(exon2);
-					rtrn1.add(intron1);
-				}
-			}
-		}
-		
-		Collection<Annotation> rtrn=new TreeSet<Annotation>();
-		//merge rtrn1
-		if(!rtrn1.isEmpty()){
-			Annotation block1=new BasicAnnotation(rtrn1);
-			//trim assembly
-			Annotation tmp1=assembly.intersect(new Alignments(block1.getChr(), block1.getStart(), block1.getEnd()));
-			if(tmp1!=null && tmp1.getSize()>0){rtrn.add(tmp1);}
-		}
-		
-		//merge rtrn2
-		if(!rtrn2.isEmpty()){
-			Annotation block2=new BasicAnnotation(rtrn2);
-			//trim read
-			Annotation tmp2=read.intersect(new Alignments(block2.getChr(), block2.getStart(), block2.getEnd()));
-			if(tmp2!=null && tmp2.getSize()>0){rtrn.add(tmp2);}
-		}
-		
-		//return collection
-		return rtrn;
-	}
 
 	private static boolean overlap(Annotation assembly, Annotation read) {
 		return assembly.overlaps(read,forceStrandSpecificity);
-	}
-
-	private boolean overlapsWithoutCrossingIntron(Annotation assembly, Annotation read) {
-		//one has introns, one does not
-		//see if one without overlaps the exons of the other
-		//AND does not overlap the intron
-		if(!read.getSpliceConnections().isEmpty()){
-			//read has introns
-			//test if exons overlap the intron
-			for(Annotation intron: read.getSpliceConnections()){
-				if(assembly.overlaps(intron)){return false;}
-			}
-			//if not, test that exons overlap
-			for(Annotation exon: read.getBlocks()){
-				if(assembly.overlaps(exon)){return true;}
-			}
-			return false;
-		}
-		
-		//assembly has intron
-		Annotation complement=assembly.complement();
-		for(Annotation intron: complement.getBlocks()){
-			if(read.overlaps(intron)){return false;}
-		}
-		for(Annotation exon: assembly.getBlocks()){
-			if(read.overlaps(exon)){return true;}
-		}
-		
-		return false;
-	}
-
-	private boolean hasNonOverlapping(Annotation assembly, Alignment read) {
-		//check if every intron in read is also an intron in assembly and vice versa
-		
-		Collection<? extends Annotation> assemblyIntrons=assembly.complement().getBlocks();
-		Collection<? extends Annotation> readIntrons=read.getSpliceConnections();
-		
-		for(Annotation intron: assemblyIntrons){
-			if(!readIntrons.contains(intron)){return true;}
-		}
-		
-		for(Annotation intron: readIntrons){
-			if(!assemblyIntrons.contains(intron)){return true;}
-		}
-		
-		return false;
-	}
-
-	private Annotation merge(Annotation assembly, Alignment read) {
-		//since these are compatable, we will simply add the read to the assembly by merging exons
-		Collection<Annotation> rtrn=new TreeSet<Annotation>();
-		Collection<Annotation> readAlignments=read.getReadAlignments(this.space);
-		for(Annotation align: readAlignments){
-			rtrn.addAll(align.getBlocks());
-		}
-		rtrn.addAll(assembly.getBlocks());
-		return new BasicAnnotation(rtrn);
 	}
 
 	private Assembly mergeToAssembly(Annotation assembly, Annotation read) {
@@ -2969,412 +2606,8 @@ public class BuildScriptureCoordinateSpace {
 		return a;
 
 	}
-	
-
-	private void write(Collection<? extends Annotation> blocks, String save) throws IOException {
-		write(blocks, save, true);
-	}
 		
 
-	private void write(Collection<? extends Annotation> blocks, String save, boolean append) throws IOException {
-		FileWriter writer=new FileWriter(save, append);
-		
-		for(Annotation block: blocks){writer.write(block+"\n");}
-		
-		writer.close();
-	}
-
-	private Pair<Collection<Annotation>> splitExonsByJunctions(Annotation exonicRegion, Collection<Annotation> junctions) {
-		Collection<Annotation> spliced=new TreeSet<Annotation>();
-		Collection<Annotation> preSpliced=new TreeSet<Annotation>();
-		
-		//make junction tree
-		IntervalTree<Annotation> junctionTree=makeTree(junctions);
-		
-		//go through exons and see if it overlaps a junction
-		for(Annotation exon: exonicRegion.getBlocks()){
-			//if overlaps a junction
-			Iterator<Node<Annotation>> overlappers=junctionTree.overlappers(exon.getStart()-1, exon.getEnd()+1);
-			Pair<Collection<Annotation>> exons=split(exon, overlappers);
-			spliced.addAll(exons.getValue1());
-			preSpliced.addAll(exons.getValue2());
-		}
-		
-		Pair<Collection<Annotation>> rtrn=new Pair<Collection<Annotation>>(spliced, preSpliced);
-		return rtrn;
-	}
-
-	private IntervalTree<Annotation> makeTree(Collection<Annotation> junctions) {
-		IntervalTree<Annotation> rtrn=new IntervalTree<Annotation>();
-		for(Annotation junction: junctions){
-			rtrn.put(junction.getStart(), junction.getEnd(), junction);
-		}
-		return rtrn;
-	}
-
-	private Pair<Collection<Annotation>> split(Annotation exon, Iterator<Node<Annotation>> overlappers) {
-		Collection<Annotation> spliced=new TreeSet<Annotation>();
-		Collection<Annotation> preSpliced=new TreeSet<Annotation>();
-		
-		
-		List<Annotation> introns=new ArrayList<Annotation>();
-		
-		while(overlappers.hasNext()){
-			introns.add(overlappers.next().getValue());
-		}
-		
-		if(introns.isEmpty()){
-			spliced.add(exon);
-		}
-		else{
-			boolean counted=false;
-			//define overlapping introns
-			List<List<Annotation>> overlappingIntrons=defineOverlappingIntrons(introns); //TODO Why would any list be empty?
-			//create sets of introns
-			Collection<Annotation> setOfIntrons=createSetsOfIntrons(overlappingIntrons);
-			//subtract each set and add the resulting exons
-			for(Annotation setOfIntron: setOfIntrons){
-				Annotation minus=exon.minus(setOfIntron);
-				if(!minus.getBlocks().isEmpty()){
-					spliced.addAll(minus.getBlocks()); //These are legit
-					counted=true;
-				}
-			}
-			
-			//We'll add all the complements as possible pre-mRNA background to test
-			if(!spliced.isEmpty()){
-				Annotation comp=exon.minus(spliced);
-				preSpliced.addAll(comp.getBlocks()); //These are likely preprocessed mRNA
-			}
-						
-			
-			if(!counted && this.alignsWithEdge(exon, introns)){
-				logger.debug("aligns with edge "+exon.toUCSC());
-				spliced.add(exon); //These are likely legit
-				counted=true;
-			}
-			
-			//We'll add all exons fully contained in an intron as possible pre-mRNA background
-			//TODO We may just want to add all exons not already counted
-			if(!counted && fullyContained(exon, introns)){preSpliced.add(exon);} //These are likely preprocessed mRNA	
-		}
-			
-		Pair<Collection<Annotation>> rtrn=new Pair<Collection<Annotation>>(spliced, preSpliced);
-		return rtrn;
-	}
-
-	private boolean notOverlapping(Annotation exon, Collection<Annotation> spliced) {
-		for(Annotation splic: spliced){
-			if(exon.overlaps(splic)){
-				logger.debug(exon.toUCSC()+" overlaps");
-				return false;
-			}
-		}
-		return true;
-	}
-
-	private Collection<Annotation> createSetsOfIntrons(List<List<Annotation>> overlappingIntrons) {
-		Collection<Annotation> rtrn=new TreeSet<Annotation>();
-		
-		//go through the overlapping introns and create sets
-		int[] sizes=new int[overlappingIntrons.size()];
-		for(int i=0; i<overlappingIntrons.size(); i++){
-			sizes[i]=overlappingIntrons.get(i).size();
-		}
-		
-		CombinationGenerator combinations=new CombinationGenerator(sizes);
-		int[][] possibleCombos=combinations.getPermutations();
-		
-		//Rows are the combos to use
-		for(int i=0; i<possibleCombos.length; i++){
-			int[] setPositions=possibleCombos[i];
-			Annotation intronSet=makeIntronSet(overlappingIntrons, setPositions);
-			rtrn.add(intronSet);
-		}
-		
-		return rtrn;
-	}
-
-	private Annotation makeIntronSet(List<List<Annotation>> overlappingIntrons,	int[] setPositions) {
-		Collection<Annotation> blocks=new TreeSet<Annotation>();
-		for(int i=0; i<setPositions.length; i++){
-			Annotation intron=overlappingIntrons.get(i).get(setPositions[i]);
-			blocks.add(intron);
-		}
-		return new BasicAnnotation(blocks);
-	}
-
-	private void write(List<List<Annotation>> overlappingIntrons, String save, Annotation exon) throws IOException {
-		FileWriter writer=new FileWriter(save, true);
-		
-		int i=0;
-		for(List<Annotation> introns: overlappingIntrons){
-			for(Annotation intron: introns){
-				//intron.setName("set"+i);
-				writer.write(intron.getChr()+"\t"+intron.getStart()+"\t"+intron.getEnd()+"\t"+("set:"+i+"-"+exon.toUCSC())+"\n");
-			}
-			i++;
-		}
-		
-		writer.close();
-	}
-
-	private List<List<Annotation>> defineOverlappingIntrons(List<Annotation> introns) {
-		//TODO This does not account for exon exclusion events
-		//To account for this, we will want to include introns that overlap both sets to be included in both sets
-		
-		List<List<Annotation>> rtrn=new ArrayList<List<Annotation>>();
-		IntervalTree<Annotation> intronTree=makeTree(introns);
-		Set<Annotation> accountedFor=new TreeSet<Annotation>();
-		
-		for(Annotation intron: introns){
-			if(!accountedFor.contains(intron)){
-				List<Annotation> overlappingIntrons=new ArrayList<Annotation>();
-				//get overlappers
-				List<Annotation> overlappers=getList(intronTree.overlappers(intron.getStart(), intron.getEnd()));
-				add(overlappingIntrons, overlappers, accountedFor);
-				for(Annotation ann2: overlappers){
-					List<Annotation> overlappers2=getList(intronTree.overlappers(ann2.getStart(), ann2.getEnd()));
-					add(overlappingIntrons, overlappers2, accountedFor);
-				}
-				rtrn.add(overlappingIntrons);
-			}
-		}
-		
-		//Lets do a second split to take each list and divide up bins that overlap
-		rtrn=splitOverlapping(rtrn);
-		
-		return rtrn;
-	}
-
-	private List<List<Annotation>> splitOverlapping(List<List<Annotation>> set) {
-		List<List<Annotation>> rtrn=new ArrayList<List<Annotation>>();
-		//Lets go through each list
-		//If the reads within it have junctions that dont overlap each other then lets split into new bins
-		for(List<Annotation> list: set){
-			rtrn.addAll(splitOverlappingForList(list));
-		}
-		return rtrn;
-	}
-
-
-	private List<List<Annotation>> splitOverlappingForList(List<Annotation> list) {
-		//take this list and make sure that every element overlaps every other element
-		//else split into n bins of overlapping bins
-		
-		
-		Collection<Annotation> newList=new TreeSet<Annotation>();
-		
-		//List<Annotation> originalList=new ArrayList<Annotation>();
-		
-		for(int i=0; i<list.size(); i++){
-			for(int j=(i+1); j<list.size(); j++){
-				Annotation intron1=list.get(i);
-				Annotation intron2=list.get(j);
-				//if intron 1 and intron 2 don't overlap then split
-				if(!intron1.overlaps(intron2)){
-					//logger.debug(intron1.toUCSC()+" "+intron2.toUCSC()+" dont overlap");
-					newList.add(intron1);
-					newList.add(intron2);
-				}
-			}
-		}
-		
-		//partition the new list
-		List<List<Annotation>> newLists=partition(newList, list);
-		
-		return newLists;
-	}
-
-	private List<List<Annotation>> partition(Collection<Annotation> newList, Collection<Annotation> originalList) {
-		Collection<Annotation> accountedFor=new TreeSet<Annotation>();
-		
-		List<List<Annotation>> lists=new ArrayList<List<Annotation>>();
-		Map<Annotation, Collection<Annotation>> rtrn=new TreeMap<Annotation, Collection<Annotation>>();
-		for(Annotation intron1: newList){
-			Collection<Annotation> overlaps=new TreeSet<Annotation>();
-			for(Annotation intron2: originalList){
-				if(intron1.overlaps(intron2)){
-					overlaps.add(intron2);
-				}
-			}
-			rtrn.put(intron1, overlaps);
-		}
-		
-		for(Annotation ref: rtrn.keySet()){
-			boolean fullyCompat=isFullyCompatible(rtrn.get(ref));
-			if(fullyCompat){
-				if(!rtrn.get(ref).isEmpty()){
-					lists.add(new ArrayList(rtrn.get(ref))); //TODO We should figure out a way to exclude the exact same lists from being added multiple times
-				}
-				accountedFor.addAll(rtrn.get(ref));
-				//logger.debug(ref.toUCSC()+" "+rtrn.get(ref).size());
-				//for(Annotation temp: rtrn.get(ref)){logger.debug(temp.toUCSC());}
-			}
-		}
-		//TODO Make sure every intron is accounted for
-		for(Annotation newIntron: newList){
-			if(!accountedFor.contains(newIntron)){
-				logger.debug("MISSING: "+newIntron.toUCSC());
-			}
-		}
-		
-		
-		//Add the remainder of the originalList as a separate list
-		List<Annotation> remainderList=new ArrayList<Annotation>();
-		for(Annotation original: originalList){
-			if(!accountedFor.contains(original)){remainderList.add(original);}
-		}
-		
-		if(!remainderList.isEmpty()){
-			lists.add(remainderList);
-		}
-		
-		return lists;
-	}
-
-	private boolean isFullyCompatible(Collection<Annotation> collection) {
-		//go through each annotation and ensure that nothing doesnt overlap with something else
-		for(Annotation an1: collection){
-			for(Annotation an2: collection){
-				if(!an1.overlaps(an2)){return false;}
-			}
-		}
-		return true;
-	}
-
-	private void allOverlap(List<Annotation> newList, List<Annotation> originalList, Annotation reference) {
-		//Check that all overlap in list
-		//if not, exclude from newList
-		//if so, exclude from original list
-		
-		for(int i=0; i<newList.size(); i++){
-			for(int j=(i+1); j<newList.size(); j++){
-				Annotation intron1=newList.get(i);
-				Annotation intron2=newList.get(j);
-				if(!intron1.overlaps(intron2)){
-					throw new IllegalStateException();
-				}
-				else{
-					originalList.remove(intron1);
-					originalList.remove(intron2);
-				}
-			}
-		}
-		
-	}
-
-	private List<Annotation> getList(Iterator<Node<Annotation>> overlappers) {
-		List<Annotation> rtrn=new ArrayList<Annotation>();
-		
-		while(overlappers.hasNext()){
-			rtrn.add(overlappers.next().getValue());
-		}
-		
-		return rtrn;
-	}
-
-	private void add(List<Annotation> overlappingIntrons, List<Annotation> overlappers, Set<Annotation> accountedFor) {
-		for(Annotation intron: overlappers){
-			if(!overlappingIntrons.contains(intron)){
-				overlappingIntrons.add(intron);
-			}
-			if(!accountedFor.contains(intron)){
-				accountedFor.add(intron);
-			}
-		}
-		
-	}
-
-	private Collection<Annotation> getRemainingIntrons(List<Annotation> introns, Collection<Annotation> exons) {
-		Collection<Annotation> rtrn=new TreeSet<Annotation>();
-		//TODO Make more efficient
-		//go through the exon set and see what introns are fully explained
-		for(Annotation intron: introns){
-			if(!hasExons(intron, exons)){
-				rtrn.add(intron);
-			}
-		}
-		
-		return rtrn;
-	}
-
-	private boolean hasExons(Annotation intron, Collection<Annotation> exons) {
-		boolean left=false;
-		boolean right=false;
-		
-		for(Annotation exon: exons){
-			if(exon.getStart()==intron.getEnd()){left=true;}
-			if(exon.getEnd()==intron.getStart()){right=true;}
-		}
-		
-		return left && right;
-	}
-
-	private Collection<? extends Annotation> dissect(Annotation exon, List<Annotation> introns) {
-		logger.debug("dissecting "+exon+" "+introns.size());
-		return exon.intersect(introns);
-	}
-
-	private boolean spans1Intron(Annotation exon, List<Annotation> introns) {
-		Annotation block=new BasicAnnotation(introns);
-		
-		int counter=0;
-		for(Annotation intron: block.getBlocks()){
-			if(exon.overlaps(intron)){counter++;}
-		}
-		
-		if(counter==1){return true;}
-		
-		return false;
-		
-	}
-
-	private boolean alignsWithEdge(Annotation exon, List<Annotation> introns) {
-		for(Annotation intron: introns){
-			if(exon.getEnd()== intron.getStart() || exon.getStart()==intron.getEnd()){return true;}
-		}
-		return false;
-	}
-
-	private boolean fullyContained(Annotation exon, List<Annotation> introns) {
-		for(Annotation intron: introns){
-			if(intron.fullyContains(exon)){
-				return true;
-			}
-		}
-		return false;
-	}
-
-	private Collection<Annotation> intersect(List<Annotation> introns) {
-		Collection<Annotation> rtrn=CollapseByIntersection.collapseByIntersection(introns, true);
-		return rtrn;
-	}
-
-	private Collection<? extends Annotation> splitByIntron(Annotation exon, Iterator<Node<Annotation>> overlappers) {
-		List<Annotation> introns=new ArrayList<Annotation>();
-		while(overlappers.hasNext()){introns.add(overlappers.next().getValue());}
-		
-		//TODO minus the consensus intronic region
-		
-		return exon.disect(introns);
-		//return exon.minus(introns).getBlocks();
-	}
-
-	private Collection<? extends Annotation> getExons(Alignment read) {
-		Collection<Annotation> rtrn=new TreeSet<Annotation>();
-		Collection<Annotation> readPairs=read.getReadAlignments(space); // this should return a collection for left and right
-		for(Annotation align: readPairs){
-			rtrn.addAll(align.getBlocks());
-		}
-		return rtrn;
-	}
-	
-	private Collection<? extends Annotation> getJunctions(Alignment read) {
-		//TODO This should only get spliced reads NOT indels
-			
-		return read.getSpliceConnections();
-	}
 
 	public Map<String, Collection<Gene>> getPaths() {
 		Map<String, Collection<Gene>> rtrn=new TreeMap<String, Collection<Gene>>();
@@ -3413,20 +2646,6 @@ public class BuildScriptureCoordinateSpace {
 		return rtrn;
 	}
 	
-	/**
-	 * Converts a collection of paths to a collection of genes
-	 * @param paths to be converted
-	 * @return
-	 */
-	private Collection<Gene> convert(Collection<Path> paths) {
-		Collection<Gene> rtrn=new TreeSet<Gene>();
-		
-		for(Path path: paths){
-			rtrn.add(path.toGene());
-		}
-		
-		return rtrn;
-	}
 
 	/**
 	 * This function will go through each gene and calculate the number of paired end reads 
@@ -3584,7 +2803,6 @@ public class BuildScriptureCoordinateSpace {
 	 */
 	public static boolean hasAnOverlappingGene(Gene gene,IntervalTree<Gene> allGenesTree, double minPctOverlap){
 		
-		Collection<Gene> overlappers = new HashSet<Gene>();
 		Iterator<Gene> OL=allGenesTree.overlappingValueIterator(gene.getStart(), gene.getEnd());
 		while(OL.hasNext()){
 			Gene gene2=OL.next();
