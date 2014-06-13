@@ -1253,6 +1253,13 @@ public class JCSAlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		return count;
 	}
 
+	/**
+	 * Get the lengths of the reference sequences
+	 * @return Map associating each reference name with sequence length
+	 */
+	public Map<String, Integer> getRefSequenceLengths() {
+		return reader.getRefSequenceLengths();
+	}
 	/*
 	private double computeLambda(String chr) {
 		double count=getChromosomeCount(chr);

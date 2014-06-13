@@ -46,6 +46,20 @@ public final class TestTrimming extends TestCase{
 		logger.info("Trim() function - strand specific");
 		d = gn.trim(10, 50);
 		logger.info(d.toBED());
+		
+		logger.info("Trim exon1 when positive");
+		exon1.setOrientation(Strand.POSITIVE);
+		logger.info("Before: "+exon1.toBED());
+		d = exon1.trim(90, 0);
+		logger.info("After: "+d.toBED());
+		
+		exon1 = new Gene("chr1",100,200);
+		logger.info("Trim exon1 when negative");
+		exon1.setOrientation(Strand.NEGATIVE);
+		logger.info("Before: "+exon1.toBED());
+		d = exon1.trim(90, 0);
+		logger.info("After: "+d.toBED());
+		
 	}
 
 }

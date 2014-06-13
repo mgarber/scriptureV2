@@ -24,7 +24,6 @@ import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.annotation.Annotation.Strand;
-import nextgen.core.coordinatesystem.TranscriptInGenomicSpace;
 import nextgen.core.exception.RuntimeIOException;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.BasicScanStatisticScore;
@@ -52,9 +51,9 @@ import broad.pda.annotation.BEDFileParser;
  * @author skadri
  *
  */
-public class ESAT {
+public class ESATDistanceCalculator {
 
-	static final String usage = "Usage: ESAT -task <task name> "+
+	static final String usage = "Usage: ESATDebug -task <task name> "+
 			"\n\tTASK 1: score3P: Computes 3' expression of a given annotation set" + 
 			"\n\tTASK 2: score5P: Computes 5' expression of a given annotation set " + 
 			"\n**************************************************************"+
@@ -110,7 +109,7 @@ public class ESAT {
 	static final String BEST_DIST_TO_END_COL = "expressionWindowDistToEnd";
 	public static String whitespaceDelimiter = "\\s++"; //$NON-NLS-1$
 	
-	static Logger logger = Logger.getLogger(ESAT.class.getName());/*
+	static Logger logger = Logger.getLogger(ESATDistanceCalculator.class.getName());/*
 	 * Indices of important scores
 	 */
 	static final int COUNT_SCORE = 0;
@@ -150,7 +149,7 @@ public class ESAT {
 	static List<String> rows = new ArrayList<String>();
 	static String maskedRegionFile;
 
-	public ESAT(String[] args) throws IOException, ParseException {
+	public ESATDistanceCalculator(String[] args) throws IOException, ParseException {
 
 		/*
 		 * Gives a log4j error. Check later.
@@ -298,6 +297,7 @@ public class ESAT {
 				
 			if(collapseIsoforms)
 				setCollapsedGeneMap(annotations);
+
 			/*
 			 * If "alignment" is present, it is single file
 			 */
@@ -326,7 +326,7 @@ public class ESAT {
 					 Collection<String> groupSamples = conditionMaps.get(cond);
 					 groupSamples.add(s.split(whitespaceDelimiter)[0]);	
 				 }					
-
+		
 				 scoreMultipleSamples(annotations,alignmentFiles,argMap.getOutput(),normalizedOutput,conditionMaps,"score3P".equalsIgnoreCase(argMap.getTask()));
 			 }
 			 else{
@@ -468,8 +468,7 @@ public class ESAT {
 		 * Initialize the data model using the alignment file
 		 * @param: <alignment flieName> <load_chromosome_stats> <minMappingQuality> <remove_PCR_duplicates> <weigh reads by NH flag>
 		 */
-		AlignmentModel model = new AlignmentModel(alignmentFile, null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
-		AlignmentModel libDataModel = new AlignmentModel(alignmentFile,new TranscriptInGenomicSpace(model.getRefSequenceLengths()), new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
+		AlignmentModel libDataModel = new AlignmentModel(alignmentFile, null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
 		libDataModel.addFilter(new MappingQualityFilter(minimumMappingQuality,minimumMappingQuality));
 		if(removePCRDuplicatesFlag)
 			libDataModel.addFilter(new PCRDuplicateFilter());
@@ -807,319 +806,11 @@ public class ESAT {
 	private void scoreMultipleSamples(Map<String, Collection<Gene>> annotations,Map<String, String> alignmentFiles, 
 			String output,boolean normalizedOutput,Map<String, Collection<String>> conditionMaps,boolean is3p) throws IOException {
 
-		List<Gene> windows = new ArrayList<Gene>();		
-		//Map of each gene to its peak
-		Map<String,Annotation> geneToWindowMap = new HashMap<String,Annotation>();
-			
-		/*
-		 * The columns of the matrix will be each alignment file name
-		 */
-		List<String> cols = new ArrayList<String>();
-		for(String name: conditionMaps.keySet()){
-			for(String sample: conditionMaps.get(name)){
-				cols.add(sample);
-			}
-		}
-		
-		/* 
-		 * Initialize the matrix with row and column names
-		 */
-		MatrixWithHeaders resultMatrix = new MatrixWithHeaders(rows,cols);
-		MatrixWithHeaders pvalueMatrix = new MatrixWithHeaders(rows,cols);
-//		MatrixWithHeaders fullGeneResultMatrix = null;
-//		if(fullGeneScoreFlag){
-			/* 
-			 * Initialize the matrix to store score of full gene with row and column names
-			 */
-/*			fullGeneResultMatrix = new MatrixWithHeaders(rows,cols);
-		}
-*/		//ELSE DONT INITIALIZE
-		logger.info("Scoring using all reads:");
-
-		// Initialize the AlignmentModels
-		Map<String,AlignmentModel> libDataModels = new HashMap<String,AlignmentModel>();
-		for(String ss: alignmentFiles.keySet()){
-			AlignmentModel libmodel = new AlignmentModel(alignmentFiles.get(ss), null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
-			AlignmentModel model = new AlignmentModel(alignmentFiles.get(ss),new TranscriptInGenomicSpace(libmodel.getRefSequenceLengths()), new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
-			if(removePCRDuplicatesFlag)
-				model.addFilter(new PCRDuplicateFilter());
-			if(filterMultimappers)
-				model.addFilter(new UniqueMappedReadsFilter());
-			libDataModels.put(ss, model);
-		}
-		
-		//To report all peaks - not just the best one
-		Map<Gene,Set<Gene>> geneToPeaksMap = new HashMap<Gene,Set<Gene>>();
-						
-		// For each chromosome
-		for(String chr:annotations.keySet()) {
-			
-			// If the alignment data has data from that chromosome
-			boolean dataForChr = false;
-			for(AlignmentModel model:libDataModels.values()){
-				//If any alignment file has data for the chromosome, 
-				//		set flag to true and exit loop
-				if(model.containsReference(chr)){
-					dataForChr = true;
-					break;
-				}
-			}
-			//If the any alignment file has data from that chromosome
-			if(dataForChr){
-				IntervalTree<Gene> tree = new IntervalTree<Gene>();
-				for(Gene g:annotations.get(chr)){
-					tree.put(g.getStart(), g.getEnd(), g);
-				}
-				logger.info("Processing " + chr);
-				//Parse over all annotations on chromosome
-				for(Gene annotation:annotations.get(chr)){
-					Set<Gene> thisPeaks = new HashSet<Gene>();
-					
-					Gene annotationEnd = new Gene(annotation);					
-					int annotationLength = annotation.getSize();
-					//If the length of the annotated transcript > window size being analyzed,
-					//get sub annotation for window length
-					if(annotationLength>window){
-						annotationEnd = is3p? getSubAnnotationFromEnd(annotation,window,0) : getSubAnnotationFromStart(annotation,window,0);
-
-						if(annotationEnd == null){
-							logger.warn("Annotation end for " + (annotationLength - window) + "-" + annotationLength + " --> " + annotation.toBED() + " was null.");
-						}
-					}
-					
-					Map<String,double[]> bestScores = getScoresForWindow(libDataModels,annotationEnd);
-					double bestEnrichment = getEnrichmentForWindow(libDataModels.keySet(),bestScores);
-					int bestWindowEnd = 0;
-					boolean insideGene = true;
-					Gene bestWindow = annotationEnd;
-
-					//USING ENRICHMENT AS MEANS FOR COMPARISON
-
-					//For all peaks
-					if(isSignificantInAllModels(libDataModels.keySet(),bestScores)){
-						annotationEnd.setScore(bestEnrichment); //set RPKM as score
-						annotationEnd.setName(duplicateNameMap.get(annotation));
-						thisPeaks.add(annotationEnd);
-					}
-					
-					int intoGene = STEP;
-					/*							 
-					 * If upstream extension is allowed, use sliding windows with overlaps of STEP
-					 * while retreat region length is smaller than (annotation - window), i.e. it lies within the annotation
-					 * and it is at distance less than the max region allowed upstream of end of gene
-					 */
-					while((intoGene<(annotationLength - window)) && (intoGene<maxIntoGene)){
-						//get annotation for region of length window, "intoGene" length from end of transcript
-						annotationEnd = is3p? getSubAnnotationFromEnd(annotation, window, intoGene): getSubAnnotationFromStart(annotation, window, intoGene);
-						/*
-						 * calculate score for the window and find max score of windows
-						 * Uses scanPRate(Gene, tree) which adds extension factor in AlignmentDataModelStats.
-						 * Difference between scoregene and scanPRate from above is that this does not include exons.
-						 */ 
-						if(annotationEnd !=null){
-							Map<String,double[]> tmpScores = getScoresForWindow(libDataModels,annotationEnd);
-							double tmpEnrichment = getEnrichmentForWindow(libDataModels.keySet(),tmpScores);
-							//For all peaks
-							//If significant
-							boolean overlaps = false;
-							if(isSignificantInAllModels(libDataModels.keySet(), tmpScores)){
-								//if overlaps any already added peak
-								Set<Gene> tempPeaks = new HashSet<Gene>();
-								tempPeaks.addAll(thisPeaks);
-								for(Gene peak:thisPeaks){
-									if(annotationEnd.overlaps(peak)){
-										overlaps = true;
-										//if better then replace
-										
-										if(tmpEnrichment>peak.getBedScore()){
-											annotationEnd.setBedScore(tmpEnrichment); //set RPKM as score
-											annotationEnd.setName(duplicateNameMap.get(annotation));
-											tempPeaks.remove(peak);
-											tempPeaks.add(annotationEnd);
-										}
-									}
-								}
-								thisPeaks = tempPeaks;
-								if(!overlaps){
-									annotationEnd.setBedScore(tmpEnrichment); //set RPKM as score
-									annotationEnd.setName(duplicateNameMap.get(annotation));
-									//does not overlap. Add
-									thisPeaks.add(annotationEnd);	
-								}
-							}
-							//For best peak
-							if(tmpEnrichment>bestEnrichment){
-								bestEnrichment = tmpEnrichment;
-								bestWindow = annotationEnd;
-								bestWindowEnd = is3p? -intoGene : intoGene;
-								insideGene = true;
-								bestScores = tmpScores;
-								geneToWindowMap.put(duplicateNameMap.get(annotation), annotationEnd);
-							}
-						}
-						intoGene += STEP;
-					}
-					
-					int extend = STEP;
-					while(extend < maxExtension) {
-						Annotation end = null;
-						long chrEnd = 0;
-						for(String s:libDataModels.keySet())
-							chrEnd = libDataModels.get(s).getRefSequenceLength(chr);
-						
-						if((is3p && annotation.getOrientation().equals(Strand.NEGATIVE))||(!is3p && annotation.getOrientation().equals(Strand.POSITIVE))){
-							if((annotation.getStart() - extend)<0){
-								logger.info(annotation.getStart()+" - "+extend +" is less than 0");
-								break;
-							}
-							end = new BasicAnnotation(annotation.getChr(), annotation.getStart() - extend, annotation.getStart() - (extend-window),annotation.getOrientation());
-						}else{
-							if((annotation.getEnd() + extend)> chrEnd){
-								logger.info(annotation.getEnd()+" + "+extend +" is more than "+chrEnd);
-								break;
-							}
-							end = new BasicAnnotation(annotation.getChr(), annotation.getEnd() + (extend - window), annotation.getEnd() + extend,annotation.getOrientation());
-						}/*
-						 * Get an interval tree for all/any exons that overlap with the extended region
-						 */
-						Iterator<Gene> endOverlappersIter = tree.overlappingValueIterator(end.getStart(), end.getEnd());
-						/*
-						 * While there is an overlap with a gene
-						 * and gene is same gene
-						 */
-						boolean overlapperIsSameGene = true;
-						while(endOverlappersIter.hasNext() && overlapperIsSameGene){
-							
-							Gene overlapper = endOverlappersIter.next();
-							//If same orientation
-							if(overlapper.getOrientation().equals(annotation.getOrientation())){
-								//compare the end coordiantes of the gene
-								if(is3p){
-									if(!(overlapper.getOrientedEnd() == annotation.getOrientedEnd()))
-										if(!BEDFileParser.isOverlapCompatible(annotation,overlapper, MIN_OVERLAP))
-											overlapperIsSameGene = false;
-								}
-								else{
-									if(!(overlapper.getOrientedStart() == annotation.getOrientedStart()) && !overlapper.overlaps(annotation))
-										if(!BEDFileParser.isOverlapCompatible(annotation,overlapper, MIN_OVERLAP))
-											overlapperIsSameGene = false;
-								}
-							}
-						}
-						if(!overlapperIsSameGene)
-							break;
-						// Because the extended region cannot overlap another annotation
-						
-						//No overlap so continue with scoring the region
-						annotationEnd = new Gene(end);
-						Map<String,double[]> tmpScores = getScoresForWindow(libDataModels,annotationEnd);
-						double tmpEnrichment = getEnrichmentForWindow(libDataModels.keySet(),tmpScores);
-						
-						//For all peaks
-						//If significant
-						boolean overlaps = false;
-						if(isSignificantInAllModels(libDataModels.keySet(), tmpScores)){
-							//if overlaps any already added peak
-							Set<Gene> tempPeaks = new HashSet<Gene>();
-							tempPeaks.addAll(thisPeaks);
-							for(Gene peak:thisPeaks){
-								if(annotationEnd.overlaps(peak)){
-									overlaps = true;
-									//if better then replace
-									
-									if(tmpEnrichment>peak.getBedScore()){
-										annotationEnd.setBedScore(tmpEnrichment); //set RPKM as score
-										annotationEnd.setName(duplicateNameMap.get(annotation));
-										tempPeaks.remove(peak);
-										tempPeaks.add(annotationEnd);
-									}
-								}
-							}
-							thisPeaks = tempPeaks;
-							if(!overlaps){
-								annotationEnd.setBedScore(tmpEnrichment); //set RPKM as score
-								annotationEnd.setName(duplicateNameMap.get(annotation));
-								//does not overlap. Add
-								thisPeaks.add(annotationEnd);	
-							}
-						}
-						if(tmpEnrichment>bestEnrichment){
-							bestEnrichment = tmpEnrichment;
-							bestWindow = annotationEnd;
-							bestWindowEnd = extend;
-							insideGene = false;
-							bestScores = tmpScores;
-						}
-						extend += (STEP);
-					}
-					
-					
-					String rowName = duplicateNameMap.get(annotation);
-/*					if(fullGeneScoreFlag){
-						if(is3p)
-							fullGeneResultMatrix = getScoreFromWindowToGeneStart(libDataModels,bestWindow,annotation,bestWindowEnd,insideGene,fullGeneResultMatrix,rowName);
-						else
-							fullGeneResultMatrix = getScoreFromWindowToGeneEnd(libDataModels,bestWindow,annotation,bestWindowEnd,insideGene,fullGeneResultMatrix,rowName);
-					}
-*/					
-					for(int i=0;i<cols.size();i++){
-						//resultMatrix.set(duplicateNameMap.get(annotation), cols.get(i), scores[i]);
-						resultMatrix.set(rowName, cols.get(i), bestScores.get(cols.get(i))[COUNT_SCORE]);
-						pvalueMatrix.set(rowName, cols.get(i), bestScores.get(cols.get(i))[PVAL_SCORE]);
-					}
-					//SET THE NAME FOR THE WINDOW
-					bestWindow.setName(duplicateNameMap.get(annotation));
-					geneToWindowMap.put(duplicateNameMap.get(annotation), bestWindow);
-					logger.debug("Added peak to geneToWindowMap as in the end "+duplicateNameMap.get(annotation)+" "+geneToWindowMap.containsKey(duplicateNameMap.get(annotation)));
-					windows.add(bestWindow);
-				}
-			}
-			else{
-				logger.info("No data for " + chr);
-				for(Gene annotation:annotations.get(chr)){
-					for(int i=0;i<cols.size();i++){
-						resultMatrix.set(duplicateNameMap.get(annotation), cols.get(i), 0.0);
-						pvalueMatrix.set(duplicateNameMap.get(annotation), cols.get(i), 1.0);
-/*						if(fullGeneScoreFlag){
-							fullGeneResultMatrix.set(duplicateNameMap.get(annotation), cols.get(i), 0.0);
-						}
-*/					}	
-				}
-			}
-		}
-		/*
-		 * Write to output File
-		 */
-		writeOutputFiles(output, resultMatrix,pvalueMatrix, annotations, windows);
-/*		if(fullGeneScoreFlag){
-			BufferedWriter bw =new BufferedWriter(new FileWriter(output+".fullgene.matrix")); 
-			fullGeneResultMatrix.write(bw);
-			bw.close();
-		}
-*/		
+//		logger.info("Is 3p?: "+is3p);
 		if(collapseIsoforms){
-			writeCollapsedOutputForMultiple(annotations,output,resultMatrix,geneToWindowMap);
+			writeCollapsedOutputForMultiple(annotations,output, alignmentFiles);
 			writeCollapsedOutputFilesLocalLambda(output,conditionMaps,alignmentFiles,is3p,annotations.keySet(),normalizedOutput);
-		}
-		
-		if(normalizedOutput){
-			
-			writeNormalizedMatrix(output, resultMatrix);
-/*			if(fullGeneScoreFlag){
-				writeNormalizedMatrix(output+".fullgene.matrix", fullGeneResultMatrix);
-			}
-*/		}
-/*		if(debugMode){
-			BufferedWriter bedBw = new BufferedWriter(new FileWriter(output+".allPeaks.bed"));
-			for(Gene gene: geneToPeaksMap.keySet()){
-				for(Gene peak:geneToPeaksMap.get(gene)){
-					bedBw.write(peak.toBED());
-					//bedBw.append("\t"+duplicateNameMap.get(gene));
-					bedBw.newLine();
-				}			
-			}
-			bedBw.close();
-		}*/
+		}		
 	}
 	
 	
@@ -1586,7 +1277,7 @@ public class ESAT {
 	}
 	
 	
-	private static void writeCollapsedOutputForMultiple(Map<String,Collection<Gene>> annotations,String outputFile,MatrixWithHeaders resultMatrix,Map<String, Annotation> geneToWindowMap) throws IOException{
+	private static void writeCollapsedOutputForMultiple(Map<String,Collection<Gene>> annotations,String outputFile,Map<String, String> alignmentFiles) throws IOException{
 
 		logger.info("Collapsing isoforms to genes:");
 		BufferedWriter bw1 = new BufferedWriter(new FileWriter(outputFile+".collapsedGenes.bed"));		
@@ -1600,6 +1291,25 @@ public class ESAT {
 				//For each collapsed gene				
 				Gene gene = geneIt.next();
 					
+				//Just simple raw counts
+				/*				Map<String,AlignmentModel> libDataModels = new HashMap<String,AlignmentModel>();
+				for(String ss: alignmentFiles.keySet()){
+					AlignmentModel model = new AlignmentModel(alignmentFiles.get(ss), null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
+					model.addFilter(new UniqueMappedReadsFilter());
+					libDataModels.put(ss, model);
+				}
+				
+				Map<String, double[]> scores = getScoresForWindow(libDataModels, gene);
+				Map<String,Double> geneScores = new HashMap<String,Double>();
+				for(String ss: alignmentFiles.keySet()){
+					logger.info("Old score for "+ss+" is "+scores.get(ss)[USE_SCORE]);
+					geneScores.put(ss, scores.get(ss)[USE_SCORE]);
+				}
+				
+				Map<String, double[]> newscores = getStartEndScoresForWindow(libDataModels, gene, true, gene.length(), geneScores);
+				for(String ss: alignmentFiles.keySet()){
+					logger.info("New score for "+ss+" is "+newscores.get(ss)[USE_SCORE]);
+				}*/
 				bw1.write(gene.toBED());
 		  		bw1.newLine();
 			}
@@ -1626,6 +1336,7 @@ public class ESAT {
 			for(String sample: conditionMaps.get(name))
 				cols.add(sample);
 				
+//		logger.info("Scoring 3' end? "+is3p);
 		List<String> geneNames = new ArrayList<String>();
 		for(Gene gene:collapsedGeneMap.keySet())
 			geneNames.add(gene.getName());
@@ -1633,9 +1344,7 @@ public class ESAT {
 		// Initialize the AlignmentModels
 		Map<String,AlignmentModel> libDataModels = new HashMap<String,AlignmentModel>();
 		for(String ss: alignmentFiles.keySet()){
-			AlignmentModel libmodel = new AlignmentModel(alignmentFiles.get(ss), null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
-			
-			AlignmentModel model = new AlignmentModel(alignmentFiles.get(ss), new TranscriptInGenomicSpace(libmodel.getRefSequenceLengths()), new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
+			AlignmentModel model = new AlignmentModel(alignmentFiles.get(ss), null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
 			if(removePCRDuplicatesFlag)
 				model.addFilter(new PCRDuplicateFilter());
 			if(filterMultimappers)
@@ -1645,20 +1354,19 @@ public class ESAT {
 		
 		//To report all peaks - not just the best one - FOR CHROMOSOME
 		BufferedWriter bw = new BufferedWriter(new FileWriter(outputFile+".collapsed.significantEnds"));
-		
-		BufferedWriter bwBed = null;
-		if(debugMode){
-			bwBed = new BufferedWriter(new FileWriter(outputFile+".collapsed.significantEnds.bed"));
-		}
+		BufferedWriter bwBed = new BufferedWriter(new FileWriter(outputFile+".collapsed.significantEnds.bed"));
 		BufferedWriter bwFracs = new BufferedWriter(new FileWriter(outputFile+".collapsed.significantEnds.fractions"));
+		BufferedWriter bwDistance = new BufferedWriter(new FileWriter(outputFile+".collapsed.bestIsoform.distance"));
 		bw.write("Gene\tPeak\t");
 		bwFracs.write("Gene\tPeak\t");
+		bwDistance.write("Gene\tClosestIsoform\tDistance");
 		for(String sample:cols){
 			bw.write(sample+"\t");
 			bwFracs.write(sample+"\t");
 		}
 		bw.newLine();
 		bwFracs.newLine();
+		bwDistance.newLine();
 
 		//Sum of all the significant peaks
 		MatrixWithHeaders fullgeneMatrix = new MatrixWithHeaders(geneNames,cols);
@@ -1864,11 +1572,23 @@ public class ESAT {
 					geneToBestWindowMap.put(gene.getName(), bestWindow);
 					logger.debug("Added peak to geneToWindowMap as in the end "+gene.getName()+" "+geneToBestWindowMap.containsKey(gene.getName()));
 					windows.add(bestWindow);
+					
+					int distance = Integer.MAX_VALUE;
+					Gene closestIsoform = null;
+					for(Gene isoform:collapsedGeneMap.get(gene)){
+						int dist = getDistance(bestWindow,gene,is3p);
+						if(dist< distance){
+							distance = dist;
+							closestIsoform = isoform;
+						}
+					}
+					logger.info(gene.getName()+"\t"+closestIsoform.getName()+"\t"+distance);
+					bwDistance.write(gene.getName()+"\t"+closestIsoform.getName()+"\t"+distance+"\n");
 
 					//FIND ALL SIGNIFICANT PEAKS
 					int numPeaks = 0;
 					if(sigPeakToScores.isEmpty() || bestSignificantWindow==null){
-						logger.info("No significant for: "+gene.getName()+"\t");
+						//logger.info("No significant for: "+gene.getName()+"\t");
 						for(String sample:cols){
 							fullgeneMatrix.set(gene.getName(), sample, genesMatrix.get(gene.getName(), sample));
 						}
@@ -1886,13 +1606,11 @@ public class ESAT {
 							
 							//WRITE THE NEXT BEST WINDOW FIRST
 							//WRITE TO THE FILE
-							logger.info(gene.getName()+"\t");
-							logger.info("Peak : "+thisBestWindow.toBED()+"\t"+sigPeakToScores.containsKey(thisBestWindow));
+							//logger.info(gene.getName()+"\t");
+							//logger.info("Peak : "+thisBestWindow.toBED()+"\t"+sigPeakToScores.containsKey(thisBestWindow));
 							
 							bw.write(gene.getName()+"\t"+thisBestWindow.toUCSC());
-							if(debugMode){
-								bwBed.write(thisBestWindow.toBED()+"\n");
-							}
+							bwBed.write(thisBestWindow.toBED()+"\n");
 							thispeakScores.put(thisBestWindow, new HashMap<String,Double>());
 							for(String sample:cols){
 								bw.write("\t"+sigPeakToScores.get(thisBestWindow).get(sample));
@@ -1956,9 +1674,7 @@ public class ESAT {
 		
 		//TODO: write out the peaks in geneToSignificantWindowsMap
 		bw.close();
-		if(debugMode){
-			bwBed.close();
-		}
+		bwBed.close();
 		bwFracs.close();
 		
 		//Best isoform
@@ -2022,9 +1738,7 @@ public class ESAT {
 		// Initialize the AlignmentModels
 		Map<String,AlignmentModel> libDataModels = new HashMap<String,AlignmentModel>();
 		for(String ss: alignmentFiles.keySet()){
-			AlignmentModel libmodel = new AlignmentModel(alignmentFiles.get(ss), null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
-			
-			AlignmentModel model = new AlignmentModel(alignmentFiles.get(ss), new TranscriptInGenomicSpace(libmodel.getRefSequenceLengths()), new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
+			AlignmentModel model = new AlignmentModel(alignmentFiles.get(ss), null, new ArrayList<Predicate<Alignment>>(), pairedFlag,strand,true,maskedRegionFile);
 			if(removePCRDuplicatesFlag)
 				model.addFilter(new PCRDuplicateFilter());
 			if(filterMultimappers)
@@ -2477,35 +2191,63 @@ public class ESAT {
 		return fullGeneScoreMatrix;
 	}
 	
-	private static int getDistance(Gene gene,Gene windows){
+	private static int getDistance(Gene bestWindow,Gene gene, boolean is3p){
 			
-			if(gene.getOrientedEnd()==windows.getOrientedEnd())
-				return 0;
+		if((is3p && gene.isNegativeStrand())||(!is3p && !gene.isNegativeStrand())){
+			//Outside gene
+			if((gene.getStart()-bestWindow.getStart())>0){
+//				logger.info("Gene is negative and peak outside gene = "+gene.getStart()+"-"+bestWindow.getStart());
+				return (gene.getStart()-bestWindow.getStart());
+			}
 			else{
-				if(gene.isNegativeStrand()){
-					//Outside gene
-					if((gene.getStart()-windows.getStart())>0){
-	//					logger.info("Gene is negative and peak outside gene = "+gene.getStart()+"-"+windows.getStart());
-						return (gene.getStart()-windows.getStart());
-					}
-					else{
-	//					logger.info("Gene is negative and peak INSIDE gene = "+gene.genomicToTranscriptPosition(windows.getStart())+"-"+gene.genomicToTranscriptPosition(gene.getStart()));
-						return (gene.genomicToTranscriptPosition(windows.getStart()) - gene.genomicToTranscriptPosition(gene.getStart()));
-					}
+//				logger.info("Gene is negative and peak INSIDE gene = "+gene.genomicToTranscriptPosition(gene.getStart())+"-"+gene.genomicToTranscriptPosition(bestWindow.getStart()));
+				return (gene.genomicToTranscriptPosition(gene.getStart())-gene.genomicToTranscriptPosition(bestWindow.getStart()));
+			}
+		}
+		else{
+			//Outside gene
+			if((bestWindow.getEnd() - gene.getEnd())>0){
+//				logger.info("Gene is positive and peak outside gene = "+bestWindow.getEnd()+"-"+gene.getEnd());
+				return (bestWindow.getEnd() - gene.getEnd());
+			}
+			else{
+//				logger.info("Gene is positive and peak INSIDE gene = "+gene.getPositionAtReferenceCoordinate(bestWindow.getEnd()-1,true)+"-"+gene.getPositionAtReferenceCoordinate(gene.getEnd()-1,true)+"\t"+gene.getSize());
+				return (gene.getPositionAtReferenceCoordinate(bestWindow.getEnd()-1,true) - gene.getPositionAtReferenceCoordinate(gene.getEnd()-1,true));
+			}
+		}
+	}
+	
+	private static int getDistance(Gene gene,Gene windows){
+		
+		if(gene.getOrientedEnd()==windows.getOrientedEnd())
+			return 0;
+		else{
+			if(gene.isNegativeStrand()){
+				//Outside gene
+				if((gene.getStart()-windows.getStart())>0){
+//					logger.info("Gene is negative and peak outside gene = "+gene.getStart()+"-"+windows.getStart());
+					return (gene.getStart()-windows.getStart());
 				}
 				else{
-					//Outside gene
-					if((windows.getEnd() - gene.getEnd())>0){
-	//					logger.info("Gene is positive and peak outside gene = "+windows.getEnd()+"-"+gene.getEnd());
-						return (windows.getEnd() - gene.getEnd());
-					}
-					else{
-	//					logger.info("Gene is positive and peak INSIDE gene = "+gene.genomicToTranscriptPosition(windows.getEnd()-1)+"-"+gene.genomicToTranscriptPosition(gene.getEnd()-1));
-						return (gene.genomicToTranscriptPosition(windows.getEnd()-1) - gene.genomicToTranscriptPosition(gene.getEnd()-1));
-					}
+//					logger.info("Gene is negative and peak INSIDE gene = "+gene.genomicToTranscriptPosition(windows.getStart())+"-"+gene.genomicToTranscriptPosition(gene.getStart()));
+					return (gene.genomicToTranscriptPosition(windows.getStart()) - gene.genomicToTranscriptPosition(gene.getStart()));
+				}
+			}
+			else{
+				//Outside gene
+				if((windows.getEnd() - gene.getEnd())>0){
+//					logger.info("Gene is positive and peak outside gene = "+windows.getEnd()+"-"+gene.getEnd());
+					return (windows.getEnd() - gene.getEnd());
+				}
+				else{
+//					logger.info("Gene is positive and peak INSIDE gene = "+gene.genomicToTranscriptPosition(windows.getEnd()-1)+"-"+gene.genomicToTranscriptPosition(gene.getEnd()-1));
+					return (gene.genomicToTranscriptPosition(windows.getEnd()-1) - gene.genomicToTranscriptPosition(gene.getEnd()-1));
 				}
 			}
 		}
+
+	}
+
 	/**
 	 * This function calculates the scores for all alignment models from a given window to the start of the gene and adds it to the matrix
 	 * @param libDataModels
@@ -2562,7 +2304,7 @@ public class ESAT {
 	 * @throws ParseException 
 	 */
 	public static void main(String[] args) throws ParseException, IOException {
-		new ESAT(args);
+		new ESATDistanceCalculator(args);
 
 	}
 
