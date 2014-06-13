@@ -106,21 +106,6 @@ public class TranscriptomeSpaceAlignmentModel extends ScanStatisticDataAlignment
 		super(bamAlignmentFile, transcriptomeSpace, transcriptionRead);
 	}
 	
-	/**
-	 * Get list of position level counts in mature transcript
-	 * @param gene The region
-	 * @return List of position counts
-	 * @throws IOException 
-	 */
-	public List<Double> getPositionCountList(Gene gene) throws IOException {
-		List<Double> rtrn = new ArrayList<Double>();
-		WindowProcessor<CountScore> processor = new CountScore.Processor(this);
-		WindowScoreIterator<CountScore> scoreIter = scan(gene, 1, 0, processor);
-		while(scoreIter.hasNext()) {
-			rtrn.add(Double.valueOf(scoreIter.next().getCount()));
-		}
-		return rtrn;
-	}
 	
 	/**
 	 * Scan windows over a gene and score

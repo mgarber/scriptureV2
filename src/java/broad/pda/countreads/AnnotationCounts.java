@@ -12,12 +12,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
+import org.apache.commons.collections15.Predicate;
 import org.apache.log4j.Logger;
 
 import broad.core.math.Statistics;
 import broad.core.parser.CommandLineParser;
 import broad.pda.annotation.BEDFileParser;
 
+import nextgen.core.alignment.Alignment;
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.BasicAnnotation;
 import nextgen.core.annotation.Gene;
@@ -39,13 +42,14 @@ public class AnnotationCounts {
 	private boolean includePositionLevelInfo;
 	private int minCountForAvgWithMin;
 	
+	
 	private AnnotationCounts(String bamFile, String bedFile, String chrSizeFile, boolean positionLevelInfo, int minForAvgWithMin) throws IOException {
 		includePositionLevelInfo = positionLevelInfo;
 		minCountForAvgWithMin = minForAvgWithMin;
 		logger.info("Loading genes...");
 		genes = BEDFileParser.loadDataByChr(new File(bedFile));
 		logger.info("Creating transcriptome space...");
-		transcriptomeData = new AlignmentModel(bamFile, new TranscriptomeSpace(genes));
+		transcriptomeData = new AlignmentModel(bamFile, new TranscriptomeSpace(genes), new ArrayList<Predicate<Alignment>>(), true, TranscriptionRead.UNSTRANDED, true, null);
 		logger.info("Creating genomic space...");
 		genomeData = new AlignmentModel(bamFile, new GenomicSpace(chrSizeFile));
 		logger.info("Done loading data.");

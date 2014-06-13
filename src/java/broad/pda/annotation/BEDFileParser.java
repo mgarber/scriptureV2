@@ -592,6 +592,12 @@ public class BEDFileParser {
 	
 	}
 
+	/**
+	 * Read genes from the bed file and get genes by chromosome
+	 * @param file Name of bed file
+	 * @return Map of chromosome name to set of genes on chromosome
+	 * @throws IOException
+	 */
 	public static Map<String, Collection<Gene>> loadDataByChr(String file) throws IOException{
 		return loadDataByChr(new File(file));
 	}

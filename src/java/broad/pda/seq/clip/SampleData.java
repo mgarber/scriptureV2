@@ -5,20 +5,15 @@ package broad.pda.seq.clip;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
 import org.apache.log4j.Logger;
 
-import broad.core.annotation.MaximumContiguousSubsequence;
-import broad.core.math.Statistics;
 import broad.core.parser.StringParser;
 
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
-import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.ScanStatisticScore;
@@ -40,7 +35,7 @@ public class SampleData {
 	protected Map<Gene, ScanStatisticScore> maxFragmentLengthGeneScores;
 	protected Map<Gene, ScanStatisticScore> geneScores;
 	protected Map<Gene, Double> geneAvgCoverage;
-	protected static Logger logger = Logger.getLogger(SampleData.class.getName());
+	public static Logger logger = Logger.getLogger(SampleData.class.getName());
 	protected Map<String, Collection<Gene>> genesByChr;
 	protected Map<String, Gene> genesByName;
 	protected double expressionCutoffValue;
@@ -286,59 +281,6 @@ public class SampleData {
 	 */
 	public TranscriptomeSpaceAlignmentModel getFragmentLengthFilterData() {
 		return maxFragmentLengthData;
-	}
-	
-	/**
-	 * Trim the region to max contiguous subregion above a certain quantile
-	 * @param window The region
-	 * @param data Position level list of counts within the region
-	 * @param quantile Quantile for trim max contiguous
-	 * @return Trimmed region
-	 */
-	public static Annotation trimMaxContiguous(Annotation window, List<Double> data, double quantile) {
-	
-		String coverageString = "";
-		for(Double d : data) {
-			coverageString += d.toString() + " ";
-		}
-		
-		logger.debug("WINDOW_TO_TRIM\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd() + "\t" + coverageString);
-		
-		if(window.getSize() != data.size()) {
-			throw new IllegalArgumentException(window.toBED() + "\nAnnotation and data must have same size. Size=" + window.getSize() + " Data_size=" + data.size());
-		}
-		
-		
-		double[] array = new double[data.size()];
-		for(int i=0; i < data.size(); i++) {
-			array[i] = data.get(i).doubleValue();
-		}
-		Collections.sort(data);
-		
-		double cutoff = Statistics.quantile(data, quantile);
-		for(int j=0; j<array.length; j++){
-			double d = array[j] - cutoff;
-			array[j] = d;
-		}
-
-		double[] maxSum = MaximumContiguousSubsequence.maxSubSum3(array);
-		
-		logger.debug("TRIMMED_BOUNDARIES\t" + maxSum[1] + "-" + maxSum[2]);
-	
-		if(maxSum[0] > 0){
-			int deltaStart = new Double(maxSum[1]).intValue();
-			int deltaEnd =  new Double(data.size() - 1 - maxSum[2]).intValue();
-			if(window.getStrand().equals(Strand.NEGATIVE)) {
-			    int tmpStart = deltaStart;
-			    deltaStart = deltaEnd;
-			    deltaEnd = tmpStart;
-			}
-			window = window.trim(deltaStart, deltaEnd);
-		}
-		
-		logger.debug("TRIMMED_WINDOW\t" + window.getChr() + ":" + window.getStart() + "-" + window.getEnd());
-		
-		return window;
 	}
 
 	

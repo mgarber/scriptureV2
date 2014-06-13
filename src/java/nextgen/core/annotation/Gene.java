@@ -646,7 +646,9 @@ public class Gene extends BasicAnnotation {
 		}
 		Collection<GeneWindow> subGenes=new TreeSet<GeneWindow>();
 		if (windowSize > length()){
-			subGenes.add((GeneWindow) this);
+			GeneWindow window = new GeneWindow(this);
+			window.addSourceAnnotation(this);
+			subGenes.add(window);
 		} else {
 			for(int i=start; i< (length()+1)-windowSize; i=i+stepSize){
 				GeneWindow subGene=trimGene(i, i+windowSize);
@@ -1958,18 +1960,7 @@ public class Gene extends BasicAnnotation {
 	
 	
 	public int hashCode() {
-		Set<? extends Annotation> exons = getExonSet();
-		
-		String rtrn=this.getChr()+"\t"+this.getStart()+"\t"+this.getEnd()+"\t"+getOrientation()+"\t"+getStart()+"\t"+getEnd()+"\t"+exons.size();
-		String sizes="";
-		String starts="";
-		for(Annotation exon : exons){
-			sizes=sizes+(exon.length())+",";
-			starts=starts+(exon.getStart()-getStart())+",";
-		}
-		rtrn=rtrn+"\t"+sizes+"\t"+starts;
-		
-		return rtrn.hashCode();
+		return toBED().hashCode();
 	}
 		
 	//sort by midpoint
