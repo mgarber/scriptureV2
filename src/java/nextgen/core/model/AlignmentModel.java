@@ -1553,4 +1553,18 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 		double result = getCount(iter, excluded);
 		return result;
 	}
+	
+	/**
+	 * Get the lengths of the reference sequences
+	 * @return Map associating each reference name with sequence length
+	 */
+	public Map<String, Integer> getRefSequenceLengths() {
+		return reader.getRefSequenceLengths();
+	}
+	
+	
+	public TranscriptionRead getStrand(){
+		return strand;
+	}
+
 }
