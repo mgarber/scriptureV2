@@ -540,7 +540,7 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	public int getFirstFragmentPositionStranded() {
 		Strand strand = getFragmentStrand();
 		if(strand.equals(Strand.UNKNOWN)) {
-			throw new IllegalStateException("Fragment strand is unknown.");
+			throw new IllegalStateException("Fragment strand is unknown: " + toSAMRecord().getSAMString());
 		}
 		if(strand.equals(Strand.NEGATIVE)) return getFragmentEnd()-1;
 		return getFragmentStart();
@@ -554,7 +554,7 @@ public abstract class AbstractPairedEndAlignment extends BasicAnnotation impleme
 	public int getLastFragmentPositionStranded() {
 		Strand strand = getFragmentStrand();
 		if(strand.equals(Strand.UNKNOWN)) {
-			throw new IllegalStateException("Fragment strand is unknown.");
+			throw new IllegalStateException("Fragment strand is unknown: " + toSAMRecord().getSAMString());
 		}
 		if(strand.equals(Strand.NEGATIVE)) return getFragmentStart();
 		return getFragmentEnd()-1;

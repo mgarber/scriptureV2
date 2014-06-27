@@ -107,8 +107,8 @@ public class AnnotationUtils {
 			throw new IllegalArgumentException("Annotation must have an orientation: " + window.getName());
 		}
 		Collection<Annotation> rtrn = new TreeSet<Annotation>();
-		rtrn.addAll(mergeOverlappingBlocksSameOrientation(plusStrand));
-		rtrn.addAll(mergeOverlappingBlocksSameOrientation(minusStrand));
+		rtrn.addAll(mergeOverlappingBlocksSingleOrientation(plusStrand, true));
+		rtrn.addAll(mergeOverlappingBlocksSingleOrientation(minusStrand, true));
 		return rtrn;
 	}
 	
@@ -126,11 +126,21 @@ public class AnnotationUtils {
 	
 	/**
 	 * Merge annotations that overlap, and leave singleton windows the same
-	 * Throws exception if any annotations have different orientations
-	 * @param windows Annotation set
+	 * All returned annotations will have the same orientation: unknown if not enforcing same orientation, or the common orientation of all input regions if enforcing
+	 * @param regions Annotation set
+	 * @param enforceSameOrientation Require that all regions have same orientation to begin with
 	 * @return New set of merged windows
 	 */
-	private static Collection<Annotation> mergeOverlappingBlocksSameOrientation(TreeSet<Annotation> windows) {
+	public static <T extends Annotation> Collection<Annotation> mergeOverlappingBlocksSingleOrientation(Collection<T> regions, boolean enforceSameOrientation) {
+		
+		// Check if collection is already sorted and if not, move into a tree set
+		Collection<T> windows = null;
+		if(regions instanceof TreeSet<?>) {
+			windows = regions;
+		} else {
+			windows = new TreeSet<T>();
+			windows.addAll(regions);
+		}
 		
 		Collection<Annotation> rtrn = new TreeSet<Annotation>();
 		
@@ -144,6 +154,9 @@ public class AnnotationUtils {
 		Iterator<? extends Annotation> iter = windows.iterator();
 		// Begin with the first window in the sorted set
 		Annotation firstWindow = iter.next();
+		if(!enforceSameOrientation) {
+			firstWindow.setOrientation(Strand.UNKNOWN);
+		}
 		Strand orientation = firstWindow.getOrientation();
 		// A changing exon set that expands when the next window overlaps it
 		// Reset when the next window does not overlap
@@ -158,11 +171,14 @@ public class AnnotationUtils {
 			Annotation growingWindow = new Gene(growingExonSet);
 			growingWindow.setName(combine(names));
 			Annotation nextWindow = iter.next();
-			if(!nextWindow.getOrientation().equals(orientation)) {
-				throw new IllegalArgumentException("All annotations must have same orientation.");
+			if(enforceSameOrientation) {
+				if(!nextWindow.getOrientation().equals(orientation)) {
+					throw new IllegalArgumentException("All annotations must have same orientation.");
+				}
+			} else {
+				nextWindow.setOrientation(Strand.UNKNOWN);
 			}
-			
-			if(nextWindow.overlaps(growingWindow)) {
+			if(nextWindow.overlaps(growingWindow, enforceSameOrientation)) {
 				// Next window span overlaps growing exon set genomic span
 				// Merge the exon sets
 				growingExonSet.clear();
