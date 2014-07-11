@@ -111,6 +111,19 @@ public class StringParser {
 	}
 	
 	/**
+	 * Gets the token at specified position and parses to a long
+	 * @param index The position
+	 * @return the desired token as an int
+	 */
+	public long asLong(int index) {
+		try {
+			return Long.parseLong(tokens[index]);
+		} catch (NumberFormatException e) {
+			throw new NumberFormatException("Field " + index + " cannot be parsed to int: " + tokens[index]);
+		}
+	}
+	
+	/**
 	 * Gets the token at specified position and parses to a double
 	 * @param index The position
 	 * @return the desired token as a double

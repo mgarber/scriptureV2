@@ -59,6 +59,7 @@ public class WigWriter {
 	protected static int DEFAULT_MAX_GENOMIC_SPAN = 300000;
 	static Logger logger = Logger.getLogger(WigWriter.class.getName());
 	private PositionWithinAlignment positionWithinAlignment;
+	private boolean useSpan; //Add contiguous span of same value for gaps between keys
 
 	/**
 	 * Construct with a transcriptome space
@@ -272,11 +273,11 @@ public class WigWriter {
 	 * @return Map of position to count, includes only positions with at least one read
 	 * @throws IOException
 	 */
-	private Map<Integer, Double> getCounts(Annotation region) throws IOException {
+	private TreeMap<Integer, Double> getCounts(Annotation region) throws IOException {
 		
 		// Include entire read/fragment in transcriptome space
 		if(!readSinglePositionOnly && isTranscriptomeSpace) {
-			return normalization.getNormalizedCountsByPosition(region);
+			return (TreeMap<Integer, Double>) normalization.getNormalizedCountsByPosition(region);
 		}
 		
 		// Include entire read/fragment in genomic space
@@ -331,7 +332,7 @@ public class WigWriter {
 				return rtrn;
 			}
 			//logger.info("Using chromosome size file to find counts...");
-			return normalization.getNormalizedCountsByPosition(region);
+			return (TreeMap<Integer, Double>) normalization.getNormalizedCountsByPosition(region);
 		}
 		
 		// Count single read position only
@@ -401,7 +402,7 @@ public class WigWriter {
 	 * @return Map of position to count, includes only positions with at least one read
 	 * @throws IOException
 	 */
-	private Map<Integer, Double> getCountsInGenomeSpace(String chr) throws IOException {
+	private TreeMap<Integer, Double> getCountsInGenomeSpace(String chr) throws IOException {
 		if(isTranscriptomeSpace) {
 			throw new IllegalStateException("Must instantiate alignment model with a genome space");
 		}
@@ -432,13 +433,28 @@ public class WigWriter {
 	 * @param w File writer
 	 * @param chr Chromosome name
 	 * @param counts Counts by position
+	 * @param useSpan Add contiguous span of same value for gaps between keys
 	 * @throws IOException
 	 */
-	public static void write(FileWriter w, String chr, Map<Integer, Double> counts) throws IOException {
+	public static void write(FileWriter w, String chr, TreeMap<Integer, Double> counts, boolean useSpan) throws IOException {
 		w.write("variableStep chrom=" + chr + "\n");
-		for(Integer i : counts.keySet()) {
-			int pos = coordinateToWigPosition(i.intValue());
-			w.write(pos + "\t" + counts.get(i).toString() + "\n");
+		if(useSpan) {
+			int currPos = coordinateToWigPosition(0);
+			int nextPos = 0;
+			Iterator<Integer> iter = counts.keySet().iterator();
+			while(iter.hasNext()) {
+				nextPos = coordinateToWigPosition(iter.next().intValue());
+				int span = nextPos - currPos;
+				w.write("variableStep chrom=" + chr + "\tspan=" + span + "\n");
+				w.write(currPos + "\t" + counts.get(Integer.valueOf(currPos)).toString() + "\n");
+				currPos = nextPos;
+			}
+		} else {
+		w.write("variableStep chrom=" + chr + "\n");
+			for(Integer i : counts.keySet()) {
+				int pos = coordinateToWigPosition(i.intValue());
+				w.write(pos + "\t" + counts.get(i).toString() + "\n");
+			}
 		}
 	}
 	
@@ -452,7 +468,7 @@ public class WigWriter {
 		FileWriter w = new FileWriter(wigFile);
 		for(String chrName : chrNames) {
 			logger.info("Writing counts for chromosome " + chrName + "...");
-			Map<Integer, Double> counts = new TreeMap<Integer, Double>();
+			TreeMap<Integer, Double> counts = new TreeMap<Integer, Double>();
 			if(isTranscriptomeSpace) {
 				if(genesByChr.get(chrName).isEmpty()) continue;
 				counts = getCountsInTranscriptomeSpace(chrName);
@@ -462,7 +478,7 @@ public class WigWriter {
 				// End position of chromosome is off the end - not valid position for wig format
 				counts.remove(Integer.valueOf(Long.valueOf(genomeSpace.getLength(chrName)).intValue()));
 			}
-			write(w, chrName, counts);
+			write(w, chrName, counts, useSpan);
 		}
 		w.close();
 		logger.info("Done writing wig file.");
