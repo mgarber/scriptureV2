@@ -211,7 +211,7 @@ public class PermutationDistribution {
 		int printStep = Math.max(1, numWindows / 100);
 		int numDone = 0;
 		FileWriter w = new FileWriter(outWig);
-		Map<Integer, Double> counts = new TreeMap<Integer, Double>();
+		TreeMap<Integer, Double> counts = new TreeMap<Integer, Double>();
 		for(GeneWindow window : windows) {
 			int start = window.getStart();
 			double pval = getScanPvalue(window);
@@ -222,7 +222,7 @@ public class PermutationDistribution {
 				logger.debug("Finished " + numDone + "/" + numWindows + " windows.");
 			}
 		}
-		WigWriter.write(w, region.getChr(), counts);
+		WigWriter.write(w, region.getChr(), counts, false);
 		w.close();
 		logger.info("Done writing file.");		
 	}

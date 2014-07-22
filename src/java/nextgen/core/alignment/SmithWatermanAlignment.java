@@ -174,8 +174,23 @@ public class SmithWatermanAlignment {
 	public static boolean containsFullLengthUngappedMatch(String seq1, String seq2, float matchScore, float mismatchScore, int maxMismatches) {
 		jaligner.Alignment align = align(seq1, seq2, matchScore, mismatchScore, Float.MAX_VALUE, Float.MAX_VALUE);
 		int fullLen = Math.min(seq1.length(), seq2.length());
-		int mismatches = fullLen - align.getNumberOfMatches();
+		int mismatches = fullLen - getNumberOfMatches(align);
 		return mismatches <= maxMismatches;
 	}
+	
+	private static int getNumberOfMatches(jaligner.Alignment align) {
+		//System.err.println("In here");
+		int matches = 0;
+		char c1, c2; // the next character
+		for (int i = 0; i <align.getSequence1().length; i++) {
+			c1 = align.getSequence1()[i];
+			c2 = align.getSequence2()[i];
+			if (c1 != jaligner.Alignment.GAP && c2!=jaligner.Alignment.GAP) {
+				if(c1==c2){matches++;}
+			}
+		}
+		return matches;
+	}
+
 	
 }

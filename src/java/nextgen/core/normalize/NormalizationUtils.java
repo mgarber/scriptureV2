@@ -104,7 +104,7 @@ public class NormalizationUtils {
 		int numDone = 0;
 		for(String c : features.keySet()) {
 			logger.info("Calculating data for chromosome " + c + "...");
-			Map<Integer, Double> toWrite = new TreeMap<Integer, Double>();
+			TreeMap<Integer, Double> toWrite = new TreeMap<Integer, Double>();
 			for(Gene gene : features.get(c)) {
 				numDone++;
 				if(numDone % 100 == 0) {
@@ -113,7 +113,7 @@ public class NormalizationUtils {
 				toWrite.putAll(normalizedCount.getNormalizedCountsByPosition(gene));
 			}
 			logger.info("Done calculating chromosome " + c + ". Writing...");
-			WigWriter.write(w, c, toWrite);
+			WigWriter.write(w, c, toWrite, false);
 		}
 		w.close();
 		logger.info("Done writing wig file.");

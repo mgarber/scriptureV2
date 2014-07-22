@@ -87,6 +87,13 @@ public class FastaSequenceIO {
 		return seqs;
 	}
 	
+	public static Collection<Sequence> loadSequences(File fasta) throws IOException {
+		FastaSequenceIO fsio = new FastaSequenceIO(fasta);
+		Collection<Sequence> rtrn = new ArrayList<Sequence>();
+		rtrn.addAll(fsio.loadAll());
+		return rtrn;
+	}
+	
 	public static Map<String, Sequence> loadSequencesByNameFromDirectory(File sequenceDirectory) throws Exception {
 		return loadSequencesByNameFromDirectory(sequenceDirectory, false);
 	}
