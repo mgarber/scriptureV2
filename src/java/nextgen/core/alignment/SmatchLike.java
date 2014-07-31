@@ -17,7 +17,6 @@ import broad.core.motif.SearchException;
 import broad.core.motif.SequenceMotif;
 import broad.core.primer3.ComputeOriginalScore;
 import broad.core.primer3.HairpinKmer;
-import broad.core.primer3.PrimerPair;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
 import broad.core.sequence.SequenceRegion;
@@ -68,22 +67,22 @@ public class SmatchLike {
 		
 	}
 	
-	public SmatchLike(String kmer2, Collection<Pair<String>> tailPrimers, PrimerPair majorPrimer) {
-		this.kmer=kmer2;
-		this.seedNumber=kmer.length();
-		List<Sequence> seqs=new ArrayList<Sequence>();
-		
-		for(Pair<String> primer: tailPrimers){
-			if(!primer.getValue2().equals(majorPrimer.getRightPrimer())){
-				Sequence seq=new Sequence(primer.getValue1());
-				seq.setSequenceBases(primer.getValue1());
-				seqs.add(seq);
-			}
-		}
-		
-		this.geneSequences=seqs;
-		
-	}
+//	public SmatchLike(String kmer2, Collection<Pair<String>> tailPrimers, PrimerPair majorPrimer) {
+//		this.kmer=kmer2;
+//		this.seedNumber=kmer.length();
+//		List<Sequence> seqs=new ArrayList<Sequence>();
+//		
+//		for(Pair<String> primer: tailPrimers){
+//			if(!primer.getValue2().equals(majorPrimer.getRightPrimer())){
+//				Sequence seq=new Sequence(primer.getValue1());
+//				seq.setSequenceBases(primer.getValue1());
+//				seqs.add(seq);
+//			}
+//		}
+//		
+//		this.geneSequences=seqs;
+//		
+//	}
 	
 	
 	/*private Collection<String> smatch(String kmer, List<Sequence> geneSequences, int seedNum) throws SearchException{
