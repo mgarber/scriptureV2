@@ -22,6 +22,10 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.ggf.drmaa.DrmaaException;
 
+import pipeline.Job;
+import pipeline.JobUtils;
+import pipeline.LSFJob;
+
 import broad.core.math.MathUtil;
 import broad.core.math.Statistics;
 import broad.core.parser.CommandLineParser;
@@ -34,9 +38,6 @@ import nextgen.core.annotation.Gene;
 import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;
-import nextgen.core.job.Job;
-import nextgen.core.job.JobUtils;
-import nextgen.core.job.LSFJob;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.TranscriptomeSpaceAlignmentModel;
 import nextgen.core.model.score.BinomialEnrichmentScore;

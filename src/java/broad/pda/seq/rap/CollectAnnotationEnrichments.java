@@ -24,9 +24,6 @@ import nextgen.core.annotation.*;
 import nextgen.core.annotation.filter.*;
 import nextgen.core.coordinatesystem.CoordinateSpace;
 import nextgen.core.coordinatesystem.GenomicSpace;
-import nextgen.core.job.Job;
-import nextgen.core.job.JobUtils;
-import nextgen.core.job.LSFJob;
 import nextgen.core.model.score.CountScore;
 
 import broad.core.math.EmpiricalDistribution;
@@ -38,6 +35,10 @@ import org.apache.commons.math3.stat.descriptive.moment.*;
 import org.apache.commons.math3.stat.descriptive.rank.*;
 import org.apache.commons.io.IOUtils;
 import org.ggf.drmaa.DrmaaException;
+
+import pipeline.Job;
+import pipeline.JobUtils;
+import pipeline.LSFJob;
 
 public class CollectAnnotationEnrichments extends GenomeCommandLineProgram {
     private static final Log log = Log.getInstance(RatioPermutationPeakCaller.class);

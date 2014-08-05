@@ -8,6 +8,10 @@ import java.util.List;
 
 import org.ggf.drmaa.DrmaaException;
 
+import pipeline.Job;
+import pipeline.JobUtils;
+import pipeline.LSFJob;
+
 import broad.core.math.EmpiricalDistribution;
 
 import net.sf.picard.cmdline.Option;
@@ -15,9 +19,6 @@ import net.sf.picard.cmdline.Usage;
 import net.sf.picard.util.Log;
 import net.sf.samtools.util.CloseableIterator;
 import nextgen.core.coordinatesystem.GenomicSpace;
-import nextgen.core.job.Job;
-import nextgen.core.job.JobUtils;
-import nextgen.core.job.LSFJob;
 import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.WindowScoreIterator;
 import nextgen.core.alignment.Alignment;
