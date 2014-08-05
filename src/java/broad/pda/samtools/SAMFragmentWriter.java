@@ -3,13 +3,14 @@
  */
 package broad.pda.samtools;
 
+import general.CommandLineParser;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 
-import broad.core.parser.CommandLineParser;
 import net.sf.picard.sam.BuildBamIndex;
 import net.sf.picard.sam.SortSam;
 import net.sf.samtools.BAMFileWriter;

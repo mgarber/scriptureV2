@@ -3,6 +3,9 @@
  */
 package broad.pda.seq.protection;
 
+import general.CommandLineParser;
+import general.StringParser;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -28,8 +31,6 @@ import pipeline.LSFJob;
 
 import broad.core.math.MathUtil;
 import broad.core.math.Statistics;
-import broad.core.parser.CommandLineParser;
-import broad.core.parser.StringParser;
 import broad.pda.annotation.BEDFileParser;
 
 import nextgen.core.alignment.Alignment;

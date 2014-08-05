@@ -3,6 +3,9 @@
  */
 package broad.core.sequence;
 
+import general.CommandLineParser;
+import general.StringParser;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -18,8 +21,6 @@ import org.apache.log4j.Logger;
 
 import broad.core.math.MannWhitney;
 import broad.core.math.Statistics;
-import broad.core.parser.CommandLineParser;
-import broad.core.parser.StringParser;
 import broad.pda.annotation.BEDFileParser;
 
 import net.sf.samtools.util.CloseableIterator;

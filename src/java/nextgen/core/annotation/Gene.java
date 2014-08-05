@@ -1,5 +1,7 @@
 package nextgen.core.annotation;
 
+import general.StringParser;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -22,7 +24,6 @@ import broad.core.annotation.GFF;
 import broad.core.annotation.LightweightGenomicAnnotation;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
-import broad.core.parser.StringParser;
 import broad.core.sequence.Sequence;
 import broad.pda.datastructures.Alignments;
 import broad.pda.rnai.ExtractSequence;

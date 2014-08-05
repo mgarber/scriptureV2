@@ -3,6 +3,9 @@
  */
 package broad.pda.seq.clip;
 
+import general.CommandLineParser;
+import general.StringParser;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -20,8 +23,6 @@ import org.apache.log4j.Logger;
 import broad.core.math.EmpiricalDistribution;
 import broad.core.math.MathUtil;
 import broad.core.math.UnfairDie;
-import broad.core.parser.CommandLineParser;
-import broad.core.parser.StringParser;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
 import broad.pda.annotation.BEDFileParser;

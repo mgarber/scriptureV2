@@ -3,6 +3,8 @@
  */
 package broad.pda.seq.clip;
 
+import general.StringParser;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
@@ -10,7 +12,6 @@ import java.util.TreeMap;
 
 import org.apache.log4j.Logger;
 
-import broad.core.parser.StringParser;
 
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;

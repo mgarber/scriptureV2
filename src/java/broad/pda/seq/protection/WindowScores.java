@@ -1,5 +1,7 @@
 package broad.pda.seq.protection;
 
+import general.StringParser;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -11,7 +13,6 @@ import org.apache.log4j.Logger;
 
 import broad.core.annotation.MaximumContiguousSubsequence;
 import broad.core.math.Statistics;
-import broad.core.parser.StringParser;
 
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;

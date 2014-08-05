@@ -1,5 +1,7 @@
 package nextgen.core.tests;
 
+import general.CommandLineParser;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -11,7 +13,6 @@ import nextgen.core.model.AlignmentModel;
 import nextgen.core.model.score.CountScore;
 import nextgen.core.model.score.WindowScoreIterator;
 import nextgen.core.readFilters.SplicedReadFilter;
-import broad.core.parser.CommandLineParser;
 import broad.pda.annotation.BEDFileParser;
 import broad.pda.datastructures.Alignments;
 

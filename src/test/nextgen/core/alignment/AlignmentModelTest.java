@@ -1,12 +1,13 @@
 package nextgen.core.alignment;
 
+import general.CommandLineParser;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 
-import broad.core.parser.CommandLineParser;
 import broad.pda.annotation.BEDFileParser;
 import nextgen.core.annotation.Gene;
 import nextgen.core.coordinatesystem.TranscriptomeSpace;

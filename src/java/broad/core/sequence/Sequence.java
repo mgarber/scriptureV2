@@ -1,5 +1,7 @@
 package broad.core.sequence;
 
+import general.StringParser;
+
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,7 +26,6 @@ import broad.core.annotation.BasicGenomicAnnotation;
 import broad.core.annotation.GenomicAnnotation;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
-import broad.core.parser.StringParser;
 import broad.pda.datastructures.Alignments;
 import broad.pda.seq.graph.ChromosomeWithBubblesJGraphT.WindowIterator;
 

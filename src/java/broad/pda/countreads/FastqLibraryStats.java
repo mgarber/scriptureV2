@@ -3,6 +3,9 @@
  */
 package broad.pda.countreads;
 
+import general.CommandLineParser;
+import general.StringParser;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -10,8 +13,6 @@ import java.io.IOException;
 import java.util.TreeSet;
 import org.apache.log4j.Logger;
 
-import broad.core.parser.CommandLineParser;
-import broad.core.parser.StringParser;
 
 import net.sf.picard.sam.DuplicationMetrics;
 

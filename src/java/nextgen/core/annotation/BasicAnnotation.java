@@ -1,5 +1,7 @@
 package nextgen.core.annotation;
 
+import general.StringParser;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -22,7 +24,6 @@ import nextgen.core.general.TabbedReader;
 
 import broad.pda.datastructures.Alignments;
 import broad.core.error.ParseException;
-import broad.core.parser.StringParser;
 
 
 /**

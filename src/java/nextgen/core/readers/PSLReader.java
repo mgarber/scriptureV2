@@ -1,5 +1,7 @@
 package nextgen.core.readers;
 
+import general.StringParser;
+
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -8,7 +10,6 @@ import java.util.Iterator;
 
 import org.apache.log4j.Logger;
 
-import broad.core.parser.StringParser;
 
 import nextgen.core.annotation.PSLRecord;
 

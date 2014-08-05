@@ -1,5 +1,8 @@
 package nextgen.core.readers;
 
+import general.CommandLineParser;
+import general.StringParser;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -13,8 +16,6 @@ import org.apache.log4j.Logger;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.writers.WigWriter;
 
-import broad.core.parser.CommandLineParser;
-import broad.core.parser.StringParser;
 
 
 

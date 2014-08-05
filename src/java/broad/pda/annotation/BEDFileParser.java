@@ -1,5 +1,7 @@
 package broad.pda.annotation;
 
+import general.StringParser;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -38,7 +40,6 @@ import broad.core.annotation.GFF;
 import broad.core.annotation.LightweightGenomicAnnotation;
 import broad.core.datastructures.IntervalTree;
 import broad.core.datastructures.IntervalTree.Node;
-import broad.core.parser.StringParser;
 import broad.pda.datastructures.Alignments;
 import broad.pda.gene.GeneWithIsoforms;
 

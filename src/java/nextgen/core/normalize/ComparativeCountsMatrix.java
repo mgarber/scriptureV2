@@ -3,6 +3,8 @@
  */
 package nextgen.core.normalize;
 
+import general.CommandLineParser;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -16,7 +18,6 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import broad.core.datastructures.MatrixWithHeaders;
-import broad.core.parser.CommandLineParser;
 import broad.pda.annotation.BEDFileParser;
 import broad.pda.seq.protection.GenomeSpaceSampleData;
 
