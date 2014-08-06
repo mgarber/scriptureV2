@@ -1,6 +1,6 @@
 package broad.pda.annotation;
 
-import general.StringParser;
+import broad.core.parser.StringParser;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;

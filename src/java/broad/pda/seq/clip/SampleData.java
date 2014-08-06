@@ -3,7 +3,7 @@
  */
 package broad.pda.seq.clip;
 
-import general.StringParser;
+import broad.core.parser.StringParser;
 
 import java.io.IOException;
 import java.util.Collection;

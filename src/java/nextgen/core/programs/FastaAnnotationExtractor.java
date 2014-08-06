@@ -3,7 +3,7 @@
  */
 package nextgen.core.programs;
 
-import general.CommandLineParser;
+import broad.core.parser.CommandLineParser;
 
 import java.io.BufferedWriter;
 import java.io.File;

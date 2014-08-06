@@ -1,6 +1,6 @@
 package broad.pda.rap.misc;
 
-import general.CommandLineParser;
+import broad.core.parser.CommandLineParser;
 
 import java.io.File;
 import java.io.FileWriter;

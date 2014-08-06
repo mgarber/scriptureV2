@@ -1,6 +1,6 @@
 package broad.pda.seq.clip;
 
-import general.CommandLineParser;
+import broad.core.parser.CommandLineParser;
 
 import java.io.BufferedWriter;
 import java.io.File;

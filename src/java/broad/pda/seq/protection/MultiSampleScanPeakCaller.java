@@ -3,8 +3,8 @@
  */
 package broad.pda.seq.protection;
 
-import general.CommandLineParser;
-import general.StringParser;
+import broad.core.parser.CommandLineParser;
+import broad.core.parser.StringParser;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -25,9 +25,9 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.ggf.drmaa.DrmaaException;
 
-import pipeline.Job;
-import pipeline.JobUtils;
-import pipeline.LSFJob;
+import nextgen.core.pipeline.Job;
+import nextgen.core.pipeline.JobUtils;
+import nextgen.core.pipeline.LSFJob;
 
 import broad.core.math.MathUtil;
 import broad.core.math.Statistics;

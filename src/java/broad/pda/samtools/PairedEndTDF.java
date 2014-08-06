@@ -22,7 +22,7 @@ import net.sf.samtools.SAMRecordIterator;
 
 import org.apache.commons.lang3.StringUtils;
 
-import pipeline.LSFJob;
+import nextgen.core.pipeline.LSFJob;
 
 /**
  * @author engreitz

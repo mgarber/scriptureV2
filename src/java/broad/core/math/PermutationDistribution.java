@@ -3,7 +3,7 @@
  */
 package broad.core.math;
 
-import general.CommandLineParser;
+import broad.core.parser.CommandLineParser;
 
 import java.io.FileWriter;
 import java.io.IOException;

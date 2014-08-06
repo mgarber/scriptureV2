@@ -3,8 +3,8 @@
  */
 package broad.core.sequence;
 
-import general.CommandLineParser;
-import general.StringParser;
+import broad.core.parser.CommandLineParser;
+import broad.core.parser.StringParser;
 
 import java.io.File;
 import java.io.FileWriter;

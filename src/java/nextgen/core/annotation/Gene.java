@@ -1,6 +1,6 @@
 package nextgen.core.annotation;
 
-import general.StringParser;
+import broad.core.parser.StringParser;
 
 import java.util.ArrayList;
 import java.util.Collection;

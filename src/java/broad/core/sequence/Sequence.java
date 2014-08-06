@@ -1,6 +1,6 @@
 package broad.core.sequence;
 
-import general.StringParser;
+import broad.core.parser.StringParser;
 
 import java.security.InvalidParameterException;
 import java.util.ArrayList;

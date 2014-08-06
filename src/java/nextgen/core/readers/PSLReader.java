@@ -1,6 +1,6 @@
 package nextgen.core.readers;
 
-import general.StringParser;
+import broad.core.parser.StringParser;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;

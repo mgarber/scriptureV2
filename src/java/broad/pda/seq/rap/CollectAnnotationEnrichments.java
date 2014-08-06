@@ -36,9 +36,9 @@ import org.apache.commons.math3.stat.descriptive.rank.*;
 import org.apache.commons.io.IOUtils;
 import org.ggf.drmaa.DrmaaException;
 
-import pipeline.Job;
-import pipeline.JobUtils;
-import pipeline.LSFJob;
+import nextgen.core.pipeline.Job;
+import nextgen.core.pipeline.JobUtils;
+import nextgen.core.pipeline.LSFJob;
 
 public class CollectAnnotationEnrichments extends GenomeCommandLineProgram {
     private static final Log log = Log.getInstance(RatioPermutationPeakCaller.class);

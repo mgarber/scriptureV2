@@ -1,6 +1,6 @@
 package nextgen.core.alignment;
 
-import general.CommandLineParser;
+import broad.core.parser.CommandLineParser;
 import jaligner.matrix.Matrix;
 import jaligner.matrix.MatrixGenerator;
 import jaligner.SmithWatermanGotoh;

@@ -3,7 +3,7 @@
  */
 package broad.pda.samtools;
 
-import general.CommandLineParser;
+import broad.core.parser.CommandLineParser;
 
 import java.io.BufferedReader;
 import java.io.File;

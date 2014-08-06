@@ -8,9 +8,9 @@ import java.util.List;
 
 import org.ggf.drmaa.DrmaaException;
 
-import pipeline.Job;
-import pipeline.JobUtils;
-import pipeline.LSFJob;
+import nextgen.core.pipeline.Job;
+import nextgen.core.pipeline.JobUtils;
+import nextgen.core.pipeline.LSFJob;
 
 import broad.core.math.EmpiricalDistribution;
 

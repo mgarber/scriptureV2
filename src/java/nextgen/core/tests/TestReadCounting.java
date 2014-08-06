@@ -1,6 +1,6 @@
 package nextgen.core.tests;
 
-import general.CommandLineParser;
+import broad.core.parser.CommandLineParser;
 
 import java.io.File;
 import java.io.IOException;
