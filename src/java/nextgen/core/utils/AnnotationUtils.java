@@ -169,7 +169,7 @@ public class AnnotationUtils {
 		while(iter.hasNext()) {
 			
 			Annotation growingWindow = new Gene(growingExonSet);
-			growingWindow.setName(combine(names));
+			//growingWindow.setName(combine(names));
 			Annotation nextWindow = iter.next();
 			if(enforceSameOrientation) {
 				if(!nextWindow.getOrientation().equals(orientation)) {
@@ -189,7 +189,8 @@ public class AnnotationUtils {
 					// This is the last window in the set
 					// Add the last element and leave loop
 					Annotation lastAdd = new Gene(growingExonSet);
-					lastAdd.setName(combine(names));
+					//lastAdd.setName(combine(names));
+					lastAdd.setName(lastAdd.toUCSC());
 					rtrn.add(lastAdd);
 					continue;					
 				}
@@ -197,11 +198,13 @@ public class AnnotationUtils {
 				// Next window does not overlap growing exon set
 				// Make window from latest version of growing exon set and add to the return set
 				names.clear();
+				growingWindow.setName(growingWindow.toUCSC());
 				rtrn.add(growingWindow);
 				if(!iter.hasNext()) {
 					// This is the last window in the set
 					// Add it and leave loop
 					names.clear();
+					nextWindow.setName(nextWindow.toUCSC());
 					rtrn.add(nextWindow);
 					continue;
 				}
@@ -212,6 +215,7 @@ public class AnnotationUtils {
 				continue;
 			}
 		}
+		
 		
 		return rtrn;
 
