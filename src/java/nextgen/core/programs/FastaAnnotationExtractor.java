@@ -93,8 +93,12 @@ public class FastaAnnotationExtractor {
 		FastaSequenceIO fsio = new FastaSequenceIO();
 		for(String chr : genes.keySet()) {
 			for(Gene gene : genes.get(chr)) {
-				Sequence seq = getGeneSequence(gene);
-				fsio.write(seq, b);
+				try {
+					Sequence seq = getGeneSequence(gene);
+					fsio.write(seq, b);
+				} catch(NullPointerException e) {
+					logger.warn("CANNOT WRITE SEQUENCE FOR " + gene.getName() + ": EMPTY");
+				}
 			}
 		}
 		b.close();
