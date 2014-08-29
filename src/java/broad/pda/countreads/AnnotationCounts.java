@@ -42,7 +42,7 @@ public class AnnotationCounts {
 	private static Logger logger = Logger.getLogger(AnnotationCounts.class.getName());
 	private boolean includePositionLevelInfo;
 	private int minCountForAvgWithMin;
-	
+	private static boolean PAIRED_END = true;
 	
 	private AnnotationCounts(String bamFile, String bedFile, String chrSizeFile, boolean positionLevelInfo, int minForAvgWithMin) throws IOException {
 		includePositionLevelInfo = positionLevelInfo;
@@ -50,9 +50,9 @@ public class AnnotationCounts {
 		logger.info("Loading genes...");
 		genes = BEDFileParser.loadDataByChr(new File(bedFile));
 		logger.info("Creating transcriptome space...");
-		transcriptomeData = new AlignmentModel(bamFile, new TranscriptomeSpace(genes), new ArrayList<Predicate<Alignment>>(), true, TranscriptionRead.UNSTRANDED, true, null);
+		transcriptomeData = new AlignmentModel(bamFile, new TranscriptomeSpace(genes), new ArrayList<Predicate<Alignment>>(), PAIRED_END, TranscriptionRead.UNSTRANDED, true, null);
 		logger.info("Creating genomic space...");
-		genomeData = new AlignmentModel(bamFile, new GenomicSpace(chrSizeFile));
+		genomeData = new AlignmentModel(bamFile, new GenomicSpace(chrSizeFile), PAIRED_END);
 		logger.info("Done loading data.");
 	}
 	
@@ -119,11 +119,22 @@ public class AnnotationCounts {
 				double fullSpanCount = genomeData.getCount(new BasicAnnotation(chr, start, end));
 				double annotationCount = transcriptomeData.getCount(gene);
 				double intronCount = 0;
-				for(Annotation intron : gene.getIntronSet()) {
-					intronCount += genomeData.getCount(intron, true);
+				try {
+					for(Annotation intron : gene.getIntronSet()) {
+						intronCount += genomeData.getCount(intron, true);
+					}
+				} catch(NullPointerException e) {
+					logger.error("Skipping gene " + gene.getName() + " due to null pointer exception in introns");
+					continue;
 				}
-				CountScore countScore = new CountScore(transcriptomeData, gene);
-				double rpkm = countScore.getRPKM();
+				double rpkm = -1;
+				try {
+					CountScore countScore = new CountScore(transcriptomeData, gene);
+					rpkm = countScore.getRPKM();
+				} catch(NullPointerException e) {
+					logger.error("Skipping gene " + gene.getName() + " due to null pointer exception in exons");
+					continue;
+				}
 				String write = gene.getName() + "\t";
 				write += fullSpanCount + "\t";
 				write += annotationCount + "\t";
@@ -160,6 +171,7 @@ public class AnnotationCounts {
 		p.addStringArg("-o", "Output file", true);
 		p.addBooleanArg("-p", "Include position level information for each annotation (slow)", false, false);
 		p.addIntArg("-m", "Min count to include a position for -p option", false, 20);
+		p.addBooleanArg("-pe", "Treat as paired end if reads are paired", false, true);
 		p.parse(args);
 		String bamFile = p.getStringArg("-b");
 		String bedFile = p.getStringArg("-g");
@@ -168,6 +180,7 @@ public class AnnotationCounts {
 		String singleChr = p.getStringArg("-c");
 		boolean positionInfo = p.getBooleanArg("-p");
 		int minCount = p.getIntArg("-m");
+		PAIRED_END = p.getBooleanArg("-pe");
 		
 		AnnotationCounts a = new AnnotationCounts(bamFile, bedFile, sizeFile, positionInfo, minCount);
 		a.writeCounts(outFile, singleChr);
