@@ -164,11 +164,9 @@ public class FastqSplitterByBarcode {
 		Iterator<String> bcIt = bcToSample.keySet().iterator();
 		while (!found & bcIt.hasNext()) {
 			String bc = bcIt.next();
-			if(atEnd) {
-				found = readSeq.endsWith(bc) || readSeq.endsWith(reverseBCs.get(bc));
-			} else {
-				found = readSeq.startsWith(bc) || readSeq.startsWith(reverseBCs.get(bc));
-			}
+			
+			found = atEnd && readSeq.endsWith(bc) || readSeq.startsWith(bc) ;
+
 			if(found) {
 				readsPerBarcode.put(bc, readsPerBarcode.get(bc) + 1);
 				trim(pair1, pair2, bc);

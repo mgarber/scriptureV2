@@ -934,11 +934,14 @@ public class AlignmentModel extends AbstractAnnotationCollection<Alignment> {
 	
 	private class Cache{
 		String cacheChr = null;
+		boolean isStranded = false;
 		int cacheStart = 0;
 		int cacheEnd = 0;
 		boolean fullyContained = false;
 		int cacheSize;
 		IntervalTree<Alignment> cachedTree;
+		IntervalTree<Alignment> plusCacheTree;
+		IntervalTree<Alignment> minusCacheTree;
 		
 		//FLAG TO INDICATE WHETHER UPDATE CACHE FAILED
 		boolean updateCacheFailed;

@@ -1,28 +1,24 @@
 package nextgen.core.writers;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
 import net.sf.picard.sam.BuildBamIndex;
-import net.sf.samtools.BAMFileWriter;
+import net.sf.samtools.BAMFileWriterExtension;
 import net.sf.samtools.BAMIndex;
 import net.sf.samtools.BAMRecordCodec;
 import net.sf.samtools.SAMFileHeader;
-import net.sf.samtools.SAMFileWriter;
-import net.sf.samtools.SAMFileWriterFactory;
-import net.sf.samtools.SAMTag;
 import net.sf.samtools.SAMFileHeader.SortOrder;
 import net.sf.samtools.SAMFileReader;
 import net.sf.samtools.SAMRecord;
 import net.sf.samtools.SAMRecordIterator;
+import net.sf.samtools.SAMTag;
+import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 import nextgen.core.alignment.Alignment;
 import nextgen.core.alignment.AlignmentPair;
-import nextgen.core.alignment.AbstractPairedEndAlignment.TranscriptionRead;
 
 import org.apache.commons.io.output.NullOutputStream;
 import org.apache.log4j.Logger;
@@ -52,7 +48,7 @@ public class PairedEndWriter {
 	static Logger logger = Logger.getLogger(PairedEndWriter.class.getName());
 		
 	private final String output;
-	private BAMFileWriter writer;
+	private BAMFileWriterExtension writer;
 	private SAMFileReader reader;
 	private SAMFileHeader header;
 	private BAMRecordCodec testCodec;
@@ -77,14 +73,21 @@ public class PairedEndWriter {
 		reader = new SAMFileReader(bamFile);
 		header = reader.getFileHeader();
 		
+		String userDefinedTmpDir = System.getProperty("tmp.dir");
+		logger.debug("user defined tmp dir: " + userDefinedTmpDir);
 		/*
 		 * SORT THE FILE BY QUERY NAME FIRST
 		 */
     	if (header.getSortOrder() != SAMFileHeader.SortOrder.queryname) {
     		logger.info("Sorting the bam file by query name for faster conversion to Paired end bam. Please use this file for future runs of the program.");
     		header.setSortOrder(SAMFileHeader.SortOrder.queryname);
-    		 final SAMFileWriter writer2 = new SAMFileWriterFactory().makeSAMOrBAMWriter(header, false, new File(bamFileName + ".sortedbyQueryname.bam"));
-
+    		 //final SAMFileWriter writer2 = new SAMFileWriterFactory().makeSAMOrBAMWriter(header, false, new File(bamFileName + ".sortedbyQueryname.bam"));
+    		final BAMFileWriterExtension writer2 = new BAMFileWriterExtension(new File(bamFileName + ".sortedbyQueryname.bam"));
+    		if(userDefinedTmpDir != null && !userDefinedTmpDir.isEmpty() ) {
+    			logger.info("Setting temporary directory to " + userDefinedTmpDir);
+    			writer2.setTemporaryDirectory(new File(userDefinedTmpDir));	
+    		}
+    		writer2.setHeader(header);
     	        for (final SAMRecord rec: reader) {
     	            writer2.addAlignment(rec);
     	        }
@@ -101,11 +104,14 @@ public class PairedEndWriter {
     	}     
 		//set header to pairedEnd
 		header.setAttribute(mateLineFlag, "mergedPairedEndFormat");
-		
 		//We are going to write a BAM File directly
 		File outFile = new File(this.output);
 		//if (outFile.exists()) outFile.delete();
-		writer=new BAMFileWriter(outFile);
+		writer=new BAMFileWriterExtension(outFile);
+		if(userDefinedTmpDir != null && !userDefinedTmpDir.isEmpty() ) {
+			logger.info("Setting temporary directory to " + userDefinedTmpDir);
+			writer.setTemporaryDirectory(new File(userDefinedTmpDir));	
+		}
 		//Presorted so YES
 		//writer.setSortOrder(SAMFileHeader.SortOrder.queryname,false);
 		writer.setSortOrder(SortOrder.coordinate, false);

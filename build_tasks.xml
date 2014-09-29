@@ -125,7 +125,7 @@
     </target>
 	
     <!-- build the UMI dupmarker jar-->
-    <target name="umidups" depends="compile, unpack">  
+    <target name="umidups" depends="compile, unpack,  copy.props">  
         <jar destfile="${dist.dir}markdups.jar" basedir="${build.dir}" compress="true">
            <!-- <classfileset dir="${build.dir}">
                 <root classname="${main-class}"/>
@@ -141,7 +141,7 @@
     </target>
 
     <!-- build the fastq trimmer dupmarker jar-->
-    <target name="fqtrimmer" depends="compile, unpack">  
+    <target name="fqtrimmer" depends="compile, unpack,  copy.props">  
         <jar destfile="${dist.dir}fqtrimmer.jar" basedir="${build.dir}" compress="true">
            <!-- <classfileset dir="${build.dir}">
                 <root classname="${main-class}"/>
@@ -155,6 +155,22 @@
       		</fileset>
         </jar>
     </target>
+	
+	   <!-- build the ESAT jar-->
+	    <target name="esat" depends="compile, unpack,  copy.props">  
+	        <jar destfile="${dist.dir}esat.jar" basedir="${build.dir}" compress="true">
+	           <!-- <classfileset dir="${build.dir}">
+	                <root classname="${main-class}"/>
+	            </classfileset>-->
+	            <manifest>
+	                <attribute name="Built-By" value="${user.name}" />
+	                <attribute name="Main-Class" value="nextgen.core.esat.ESAT"/>
+	            </manifest>
+				<fileset dir="${lib.dir}">
+	        		<include name="*.jar"/>
+	      		</fileset>
+	        </jar>
+	    </target>
 	
     <!-- build the fastq trimmer dupmarker jar-->
     <target name="fqsplitter" depends="compile, unpack">  
