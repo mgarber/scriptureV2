@@ -3,6 +3,9 @@
  */
 package broad.core.parser;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * @author prussell
  * Parse a string around whitespace or another specified delimiter
@@ -147,6 +150,18 @@ public class StringParser {
 		} catch (NumberFormatException e) {
 			throw new NumberFormatException("Field " + index + " cannot be parsed to float: " + tokens[index]);
 		}
+	}
+	
+	/**
+	 * Get the list of tokens
+	 * @return all the parsed tokens as a list
+	 */
+	public List<String> getStringList() {
+		List<String> rtrn = new ArrayList<String>();
+		for(int i = 0; i < tokens.length; i++) {
+			rtrn.add(tokens[i]);
+		}
+		return rtrn;
 	}
 	
 	/**
