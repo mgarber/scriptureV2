@@ -331,6 +331,11 @@ public abstract class AbstractAnnotation implements Annotation {
 				if(comp!=0){return comp;}
 			}
 		}
+		
+		//Last sort by name
+		comp = getName().compareTo(b.getName());
+		if(comp != 0) {return comp;}
+		
 		return 0;
 	}
 

@@ -563,11 +563,10 @@ public class Gene extends BasicAnnotation {
 		return this.intersect(get3UtrIncludingIntrons()).getBlocks();
 	}
 
-	// TODO JE - I'm confused why this doesn't return a blocked UTR 
 	public Gene get3UTRGene() {
 		if(!hasCDS()){return new Gene(this);}
 		Annotation UTRRegion=get3UTR();
-		Gene rtrn=this.trimAbsolute(UTRRegion.getStart(), UTRRegion.getEnd());	
+		Gene rtrn=this.trimAbsolute(UTRRegion.getStart(), UTRRegion.getEnd());
 		if(rtrn == null) {
 			return rtrn;
 		}
@@ -578,10 +577,10 @@ public class Gene extends BasicAnnotation {
 			geneName += getName();
 		}
 		rtrn.setName(geneName + "_3UTR");
+		rtrn.setCDSRegion(rtrn.getStart(), rtrn.getStart());
 		return rtrn;
 	}
 
-	// TODO JE - I'm confused why this doesn't return a blocked UTR 
 	public Gene get5UTRGene() {
 		if(!hasCDS()){return new Gene(this);}
 		Annotation UTRRegion=get5UTR();
@@ -596,6 +595,7 @@ public class Gene extends BasicAnnotation {
 			geneName += getName();
 		}
 		rtrn.setName(geneName + "_5UTR");
+		rtrn.setCDSRegion(rtrn.getStart(), rtrn.getStart());
 		return rtrn;
 	}
 	
