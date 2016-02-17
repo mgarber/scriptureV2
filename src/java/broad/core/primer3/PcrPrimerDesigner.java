@@ -1013,15 +1013,23 @@ public class PcrPrimerDesigner  {
 	
 	private static final String[] CONFIG_NAMES = {SYNTHETIC_CONFIG_NAME,QPCR_CONFIG_NAME,RAP_QPCR_CONFIG_NAME,DELETION_PLASMID_CONFIG_NAME};
 	
+	private static String configNamesList() {
+		StringBuilder sb = new StringBuilder(CONFIG_NAMES[0]);
+		for(int i = 1; i < CONFIG_NAMES.length; i++) {
+			sb.append(", " + CONFIG_NAMES[i]);
+		}
+		return sb.toString();
+	}
+	
 	public static void main(String[] args) throws IOException {
 		
 		CommandLineParser p = new CommandLineParser();
 		p.addStringArg("-s","Fasta file of sequences to design primers against",true);
 		p.addStringArg("-r","Optional file of region coordinates to design primers against (format: sequence_name start_pos end_pos)",false,null);
-		p.addStringArg("-c","Primer3 configuration name",true);
+		p.addStringArg("-c","Primer3 configuration name (" + configNamesList() + ")",true);
 		p.addBooleanArg("-rc", "Design primers against antisense strand", true);
-		p.addStringArg("-o", "outfile", true);
-		p.addStringArg("-p3c", "primer3core executable", true);
+		p.addStringArg("-o", "Outfile", true);
+		p.addStringArg("-p3c", "Primer3core executable", true);
 		
 		p.parse(args);
 		
